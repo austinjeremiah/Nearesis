@@ -7,7 +7,6 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parse } from "yaml";
 
 export interface RegisterEntry {
   id: string;
@@ -37,8 +36,16 @@ const EXCLUDES: RegExp[] = [
 const ALWAYS_ALLOWED = new Set(["localhost", "127.0.0.1", "0.0.0.0", "[::1]"]);
 const URL_RE = /https?:\/\/([A-Za-z0-9.-]+|\[[0-9a-f:]+\])/gi;
 
+/** Parses the YAML register with PyYAML via uv (dev dependency of the Python project), avoiding a JS YAML dependency. */
 export function loadRegister(path: string): RegisterEntry[] {
-  const doc = parse(readFileSync(path, "utf8")) as { sources?: RegisterEntry[] };
+  const py = "import sys,json,yaml;print(json.dumps(yaml.safe_load(open(sys.argv[1]))))";
+  const r = spawnSync("uv", ["run", "--frozen", "python", "-I", "-c", py, path], {
+    cwd: resolve(dirname(fileURLToPath(import.meta.url)), "..", ".."),
+    encoding: "utf8",
+  });
+  if (r.status !== 0)
+    throw new Error(`cannot parse source register: ${r.stderr.split("\n").slice(-3).join(" ")}`);
+  const doc = JSON.parse(r.stdout) as { sources?: RegisterEntry[] } | null;
   if (!doc || !Array.isArray(doc.sources)) throw new Error("source register must have a `sources` list");
   return doc.sources;
 }

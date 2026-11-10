@@ -68,13 +68,13 @@ describe("C01 natural-language request to four provenance-backed panels (live mo
     const s = await e.session("alice");
     const created = await createWs(e.kernel, s, "C01 blank workspace");
     const ws = created.workspaceId;
-    let version = created.version;
+    const version = created.version;
     await e.kernel.plugins.install(
       s.principal.actorId,
       buildManifest({ publisher: TEST_PUBLISHER, privateKey: TEST_KEY.privateKey }),
     );
     await e.kernel.plugins.enable(s.principal.actorId, "near-thesis");
-    version = await pluginUp(e.kernel, s, ws, version, "near-thesis");
+    await pluginUp(e.kernel, s, ws, version, "near-thesis");
     for (const [cap, res, action] of [
       ["semantic.discover@1", "semantic", "discover"],
       ["semantic.query@1", "semantic", "query"],

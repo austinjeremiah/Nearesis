@@ -35,7 +35,15 @@ it("A02: worker killed mid-task; work resumes and external effects are accepted 
     });
     const killedAt = new Date().toISOString();
     await w1.kill();
-    const killedKeys = inflight.map((r) => r.effect_key);
+    const killedKeys = (
+      await q<{ effect_key: string }>(
+        env,
+        run.tenantId,
+        "SELECT effect_key FROM agent_side_effects WHERE run_id=$1 AND kind='inference' AND status='started'",
+        [run.runId],
+      )
+    ).map((r) => r.effect_key);
+    expect(killedKeys.length).toBeGreaterThanOrEqual(inflight.length > 0 ? 1 : 0);
     await new Promise((r) => setTimeout(r, 4000));
     const restartedAt = new Date().toISOString();
     w2 = await spawnWorkerProcess(env, "w2", { policy, stepDelayMs: 1500 });

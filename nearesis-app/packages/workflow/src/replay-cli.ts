@@ -4,7 +4,10 @@ import { Worker } from "@temporalio/worker";
 import { connectClient } from "./client.ts";
 import { WORKFLOWS_PATH } from "./worker.ts";
 
-const { values } = parseArgs({ options: { "workflow-id": { type: "string" }, file: { type: "string" } } });
+const { values } = parseArgs({
+  args: process.argv.slice(2).filter((a) => a !== "--"),
+  options: { "workflow-id": { type: "string" }, file: { type: "string" } },
+});
 let history: unknown;
 if (values.file) {
   const { readFileSync } = await import("node:fs");

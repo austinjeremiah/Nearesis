@@ -122,6 +122,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
     costLimit: number;
   } | null = null;
   let actionVersion = 0;
+  let invalidationNoted = false;
   let spawnCount = 0;
   const childTaskIds: string[] = [];
   const childPromises: Promise<unknown>[] = [];
@@ -385,6 +386,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
         ));
         // re-evaluate after any modification: modified params => new hash => old approvals no longer count
         for (let guard = 0; !deadlineHit && !decided() && guard < 50; guard++) {
+          invalidationNoted = true;
           await note("approval.invalidated", {
             newActionHash: privilegedActionHash(currentAction),
             staleApprovals: approvals.length,
@@ -397,6 +399,11 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
         const ap = approvals.find((a) => a.actionHash === h);
         const rj = rejections.find((r) => r.actionHash === undefined || r.actionHash === h);
         approvalHash = h;
+        if (actionVersion > 0 && !ap && approvals.length > 0 && !invalidationNoted)
+          await note("approval.invalidated", {
+            newActionHash: h,
+            staleApprovals: approvals.filter((a) => a.actionHash !== h).length,
+          });
         if (rj && !ap) {
           await quick.recordApproval({
             tenantId,

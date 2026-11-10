@@ -588,28 +588,27 @@ export function createActivities(d: ActivityDeps) {
       failedBranches: Array<{ task: string; role: string; reasonCode: string }>;
       notes: string[];
     }> {
-      const verdict = reviewEvidenceResults(
-        i.outcomes.filter((o) => o.result).map((o) => o.result as unknown as RoleResult),
-        { runId: i.runId, workspaceId: i.workspaceId },
-      );
-      // branches that never produced a result are failed branches too, named by task
-      const failed = i.outcomes
-        .filter((o) => o.status !== "finished" && o.status !== "cancelled")
-        .map((o) => ({ task: o.task, role: o.role, reasonCode: o.reasonCode ?? "FAILED" }));
-      const byTask = new Map<string, { task: string; role: string; reasonCode: string }>();
-      for (const f of failed) byTask.set(`${f.role}:${f.task}`, f);
-      for (const f of verdict.failedBranches) {
-        const match = i.outcomes.find(
-          (o) => (o.result as RoleResult | null)?.role === f.role && o.status === "finished",
-        );
-        byTask.set(`${f.role}:${match?.task ?? f.task}`, { ...f, task: match?.task ?? f.task });
+      const failedBranches: Array<{ task: string; role: string; reasonCode: string }> = [];
+      const notes: string[] = [];
+      for (const o of i.outcomes) {
+        if (o.status === "cancelled") continue;
+        if (o.status !== "finished" || !o.result) {
+          failedBranches.push({ task: o.task, role: o.role, reasonCode: o.reasonCode ?? "FAILED" });
+          continue;
+        }
+        const v = reviewEvidenceResults([o.result as unknown as RoleResult], {
+          runId: i.runId,
+          workspaceId: i.workspaceId,
+        });
+        for (const f of v.failedBranches)
+          failedBranches.push({ task: o.task, role: o.role, reasonCode: f.reasonCode });
+        notes.push(...v.notes);
       }
-      const failedBranches = [...byTask.values()];
       const total = i.outcomes.length;
       const abstained = i.outcomes.some(
         (o) => (o.result as RoleResult | null)?.finding?.status === "cannot_compute",
       );
-      const outcome =
+      const outcome: "COMPLETE" | "PARTIAL" | "BLOCKED" =
         total > 0 && failedBranches.length === total
           ? "BLOCKED"
           : failedBranches.length > 0 || abstained
@@ -623,7 +622,7 @@ export function createActivities(d: ActivityDeps) {
         kind: "evidence.reviewed",
         detail: { outcome, failedBranches },
       });
-      return { outcome, failedBranches, notes: verdict.notes };
+      return { outcome, failedBranches, notes };
     },
 
     /** CANVAS_PATCH_REVIEW: every composer proposal must have exactly one ledger row. */

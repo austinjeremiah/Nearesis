@@ -3,6 +3,7 @@ import type { Handler } from "./fake-gateway.ts";
 import { SourceUnavailable } from "./fake-gateway.ts";
 import type { ScriptRule } from "./scripted-provider.ts";
 import { hashOf } from "../canonical.ts";
+import { TOOL_CATALOG } from "../tools.ts";
 
 /**
  * Test fixtures `fx.agents.*` as scripted-model rules + fake-gateway handlers. Scenario selection travels in the
@@ -108,6 +109,12 @@ export function planFor(scn: string): Plan {
             child(scn, "composer", "propose swap panel"),
           ],
         ],
+      };
+    case "A14":
+      return {
+        ...base,
+        needsHumanInput: true,
+        stages: [[child(scn, "semantic_analyst", "measure swap activity")]],
       };
     case "A18":
       return {
@@ -437,7 +444,11 @@ export interface HandlerOpts {
   secretCanary?: string;
 }
 export function scenarioHandlers(): Record<string, Handler> {
+  const generic: Record<string, Handler> = Object.fromEntries(
+    TOOL_CATALOG.map((t) => [t.id, () => ({ ok: true, tool: t.id })] as const),
+  );
   return {
+    ...generic,
     "semantic.discover@1": (i) => {
       const metrics = (i as { metrics: string[] }).metrics;
       const available = metrics.filter((m) => m in METRICS);

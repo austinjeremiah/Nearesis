@@ -52,9 +52,11 @@
       "passCondition": "member can read workspace; outsider gets 403/empty",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "apps/api/test/acceptance/K01.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "K02",
@@ -64,9 +66,11 @@
       "passCondition": "returns 409; no second state mutation",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/K02.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "K03",
@@ -76,9 +80,11 @@
       "passCondition": "one event, one object and same result fingerprint",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/K03.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "K04",
@@ -88,9 +94,11 @@
       "passCondition": "403 with no leaked object existence",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "apps/api/test/acceptance/K04.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "K05",
@@ -100,9 +108,11 @@
       "passCondition": "installation rejected before worker spawn",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/K05.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "K06",
@@ -112,9 +122,11 @@
       "passCondition": "unsupported ABI blocked with upgrade reason",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/K06.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "K07",
@@ -124,9 +136,11 @@
       "passCondition": "deny; audit event persisted",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/K07.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "K08",
@@ -136,9 +150,11 @@
       "passCondition": "bounded timeout, degraded state, no hidden success",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/K08.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "K09",
@@ -148,9 +164,11 @@
       "passCondition": "consumer emits one logical effect",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/K09.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "K10",
@@ -160,9 +178,11 @@
       "passCondition": "child capability subset of parent only",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/K10.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "D01",
@@ -642,9 +662,11 @@
       "passCondition": "in-flight call completes on its starting version; rollback restores prior version; breaking ABI upgrade blocked without migration; one audit event per change",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/K11.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "K12",
@@ -654,9 +676,11 @@
       "passCondition": "inspect equals DB state exactly; disabled/quarantined plugins listed but never execute; discovery scoped by workspace",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/K12.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "D13",

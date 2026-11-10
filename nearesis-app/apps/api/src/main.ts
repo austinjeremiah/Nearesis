@@ -1,0 +1,39 @@
+import { readFileSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { DEFAULT_ENGINE_INTERFACES, Db, Kernel, migrate } from "@nearesis/kernel";
+import { buildApp } from "./app.ts";
+
+/** Minimal .env loader (server-side only; values are never logged). */
+function loadEnv(): void {
+  const p = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", ".env");
+  if (!existsSync(p)) return;
+  for (const line of readFileSync(p, "utf8").split("\n")) {
+    const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+    if (m && process.env[m[1]!] === undefined) process.env[m[1]!] = m[2]!.replace(/^["']|["']$/g, "");
+  }
+}
+loadEnv();
+
+const nodeEnv = process.env.NODE_ENV;
+if (process.env.DATABASE_URL) await migrate(process.env.DATABASE_URL);
+const kernel = new Kernel({
+  db: Db.connect(),
+  plugins: {
+    trustMode:
+      nodeEnv === "production"
+        ? "production"
+        : process.env.NEARESIS_PLUGIN_TRUST === "dev_trust"
+          ? "dev_trust"
+          : "production",
+    trustedKeys: {},
+    pluginRoot: process.env.NEARESIS_PLUGIN_ROOT ?? process.cwd(),
+    engineInterfaces: DEFAULT_ENGINE_INTERFACES,
+  },
+});
+await kernel.boot();
+kernel.outbox.start();
+const app = await buildApp({ kernel });
+const port = Number(process.env.PORT ?? 4100);
+await app.listen({ host: "127.0.0.1", port });
+console.log(`nearesis api listening on 127.0.0.1:${port}`);

@@ -1,0 +1,27 @@
+{
+  "name": "@nearesis/kernel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./test/helpers/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "migrate": "tsx src/db/migrate-cli.ts"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  },
+  "dependencies": {
+    "@nearesis/acceptance": "workspace:*",
+    "@nearesis/contracts": "workspace:*",
+    "@nearesis/plugin-sdk": "workspace:*",
+    "ajv": "8.20.0",
+    "jose": "6.2.14",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  }
+}

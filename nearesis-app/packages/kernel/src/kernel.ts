@@ -1,0 +1,60 @@
+import { Db } from "./db/pool.ts";
+import { DevAuthProvider, IdentityPolicy } from "./auth.ts";
+import type { AuthProvider } from "./auth.ts";
+import { CommandBus } from "./commands.ts";
+import { KernelToolGateway } from "./gateway.ts";
+import { EventJournal } from "./journal.ts";
+import { LeaseService } from "./leases.ts";
+import { OutboxPublisher } from "./outbox.ts";
+import { PluginManager } from "./plugins/manager.ts";
+import type { PluginManagerConfig } from "./plugins/manager.ts";
+import { WorkspaceRegistry } from "./workspace.ts";
+
+export interface KernelConfig {
+  db: Db;
+  plugins: PluginManagerConfig;
+  authProvider?: AuthProvider;
+  sessionSecret?: string;
+  nodeEnv?: string;
+}
+
+export const DEFAULT_ENGINE_INTERFACES = ["kernel.tool_gateway@1", "kernel.journal@1", "kernel.leases@1"];
+
+/** Composition root of the modular monolith. */
+export class Kernel {
+  readonly db: Db;
+  readonly journal: EventJournal;
+  readonly plugins: PluginManager;
+  readonly leases: LeaseService;
+  readonly gateway: KernelToolGateway;
+  readonly workspaces: WorkspaceRegistry;
+  readonly commands: CommandBus;
+  readonly outbox: OutboxPublisher;
+  readonly identity: IdentityPolicy;
+  readonly devAuth: DevAuthProvider | undefined;
+  readonly engine: { inspect: PluginManager["inspect"] };
+
+  constructor(cfg: KernelConfig) {
+    this.db = cfg.db;
+    this.journal = new EventJournal();
+    this.plugins = new PluginManager(cfg.db, cfg.plugins);
+    this.leases = new LeaseService(cfg.db);
+    this.gateway = new KernelToolGateway(cfg.db, this.plugins, this.leases);
+    this.workspaces = new WorkspaceRegistry(cfg.db, this.journal);
+    this.commands = new CommandBus(cfg.db, this.journal, this.plugins);
+    this.outbox = new OutboxPublisher(cfg.db);
+    const nodeEnv = cfg.nodeEnv ?? process.env.NODE_ENV;
+    this.devAuth = cfg.authProvider ? undefined : new DevAuthProvider(cfg.db, cfg.sessionSecret, nodeEnv);
+    this.identity = new IdentityPolicy(cfg.db, cfg.authProvider ?? this.devAuth!);
+    this.engine = { inspect: () => this.plugins.inspect() };
+  }
+
+  async boot(): Promise<void> {
+    await this.plugins.boot();
+  }
+
+  async close(): Promise<void> {
+    this.outbox.stop();
+    await this.db.close();
+  }
+}

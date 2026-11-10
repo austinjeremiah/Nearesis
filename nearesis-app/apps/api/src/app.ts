@@ -1,0 +1,147 @@
+import { randomUUID } from "node:crypto";
+import Fastify from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
+import { z } from "zod";
+import { HTTP_STATUS_FOR } from "@nearesis/contracts";
+import { KernelError, noWorkspaceAccess, toErrorResponse, workspaceNotFound } from "@nearesis/kernel";
+import type { Kernel, Session } from "@nearesis/kernel";
+
+const Uuid = z.uuid();
+
+export interface AppOptions {
+  kernel: Kernel;
+  nodeEnv?: string | undefined;
+}
+
+declare module "fastify" {
+  interface FastifyRequest {
+    traceId: string;
+    session?: Session;
+  }
+}
+
+/**
+ * HTTP adapter over the kernel. No business logic here: parse, authenticate, delegate, map errors.
+ *
+ * Existence-leak policy (K01/K04): a workspace the caller cannot access and a workspace that does not exist yield the
+ * same status and body (modulo traceId): GET -> 404 NOT_FOUND, commands -> 403 ACCESS_DENIED. Both are produced from
+ * one code path that cannot tell the two cases apart (RLS hides foreign rows).
+ */
+export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
+  const { kernel } = opts;
+  const nodeEnv = opts.nodeEnv ?? process.env.NODE_ENV;
+  const app = Fastify({ logger: false, bodyLimit: 1_000_000, genReqId: () => randomUUID() });
+
+  app.decorateRequest("traceId", "");
+  app.addHook("onRequest", async (req, reply) => {
+    const incoming = req.headers["x-trace-id"];
+    req.traceId =
+      typeof incoming === "string" && /^[A-Za-z0-9-]{8,64}$/.test(incoming) ? incoming : randomUUID();
+    void reply.header("x-trace-id", req.traceId);
+  });
+
+  app.setErrorHandler((err, req, reply) => {
+    const fe = err as { statusCode?: number; validation?: unknown; code?: string };
+    let e: unknown = err;
+    if (
+      !(err instanceof KernelError) &&
+      typeof fe.statusCode === "number" &&
+      fe.statusCode >= 400 &&
+      fe.statusCode < 500
+    ) {
+      e = new KernelError("VALIDATION_FAILED", "BAD_REQUEST", "Malformed request.");
+    }
+    const { status, body } = toErrorResponse(e, req.traceId);
+    void reply.status(status).send(body);
+  });
+  app.setNotFoundHandler((req, reply) => {
+    const { status, body } = toErrorResponse(
+      new KernelError("NOT_FOUND", "NOT_FOUND", "Not found."),
+      req.traceId,
+    );
+    void reply.status(status).send(body);
+  });
+
+  async function authenticate(req: FastifyRequest): Promise<Session> {
+    const h = req.headers.authorization;
+    const token = h?.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : undefined;
+    const s = await kernel.identity.resolveSession(token);
+    req.session = s;
+    return s;
+  }
+
+  app.get("/health", async () => ({ status: "ok" }));
+  app.get("/ready", async (_req, reply) => {
+    if (await kernel.db.ping()) return { status: "ready" };
+    return reply.status(503).send({ status: "unavailable" });
+  });
+
+  // Dev-only login (non-production). In production the route does not exist.
+  if (nodeEnv !== "production") {
+    app.post("/v1/dev/login", async (req) => {
+      const body = z.strictObject({ oidcSubject: z.string().min(1).max(255) }).safeParse(req.body);
+      if (!body.success) throw new KernelError("VALIDATION_FAILED", "INVALID_BODY", "Invalid request body.");
+      return { token: await kernel.devAuth!.login(body.data.oidcSubject) };
+    });
+  }
+
+  app.post("/v1/workspaces", async (req, reply) => {
+    const session = await authenticate(req);
+    const hdr = req.headers["idempotency-key"];
+    const raw = (req.body ?? {}) as Record<string, unknown>;
+    if (typeof hdr === "string") {
+      if (raw.idempotencyKey !== undefined && raw.idempotencyKey !== hdr) {
+        throw new KernelError(
+          "VALIDATION_FAILED",
+          "IDEMPOTENCY_KEY_MISMATCH",
+          "Idempotency-Key header and body disagree.",
+        );
+      }
+      raw.idempotencyKey = hdr;
+    }
+    const res = await kernel.workspaces.create(session, raw);
+    return reply.status(201).send(res);
+  });
+
+  app.get<{ Params: { id: string } }>("/v1/workspaces/:id", async (req) => {
+    const session = await authenticate(req);
+    if (!Uuid.safeParse(req.params.id).success) throw workspaceNotFound();
+    return kernel.workspaces.get(session, req.params.id);
+  });
+
+  app.post<{ Params: { id: string } }>("/v1/workspaces/:id/commands", async (req) => {
+    const session = await authenticate(req);
+    if (!Uuid.safeParse(req.params.id).success) throw noWorkspaceAccess();
+    const ifMatch = req.headers["if-match"];
+    const idem = req.headers["idempotency-key"];
+    let expectedVersion: number | undefined;
+    if (typeof ifMatch === "string") {
+      const n = /^"?(\d+)"?$/.exec(ifMatch.trim());
+      if (!n)
+        throw new KernelError(
+          "VALIDATION_FAILED",
+          "INVALID_IF_MATCH",
+          "If-Match must be a workspace version number.",
+        );
+      expectedVersion = Number(n[1]);
+      const bodyV = (req.body as { expectedVersion?: unknown } | null)?.expectedVersion;
+      if (bodyV !== undefined && bodyV !== expectedVersion) {
+        throw new KernelError(
+          "VALIDATION_FAILED",
+          "VERSION_MISMATCH",
+          "If-Match and body expectedVersion disagree.",
+        );
+      }
+    }
+    const res = await kernel.commands.execute(session, req.params.id, req.body, {
+      ...(typeof idem === "string" ? { idempotencyKey: idem } : {}),
+      ...(expectedVersion !== undefined ? { expectedVersion } : {}),
+      traceId: req.traceId,
+    });
+    return res;
+  });
+
+  // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.
+  void HTTP_STATUS_FOR;
+  return app;
+}

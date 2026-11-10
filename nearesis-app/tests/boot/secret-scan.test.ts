@@ -74,6 +74,7 @@ describe("secret scanner: which .env values count as secrets", () => {
   it("flags credential-named and high-entropy values but not plain configuration", () => {
     const highEntropy = "Zq8" + "x2LmP9vT4kR7wN1sB6yH3cJ5";
     repo({
+      ".gitignore": ".env\n", // as in the real repo: .env is never tracked
       ".env": `INFERENCE_PROVIDER=openrouter\nOPENROUTER_PRIMARY_MODEL=openai/gpt-5-nano\nAPI_TOKEN=plain-but-named-token\nUNNAMED=${highEntropy}\n`,
       "README.md": `uses openrouter with openai/gpt-5-nano\ntoken plain-but-named-token\nblob ${highEntropy}\n`,
     });

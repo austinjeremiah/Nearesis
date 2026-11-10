@@ -61,11 +61,19 @@ function shannonEntropy(v: string): number {
 
 /**
  * A `.env` value is compared against tracked files when it is a credential: its variable name is credential-like, or
- * the value itself looks like key material (>= 20 chars, entropy >= 3.5 bits/char). Plain configuration such as
+ * the value itself looks like key material (key alphabet, >= 24 chars, letters+digits, entropy >= 4 bits/char). Plain configuration such as
  * `INFERENCE_PROVIDER=openrouter` or a model id is not secret and would otherwise flag every doc that names it.
  */
 export function isSecretCandidate(name: string, value: string): boolean {
-  return SECRET_NAME.test(name) || (value.length >= 20 && shannonEntropy(value) >= 3.5);
+  if (SECRET_NAME.test(name)) return true;
+  // Unnamed values count only if they look like key material: key alphabet only (base64/hex/url-safe), >= 24 chars,
+  // mixed letters and digits, high entropy. Model ids ("anthropic/claude-haiku-5.5") and paths contain '.'.
+  return (
+    /^[A-Za-z0-9+/=_-]{24,}$/.test(value) &&
+    /[A-Za-z]/.test(value) &&
+    /[0-9]/.test(value) &&
+    shannonEntropy(value) >= 4
+  );
 }
 
 export function scanRepo(repoRoot: string, allow: AllowEntry[] = []): Finding[] {

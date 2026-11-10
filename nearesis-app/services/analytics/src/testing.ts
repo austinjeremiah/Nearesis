@@ -95,14 +95,24 @@ export async function settleRollups(
   for (const c of CANARIES) {
     const want = (await queryRows<{ v: string }>(ch, c.sql))[0]?.v ?? "0";
     for (;;) {
-      const r = await cubeLoad(cubeUrl, token, {
-        measures: [c.member],
-        timeDimensions: [
-          { dimension: c.timeMember, dateRange: ["2000-01-01T00:00:00.000", "2099-12-31T23:59:59.999"] },
-        ],
-        cache: "must-revalidate",
-      });
-      const got = String(r.data[0]?.[c.member] ?? "0");
+      let got: string;
+      try {
+        const r = await cubeLoad(cubeUrl, token, {
+          measures: [c.member],
+          timeDimensions: [
+            { dimension: c.timeMember, dateRange: ["2000-01-01T00:00:00.000", "2099-12-31T23:59:59.999"] },
+          ],
+          cache: "must-revalidate",
+        });
+        got = String(r.data[0]?.[c.member] ?? "0");
+      } catch (e) {
+        // a rollup rebuild swaps the versioned pre-aggregation table; a read that lands on the dropped version fails
+        // with "Unknown table expression" until Cube resolves the new one. That is the rebuild this helper waits out.
+        if (!(e instanceof Error) || !/Unknown table expression/.test(e.message)) throw e;
+        if (Date.now() - t0 > timeoutMs) throw e;
+        await new Promise((res) => setTimeout(res, 700));
+        continue;
+      }
       if (got === want) break;
       if (Date.now() - t0 > timeoutMs)
         throw new Error(`rollup ${c.rollup} (${c.member}) did not settle: cube=${got} clickhouse=${want}`);

@@ -1,4 +1,4 @@
-import { CanvasDocument, type DomainEvent, type PatchOp } from "@nearesis/contracts";
+import { CanvasDocument, type DomainEvent, type PatchOp, SaveGraphLayoutPayload } from "@nearesis/contracts";
 import { applyCanvasPatch, applyOps, hashCanonical } from "@nearesis/canvas-schema";
 import { connectSse, EventStore } from "./event-store.ts";
 import { loadScenario, type Scenario } from "../fixtures/scenarios.ts";
@@ -239,7 +239,7 @@ export class KernelBackend implements CanvasBackend {
         apiVersion: "v1",
         commandId: crypto.randomUUID(),
         commandType: "graph.save_layout",
-        payload: { positions: this.positions },
+        payload: SaveGraphLayoutPayload.parse({ positions: this.positions }),
         expectedVersion: version,
       }),
     });

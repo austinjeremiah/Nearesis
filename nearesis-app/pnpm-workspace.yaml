@@ -5,6 +5,6 @@ packages:
   - "plugins/*"
   - "!services/outlayer-verifier"
 allowBuilds:
-  '@swc/core': true
+  "@swc/core": true
   esbuild: true
   protobufjs: true

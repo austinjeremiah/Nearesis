@@ -121,6 +121,8 @@ function startRunner(): void {
     "-e",
     "CI=true",
     "-e",
+    `CUBE_CONTAINER=${PROJECT}-cube-1`,
+    "-e",
     "NEARESIS_CI_REPORTS_DIR=/work/ci-reports",
     "ubuntu:24.04",
     "sleep",

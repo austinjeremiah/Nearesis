@@ -38,18 +38,28 @@ export class RedisTokenBucket {
 
   /** Milliseconds to wait before a request may be made; 0 means the slot was taken now. */
   async tryAcquire(): Promise<number> {
-    return Number(
-      await this.redis.eval(ACQUIRE_LUA, 1, this.key, String(this.clock.now()), String(this.intervalMs)),
-    );
+    return (await this.attempt()).wait;
   }
 
-  /** Blocks (via the clock) until a slot is granted. Returns the timestamp the slot was granted. */
+  /**
+   * Blocks (via the clock) until a slot is granted. Returns the slot time that was recorded atomically in Redis
+   * (the `now` the grant was decided on), not a later clock read, so successive grants are always >= intervalMs apart
+   * regardless of timer or scheduling latency between the Redis round trip and the caller resuming.
+   */
   async acquire(): Promise<number> {
     for (;;) {
-      const wait = await this.tryAcquire();
-      if (wait === 0) return this.clock.now();
+      const { wait, now } = await this.attempt();
+      if (wait === 0) return now;
       await this.clock.sleep(wait);
     }
+  }
+
+  private async attempt(): Promise<{ wait: number; now: number }> {
+    const now = this.clock.now();
+    const wait = Number(
+      await this.redis.eval(ACQUIRE_LUA, 1, this.key, String(now), String(this.intervalMs)),
+    );
+    return { wait, now };
   }
 
   async penalizeUntil(epochMs: number): Promise<void> {

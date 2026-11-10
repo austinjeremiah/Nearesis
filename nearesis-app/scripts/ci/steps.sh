@@ -55,7 +55,7 @@ case "$step" in
   lint) env_on; pnpm lint ;;
   format) env_on; pnpm format:check ;;
   # One workspace at a time: package suites share Postgres, Redis, ClickHouse and Temporal.
-  test) env_on; pnpm -r --workspace-concurrency=1 --no-bail --if-present test ;;
+  test) env_on; CUBE_CONTAINER="${CUBE_CONTAINER:-${NEARESIS_COMPOSE_PROJECT:-nearesis}-cube-1}"; export CUBE_CONTAINER; pnpm -r --workspace-concurrency=1 --no-bail --if-present test ;;
   e2e) env_on; pnpm --filter @nearesis/build-monitor test:e2e ;;
   pytest) env_on; uv run pytest ;;
   security) env_on; pnpm security:all ;;

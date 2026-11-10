@@ -24,6 +24,9 @@ beforeAll(async () => {
 afterAll(async () => env.close());
 
 const RANGE = ["2026-10-01T00:00:00.000", "2026-10-10T23:59:59.999"];
+const CUBE_CONTAINER =
+  process.env.CUBE_CONTAINER ??
+  `${process.env.NEARESIS_COMPOSE_PROJECT ?? process.env.COMPOSE_PROJECT_NAME ?? "nearesis"}-cube-1`;
 const PINNED = "cubejs/cube:v1.8.18@sha256:d382326a0d2786242c3992f3dd462efbea82d07b2823ecdc83d619d2d6f5dcb7";
 
 test("S13 catalog completeness, compile and pre-aggregations on the pinned Cube", async () => {
@@ -47,7 +50,7 @@ test("S13 catalog completeness, compile and pre-aggregations on the pinned Cube"
     "utf8",
   );
   expect(compose).toContain(PINNED);
-  const inspect = spawnSync("docker", ["inspect", "nearesis-cube-1", "--format", "{{.Config.Image}}"], {
+  const inspect = spawnSync("docker", ["inspect", CUBE_CONTAINER, "--format", "{{.Config.Image}}"], {
     encoding: "utf8",
   });
   expect(inspect.stdout.trim()).toBe(PINNED);

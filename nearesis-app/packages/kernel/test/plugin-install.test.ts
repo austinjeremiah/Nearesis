@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { generateSigningKeyPair, signManifest } from "@nearesis/plugin-sdk";
 import type { PluginManifest } from "@nearesis/contracts";
@@ -142,6 +142,15 @@ describe("loadTrustedKeys", () => {
 const APP_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const KERNEL_DIR = join(APP_ROOT, "packages", "kernel");
 const NEAR_THESIS = join(APP_ROOT, "plugins", "near-thesis");
+// Expected version comes from the plugin's own manifest builder, never a literal.
+const THESIS_VERSION = existsSync(NEAR_THESIS)
+  ? (
+      (await import(pathToFileURL(join(NEAR_THESIS, "src", "manifest.ts")).href)) as {
+        buildManifest: (o: { publisher: string }) => { version: string };
+      }
+    ).buildManifest({ publisher: "nearesis" }).version
+  : "";
+const THESIS_VERSION_RE = THESIS_VERSION.replace(/\./g, "\\.");
 
 describe.skipIf(!existsSync(NEAR_THESIS))("plugin:install CLI with plugins/near-thesis", () => {
   const keys = generateSigningKeyPair();
@@ -184,7 +193,9 @@ describe.skipIf(!existsSync(NEAR_THESIS))("plugin:install CLI with plugins/near-
     const r = run({ nearesis: [keys.publicKey] });
     expect(r.stderr).toBe("");
     expect(r.status).toBe(0);
-    expect(r.stdout).toMatch(/^installed: near-thesis@1\.0\.0 state=enabled active=true/);
+    expect(r.stdout).toMatch(
+      new RegExp(`^installed: near-thesis@${THESIS_VERSION_RE} state=enabled active=true`),
+    );
     const all = await rows("near-thesis");
     expect(all).toHaveLength(1);
     expect(all[0]).toMatchObject({ trust: "production", state: "enabled", active: true });
@@ -195,7 +206,7 @@ describe.skipIf(!existsSync(NEAR_THESIS))("plugin:install CLI with plugins/near-
     ]);
     const again = run({ nearesis: [keys.publicKey] });
     expect(again.status).toBe(0);
-    expect(again.stdout).toMatch(/^already_installed: near-thesis@1\.0\.0/);
+    expect(again.stdout).toMatch(new RegExp(`^already_installed: near-thesis@${THESIS_VERSION_RE}`));
     expect(await rows("near-thesis")).toHaveLength(1);
     expect(r.stdout + r.stderr).not.toContain(keys.privateKey);
   }, 90_000);

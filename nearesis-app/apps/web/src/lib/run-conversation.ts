@@ -193,7 +193,7 @@ export function useRunConversation(workspaceId: string, enabled: boolean): RunCo
       const r = await fetch(`/api/k/workspaces/${workspaceId}/questions`, {
         method: "POST",
         headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
-        body: JSON.stringify({ question, snapshotPolicy: "pinned", budget: BUDGET }),
+        body: JSON.stringify({ question, snapshotPolicy: "live", budget: BUDGET }),
       });
       if (!r.ok) {
         const b = (await r.json().catch(() => ({}))) as { message?: string; reasonCode?: string };

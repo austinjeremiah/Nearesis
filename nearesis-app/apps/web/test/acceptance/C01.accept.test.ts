@@ -158,13 +158,20 @@ describe("C01 natural-language request to four provenance-backed panels (live mo
     expect(rowCount).toBe(4);
 
     // Visible in the browser (panels arrived over canvas.patched), with the inspector resolving each query.
-    await page.waitForFunction(
-      () => document.querySelectorAll("[data-panel-state='READY']").length === 4,
-      null,
-      {
+    await page
+      .waitForFunction(() => document.querySelectorAll("[data-panel-state='READY']").length === 4, null, {
         timeout: 60_000,
-      },
-    );
+      })
+      .catch(async (e) => {
+        const seen = await page.evaluate(() =>
+          [...document.querySelectorAll("[data-panel-kind]")].map((p) => ({
+            kind: p.getAttribute("data-panel-kind"),
+            state: p.getAttribute("data-panel-state"),
+            error: p.querySelector("[data-testid='error-notice']")?.textContent ?? null,
+          })),
+        );
+        throw new Error(`panels not READY: ${JSON.stringify(seen)}; ${String(e).slice(0, 120)}`);
+      });
     const visible = [];
     for (const p of doc.panels) {
       const loc = page.locator(`[data-testid='panel-${p.panelId}']`);

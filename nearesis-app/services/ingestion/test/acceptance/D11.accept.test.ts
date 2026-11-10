@@ -28,9 +28,9 @@ it("matches Python decimal(prec=80) results exactly and never routes amounts thr
     const row = byKey.get(e.swapKey)!;
     expect(row.amountIn).toBe(e.amountIn); // normalized smallest unit string untouched
     expect(row.amountOut).toBe(e.amountOut);
-    expect(parseDec(unitsToDecimal(row.amountIn, decimals[row.originAsset]!)).int).toBe(BigInt(e.amountIn));
-    expect(unitsToDecimal(row.amountOut, decimals[row.destinationAsset]!)).toBe(e.amountOutDecimal);
-    expect(unitsToDecimal(row.amountIn, decimals[row.originAsset]!)).toBe(e.amountInDecimal);
+    expect(parseDec(unitsToDecimal(row.amountIn!, decimals[row.originAsset]!)).int).toBe(BigInt(e.amountIn));
+    expect(unitsToDecimal(row.amountOut!, decimals[row.destinationAsset]!)).toBe(e.amountOutDecimal);
+    expect(unitsToDecimal(row.amountIn!, decimals[row.originAsset]!)).toBe(e.amountInDecimal);
   }
   // 2^128-1 and 1 yocto
   expect(exp.maxUint128).toBe((2n ** 128n - 1n).toString());

@@ -45,8 +45,8 @@ export async function loadSwapsToClickHouse(
       swap_key: string;
       status: string;
       created_at: Date;
-      amount_in: string;
-      amount_out: string;
+      amount_in: string | null;
+      amount_out: string | null;
       raw_object_hash: string;
       version_ms: string;
       record: ExplorerTx;

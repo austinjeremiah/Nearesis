@@ -6,6 +6,7 @@ import { EXPLORER_ADAPTER_VERSION } from "./adapters/explorer.ts";
 import {
   explorerSchemaFingerprint,
   normStatus,
+  amountOrNull,
   parseExplorerPage,
   reconcileSwap,
   swapKeyOf,
@@ -120,8 +121,8 @@ export async function replayDetailed(snapshotId: string, opts: ReplayOptions = {
           swapKey: swapKeyOf(t),
           status: normStatus(t.status),
           createdAt: new Date(t.createdAt).toISOString(),
-          amountIn: t.amountIn,
-          amountOut: t.amountOut,
+          amountIn: amountOrNull(t.amountIn),
+          amountOut: amountOrNull(t.amountOut),
           rawObjectHash: hash,
           record: t,
         };

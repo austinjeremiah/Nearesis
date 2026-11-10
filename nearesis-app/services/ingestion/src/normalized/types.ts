@@ -41,8 +41,8 @@ export interface IntentsSwapRow extends Provenance {
   destinationAsset: string;
   canonicalOriginAsset: string | null; // via effective-dated AssetAlias (D08); null = unresolved
   canonicalDestinationAsset: string | null;
-  amountIn: string; // smallest unit, exact; "0" while in flight is NOT an observed amount (see amountFinal)
-  amountOut: string;
+  amountIn: string | null; // smallest unit, exact; null = provider reported empty string (unknown, never 0)
+  amountOut: string | null;
   amountFinal: boolean; // false for non-final statuses where provider reports 0
   amountInUsd: string | null; // decimal string
   amountOutUsd: string | null;

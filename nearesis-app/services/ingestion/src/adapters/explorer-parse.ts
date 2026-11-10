@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { sha256Hex } from "../hash.ts";
 
-const Amount = z.string().regex(/^\d+$/, "smallest-unit integer string");
+/** Empty string = provider reports the amount as unknown (REFUNDED swaps); anything else must be a digits-only integer string. */
+const Amount = z.union([z.literal(""), z.string().regex(/^\d+$/, "smallest-unit integer string")]);
 const UsdLike = z.union([z.string(), z.number()]).nullable();
 
 export const ExplorerTx = z.looseObject({
@@ -37,6 +38,9 @@ export const ExplorerTx = z.looseObject({
 });
 export type ExplorerTx = z.infer<typeof ExplorerTx>;
 
+/** "" (unknown) -> null; never coerced to "0". */
+export const amountOrNull = (v: string): string | null => (v === "" ? null : v);
+
 export const swapKeyOf = (t: { depositAddress: string; depositMemo: string | null }): string =>
   `${t.depositAddress}|${t.depositMemo ?? ""}`;
 
@@ -58,7 +62,7 @@ export interface ExplorerCursor {
 }
 
 export type ParsedPage =
-  | { ok: true; items: ExplorerTx[]; checksum: "none" | "verified" }
+  | { ok: true; items: ExplorerTx[]; checksum: "none" | "verified"; warnings: string[] }
   | { ok: false; reasonCode: "BAD_JSON" | "BAD_SCHEMA" | "NOT_ARRAY" | "CHECKSUM_MISMATCH"; detail: string };
 
 /**
@@ -81,15 +85,28 @@ export function parseExplorerPage(body: Uint8Array, headers: Record<string, stri
   }
   if (!Array.isArray(json)) return { ok: false, reasonCode: "NOT_ARRAY", detail: "response is not an array" };
   const items: ExplorerTx[] = [];
+  const warnings: string[] = [];
   for (const [i, raw] of json.entries()) {
     const r = ExplorerTx.safeParse(raw);
     if (!r.success) {
       const p = r.error.issues[0];
       return { ok: false, reasonCode: "BAD_SCHEMA", detail: `item ${i}: ${p?.path.join(".")} ${p?.message}` };
     }
-    items.push(r.data);
+    const t = r.data;
+    const missing = (
+      [
+        ["amountIn", t.amountIn],
+        ["amountOut", t.amountOut],
+        ["amountInUsd", t.amountInUsd],
+        ["amountOutUsd", t.amountOutUsd],
+      ] as const
+    )
+      .filter(([, v]) => v === "")
+      .map(([k]) => k);
+    if (missing.length) warnings.push(`item ${i}: missing_amount ${missing.join(",")}`);
+    items.push(t);
   }
-  return { ok: true, items, checksum };
+  return { ok: true, items, checksum, warnings };
 }
 
 /** Structural fingerprint of the response schema (field names + JSON types of the first item, sorted). */
@@ -105,8 +122,8 @@ export interface StoredSwap {
   swapKey: string;
   status: string;
   createdAt: string;
-  amountIn: string;
-  amountOut: string;
+  amountIn: string | null; // null = provider sent "" (unknown), never 0
+  amountOut: string | null;
   rawObjectHash: string;
   record: ExplorerTx;
 }

@@ -127,7 +127,7 @@ export function privacyFields(
   };
 }
 
-const usd = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
+const usd = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const day = (iso: string): string => iso.slice(0, 10);
 
 export function normalize(b: ReplayBundle): NormalizedOutput {

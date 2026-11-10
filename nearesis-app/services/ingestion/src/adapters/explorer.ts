@@ -17,6 +17,7 @@ import {
   type StoredSwap,
   explorerSchemaFingerprint,
   normStatus,
+  amountOrNull,
   parseExplorerPage,
   reconcileSwap,
   swapKeyOf,
@@ -550,7 +551,7 @@ export class ExplorerCollector {
       recordsClaimed: items.length,
       recordsParsed: items.length,
       completeness: items.length < this.pageSize ? "complete" : "partial",
-      warnings: [],
+      warnings: parsed.warnings,
     });
     const hash = arch.observation.payloadObjectHash;
     const tally = { inserted: 0, updated: 0, skipped: 0 };
@@ -560,16 +561,16 @@ export class ExplorerCollector {
           swapKey: swapKeyOf(t),
           status: normStatus(t.status),
           createdAt: t.createdAt,
-          amountIn: t.amountIn,
-          amountOut: t.amountOut,
+          amountIn: amountOrNull(t.amountIn),
+          amountOut: amountOrNull(t.amountOut),
           rawObjectHash: hash,
           record: t,
         };
         const ex = await c.query<{
           status: string;
           created_at: Date;
-          amount_in: string;
-          amount_out: string;
+          amount_in: string | null;
+          amount_out: string | null;
           raw_object_hash: string;
           record: ExplorerTx;
         }>(

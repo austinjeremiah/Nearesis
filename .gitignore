@@ -24,3 +24,6 @@ __pycache__/
 .data/
 test-results/
 playwright-report/
+
+# Build Bible (spec, reports, coordination) is kept local and never committed (owner decision)
+NEARESIS_Build_Bible/

@@ -250,3 +250,39 @@ export interface CoverageInput {
 }
 export const coverageRows = (rows: CoverageInput[]): Row[] =>
   rows.map((r) => ({ ...r, source_label: "LIVE" }));
+
+/** Recomputes source_watermarks from the loaded facts (newest event per provider, gap counts, lag; late after 24 h). */
+export async function refreshWatermarks(ch: ClickHouseClient, nowMs: number = Date.now()): Promise<void> {
+  const specs: Array<[string, string]> = [
+    [
+      "near-bigquery",
+      "SELECT toString(toDateTime64(max(d), 3, 'UTC')) AS t FROM (SELECT max(block_date) AS d FROM near_daily_tx FINAL UNION ALL SELECT max(block_date) FROM contract_interactions FINAL)",
+    ],
+    ["coingecko", "SELECT toString(max(provider_timestamp)) AS t FROM price_candles FINAL"],
+    ["near-explorer", "SELECT toString(max(created_at)) AS t FROM intents_swaps FINAL"],
+  ];
+  const rows: Row[] = [];
+  for (const [provider, sql] of specs) {
+    const rs = await ch.query({ query: sql, format: "JSONEachRow" });
+    const t = ((await rs.json()) as Array<{ t: string }>)[0]?.t ?? null;
+    const has = t !== null && !t.startsWith("1970");
+    const g = await ch.query({
+      query: "SELECT count() AS n FROM quality_gaps FINAL WHERE provider_id = {p:String}",
+      query_params: { p: provider },
+      format: "JSONEachRow",
+    });
+    const gaps = Number(((await g.json()) as Array<{ n: string }>)[0]?.n ?? 0);
+    const lag = has ? (nowMs - Date.parse(`${t.replace(" ", "T")}Z`)) / 1000 : null;
+    rows.push({
+      provider_id: provider,
+      newest_event_time: has ? t : null,
+      last_full_scan_at: null,
+      gap_count: gaps,
+      provider_lag_seconds: lag,
+      schema_version: null,
+      state: !has ? "unavailable" : lag !== null && lag > 86_400 ? "late" : "fresh",
+      version: nowMs,
+    });
+  }
+  await ch.insert({ table: "source_watermarks", values: rows, format: "JSONEachRow" });
+}

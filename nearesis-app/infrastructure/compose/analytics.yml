@@ -43,3 +43,42 @@ services:
         retries: 40,
       }
     mem_limit: 1536m
+
+  # LIVE semantic layer: same pinned image, reads ClickHouse database nearesis_live (real data), model in cube-live/.
+  # Separate instance so the fixture cubes and the S01-S16 tests are untouched.
+  cube-live:
+    image: cubejs/cube:v1.8.18@sha256:d382326a0d2786242c3992f3dd462efbea82d07b2823ecdc83d619d2d6f5dcb7
+    depends_on:
+      clickhouse: { condition: service_healthy }
+    environment:
+      CUBEJS_DEV_MODE: "false"
+      CUBEJS_DB_TYPE: clickhouse
+      CUBEJS_DB_HOST: clickhouse
+      CUBEJS_DB_PORT: "8123"
+      CUBEJS_DB_NAME: nearesis_live
+      CUBEJS_DB_USER: nearesis
+      CUBEJS_DB_PASS: nearesis
+      CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:-nearesis-dev-cube-secret-not-for-production}
+      CUBEJS_PRE_AGGREGATIONS_SCHEMA: nearesis_preagg_live
+      CUBEJS_REFRESH_WORKER: "false"
+      CUBEJS_CACHE_AND_QUEUE_DRIVER: memory
+      CUBEJS_LOG_LEVEL: warn
+      CUBEJS_TELEMETRY: "false"
+    ports: ["127.0.0.1:4001:4000"]
+    volumes:
+      - ../../services/analytics/cube-live/model:/cube/conf/model:ro
+      - ../../services/analytics/cube-live/cube.js:/cube/conf/cube.js:ro
+    healthcheck:
+      {
+        test:
+          [
+            "CMD",
+            "node",
+            "-e",
+            "fetch('http://127.0.0.1:4000/readyz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          ],
+        interval: 4s,
+        timeout: 4s,
+        retries: 40,
+      }
+    mem_limit: 1024m

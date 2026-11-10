@@ -2,6 +2,7 @@ import type { ClickHouseClient } from "@clickhouse/client";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { mib } from "./bq-runner.ts";
+import { refreshWatermarks } from "./ch.ts";
 import { RUNS_DIR } from "./env.ts";
 import { planChunks } from "./plan.ts";
 import type { StateStore } from "./state.ts";
@@ -64,6 +65,7 @@ export async function writeRunReport(d: {
   dataDir: string;
   dir?: string;
 }): Promise<{ md: string; json: string }> {
+  await refreshWatermarks(d.ch);
   const cov = await coverage(d.ch);
   const gaps = await q<{ provider_id: string; dataset: string; n: string; reasons: string[] }>(
     d.ch,

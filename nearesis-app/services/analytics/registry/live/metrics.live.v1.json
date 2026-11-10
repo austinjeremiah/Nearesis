@@ -1,0 +1,250 @@
+{
+  "semanticVersion": "1.0.0",
+  "metrics": [
+    {
+      "segmentOverlap": "n/a",
+      "botProxyDefinition": "Not filtered; includes bot and system traffic",
+      "denominator": "n/a: additive count or level with no denominator",
+      "certifiedVersion": "1.0.0",
+      "certified": true,
+      "owner": "nearesis-analytics",
+      "testFixture": "live:nearesis_live",
+      "visibility": "public",
+      "zeroPolicy": "zero_requires_complete_coverage",
+      "expectedUpdateLag": "PT24H",
+      "docUri": "docs/metrics/METRICS.md#livenear_tx_count",
+      "grain": "day",
+      "displayName": "LIVE daily transactions",
+      "kind": "flow",
+      "unit": "tx",
+      "aggregationLaw": "sum",
+      "sources": ["near-bigquery:near_daily_tx"],
+      "transformations": ["BigQuery crypto_near_mainnet_us.transactions, COUNT(*) by block_date"],
+      "uncertainty": "REAL data. Counts converted transactions, not successful ones (status only carries SUCCESS_RECEIPT_ID, FND-20261110-100). Bots included.",
+      "id": "live.near_tx_count",
+      "cubeMember": "near_daily_tx_live.tx_count"
+    },
+    {
+      "segmentOverlap": "overlapping",
+      "botProxyDefinition": "Signer accounts are a proxy for activity, not unique humans",
+      "denominator": "n/a: additive count or level with no denominator",
+      "certifiedVersion": "1.0.0",
+      "certified": true,
+      "owner": "nearesis-analytics",
+      "testFixture": "live:nearesis_live",
+      "visibility": "public",
+      "zeroPolicy": "zero_requires_complete_coverage",
+      "expectedUpdateLag": "PT24H",
+      "docUri": "docs/metrics/METRICS.md#livenear_distinct_signer_proxy",
+      "grain": "day",
+      "displayName": "LIVE daily distinct signer proxy",
+      "kind": "count",
+      "unit": "signers",
+      "aggregationLaw": "non_additive",
+      "sources": ["near-bigquery:near_daily_tx"],
+      "transformations": ["BigQuery COUNT(DISTINCT signer_account_id) by block_date"],
+      "uncertainty": "REAL data. Not unique humans; daily values must never be summed into a period unique.",
+      "id": "live.near_distinct_signer_proxy",
+      "cubeMember": "near_daily_tx_live.distinct_signer_proxy"
+    },
+    {
+      "segmentOverlap": "n/a",
+      "botProxyDefinition": "Not filtered; includes bot and system traffic",
+      "denominator": "n/a: additive count or level with no denominator",
+      "certifiedVersion": "1.0.0",
+      "certified": true,
+      "owner": "nearesis-analytics",
+      "testFixture": "live:nearesis_live",
+      "visibility": "public",
+      "zeroPolicy": "zero_requires_complete_coverage",
+      "expectedUpdateLag": "PT24H",
+      "docUri": "docs/metrics/METRICS.md#livecontract_interactions",
+      "grain": "day",
+      "displayName": "LIVE function-call interactions (receivers >= 100/day)",
+      "kind": "flow",
+      "unit": "actions",
+      "aggregationLaw": "sum",
+      "sources": ["near-bigquery:contract_interactions"],
+      "transformations": [
+        "BigQuery receipt_actions FUNCTION_CALL by block_date and receiver; receivers below 100 calls/day folded into a separate remainder table"
+      ],
+      "uncertainty": "REAL data. Named receivers only (>= 100 calls that day); the remainder is not in this view. Contract project mapping is unverified (taxonomy uncategorized). Days before 2026-02-01 are pending (BigQuery quota) and are gaps, not zeros.",
+      "id": "live.contract_interactions",
+      "cubeMember": "contract_interactions_live.interactions"
+    },
+    {
+      "segmentOverlap": "n/a",
+      "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
+      "denominator": "n/a: additive count or level with no denominator",
+      "certifiedVersion": "1.0.0",
+      "certified": true,
+      "owner": "nearesis-analytics",
+      "testFixture": "live:nearesis_live",
+      "visibility": "public",
+      "zeroPolicy": "zero_requires_complete_coverage",
+      "expectedUpdateLag": "PT24H",
+      "docUri": "docs/metrics/METRICS.md#liveprice_close_usd",
+      "grain": "day",
+      "displayName": "LIVE daily close price (USD, hourly-sampled)",
+      "kind": "stock",
+      "unit": "usd_price",
+      "aggregationLaw": "avg",
+      "sources": ["coingecko:price_candles"],
+      "transformations": [
+        "CoinGecko market_chart/range hourly samples; close = last of 24 samples (23:00 UTC)"
+      ],
+      "uncertainty": "REAL data. Not an exchange close: sampled hourly values (FND-20261110-101). Aggregator price; vintages can be revised.",
+      "id": "live.price_close_usd",
+      "cubeMember": "price_candles_live.close_price_usd"
+    },
+    {
+      "segmentOverlap": "n/a",
+      "botProxyDefinition": "Not filtered; includes bot and system traffic",
+      "denominator": "n/a: additive count or level with no denominator",
+      "certifiedVersion": "1.0.0",
+      "certified": true,
+      "owner": "nearesis-analytics",
+      "testFixture": "live:nearesis_live",
+      "visibility": "public",
+      "zeroPolicy": "zero_requires_complete_coverage",
+      "expectedUpdateLag": "PT1H",
+      "docUri": "docs/metrics/METRICS.md#liveoneclick_swap_count",
+      "grain": "day",
+      "displayName": "LIVE 1Click swaps (all statuses)",
+      "kind": "flow",
+      "unit": "swaps",
+      "aggregationLaw": "sum",
+      "sources": ["near-explorer:intents_swaps"],
+      "transformations": ["Explorer 1Click swaps deduplicated by swap key, latest status wins"],
+      "uncertainty": "REAL data, partner-reported. Backfill runs newest to oldest: days not yet reached are NOT covered (see coverage), never zero. Private-settlement era swaps (>= 2026-10-27) carry no public swap hash.",
+      "id": "live.oneclick_swap_count",
+      "cubeMember": "intents_swaps_live.swap_count"
+    },
+    {
+      "segmentOverlap": "n/a",
+      "botProxyDefinition": "Not filtered; includes bot and system traffic",
+      "denominator": "n/a: additive count or level with no denominator",
+      "certifiedVersion": "1.0.0",
+      "certified": true,
+      "owner": "nearesis-analytics",
+      "testFixture": "live:nearesis_live",
+      "visibility": "public",
+      "zeroPolicy": "zero_requires_complete_coverage",
+      "expectedUpdateLag": "PT1H",
+      "docUri": "docs/metrics/METRICS.md#liveoneclick_completed_swap_count",
+      "grain": "day",
+      "displayName": "LIVE 1Click completed swaps",
+      "kind": "flow",
+      "unit": "swaps",
+      "aggregationLaw": "sum",
+      "sources": ["near-explorer:intents_swaps"],
+      "transformations": ["Swaps with latest status SUCCESS"],
+      "uncertainty": "REAL data, partner-reported; status can change until final. See coverage for the loaded window.",
+      "id": "live.oneclick_completed_swap_count",
+      "cubeMember": "intents_swaps_live.completed_swap_count"
+    }
+  ],
+  "dimensions": [
+    {
+      "id": "near_daily_tx_live.day",
+      "view": "near_daily_tx_live",
+      "displayName": "Day (UTC)",
+      "kind": "time",
+      "visibility": "public"
+    },
+    {
+      "id": "near_daily_tx_live.source_label",
+      "view": "near_daily_tx_live",
+      "displayName": "source label",
+      "kind": "dimension",
+      "visibility": "public"
+    },
+    {
+      "id": "contract_interactions_live.day",
+      "view": "contract_interactions_live",
+      "displayName": "Day (UTC)",
+      "kind": "time",
+      "visibility": "public"
+    },
+    {
+      "id": "contract_interactions_live.source_label",
+      "view": "contract_interactions_live",
+      "displayName": "source label",
+      "kind": "dimension",
+      "visibility": "public"
+    },
+    {
+      "id": "contract_interactions_live.receiver_account_id",
+      "view": "contract_interactions_live",
+      "displayName": "receiver account id",
+      "kind": "dimension",
+      "visibility": "public"
+    },
+    {
+      "id": "price_candles_live.day",
+      "view": "price_candles_live",
+      "displayName": "Day (UTC)",
+      "kind": "time",
+      "visibility": "public"
+    },
+    {
+      "id": "price_candles_live.source_label",
+      "view": "price_candles_live",
+      "displayName": "source label",
+      "kind": "dimension",
+      "visibility": "public"
+    },
+    {
+      "id": "price_candles_live.coin_id",
+      "view": "price_candles_live",
+      "displayName": "coin id",
+      "kind": "dimension",
+      "visibility": "public"
+    },
+    {
+      "id": "price_candles_live.basis",
+      "view": "price_candles_live",
+      "displayName": "basis",
+      "kind": "dimension",
+      "visibility": "public"
+    },
+    {
+      "id": "intents_swaps_live.day",
+      "view": "intents_swaps_live",
+      "displayName": "Day (UTC)",
+      "kind": "time",
+      "visibility": "public"
+    },
+    {
+      "id": "intents_swaps_live.source_label",
+      "view": "intents_swaps_live",
+      "displayName": "source label",
+      "kind": "dimension",
+      "visibility": "public"
+    },
+    {
+      "id": "intents_swaps_live.status",
+      "view": "intents_swaps_live",
+      "displayName": "status",
+      "kind": "dimension",
+      "visibility": "public"
+    },
+    {
+      "id": "intents_swaps_live.privacy_era",
+      "view": "intents_swaps_live",
+      "displayName": "privacy era",
+      "kind": "dimension",
+      "visibility": "public"
+    }
+  ],
+  "evaluators": {
+    "live.near_tx_count": null,
+    "live.near_distinct_signer_proxy": null,
+    "live.contract_interactions": null,
+    "live.price_close_usd": null,
+    "live.oneclick_swap_count": null,
+    "live.oneclick_completed_swap_count": null
+  },
+  "exactScales": {},
+  "contentHash": "266cc2d8fec5730482e9c6b7a21c13abcc29ea9eddf15a8ac81d3482aad3ad36"
+}

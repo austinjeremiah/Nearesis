@@ -8,7 +8,7 @@ import { systemClock } from "../clock.ts";
 import { ALLOW_EXPLORER, HttpClient } from "../http/client.ts";
 import type { CredentialSource } from "../http/credentials.ts";
 import { normalize } from "../normalize.ts";
-import { coverageRows, insertLive, swapRows } from "./ch.ts";
+import { coverageRows, insertLive, refreshWatermarks, swapRows } from "./ch.ts";
 import { REDIS_URL } from "./env.ts";
 import { addDays, WINDOW_FROM, WINDOW_TO } from "./plan.ts";
 import type { StateStore } from "./state.ts";
@@ -90,6 +90,7 @@ export async function loadSwapsToClickHouse(
     store.state.explorerLoad = { afterVersionMs: afterV, afterKey: afterK };
     store.save();
   }
+  if (loaded > 0) await refreshWatermarks(ch, nowMs);
   return loaded;
 }
 
@@ -120,7 +121,10 @@ export async function runExplorerSession(d: {
     streamKey: EXPLORER_STREAM,
   });
   const startedAt = Date.now();
-  const deadline = startedAt + d.minutes * 60_000;
+  // minutes <= 0 means unlimited (detached full-year run)
+  const deadline = d.minutes > 0 ? startedAt + d.minutes * 60_000 : Number.POSITIVE_INFINITY;
+  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+  let retries = 0;
   const window = {
     startUnix: Date.parse(`${WINDOW_FROM}T00:00:00Z`) / 1000 - 1, // non-inclusive in provider semantics
     endUnix: Date.parse(`${addDays(WINDOW_TO, 1)}T00:00:00Z`) / 1000,
@@ -128,20 +132,40 @@ export async function runExplorerSession(d: {
     windowEndUTC: `${WINDOW_TO}T23:59:59.999Z`,
   };
   let status = "max_pages";
-  let pages = 0;
-  let inserted = 0;
   let lastCursor: unknown = null;
   try {
     while (Date.now() < deadline) {
       const r = await collector.run({ ...window, maxPages: BATCH_PAGES });
-      pages += r.pagesCommitted;
-      inserted += r.swapsInserted;
       lastCursor = r.cursor;
       status = r.status;
       d.log(`explorer batch: ${r.status}, +${r.pagesCommitted} pages, +${r.swapsInserted} swaps`);
-      if (r.status !== "max_pages") break;
-      // load incrementally so ClickHouse tracks the Postgres import state as it grows
-      await loadSwapsToClickHouse(d.db, d.ch, d.store, Date.now());
+      d.store.state.explorer.pagesCommitted += r.pagesCommitted;
+      d.store.state.explorer.swapsInserted += r.swapsInserted;
+      d.store.state.explorer.lastStatus = r.status;
+      d.store.state.explorer.lastStatusAtUTC = new Date().toISOString();
+      d.store.state.explorer.lastError =
+        r.status === "max_pages" || r.status === "complete" ? null : r.status;
+      d.store.save();
+      if (r.status === "max_pages") {
+        retries = 0;
+        // load incrementally so ClickHouse tracks the Postgres import state as it grows
+        await loadSwapsToClickHouse(d.db, d.ch, d.store, Date.now());
+        continue;
+      }
+      // Unattended runs ride out outages: transient network failures, rate limiting and a stale lease are retried with
+      // a growing pause (the cursor only advances after a committed page, so resuming is always safe).
+      if (
+        d.minutes <= 0 &&
+        (r.status === "transient_failure" || r.status === "rate_limited" || r.status === "lease_held")
+      ) {
+        retries++;
+        const wait = Math.min(600_000, 30_000 * retries);
+        d.log(`explorer ${r.status}; retry ${retries} in ${wait / 1000}s`);
+        await loadSwapsToClickHouse(d.db, d.ch, d.store, Date.now());
+        await sleep(wait);
+        continue;
+      }
+      break;
     }
   } finally {
     redis.disconnect();
@@ -172,8 +196,6 @@ export async function runExplorerSession(d: {
   }
   const ex = d.store.state.explorer;
   ex.requests += http.requestLog.filter((x) => x.outcome !== "denied").length;
-  ex.pagesCommitted += pages;
-  ex.swapsInserted += inserted;
   ex.sessions += 1;
   ex.lastStatus = status;
   ex.complete = complete;
@@ -182,8 +204,8 @@ export async function runExplorerSession(d: {
     status,
     sessionMinutes: Math.round(((Date.now() - startedAt) / 60_000) * 10) / 10,
     requests: http.requestLog.filter((x) => x.outcome !== "denied").length,
-    pagesCommitted: pages,
-    swapsInserted: inserted,
+    pagesCommitted: d.store.state.explorer.pagesCommitted,
+    swapsInserted: d.store.state.explorer.swapsInserted,
     loadedSwaps,
     cursor: lastCursor,
     oldestCreatedAt: range.rows[0]?.lo?.toISOString() ?? null,

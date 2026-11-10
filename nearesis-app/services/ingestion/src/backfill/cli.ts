@@ -19,18 +19,27 @@ const { values } = parseArgs({
     plan: { type: "boolean" },
     "only-chunk": { type: "string" },
     "explorer-minutes": { type: "string" },
+    "explorer-max-minutes": { type: "string" }, // 0 = unlimited
+    "explorer-only": { type: "boolean" },
+    "bigquery-only": { type: "boolean" },
+    status: { type: "boolean" },
     "report-only": { type: "boolean" },
     reconcile: { type: "boolean" },
   },
   allowPositionals: true,
 });
-const only = values.only;
+const only = values["explorer-only"] ? "explorer" : values["bigquery-only"] ? "bq" : values.only;
 const want = (p: string): boolean => !values.reconcile && (only === undefined || only === p);
 const log = (m: string): void => console.log(`[backfill ${new Date().toISOString()}] ${m}`);
 
 const store = new StateStore(STATE_PATH, WINDOW_FROM, WINDOW_TO);
 let chunks = planChunks();
 if (values["only-chunk"]) chunks = chunks.filter((c) => c.id === values["only-chunk"]);
+if (values.status) {
+  const { printStatus } = await import("./status.ts");
+  await printStatus(store);
+  process.exit(0);
+}
 if (values.plan) {
   for (const c of chunks)
     console.log(`${store.isDone(c.id) ? "DONE   " : "PENDING"} ${c.id} [${c.from}, ${c.to})`);
@@ -118,7 +127,9 @@ try {
       archive,
       creds,
       store,
-      minutes: Number(values["explorer-minutes"] ?? 120),
+      minutes: Number(
+        values["explorer-max-minutes"] ?? values["explorer-minutes"] ?? (values["explorer-only"] ? 0 : 120),
+      ),
       log,
     });
   const paths = await writeRunReport({ ch, store, summary, dataDir: DATA_DIR });

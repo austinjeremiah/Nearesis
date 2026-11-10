@@ -11,3 +11,6 @@ export * from "./testing.ts";
 export * from "./registry/promotions.ts";
 export * from "./registry/metricsdoc.ts";
 export * from "./queries.ts";
+export * from "./live/definition.ts";
+export * from "./live/registry.ts";
+export * from "./live/catalog.ts";

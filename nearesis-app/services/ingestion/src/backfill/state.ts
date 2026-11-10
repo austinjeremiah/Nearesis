@@ -30,6 +30,8 @@ export interface BackfillState {
     sessions: number;
     lastStatus: string | null;
     complete?: boolean;
+    lastError?: string | null;
+    lastStatusAtUTC?: string;
   };
   explorerLoad?: { afterVersionMs: number; afterKey: string };
   price: { done: boolean; requests: number; days: number } | null;

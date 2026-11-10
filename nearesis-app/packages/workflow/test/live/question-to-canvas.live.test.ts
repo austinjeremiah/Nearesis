@@ -12,7 +12,7 @@ const live = process.env.NEARESIS_ACCEPT_LIVE === "1";
 const C01_QUESTION = "investigate NEAR Intents activity after the private-settlement change";
 
 /** The web panel route labels a panel LIVE when it is served by the live layer; its queries address live.* cube members only. */
-const liveMembers = () => new Set(loadLiveRegistry().metrics.map((m) => m.cubeMember));
+const liveMembers = () => new Set(loadLiveRegistry().metrics.flatMap((m) => [m.id, m.cubeMember]));
 
 describe.skipIf(!live)("question to canvas (live model)", () => {
   let env: Env;
@@ -87,7 +87,7 @@ describe.skipIf(!live)("question to canvas (live model)", () => {
 
 /**
  * LIVE data variant (contracts 1.4.0 `source: "live"`): the worker's agents discover, query and preview against cube-live,
- * so every persisted panel's saved query addresses the live layer and re-executes there with real (non-fixture) data.
+ * so every persisted panel's saved query addresses live metrics only (what the web labels LIVE).
  * Same shared USD 5 ledger; skipped unless NEARESIS_ACCEPT_LIVE=1 and cube-live (:4001) is reachable.
  */
 const liveCube = live ? await cubeReady(LIVE_CUBE_URL_DEFAULT) : false;
@@ -120,11 +120,6 @@ describe.skipIf(!live || !liveCube)("question to canvas (LIVE data source)", () 
     );
     expect(r.status).toBe(202);
     const { runId, workflowId } = r.json as { runId: string; workflowId: string };
-    const stored = await q<{ source: string }>(env, env.tenantId, "SELECT source FROM runs WHERE id=$1", [
-      runId,
-    ]);
-    expect(stored[0]!.source).toBe("live");
-
     const pending = await waitFor(async () => {
       const list = await api.call("GET", `/v1/runs/${runId}/approvals`);
       const first = (
@@ -143,6 +138,10 @@ describe.skipIf(!live || !liveCube)("question to canvas (LIVE data source)", () 
     expect(d.status).toBe(202);
     expect((await env.client.workflow.getHandle(workflowId).result()).state).toBe("COMPLETE");
 
+    const stored = await q<{ source: string }>(env, env.tenantId, "SELECT source FROM runs WHERE id=$1", [
+      runId,
+    ]);
+    expect(stored[0]!.source).toBe("live");
     const doc = await env.kernel!.kernel.canvas.get(env.kernel!.session, env.workspaceId);
     expect(doc.panels.length).toBeGreaterThanOrEqual(1);
     const members = liveMembers();
@@ -156,7 +155,10 @@ describe.skipIf(!live || !liveCube)("question to canvas (LIVE data source)", () 
         const measures = (saved!.ast as { measures: string[] }).measures;
         // source_label LIVE: the query addresses the live layer only (a fixture query would address fixture cubes)
         expect(measures.length).toBeGreaterThan(0);
-        expect(measures.every((m) => members.has(m))).toBe(true);
+        expect(
+          measures.every((m) => members.has(m)),
+          JSON.stringify(measures),
+        ).toBe(true);
       }
     } finally {
       await pg.end();

@@ -21,11 +21,14 @@ export function EChart({
   option,
   onBrush,
   onFirstFrame,
+  brushActive = false,
 }: {
   panelId: string;
   option: EChartsOption;
   onBrush?: (startMs: number, endMs: number) => void;
   onFirstFrame?: (ms: number) => void;
+  /** When true, a mouse drag draws an x-range brush (selection); otherwise drag pans. */
+  brushActive?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const chart = useRef<ECharts | null>(null);
@@ -57,6 +60,7 @@ export function EChart({
         if (r && brushRef.current) brushRef.current(Math.min(r[0], r[1]), Math.max(r[0], r[1]));
       });
       c.setOption(optRef.current, { notMerge: true, lazyUpdate: false });
+      applyBrush();
       ro = new ResizeObserver(() => c.resize());
       ro.observe(host.current);
     });
@@ -71,7 +75,19 @@ export function EChart({
 
   useEffect(() => {
     chart.current?.setOption(option, { notMerge: true, lazyUpdate: false });
+    applyBrush();
   }, [option]);
+
+  const brushOn = useRef(brushActive);
+  brushOn.current = brushActive;
+  function applyBrush() {
+    chart.current?.dispatchAction({
+      type: "takeGlobalCursor",
+      key: "brush",
+      brushOption: brushOn.current ? { brushType: "lineX", brushMode: "single" } : { brushType: false },
+    });
+  }
+  useEffect(applyBrush, [brushActive]);
 
   return <div ref={host} className="chart-host" data-testid={`chart-${panelId}`} aria-hidden="true" />;
 }

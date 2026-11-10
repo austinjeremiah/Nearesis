@@ -108,11 +108,15 @@ export function Panel(props: {
   onBrush: (startMs: number, endMs: number) => void;
   onKeyboardRange: (startMs: number, endMs: number) => void;
   onMarkRange: () => void;
+  onResize: (dw: number, dh: number) => void;
+  onThreshold: (value: number) => void;
   onGraphLayout: (p: Record<string, { x: number; y: number }>) => void;
   hasSelection: boolean;
 }) {
   const { panel, runtime, data, palette } = props;
   const [inspect, setInspect] = useState(false);
+  const [brushing, setBrushing] = useState(false);
+  const [threshold, setThreshold] = useState("100");
   const [cursor, setCursor] = useState<{ i: number; anchor: number | null } | null>(null);
   const shown = runtime.state === "READY" ? data : runtime.lastGood ? data : null;
   const viz: VizIR = useMemo(() => deriveVizIR(panel, data?.shape), [panel, data]);
@@ -192,6 +196,32 @@ export function Panel(props: {
   };
 
   const units = Object.entries(panel.dataBinding.units);
+  // Threshold markers: crossing points are recomputed from the current data on every refresh (C12e).
+  const crossings = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    if (!shown) return out;
+    const y = panel.encoding.y?.[0];
+    const yi = shown.chart.columns.findIndex((c) => c.name === y);
+    for (const m of props.markers) {
+      if (m.anchor.kind !== "threshold") continue;
+      const { op, value } = m.anchor;
+      const pts: string[] = [];
+      let prev: boolean | null = null;
+      for (const r of shown.chart.rows) {
+        const v = toNumber(r[yi] as string | number | null);
+        if (v === null) {
+          prev = null;
+          continue;
+        }
+        const above = op === "gt" ? v > value : v < value;
+        if (above && prev === false) pts.push(String(r[xIdx]));
+        prev = above;
+      }
+      out[m.markerId] = pts;
+    }
+    hooks().crossings = { ...((hooks().crossings as object) ?? {}), ...out };
+    return out;
+  }, [shown, props.markers, panel.encoding.y, xIdx]);
   const freshness = data?.chart.freshness ?? "unavailable";
   const isEmpty =
     shown !== null &&
@@ -208,6 +238,14 @@ export function Panel(props: {
       aria-labelledby={`t-${panel.panelId}`}
       tabIndex={0}
       onKeyDown={(e) => {
+        if (e.altKey && e.shiftKey && e.key.startsWith("Arrow") && e.target === e.currentTarget) {
+          e.preventDefault();
+          const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[
+            e.key
+          ] as [number, number];
+          props.onResize(d[0], d[1]);
+          return;
+        }
         if (e.altKey && e.key.startsWith("Arrow") && e.target === e.currentTarget) {
           e.preventDefault();
           const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[
@@ -255,6 +293,33 @@ export function Panel(props: {
         <button onClick={() => setInspect((v) => !v)} aria-expanded={inspect} data-testid="provenance-toggle">
           provenance
         </button>
+        {CHART_KINDS.has(panel.kind) && viz.x?.type === "utc_time" && (
+          <>
+            <button onClick={() => setBrushing((b) => !b)} aria-pressed={brushing} data-testid="select-mode">
+              {brushing ? "selecting (drag)" : "select range"}
+            </button>
+            <label className="badge">
+              threshold
+              <input
+                aria-label="Threshold value"
+                data-testid="threshold-input"
+                inputMode="decimal"
+                size={5}
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+              />
+            </label>
+            <button
+              data-testid="add-threshold"
+              onClick={() => {
+                const v = Number(threshold);
+                if (Number.isFinite(v)) props.onThreshold(v);
+              }}
+            >
+              add threshold marker
+            </button>
+          </>
+        )}
         {CHART_KINDS.has(panel.kind) && viz.x?.type === "utc_time" && (
           <button onClick={props.onMarkRange} disabled={!props.hasSelection} data-testid="mark-range">
             mark selection
@@ -326,7 +391,12 @@ export function Panel(props: {
               data-testid="chart-keyboard"
               style={{ position: "absolute", inset: 0 }}
             >
-              <EChart panelId={panel.panelId} option={built.option} onBrush={props.onBrush} />
+              <EChart
+                panelId={panel.panelId}
+                option={built.option}
+                onBrush={props.onBrush}
+                brushActive={brushing}
+              />
             </div>
           </Instantiated>
         ) : (
@@ -347,6 +417,11 @@ export function Panel(props: {
         {viz.transforms.map((t) => (
           <span key={t.kind} className="transform-label" data-testid="transform-label">
             {t.label}
+          </span>
+        ))}
+        {Object.entries(crossings).map(([id, pts]) => (
+          <span key={id} data-testid="threshold-crossings">
+            threshold crossings: {pts.length}
           </span>
         ))}
         {data && data.gaps.length > 0 && (

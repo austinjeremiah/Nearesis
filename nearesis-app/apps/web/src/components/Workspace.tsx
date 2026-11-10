@@ -317,6 +317,35 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     [apply],
   );
 
+  const resize = useCallback(
+    (p: PanelSpec, dw: number, dh: number) => {
+      const layout: GridLayout = {
+        ...p.layout,
+        w: Math.max(2, Math.min(12 - p.layout.x, p.layout.w + dw)),
+        h: Math.max(3, p.layout.h + dh),
+      };
+      if (layout.w === p.layout.w && layout.h === p.layout.h) return;
+      void apply([{ op: "movePanel", panelId: p.panelId, layout }], "patch");
+    },
+    [apply],
+  );
+
+  const addThreshold = useCallback(
+    (p: PanelSpec, value: number) => {
+      const metricId = p.encoding.y?.[0] ?? "";
+      const marker: MarkerSpec = {
+        markerId: crypto.randomUUID(),
+        panelId: p.panelId,
+        anchor: { kind: "threshold", metricId, op: "gt", value },
+        status: "ACTIVE",
+        createdBy: ACTOR,
+        createdAt: new Date().toISOString(),
+      };
+      void apply([{ op: "addMarker", marker }], "patch");
+    },
+    [apply],
+  );
+
   /** Selection from a brush or the keyboard: typed data context, persisted, and never spawns an agent (C13d). */
   const select = useCallback(
     (p: PanelSpec, startMs: number, endMs: number) => {
@@ -404,6 +433,8 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
             onBrush={(a, b) => select(p, a, b)}
             onKeyboardRange={(a, b) => select(p, a, b)}
             onMarkRange={() => markRange(p)}
+            onResize={(dw, dh) => resize(p, dw, dh)}
+            onThreshold={(v) => addThreshold(p, v)}
             onGraphLayout={saveLayout}
             hasSelection={Boolean(
               pendingSel[p.panelId] ?? doc.selections.find((s) => s.panelId === p.panelId),

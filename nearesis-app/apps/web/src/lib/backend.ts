@@ -198,8 +198,14 @@ export class KernelBackend implements CanvasBackend {
     return { ok: true, document: doc, inverse: local && local.ok ? local.inverse : [] };
   }
 
+  /** Data vintage requested from the data route (advanced by a source refresh; fixture route serves revisions). */
+  vintage = 1;
+  advanceVintage(): void {
+    this.vintage += 1;
+  }
+
   async fetchData(queryHash: string): Promise<PanelData | null> {
-    const r = await fetch(`/api/data/${queryHash}`, { cache: "no-store" });
+    const r = await fetch(`/api/data/${queryHash}?vintage=${this.vintage}`, { cache: "no-store" });
     return r.ok ? ((await r.json()) as PanelData) : null;
   }
 

@@ -21,7 +21,10 @@
     "coord": "tsx scripts/coord.ts",
     "security:secrets": "tsx scripts/security/secret-scan.ts",
     "security:urls": "tsx scripts/security/url-audit.ts",
-    "security:all": "pnpm security:secrets && pnpm security:urls"
+    "security:all": "pnpm security:secrets && pnpm security:urls",
+    "demo:milestone": "tsx scripts/demo/milestone.ts",
+    "ci:accept-fixture": "tsx scripts/ci/accept-fixture.ts",
+    "ci:local": "tsx scripts/ci/local-run.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -1,0 +1,95 @@
+{
+ "label": "SYNTHETIC fixtures; not production observations",
+ "fixtures": [
+  {
+   "fixture": "f01_basic_computed.json",
+   "status": "COMPUTED",
+   "expected_output": "{\"checks\":{},\"claim_id\":\"syn:f01-basic\",\"input_sha256\":\"848c6b220163ab452850fef1aafc54ba10c106e697378bff23b1db5294a34ff3\",\"results\":{\"lag_pearson_ppm\":{\"1\":\"846154\"},\"n\":\"5\",\"pearson_ppm\":\"800000\",\"x\":{\"growth_bps\":\"40000\",\"max\":\"5\",\"mean_micro\":\"3000000\",\"min\":\"1\",\"sum\":\"15\"},\"y\":{\"growth_bps\":\"15000\",\"max\":\"5\",\"mean_micro\":\"3000000\",\"min\":\"1\",\"sum\":\"15\"}},\"results_sha256\":\"ef9aaa335da3a7fbf2ddd16b2451f887c0129d1cc9e0f8d81114a63ea8937226\",\"schema_version\":\"nearesis.verifier.output.v1\",\"status\":\"COMPUTED\",\"synthetic\":true,\"verifier\":\"nearesis-verifier@0.1.0\"}"
+  },
+  {
+   "fixture": "f02_basic_verified.json",
+   "status": "VERIFIED",
+   "expected_output": "{\"checks\":{\"input_sha256\":true,\"results_sha256\":true},\"claim_id\":\"syn:f01-basic\",\"input_sha256\":\"848c6b220163ab452850fef1aafc54ba10c106e697378bff23b1db5294a34ff3\",\"results\":{\"lag_pearson_ppm\":{\"1\":\"846154\"},\"n\":\"5\",\"pearson_ppm\":\"800000\",\"x\":{\"growth_bps\":\"40000\",\"max\":\"5\",\"mean_micro\":\"3000000\",\"min\":\"1\",\"sum\":\"15\"},\"y\":{\"growth_bps\":\"15000\",\"max\":\"5\",\"mean_micro\":\"3000000\",\"min\":\"1\",\"sum\":\"15\"}},\"results_sha256\":\"ef9aaa335da3a7fbf2ddd16b2451f887c0129d1cc9e0f8d81114a63ea8937226\",\"schema_version\":\"nearesis.verifier.output.v1\",\"status\":\"VERIFIED\",\"synthetic\":true,\"verifier\":\"nearesis-verifier@0.1.0\"}"
+  },
+  {
+   "fixture": "f03_tampered_value.json",
+   "status": "MISMATCH",
+   "expected_output": "{\"checks\":{\"input_sha256\":false,\"results_sha256\":false},\"claim_id\":\"syn:f01-basic\",\"input_sha256\":\"01f9ead966f684d49a2e7fca12f815d70133243031b5bc7c8ba77db5b39a35cd\",\"results\":{\"lag_pearson_ppm\":{\"1\":\"-174216\"},\"n\":\"5\",\"pearson_ppm\":\"75758\",\"x\":{\"growth_bps\":\"40000\",\"max\":\"5\",\"mean_micro\":\"3000000\",\"min\":\"1\",\"sum\":\"15\"},\"y\":{\"growth_bps\":\"15000\",\"max\":\"40\",\"mean_micro\":\"10200000\",\"min\":\"1\",\"sum\":\"51\"}},\"results_sha256\":\"03195578ffc0db768dea29939691b136600d4f735d3e37cbc0f5fe91000c0a34\",\"schema_version\":\"nearesis.verifier.output.v1\",\"status\":\"MISMATCH\",\"synthetic\":true,\"verifier\":\"nearesis-verifier@0.1.0\"}"
+  },
+  {
+   "fixture": "f04_tampered_metadata.json",
+   "status": "MISMATCH",
+   "expected_output": "{\"checks\":{\"input_sha256\":false,\"results_sha256\":true},\"claim_id\":\"syn:f01-basic\",\"input_sha256\":\"ad52aa290371a7992f735220d68b31e26fc0af2d7f132f7a47152808cf674943\",\"results\":{\"lag_pearson_ppm\":{\"1\":\"846154\"},\"n\":\"5\",\"pearson_ppm\":\"800000\",\"x\":{\"growth_bps\":\"40000\",\"max\":\"5\",\"mean_micro\":\"3000000\",\"min\":\"1\",\"sum\":\"15\"},\"y\":{\"growth_bps\":\"15000\",\"max\":\"5\",\"mean_micro\":\"3000000\",\"min\":\"1\",\"sum\":\"15\"}},\"results_sha256\":\"ef9aaa335da3a7fbf2ddd16b2451f887c0129d1cc9e0f8d81114a63ea8937226\",\"schema_version\":\"nearesis.verifier.output.v1\",\"status\":\"MISMATCH\",\"synthetic\":true,\"verifier\":\"nearesis-verifier@0.1.0\"}"
+  },
+  {
+   "fixture": "f05_forged_results_digest.json",
+   "status": "MISMATCH",
+   "expected_output": "{\"checks\":{\"input_sha256\":true,\"results_sha256\":false},\"claim_id\":\"syn:f01-basic\",\"input_sha256\":\"848c6b220163ab452850fef1aafc54ba10c106e697378bff23b1db5294a34ff3\",\"results\":{\"lag_pearson_ppm\":{\"1\":\"846154\"},\"n\":\"5\",\"pearson_ppm\":\"800000\",\"x\":{\"growth_bps\":\"40000\",\"max\":\"5\",\"mean_micro\":\"3000000\",\"min\":\"1\",\"sum\":\"15\"},\"y\":{\"growth_bps\":\"15000\",\"max\":\"5\",\"mean_micro\":\"3000000\",\"min\":\"1\",\"sum\":\"15\"}},\"results_sha256\":\"ef9aaa335da3a7fbf2ddd16b2451f887c0129d1cc9e0f8d81114a63ea8937226\",\"schema_version\":\"nearesis.verifier.output.v1\",\"status\":\"MISMATCH\",\"synthetic\":true,\"verifier\":\"nearesis-verifier@0.1.0\"}"
+  },
+  {
+   "fixture": "f06_lagged_signal_verified.json",
+   "status": "VERIFIED",
+   "expected_output": "{\"checks\":{\"input_sha256\":true,\"results_sha256\":true},\"claim_id\":\"syn:f06-lead7\",\"input_sha256\":\"7014ebd4d3bf0b575a9a5356f7d2243120f24b3f24e7c749992c185b64342096\",\"results\":{\"lag_pearson_ppm\":{\"1\":\"98459\",\"14\":\"-487674\",\"7\":\"999324\"},\"n\":\"90\",\"pearson_ppm\":\"-499725\",\"x\":{\"growth_bps\":\"4649\",\"max\":\"25300650\",\"mean_micro\":\"15342226933333\",\"min\":\"5064526\",\"sum\":\"1380800424\"},\"y\":{\"growth_bps\":\"7872\",\"max\":\"6196\",\"mean_micro\":\"4096022222\",\"min\":\"2067\",\"sum\":\"368642\"}},\"results_sha256\":\"7216d352bcee82a5fbe91ef1614848bf7508e82042c09249a3c0a59d2b276598\",\"schema_version\":\"nearesis.verifier.output.v1\",\"status\":\"VERIFIED\",\"synthetic\":true,\"verifier\":\"nearesis-verifier@0.1.0\"}"
+  },
+  {
+   "fixture": "f07_extreme_bounds_verified.json",
+   "status": "VERIFIED",
+   "expected_output": "{\"checks\":{\"input_sha256\":true,\"results_sha256\":true},\"claim_id\":\"syn:f07-bounds\",\"input_sha256\":\"f664f0a782ebdb29c55bc2907c47b7cb2a42dc83d423be8a3ceed6701ed62ba5\",\"results\":{\"lag_pearson_ppm\":{\"90\":\"0\"},\"n\":\"4096\",\"pearson_ppm\":\"0\",\"x\":{\"growth_bps\":\"-20000\",\"max\":\"1000000000000000\",\"mean_micro\":\"0\",\"min\":\"-1000000000000000\",\"sum\":\"0\"},\"y\":{\"growth_bps\":\"0\",\"max\":\"1000000000000000\",\"mean_micro\":\"-333007812500000000000\",\"min\":\"-1000000000000000\",\"sum\":\"-1364000000000000000\"}},\"results_sha256\":\"8019cd8031021e82ea40378a4716a6b2160a8babaa4b74008cfe4699fb2f0d08\",\"schema_version\":\"nearesis.verifier.output.v1\",\"status\":\"VERIFIED\",\"synthetic\":true,\"verifier\":\"nearesis-verifier@0.1.0\"}"
+  },
+  {
+   "fixture": "f08_constant_series_null.json",
+   "status": "VERIFIED",
+   "expected_output": "{\"checks\":{\"input_sha256\":true,\"results_sha256\":true},\"claim_id\":\"syn:f08-constant\",\"input_sha256\":\"4fb7149ad31fe54fbf9c4b26285b4f20c636c50d9f3326c7d79025877a948814\",\"results\":{\"n\":\"4\",\"pearson_ppm\":null,\"x\":{\"growth_bps\":\"0\",\"max\":\"7\",\"mean_micro\":\"7000000\",\"min\":\"7\",\"sum\":\"28\"},\"y\":{\"growth_bps\":\"30000\",\"max\":\"4\",\"mean_micro\":\"2500000\",\"min\":\"1\",\"sum\":\"10\"}},\"results_sha256\":\"6ae5863918dd692d67b4b394c77fb1ecc45acbe3e0e18de2cd5d6994e7b413b8\",\"schema_version\":\"nearesis.verifier.output.v1\",\"status\":\"VERIFIED\",\"synthetic\":true,\"verifier\":\"nearesis-verifier@0.1.0\"}"
+  },
+  {
+   "fixture": "i01_bad_schema_version.json",
+   "status": "INVALID_INPUT",
+   "code": "unsupported_schema_version"
+  },
+  {
+   "fixture": "i02_float_value.json",
+   "status": "INVALID_INPUT",
+   "code": "bad_value"
+  },
+  {
+   "fixture": "i03_numeric_not_string.json",
+   "status": "INVALID_INPUT",
+   "code": "schema_violation"
+  },
+  {
+   "fixture": "i04_date_gap.json",
+   "status": "INVALID_INPUT",
+   "code": "dates_not_contiguous"
+  },
+  {
+   "fixture": "i05_unknown_field.json",
+   "status": "INVALID_INPUT",
+   "code": "schema_violation"
+  },
+  {
+   "fixture": "i06_unsorted_metrics.json",
+   "status": "INVALID_INPUT",
+   "code": "metrics_not_sorted_unique"
+  },
+  {
+   "fixture": "i07_misaligned_series.json",
+   "status": "INVALID_INPUT",
+   "code": "series_dates_misaligned"
+  },
+  {
+   "fixture": "i08_value_out_of_bounds.json",
+   "status": "INVALID_INPUT",
+   "code": "bad_value"
+  },
+  {
+   "fixture": "i09_malformed_json.json",
+   "status": "INVALID_INPUT",
+   "code": "malformed_json"
+  },
+  {
+   "fixture": "i10_duplicate_key.json",
+   "status": "INVALID_INPUT",
+   "code": "schema_violation"
+  }
+ ]
+}

@@ -1,0 +1,63 @@
+{
+ "schema_version": "nearesis.verifier.input.v1",
+ "claim_id": "syn:f08-constant",
+ "source": {
+  "dataset": "SYNTHETIC fixture - not NEAR production data",
+  "snapshot_id": "f08",
+  "synthetic": true
+ },
+ "series": {
+  "x": {
+   "name": "intents_volume_proxy",
+   "unit": "usd_cents",
+   "points": [
+    [
+     "2026-09-01",
+     "7"
+    ],
+    [
+     "2026-09-02",
+     "7"
+    ],
+    [
+     "2026-09-03",
+     "7"
+    ],
+    [
+     "2026-09-04",
+     "7"
+    ]
+   ]
+  },
+  "y": {
+   "name": "active_signers_proxy",
+   "unit": "accounts",
+   "points": [
+    [
+     "2026-09-01",
+     "1"
+    ],
+    [
+     "2026-09-02",
+     "2"
+    ],
+    [
+     "2026-09-03",
+     "3"
+    ],
+    [
+     "2026-09-04",
+     "4"
+    ]
+   ]
+  }
+ },
+ "metrics": [
+  "pearson",
+  "summary"
+ ],
+ "expected": {
+  "input_sha256": "4fb7149ad31fe54fbf9c4b26285b4f20c636c50d9f3326c7d79025877a948814",
+  "results_sha256": "6ae5863918dd692d67b4b394c77fb1ecc45acbe3e0e18de2cd5d6994e7b413b8"
+ }
+}

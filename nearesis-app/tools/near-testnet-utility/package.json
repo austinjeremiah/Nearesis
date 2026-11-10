@@ -1,0 +1,21 @@
+{
+  "name": "near-testnet-utility",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local, testnet-only utility: register + mint usdc.fakes.testnet via Meteor Wallet (Wallet Selector). Holds no keys.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5174 --strictPort",
+    "build": "vite build",
+    "check": "node scripts/preflight.mjs"
+  },
+  "dependencies": {
+    "@near-js/transactions": "2.5.1",
+    "@near-wallet-selector/core": "10.1.4",
+    "@near-wallet-selector/meteor-wallet": "10.1.4",
+    "buffer": "6.0.3"
+  },
+  "devDependencies": {
+    "vite": "8.3.1"
+  }
+}

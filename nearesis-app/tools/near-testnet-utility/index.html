@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>USDC.e Testnet Setup</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <span class="badge">TESTNET ONLY</span>
+      <h1>USDC.e testnet setup</h1>
+      <p class="sub">Registers <code>majorlynx5104.testnet</code> on <code>usdc.fakes.testnet</code> and mints 10 test USDC.e.
+        Every transaction is signed in Meteor Wallet with your approval. This page holds no keys.</p>
+    </header>
+
+    <section class="card">
+      <h2>1. Wallet</h2>
+      <div class="row">
+        <button id="btn-connect">Connect Meteor</button>
+        <button id="btn-disconnect" class="ghost" hidden>Disconnect</button>
+        <span id="wallet-status" class="muted">Not connected</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. Pre-flight checks <button id="btn-recheck" class="ghost small">Re-run</button></h2>
+      <p class="muted small">Read straight from testnet RPC. Both transactions stay locked unless every check passes.</p>
+      <ul id="checks" class="checks"><li class="muted">Running…</li></ul>
+    </section>
+
+    <section class="card">
+      <h2>3. Actions</h2>
+      <div class="actions">
+        <div class="action">
+          <button id="btn-register" disabled>Register Account</button>
+          <div class="spec"><code>storage_deposit</code> · <code>{"account_id":"majorlynx5104.testnet","registration_only":true}</code> · 0.00125 NEAR · 30 Tgas</div>
+          <div id="register-result" class="result"></div>
+        </div>
+        <div class="action">
+          <button id="btn-mint" disabled>Mint 10 USDC.e</button>
+          <div class="spec"><code>mint</code> · <code>{"account_id":"majorlynx5104.testnet","amount":"10000000"}</code> · 0 NEAR · 30 Tgas</div>
+          <div id="mint-result" class="result"></div>
+        </div>
+        <div class="action">
+          <button id="btn-balance" class="secondary">Check Balance</button>
+          <div id="balance-result" class="result"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Log</h2>
+      <pre id="log" class="log"></pre>
+    </section>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

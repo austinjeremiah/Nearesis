@@ -1,0 +1,21 @@
+# Secrets — never commit (Build Bible ch.12, ch.28)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+.near-credentials/
+.outlayer/
+
+# Build outputs
+target/
+out/
+node_modules/
+dist/
+.DS_Store
+
+# Project-local toolchain and virtualenvs (nearesis-app/scripts/bootstrap-toolchain.sh)
+.toolchain/
+.venv/
+__pycache__/

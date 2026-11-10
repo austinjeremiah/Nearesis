@@ -508,9 +508,11 @@
       "passCondition": "`verified=false` and fail-closed publication gate",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/inference/test/acceptance/A08.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "A09",
@@ -868,9 +870,11 @@
       "passCondition": "byte-identical outputs; labelled unattested_dev; verified=false; gate refuses verified status",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/inference/test/acceptance/A15.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "A16",
@@ -880,9 +884,11 @@
       "passCondition": "schema-valid output AND genuine attestation verification of this response passes every policy check; tampered response fails; unattested output never counts (unsupported verification recorded separately = BLOCKED_DEPENDENCY); no key leak; cost recorded",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/inference/test/acceptance/A16.accept.test.ts"
+      ],
       "live": true,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "A17",

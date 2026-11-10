@@ -46,10 +46,32 @@ export interface EngineView {
   error?: string;
   lastCommit: { sha: string; source: string } | null;
 }
+export interface HistoryItem {
+  runId: string;
+  verdict: string;
+  executedAt: string;
+  commitSha: string;
+  path: string;
+}
+export interface WaitingItem {
+  kind: "BLOCKER" | "QUEUE";
+  id: string;
+  title: string;
+  severity: string | null;
+  owner: string | null;
+  status: string;
+  path: string | null;
+  since: string;
+}
 export interface TestView {
   testId: string;
   gate: string;
   name: string;
+  passCondition: string;
+  owner: string;
+  latestCommit: string | null;
+  staleEvidence: boolean;
+  history: HistoryItem[];
   implemented: boolean;
   indexStatus: string;
   latestVerdict: string;
@@ -61,6 +83,29 @@ export interface ReportItem {
   path: string;
   name: string;
   mtime: string;
+  title?: string;
+  status?: string;
+}
+export interface GateView {
+  gate: string;
+  passed: number;
+  total: number;
+  implemented: number;
+  executed: number;
+  failed: number;
+  blocked: number;
+  lockedBy: string[];
+  verdict: string;
+  upstream: string[];
+}
+export interface TaskT {
+  id: string;
+  title: string;
+  phase: string;
+  owner: string;
+  status: string;
+  dependsOn: string[];
+  tests: string[];
 }
 export interface State {
   generatedAt: string;
@@ -69,15 +114,17 @@ export interface State {
   agents: AgentView[];
   declaredAgents: { agentId: string; engine: string; taskId: string; hasRecord: boolean }[];
   limits: Record<"ENGINE_A" | "ENGINE_B", { active: number; max: number; breach: boolean }>;
+  tasks: TaskT[];
+  waiting: WaitingItem[];
   graph: {
-    nodes: { id: string; title: string; status: string; layer: number; order: number }[];
+    nodes: { id: string; title: string; status: string; layer: number; order: number; owner: string }[];
     edges: { from: string; to: string }[];
     layers: string[][];
     missingDeps: { task: string; dep: string }[];
   };
   events: { ts: string; session: string; engine: string; kind: string; subject: string; detail?: string }[];
   tests: TestView[];
-  gates: { gate: string; passed: number; total: number; verdict: string; upstream: string[] }[];
+  gates: GateView[];
   phases: { total: number; completed: number; current: string | null; blocked: string[] };
   counts: {
     required: number;

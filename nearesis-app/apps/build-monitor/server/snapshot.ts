@@ -121,11 +121,23 @@ export interface TestView {
   latestRunId: string | null;
   executedAt: string | null;
   evidencePath: string | null;
+  passCondition: string;
+  owner: string;
+  latestCommit: string | null;
+  /** Evidence commit is not among the recent commits (HEAD has moved on or commit unknown). */
+  staleEvidence: boolean;
+  history: HistoryItem[];
 }
 export interface GateView {
   gate: string;
   passed: number;
   total: number;
+  implemented: number;
+  executed: number;
+  failed: number;
+  blocked: number;
+  /** Upstream gates that are not PASS (lock). */
+  lockedBy: string[];
   verdict: "PASS" | "FAIL" | "BLOCKED" | "PENDING" | "WAITING_UPSTREAM";
   upstream: string[];
 }
@@ -133,6 +145,60 @@ export interface ReportItem {
   path: string;
   name: string;
   mtime: string;
+  title?: string;
+  status?: string;
+}
+export interface WaitingItem {
+  kind: "BLOCKER" | "QUEUE";
+  id: string;
+  title: string;
+  severity: string | null;
+  owner: string | null;
+  status: string;
+  path: string | null;
+  since: string;
+}
+
+const STATUS_WORDS = /status\s*:\s*\**\s*([A-Za-z_]+)/gi;
+/** Tolerant parse of a blocker markdown file. The last `Status:` mention wins (Resolution sections). */
+export function parseBlocker(text: string): {
+  id: string;
+  title: string;
+  severity: string | null;
+  owner: string | null;
+  status: string;
+} {
+  const h1 = /^#\s+(.+)$/m.exec(text)?.[1]?.trim() ?? "";
+  const m = /^(BLK-[0-9A-Za-z-]+?)\s*[:\u2014\u2013-]\s+(.*)$/.exec(h1);
+  const field = (name: string): string | null => {
+    const r = new RegExp(`^[\\s>*-]*\\**${name}\\**\\s*:\\**\\s*(.+)$`, "im").exec(text);
+    return r?.[1]?.replace(/\*+/g, "").trim() ?? null;
+  };
+  let status = "OPEN";
+  for (const x of text.matchAll(STATUS_WORDS)) status = (x[1] ?? "OPEN").toUpperCase();
+  return {
+    id: m?.[1] ?? "",
+    title: m?.[2] ?? h1,
+    severity: field("Severity"),
+    owner: field("Owner"),
+    status,
+  };
+}
+
+const needsHuman = (w: { owner: string | null; severity: string | null }): boolean =>
+  /human|owner/i.test(w.owner ?? "") || /release_stop|phase_stop/i.test(w.severity ?? "");
+
+/** `[OPEN]` entries in INTEGRATION_QUEUE.md (format: `- [OPEN] ts engine type - summary - paths`). */
+export function parseQueue(text: string): { id: string; title: string }[] {
+  const out: { id: string; title: string }[] = [];
+  for (const line of text.split("\n")) {
+    const m = /^\s*[-*]\s*\[OPEN\]\s*(.*)$/.exec(line);
+    if (!m) continue;
+    const rest = m[1] ?? "";
+    const parts = rest.split(/\s+[\u2014\u2013-]\s+/);
+    out.push({ id: (parts[0] ?? "").trim() || "queue", title: parts.slice(1).join(" - ").trim() || rest });
+  }
+  return out;
 }
 
 export interface GraphNode {
@@ -225,6 +291,19 @@ interface IndexEntry {
   gate: string;
   name?: string;
   status?: string;
+  passCondition?: string;
+  owner?: string;
+  testFiles?: unknown;
+}
+
+export const isTestResultFile = (name: string): boolean => /^[^.]+\.json$/.test(name);
+
+export interface HistoryItem {
+  runId: string;
+  verdict: Verdict;
+  executedAt: string;
+  commitSha: string;
+  path: string;
 }
 
 export interface State {
@@ -254,6 +333,7 @@ export interface State {
   milestone: { passed: number; total: number; percent: number; basis: "evidence-based" };
   latestResults: TestResult[];
   commits: CommitInfo[];
+  waiting: WaitingItem[];
   reports: {
     phase: ReportItem[];
     blockers: ReportItem[];
@@ -306,7 +386,7 @@ function engineView(
   };
 }
 
-function reportList(bibleDir: string, files: string[]): ReportItem[] {
+function reportList(bibleDir: string, files: string[], withMeta = false): ReportItem[] {
   return files
     .map((f) => {
       let mtime = 0;
@@ -315,15 +395,25 @@ function reportList(bibleDir: string, files: string[]): ReportItem[] {
       } catch {
         /* vanished */
       }
-      return {
+      const item: ReportItem & { m: number } = {
         path: relative(bibleDir, f),
         name: basename(f),
         mtime: new Date(mtime).toISOString(),
         m: mtime,
       };
+      if (withMeta && f.endsWith(".md")) {
+        try {
+          const text = readFileSync(f, "utf8");
+          item.title = /^#\s+(.+)$/m.exec(text)?.[1]?.trim();
+          if (/status\s*:/i.test(text)) item.status = parseBlocker(text).status;
+        } catch {
+          /* unreadable */
+        }
+      }
+      return item;
     })
     .sort((a, b) => b.m - a.m || a.path.localeCompare(b.path))
-    .map(({ path, name, mtime }) => ({ path, name, mtime }));
+    .map(({ m: _m, ...rest }) => rest);
 }
 
 const REPORT_EXT = (n: string): boolean => /\.(md|json|jsonl|txt|log|sql)$/i.test(n);
@@ -430,8 +520,10 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
   const testsDir = join(paths.reportsDir, "TESTS");
   const allResults: TestResult[] = [];
   const latest = new Map<string, { res: TestResult; file: string }>();
+  const history = new Map<string, HistoryItem[]>();
   for (const e of entries) {
-    for (const file of listFiles(join(testsDir, e.testId), (n) => n.endsWith(".json"))) {
+    // Only `<runId>.json` (no second dot) is a TestResult; `.evidence.json` / `.log.json` are runner sidecars.
+    for (const file of listFiles(join(testsDir, e.testId), isTestResultFile)) {
       const r = readParsed(file, TestResult);
       if (r.kind === "invalid") {
         invalid.push({ path: file, error: r.error });
@@ -443,6 +535,13 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
         continue;
       }
       allResults.push(r.value);
+      (history.get(e.testId) ?? history.set(e.testId, []).get(e.testId)!).push({
+        runId: r.value.runId,
+        verdict: r.value.verdict,
+        executedAt: r.value.executedAt,
+        commitSha: r.value.commitSha,
+        path: relative(paths.bibleDir, file),
+      });
       const cur = latest.get(e.testId);
       if (!cur || Date.parse(r.value.executedAt) > Date.parse(cur.res.executedAt))
         latest.set(e.testId, { res: r.value, file });
@@ -451,16 +550,29 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
   const tests: TestView[] = entries.map((e) => {
     const l = latest.get(e.testId);
     const indexStatus = e.status ?? "NOT_IMPLEMENTED";
+    const hist = (history.get(e.testId) ?? []).sort(
+      (a, b) => Date.parse(b.executedAt) - Date.parse(a.executedAt),
+    );
+    const sha = l?.res.commitSha ?? null;
+    const hasFiles = Array.isArray(e.testFiles) && e.testFiles.length > 0;
     return {
       testId: e.testId,
       gate: e.gate,
       name: e.name ?? "",
       indexStatus,
-      implemented: indexStatus !== "NOT_IMPLEMENTED",
+      implemented: hasFiles || indexStatus !== "NOT_IMPLEMENTED",
       latestVerdict: l ? l.res.verdict : "NOT_RUN",
       latestRunId: l ? l.res.runId : null,
       executedAt: l ? l.res.executedAt : null,
       evidencePath: l ? relative(paths.bibleDir, l.file) : null,
+      passCondition: e.passCondition ?? "",
+      owner: e.owner ?? "",
+      latestCommit: sha,
+      staleEvidence:
+        sha !== null &&
+        commits.length > 0 &&
+        !commits.some((c) => c.sha.startsWith(sha) || sha.startsWith(c.sha)),
+      history: hist,
     };
   });
 
@@ -501,7 +613,18 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
     else if (ts.some((t) => t.latestVerdict === "BLOCKED_DEPENDENCY")) verdict = "BLOCKED";
     else if (total > 0 && passed === total) verdict = "WAITING_UPSTREAM";
     else verdict = "PENDING";
-    gates.push({ gate: g, passed, total, verdict, upstream: UPSTREAM[g] ?? [] });
+    gates.push({
+      gate: g,
+      passed,
+      total,
+      implemented: ts.filter((t) => t.implemented).length,
+      executed: ts.filter((t) => t.latestVerdict !== "NOT_RUN").length,
+      failed: ts.filter((t) => t.latestVerdict === "FAIL").length,
+      blocked: ts.filter((t) => t.latestVerdict === "BLOCKED_DEPENDENCY").length,
+      lockedBy: (UPSTREAM[g] ?? []).filter((u) => !resolveGate(u)),
+      verdict,
+      upstream: UPSTREAM[g] ?? [],
+    });
   }
   const completed = gates.filter((g) => g.verdict === "PASS").length;
   const firstOpen = gates.find((g) => g.verdict !== "PASS");
@@ -545,12 +668,48 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
       paths.bibleDir,
       phaseDirs.flatMap((d) => listFiles(d, REPORT_EXT, true, 200)),
     ),
-    blockers: reportList(paths.bibleDir, listFiles(join(rd, "BLOCKERS"), REPORT_EXT, true)),
-    findings: reportList(paths.bibleDir, listFiles(join(rd, "FINDINGS"), REPORT_EXT, true)),
-    decisions: reportList(paths.bibleDir, listFiles(join(rd, "DECISIONS"), REPORT_EXT, true)),
+    blockers: reportList(paths.bibleDir, listFiles(join(rd, "BLOCKERS"), REPORT_EXT, true), true),
+    findings: reportList(paths.bibleDir, listFiles(join(rd, "FINDINGS"), REPORT_EXT, true), true),
+    decisions: reportList(paths.bibleDir, listFiles(join(rd, "DECISIONS"), REPORT_EXT, true), true),
     tests: reportList(paths.bibleDir, listFiles(testsDir, REPORT_EXT, true, 300)).slice(0, 300),
-    handoffs: reportList(paths.bibleDir, listFiles(join(paths.coordDir, "HANDOFFS"), REPORT_EXT, true)),
+    handoffs: reportList(paths.bibleDir, listFiles(join(paths.coordDir, "HANDOFFS"), REPORT_EXT, true), true),
   };
+
+  // ---- waiting on the human: OPEN blockers needing the owner + [OPEN] integration-queue entries
+  const waiting: WaitingItem[] = [];
+  for (const f of listFiles(join(rd, "BLOCKERS"), (n) => n.endsWith(".md"))) {
+    try {
+      const b = parseBlocker(readFileSync(f, "utf8"));
+      if (b.status !== "OPEN" || !needsHuman(b)) continue;
+      waiting.push({
+        kind: "BLOCKER",
+        id: b.id || basename(f, ".md"),
+        title: b.title,
+        severity: b.severity,
+        owner: b.owner,
+        status: b.status,
+        path: relative(paths.bibleDir, f),
+        since: new Date(statSync(f).mtimeMs).toISOString(),
+      });
+    } catch {
+      /* unreadable blocker */
+    }
+  }
+  const qPath = join(paths.coordDir, "INTEGRATION_QUEUE.md");
+  if (existsSync(qPath)) {
+    for (const q of parseQueue(readFileSync(qPath, "utf8"))) {
+      waiting.push({
+        kind: "QUEUE",
+        id: q.id,
+        title: q.title,
+        severity: null,
+        owner: null,
+        status: "OPEN",
+        path: relative(paths.bibleDir, qPath),
+        since: new Date(statSync(qPath).mtimeMs).toISOString(),
+      });
+    }
+  }
 
   return {
     generatedAt: now.toISOString(),
@@ -569,6 +728,7 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
     milestone,
     latestResults,
     commits,
+    waiting,
     reports,
     notes,
     invalid,

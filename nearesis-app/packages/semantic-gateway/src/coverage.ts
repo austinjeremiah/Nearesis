@@ -65,8 +65,8 @@ export async function loadQualityGaps(
       out.push({
         providerId: provider,
         dataset,
-        from: r.from_utc,
-        to: r.to_utc,
+        from: r.fu,
+        to: r.tu,
         state: r.state,
         reasonCode: r.reason_code,
       });

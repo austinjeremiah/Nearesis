@@ -9,3 +9,4 @@ export * from "./events.ts";
 export * from "./canvas.ts";
 export * from "./api.ts";
 export * from "./monitor.ts";
+export * from "./ports.ts";

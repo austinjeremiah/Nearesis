@@ -7,7 +7,7 @@
     "node": ">=24.22.1"
   },
   "scripts": {
-    "typecheck": "pnpm -r --if-present typecheck",
+    "typecheck": "tsc -p tsconfig.json && pnpm -r --if-present typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -17,7 +17,8 @@
     "accept": "tsx scripts/accept.ts",
     "dev:infra": "docker compose -f infrastructure/compose/docker-compose.yml up -d --wait",
     "dev:infra:down": "docker compose -f infrastructure/compose/docker-compose.yml down",
-    "quality:all": "pnpm typecheck && pnpm lint && pnpm test"
+    "quality:all": "pnpm typecheck && pnpm lint && pnpm test",
+    "coord": "tsx scripts/coord.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -28,6 +29,11 @@
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.1",
-    "vitest": "5.1.0"
+    "vitest": "5.1.0",
+    "zod": "4.6.7"
+  },
+  "dependencies": {
+    "@nearesis/contracts": "workspace:*",
+    "@nearesis/acceptance": "workspace:*"
   }
 }

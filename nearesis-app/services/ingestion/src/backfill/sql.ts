@@ -63,3 +63,18 @@ export function billedSinceSql(region: string, sinceIso: string): string {
     `WHERE creation_time >= TIMESTAMP '${sinceIso}' AND total_bytes_billed IS NOT NULL`,
   ].join("\n");
 }
+
+/** Authoritative per-job billing for specific job ids (used to reconcile chunk checkpoints). */
+export function billedByJobsSql(region: string, sinceIso: string, jobIds: string[]): string {
+  if (!/^[a-z0-9-]+$/.test(region))
+    throw new IngestionError("INVALID_INPUT", false, { reason: "bad region" });
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(sinceIso))
+    throw new IngestionError("INVALID_INPUT", false, { reason: "bad timestamp" });
+  if (jobIds.length === 0 || !jobIds.every((j) => /^[A-Za-z0-9_-]+$/.test(j)))
+    throw new IngestionError("INVALID_INPUT", false, { reason: "bad job id list" });
+  return [
+    "SELECT job_id, total_bytes_billed",
+    `FROM \`region-${region}\`.INFORMATION_SCHEMA.JOBS_BY_PROJECT`,
+    `WHERE creation_time >= TIMESTAMP '${sinceIso}' AND job_id IN (${jobIds.map((j) => `'${j}'`).join(", ")})`,
+  ].join("\n");
+}

@@ -2,13 +2,14 @@ import { IngestionError } from "../errors.ts";
 import {
   BigQueryGuard,
   BQ_ADAPTER_VERSION,
+  type BigQueryJobLike,
   type BigQueryLike,
   type Discovery,
 } from "../adapters/bigquery.ts";
 import { assertGuardedSql } from "../adapters/bigquery-guard.ts";
 import type { RawArchive } from "../archive/archive.ts";
 import { BudgetLedger, MIB } from "./budget.ts";
-import { billedSinceSql, chunkSql } from "./sql.ts";
+import { billedByJobsSql, billedSinceSql, chunkSql } from "./sql.ts";
 import type { Chunk } from "./plan.ts";
 
 export const BUDGET_PROBE_CAP_BYTES = 100 * 1_000_000; // INFORMATION_SCHEMA reads must stay under 100 MB
@@ -96,6 +97,24 @@ export class BudgetedBigQuery {
     return { bytes, jobs, regions };
   }
 
+  /** Actual total_bytes_billed per job id, straight from INFORMATION_SCHEMA (dry run + 100 MB cap). */
+  async billedByJobs(location: string, sinceIso: string, jobIds: string[]): Promise<Map<string, number>> {
+    const sql = billedByJobsSql(location, sinceIso, jobIds);
+    const est = await this.dryRun(sql, location);
+    if (est > BUDGET_PROBE_CAP_BYTES)
+      throw new IngestionError("BQ_REJECTED", false, { reason: "reconcile estimate above 100 MB", est });
+    const [job] = await this.bq.createQueryJob({
+      query: sql,
+      location,
+      maximumBytesBilled: String(BUDGET_PROBE_CAP_BYTES),
+      useQueryCache: false,
+      labels: { source: "nearesis_backfill_budget" },
+    });
+    const [rows] = await job.getQueryResults();
+    this.jobs++;
+    return new Map(rows.map((r) => [String(r.job_id), Number(r.total_bytes_billed)]));
+  }
+
   async runChunk(chunk: Chunk, ledger: BudgetLedger, location: string): Promise<ChunkOutcome> {
     const sql = chunkSql(chunk);
     assertGuardedSql(sql); // never without a finite block_date partition filter
@@ -113,8 +132,16 @@ export class BudgetedBigQuery {
     });
     const [rows] = await job.getQueryResults();
     this.jobs++;
-    const billed = Number(job.metadata.statistics?.query?.totalBytesBilled ?? Number.NaN);
-    // A missing billed figure must never be treated as free: assume the cap was consumed.
+    let billed = Number(job.metadata.statistics?.query?.totalBytesBilled ?? Number.NaN);
+    if (!Number.isFinite(billed)) {
+      // The result call can return before the job statistics are populated: refresh the job metadata.
+      const refresh = (job as { getMetadata?: () => Promise<[BigQueryJobLike["metadata"]]> }).getMetadata;
+      if (refresh) {
+        const [m] = await refresh.call(job);
+        billed = Number(m.statistics?.query?.totalBytesBilled ?? Number.NaN);
+      }
+    }
+    // A missing billed figure must never be treated as free: assume the cap was consumed (conservative).
     const billedBytes = Number.isFinite(billed) ? billed : fit.maximumBytesBilled;
     ledger.record(chunk.id, estimate, billedBytes);
     const now = new Date(this.clock()).toISOString();

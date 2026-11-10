@@ -176,6 +176,27 @@ describe("orchestrator: checkpoint, resume and stop on budget", () => {
     expect(r.status).toBe("done");
     expect(ledger.billedToday).toBe(Math.ceil((5 * MIB * 11) / 10));
   });
+  it("refreshes job metadata when the result returns before billing statistics are populated", async () => {
+    const f = fakeBq(() => 5 * MIB);
+    const j = f.bq.createQueryJob.bind(f.bq);
+    f.bq.createQueryJob = async (o) => {
+      const [job] = await j(o);
+      if (o.dryRun) return [job];
+      delete job.metadata.statistics?.query?.totalBytesBilled;
+      (job as unknown as { getMetadata: () => Promise<unknown> }).getMetadata = async () => [
+        { statistics: { query: { totalBytesBilled: String(5 * MIB) } } },
+      ];
+      return [job];
+    };
+    const ledger = new BudgetLedger(0);
+    const r = await new BudgetedBigQuery(f.bq, new RawArchive(new MemoryObjectStore(), null)).runChunk(
+      planChunks()[0]!,
+      ledger,
+      "us-east1",
+    );
+    expect(r.status).toBe("done");
+    expect(ledger.billedToday).toBe(5 * MIB);
+  });
   it("days missing from a chunk result become gaps, never zero rows", () => {
     const chunk = planChunks()[0]!; // 2026-11-01..2026-11-10
     const { coverage, gaps } = coverageForChunk(chunk, new Set(["2026-11-01", "2026-11-03"]), 1);

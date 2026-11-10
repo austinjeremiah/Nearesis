@@ -20,11 +20,12 @@ const { values } = parseArgs({
     "only-chunk": { type: "string" },
     "explorer-minutes": { type: "string" },
     "report-only": { type: "boolean" },
+    reconcile: { type: "boolean" },
   },
   allowPositionals: true,
 });
 const only = values.only;
-const want = (p: string): boolean => only === undefined || only === p;
+const want = (p: string): boolean => !values.reconcile && (only === undefined || only === p);
 const log = (m: string): void => console.log(`[backfill ${new Date().toISOString()}] ${m}`);
 
 const store = new StateStore(STATE_PATH, WINDOW_FROM, WINDOW_TO);
@@ -50,6 +51,28 @@ const summary: RunSummary = {
 };
 
 try {
+  if (values.reconcile) {
+    const runner = new BudgetedBigQuery(createBigQueryClient(), archive);
+    const discovery = await runner.discover(adcCredentialKind());
+    const done = Object.values(store.state.chunks).filter((c) => c.jobId);
+    const since = new Date(
+      Math.min(...done.map((c) => Date.parse(c.completedAtUTC))) - 3_600_000,
+    ).toISOString();
+    const actual = await runner.billedByJobs(
+      discovery.datasetLocation,
+      since,
+      done.map((c) => c.jobId as string),
+    );
+    for (const c of done) {
+      const b = actual.get(c.jobId as string);
+      if (b === undefined || b === c.billedBytes) continue;
+      store.state.billedByQuotaDay[c.quotaDay] =
+        (store.state.billedByQuotaDay[c.quotaDay] ?? 0) - c.billedBytes + b;
+      log(`reconcile ${c.id}: ${c.billedBytes} -> ${b}`);
+      c.billedBytes = b;
+    }
+    store.save();
+  }
   if (want("bq") && !values["report-only"]) {
     const bq = createBigQueryClient();
     const runner = new BudgetedBigQuery(bq, archive);

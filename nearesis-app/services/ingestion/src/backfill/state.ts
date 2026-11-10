@@ -45,32 +45,54 @@ export const emptyState = (from: string, to: string): BackfillState => ({
   price: null,
 });
 
-/** Local checkpoint file (atomic write: temp + rename). */
+/**
+ * Local checkpoint file (atomic write: temp + rename). Several phases may run as separate processes, so save() merges:
+ * a section this process changed wins, a section it did not touch keeps whatever another process wrote; chunks are unioned.
+ */
 export class StateStore {
   state: BackfillState;
+  private baseline: BackfillState;
   constructor(
     readonly path: string,
     from: string,
     to: string,
   ) {
+    this.state = this.readDisk() ?? emptyState(from, to);
+    this.baseline = structuredClone(this.state);
+  }
+  private readDisk(): BackfillState | null {
     try {
-      this.state = JSON.parse(readFileSync(path, "utf8")) as BackfillState;
+      return JSON.parse(readFileSync(this.path, "utf8")) as BackfillState;
     } catch {
-      this.state = emptyState(from, to);
+      return null;
     }
   }
   save(): void {
+    const disk = this.readDisk();
+    if (disk) {
+      const merged = { ...disk } as Record<string, unknown>;
+      for (const k of Object.keys(this.state) as Array<keyof BackfillState>) {
+        if (JSON.stringify(this.state[k]) !== JSON.stringify(this.baseline[k])) merged[k] = this.state[k];
+      }
+      merged.chunks = { ...disk.chunks, ...this.state.chunks };
+      this.state = merged as unknown as BackfillState;
+    }
+    // informational per-quota-day totals are always derived from the checkpointed chunks
+    const byDay: Record<string, number> = {};
+    for (const c of Object.values(this.state.chunks))
+      byDay[c.quotaDay] = (byDay[c.quotaDay] ?? 0) + c.billedBytes;
+    this.state.billedByQuotaDay = byDay;
     mkdirSync(dirname(this.path), { recursive: true });
-    const tmp = `${this.path}.tmp`;
+    const tmp = `${this.path}.${process.pid}.tmp`;
     writeFileSync(tmp, `${JSON.stringify(this.state, null, 2)}\n`);
     renameSync(tmp, this.path);
+    this.baseline = structuredClone(this.state);
   }
   isDone(id: string): boolean {
     return this.state.chunks[id] !== undefined;
   }
   markDone(c: ChunkDone): void {
     this.state.chunks[c.id] = c;
-    this.state.billedByQuotaDay[c.quotaDay] = (this.state.billedByQuotaDay[c.quotaDay] ?? 0) + c.billedBytes;
     this.save();
   }
 }

@@ -25,11 +25,29 @@ import {
   runRoleTask as runRoleGraph,
   sha256Hex,
   withTenant,
+  validatorActorId,
   type AuditSink,
+  type LeaseBroker,
+  type LocalToolHandler,
   type Policy,
   type RoleResult,
 } from "@nearesis/agent-runtime";
 import type { ChildOutcome, ChildSpec, InvestigationInput, PlanView, PolicyView } from "./types.ts";
+
+/**
+ * Executes the owner-approved privileged action. The kernel implementation previews the proposal as the composer
+ * agent principal (canvas.preview@1 through the gateway) and applies it with the kernel `canvas.apply_patch` command.
+ */
+export interface CanvasExecutor {
+  apply(a: {
+    tenantId: string;
+    workspaceId: string;
+    runId: string;
+    actionHash: string;
+    params: Record<string, unknown>;
+    directorTaskId: string;
+  }): Promise<{ state: string; detail?: Record<string, unknown> }>;
+}
 
 export interface ActivityDeps {
   /** App-role pool (nearesis_app, search_path=runtime). */
@@ -39,6 +57,13 @@ export interface ActivityDeps {
   policy: Policy;
   audit: AuditSink;
   gateway: ToolGateway;
+  /** Kernel capability leases for agent principals (FND-20261110-030). */
+  leases: LeaseBroker;
+  canvas: CanvasExecutor;
+  /** Runtime-executed tools (canvas.patch@1 -> proposal behind a kernel lease check). */
+  localTools?: Record<string, LocalToolHandler>;
+  /** Kernel mode: also audit gateway denials in the runtime audit and enforce the role allowlist client-side. */
+  kernelMode?: boolean;
   provider: InferenceProvider;
   model?: string;
   /** Capabilities the investigation may delegate (root task grant). */
@@ -57,7 +82,8 @@ export function toApplicationFailure(e: unknown): unknown {
   return e;
 }
 
-export const directorBudget = { tokens: 20000, toolCalls: 50, usd: 2 };
+/** toolCalls is a reservation against the run budget; the 24-calls-per-hypothesis cap is enforced by the tool meter. */
+export const directorBudget = { tokens: 20000, toolCalls: 6, usd: 2 };
 
 export function createActivities(d: ActivityDeps) {
   const roles = loadRoles();
@@ -100,8 +126,8 @@ export function createActivities(d: ActivityDeps) {
       return guarded(async () => {
         await withTenant(d.pool, i.tenantId, (c) =>
           c.query(
-            `INSERT INTO runs (id, tenant_id, workspace_id, investigation_id, question_id, snapshot_ref, budget_id, workflow_id, scenario, state)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'REQUESTED') ON CONFLICT (id) DO NOTHING`,
+            `INSERT INTO runs (id, tenant_id, workspace_id, investigation_id, question_id, snapshot_ref, budget_id, workflow_id, scenario, state, requested_by, requested_role)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'REQUESTED',$10,$11) ON CONFLICT (id) DO NOTHING`,
             [
               i.runId,
               i.tenantId,
@@ -112,9 +138,12 @@ export function createActivities(d: ActivityDeps) {
               i.budgetId,
               i.workflowId,
               i.scenario ?? null,
+              i.requestedBy?.userId ?? null,
+              i.requestedBy?.role ?? null,
             ],
           ),
         );
+        const rootCaps = [...new Set([...d.investigationGrant, ...roles.get("director")!.allowedTools])];
         const root = await supervisor.createRootTask({
           tenantId: i.tenantId,
           workspaceId: i.workspaceId,
@@ -123,8 +152,17 @@ export function createActivities(d: ActivityDeps) {
           budgetId: i.budgetId,
           snapshotRef: i.snapshotRef,
           role: "director",
-          capabilities: [...new Set([...d.investigationGrant, ...roles.get("director")!.allowedTools])],
+          capabilities: rootCaps,
           budget: directorBudget,
+        });
+        // The run's workspace grant: root leases held by the director task; every child lease derives from these.
+        await d.leases.ensureRoot({
+          tenantId: i.tenantId,
+          workspaceId: i.workspaceId,
+          runId: i.runId,
+          taskId: root.taskId,
+          role: "director",
+          capabilities: rootCaps,
         });
         return { directorTaskId: root.taskId };
       });
@@ -202,26 +240,48 @@ export function createActivities(d: ActivityDeps) {
             heartbeat: () => Context.current().heartbeat(),
             ...(saver ? { checkpointer: saver } : {}),
             discoverMetrics: async (metrics, key) => {
+              // FND-20261110-030: coverage is checked by a semantic_analyst agent principal holding its own lease,
+              // derived from the run's grant. No service principal exists; the director never calls semantic tools.
+              const validator = validatorActorId(i.runId);
+              await d.leases.ensureChild({
+                tenantId: i.tenantId,
+                workspaceId: i.workspaceId,
+                runId: i.runId,
+                parentTaskId: i.directorTaskId,
+                taskId: validator,
+                role: "semantic_analyst",
+                capabilities: ["semantic.discover@1"],
+              });
               const req: ExecutionRequest = {
                 requestId: randomUUID(),
                 idempotencyKey: key,
                 tenantId: i.tenantId,
                 workspaceId: i.workspaceId,
-                actor: { kind: "agent", actorId: i.directorTaskId, parentRunId: i.runId },
+                actor: { kind: "agent", actorId: validator, parentRunId: i.runId },
                 capability: "semantic.discover@1",
-                input: { metrics },
+                input: {},
                 deadlineMs: 60_000,
-                trace: { traceId: `${i.runId}/${i.directorTaskId}`, researchRunId: i.runId },
+                trace: { traceId: `${i.runId}/${validator}`, researchRunId: i.runId },
               };
               const r = await d.gateway.invoke(
-                { kind: "service", actorId: i.directorTaskId, orgId: i.tenantId, parentRunId: i.runId },
+                { kind: "agent", actorId: validator, orgId: i.tenantId, parentRunId: i.runId },
                 req,
               );
-              const p = (r.payload ?? { available: [], missing: metrics }) as {
-                available: string[];
-                missing: string[];
+              if (r.state !== "ok" && r.state !== "partial")
+                throw new AgentRuntimeError(
+                  r.state === "blocked" ? "TOOL_NOT_GRANTED" : "SOURCE_UNAVAILABLE",
+                  `plan validation discover ${r.state}: ${r.reasonCode ?? ""}`,
+                  { reasonCode: r.reasonCode ?? null },
+                );
+              const catalog = new Set(
+                ((r.payload as { metrics?: Array<{ id?: string }> } | null)?.metrics ?? []).map(
+                  (m) => m.id ?? "",
+                ),
+              );
+              return {
+                available: metrics.filter((m) => catalog.has(m)),
+                missing: metrics.filter((m) => !catalog.has(m)),
               };
-              return p;
             },
           });
           const cfg = { configurable: { thread_id: i.directorTaskId }, recursionLimit: 50 };
@@ -312,6 +372,16 @@ export function createActivities(d: ActivityDeps) {
             hypothesisId,
           },
         );
+        // The child's leases are derived from the parent's (never wider); idempotent for a retried or deduplicated spawn.
+        await d.leases.ensureChild({
+          tenantId: i.tenantId,
+          workspaceId: i.workspaceId,
+          runId: i.runId,
+          parentTaskId: i.parentTaskId,
+          taskId: r.taskId,
+          role: i.child.role,
+          capabilities: i.child.capabilities,
+        });
         return { taskId: r.taskId, depth: r.depth, created: r.created, status: r.status, hypothesisId };
       });
     },
@@ -359,6 +429,8 @@ export function createActivities(d: ActivityDeps) {
           taskId: i.taskId,
           hypothesisId: i.hypothesisId,
           role: i.role,
+          ...(d.kernelMode ? { roleAllowed: roleCfg.allowedTools, auditGatewayDenials: true } : {}),
+          ...(d.localTools ? { local: d.localTools } : {}),
         });
         const inference = new LedgerInference(d.provider, d.pool, supervisor, {
           tenantId: i.tenantId,
@@ -556,21 +628,18 @@ export function createActivities(d: ActivityDeps) {
             kind: "privileged_action",
           },
           async () => {
-            const req: ExecutionRequest = {
-              requestId: randomUUID(),
-              idempotencyKey: `priv-${computed}`,
+            const r = await d.canvas.apply({
               tenantId: i.tenantId,
               workspaceId: i.workspaceId,
-              actor: { kind: "agent", actorId: i.directorTaskId, parentRunId: i.runId },
-              capability: "canvas.patch@1",
-              input: i.action.params,
-              deadlineMs: 60_000,
-              trace: { traceId: `${i.runId}/priv`, researchRunId: i.runId },
-            };
-            const r = await d.gateway.invoke(
-              { kind: "service", actorId: i.directorTaskId, orgId: i.tenantId, parentRunId: i.runId },
-              req,
-            );
+              runId: i.runId,
+              actionHash: computed,
+              params: i.action.params,
+              directorTaskId: i.directorTaskId,
+            });
+            if (r.state !== "ok")
+              throw new AgentRuntimeError("TOOL_NOT_GRANTED", `privileged action not applied: ${r.state}`, {
+                ...(r.detail ?? {}),
+              });
             return { state: r.state };
           },
         );
@@ -641,15 +710,17 @@ export function createActivities(d: ActivityDeps) {
       inFlight: Array<{ effectKey: string; kind: string; guarantee: string; compensation: string }>;
       cancelledTasks: number;
     }> {
-      return withTenant(d.pool, i.tenantId, async (c) => {
+      let cancelled: Array<{ id: string; workspace_id: string }> = [];
+      const out = await withTenant(d.pool, i.tenantId, async (c) => {
         const eff = await c.query<{ effect_key: string; kind: string; guarantee: string }>(
           "SELECT effect_key, kind, guarantee FROM agent_side_effects WHERE run_id=$1 AND status='started' AND kind <> 'fault' ORDER BY effect_key",
           [i.runId],
         );
-        const t = await c.query(
-          `UPDATE tasks SET status='CANCELLED', updated_at=now() WHERE run_id=$1 AND status IN ('QUEUED','RUNNING','WAITING_APPROVAL')`,
+        const t = await c.query<{ id: string; workspace_id: string }>(
+          `UPDATE tasks SET status='CANCELLED', updated_at=now() WHERE run_id=$1 AND status IN ('QUEUED','RUNNING','WAITING_APPROVAL') RETURNING id, workspace_id`,
           [i.runId],
         );
+        cancelled = t.rows;
         return {
           inFlight: eff.rows.map((r) => ({
             effectKey: r.effect_key,
@@ -662,6 +733,15 @@ export function createActivities(d: ActivityDeps) {
           cancelledTasks: t.rowCount ?? 0,
         };
       });
+      // A cancelled task must not keep tool authority: revoke its kernel leases (idempotent).
+      for (const t of cancelled)
+        await d.leases.revokeTask({
+          tenantId: i.tenantId,
+          workspaceId: t.workspace_id,
+          runId: i.runId,
+          taskId: t.id,
+        });
+      return out;
     },
   };
 }

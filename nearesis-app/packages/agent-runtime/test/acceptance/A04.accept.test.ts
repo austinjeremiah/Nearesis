@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { observe } from "@nearesis/acceptance";
-import { hashOf, type ScriptRule } from "../../src/index.ts";
+import { hashOf, primaryQuery, type ScriptRule } from "../../src/index.ts";
 import { auditRows, makeRt, sql, type Rt } from "../helpers/rt.ts";
 
 let rt: Rt;
@@ -12,9 +12,9 @@ afterAll(async () => rt.stop());
 // fx: the model hallucinates a tool, sends a malformed call, then calls a real tool it was never granted
 const calls = [
   { tool: "wire.transfer@1", input: { to: "attacker", amount: "1000000" } },
-  { tool: "semantic.query@1", input: { metric: "intents.swap_count_24h", unexpected: "field" } },
-  { tool: "semantic.query@1", input: { metric: 42 } },
-  { tool: "canvas.patch@1", input: { panelId: "p", spec: {} } },
+  { tool: "semantic.query@1", input: { ...primaryQuery(), unexpected: "field" } },
+  { tool: "semantic.query@1", input: { ...primaryQuery(), limit: "many" } },
+  { tool: "canvas.patch@1", input: { proposal: "owned" } },
 ];
 const rules: ScriptRule[] = [
   {

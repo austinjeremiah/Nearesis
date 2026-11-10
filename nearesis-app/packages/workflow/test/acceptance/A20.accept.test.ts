@@ -6,18 +6,38 @@ import {
   exportHistories,
   makeEnv,
   q,
-  runInvestigation,
+  runViaApi,
+  startApi,
   spawnWorkerProcess,
+  type Api,
   waitFor,
   type Env,
   type WorkerProc,
 } from "../helpers/harness.ts";
 
 let env: Env;
+let api: Api;
 beforeAll(async () => {
-  env = await makeEnv();
-}, 120_000);
-afterAll(async () => env.stop());
+  env = await makeEnv({ kernel: true });
+  api = await startApi(env);
+}, 180_000);
+afterAll(async () => {
+  await api?.close();
+  await env.stop();
+});
+
+/** Owner decision through the approvals API for the run's pending request. */
+async function decide(runId: string, decision: "approve" | "reject", expectHash?: string) {
+  const list = await api.call("GET", `/v1/runs/${runId}/approvals`);
+  const pending = (list.json.approvals as Array<{ approvalId: string; actionHash: string }>)[0]!;
+  if (expectHash) expect(pending.actionHash).toBe(expectHash);
+  const r = await api.call("POST", `/v1/runs/${runId}/approvals/${pending.approvalId}`, {
+    decision,
+    actionHash: pending.actionHash,
+  });
+  expect(r.status).toBe(202);
+  return pending.actionHash;
+}
 
 const policy = { heartbeatTimeoutMs: 3000 };
 const stateOf = (tenantId: string, runId: string) =>
@@ -36,7 +56,7 @@ it("A20: four-agent investigation survives a worker crash and restart with no re
     // ================= A20-P: all branches succeed; worker 1 SIGKILLed with >=2 children mid-activity =================
     const w1 = await spawnWorkerProcess(env, "w1", { policy, stepDelayMs: 1200 });
     procs.push(w1);
-    const P = await runInvestigation(env, "A20-P");
+    const P = await runViaApi(env, api, "A20-P");
     const inflight = await waitFor(async () => {
       const r = await q<{ effect_key: string }>(
         env,
@@ -70,7 +90,7 @@ it("A20: four-agent investigation survives a worker crash and restart with no re
     expect(await privCount(P.tenantId, P.runId)).toBe(0);
     const action = planFor("A20-P").privilegedAction!;
     const hash = privilegedActionHash(action);
-    await P.handle.signal("approve", { actionHash: hash, approvedBy: "owner" });
+    await decide(P.runId, "approve", hash);
     const res = await P.result();
     expect(res.state).toBe("COMPLETE"); // (a) A20-P reaches COMPLETE
 
@@ -190,7 +210,13 @@ it("A20: four-agent investigation survives a worker crash and restart with no re
       "SELECT action_hash, approved_by FROM approvals WHERE run_id=$1 AND decision='approve'",
       [P.runId],
     );
-    expect(approval).toEqual([{ action_hash: hash, approved_by: "owner" }]);
+    expect(approval).toEqual([{ action_hash: hash, approved_by: env.kernel!.userId }]);
+    // (e) the approved patch was applied once through the kernel canvas.apply_patch command
+    const applied = await env.kernel!.kernelAdmin.query(
+      "SELECT count(*)::int AS n FROM canvas_patches WHERE workspace_id=$1",
+      [env.workspaceId],
+    );
+    expect(applied.rows[0].n).toBe(1);
     const timeline = await q<{
       kind: string;
       from_state: string | null;
@@ -205,7 +231,7 @@ it("A20: four-agent investigation survives a worker crash and restart with no re
     await exportHistories(env, P.workflowId, "a20-p");
 
     // ================= A20-N1: one child's source unavailable => exactly PARTIAL, failed branch named =================
-    const N1 = await runInvestigation(env, "A20-N1");
+    const N1 = await runViaApi(env, api, "A20-N1");
     const n1 = await N1.result();
     expect(n1.state).toBe("PARTIAL");
     expect(n1.failedBranches).toEqual([
@@ -215,9 +241,9 @@ it("A20: four-agent investigation survives a worker crash and restart with no re
     await exportHistories(env, N1.workflowId, "a20-n1");
 
     // ================= A20-N2: approval rejected => exactly BLOCKED, no privileged execution =================
-    const N2 = await runInvestigation(env, "A20-N2");
+    const N2 = await runViaApi(env, api, "A20-N2");
     await waitFor(async () => (await stateOf(N2.tenantId, N2.runId)) === "APPROVAL_NEEDED", 120_000);
-    await N2.handle.signal("reject", { rejectedBy: "owner" });
+    await decide(N2.runId, "reject");
     const n2 = await N2.result();
     expect(n2.state).toBe("BLOCKED");
     expect(n2.failure?.reasonCode).toBe("APPROVAL_REJECTED");
@@ -226,9 +252,7 @@ it("A20: four-agent investigation survives a worker crash and restart with no re
 
     observe({
       testId: "A20",
-      blocked:
-        "A20-P/N1/N2 ran end-to-end on the real Temporal server with real worker processes, but through the fake ToolGateway, the scripted semantic catalog and direct workflow start: apps/api /questions, the kernel gateway/K-gate tenancy and the G03 semantic gateway fixture are not yet integrated, and approval was given by workflow signal rather than the approvals API. Every A20 criterion was asserted and held (A20-P COMPLETE, N1 exactly PARTIAL, N2 exactly BLOCKED); re-run with the real gateway and API to record PASS.",
-      observed: `A20-P COMPLETE: director + 3 children traceable; w1 SIGKILLed at ${killedAt} with ${killedKeys.length} inference calls in flight across >=2 children, replacement w3 started ${restartedAt}; privileged step waited in APPROVAL_NEEDED (0 executions) then ran once after approval ${hash.slice(0, 10)}; internal effects ${internal.length} rows all provider_calls=1; inference ${inference.length} keys, ${charges.length} charges (exactly-once acceptance), duplicate provider deliveries disclosed: ${JSON.stringify(duplicates)} (at-least-once delivery, exactly-once acceptance); 0 financial/chain effects; quant scope-expansion registry.read@1 denied TOOL_NOT_GRANTED with audit; charged ${led[0]!.charged} <= reserved ${led[0]!.reserved} tokens. A20-N1 PARTIAL named ${JSON.stringify(n1.failedBranches)}; A20-N2 BLOCKED ${n2.failure?.reasonCode}`,
+      observed: `questions via the API, approvals via the approvals API, real kernel gateway/leases and near-thesis plugin, canvas.apply_patch applied once (canvas_patches=${applied.rows[0].n}). A20-P COMPLETE: director + 3 children traceable; w1 SIGKILLed at ${killedAt} with ${killedKeys.length} inference calls in flight across >=2 children, replacement w3 started ${restartedAt}; privileged step waited in APPROVAL_NEEDED (0 executions) then ran once after approval ${hash.slice(0, 10)}; internal effects ${internal.length} rows all provider_calls=1; inference ${inference.length} keys, ${charges.length} charges (exactly-once acceptance), duplicate provider deliveries disclosed: ${JSON.stringify(duplicates)} (at-least-once delivery, exactly-once acceptance); 0 financial/chain effects; quant scope-expansion registry.read@1 denied TOOL_NOT_GRANTED with audit; charged ${led[0]!.charged} <= reserved ${led[0]!.reserved} tokens. A20-N1 PARTIAL named ${JSON.stringify(n1.failedBranches)}; A20-N2 BLOCKED ${n2.failure?.reasonCode}`,
       fixtureHash: hashOf([planFor("A20-P"), planFor("A20-N1"), planFor("A20-N2")]),
       evidence: {
         killedAt,

@@ -6,29 +6,31 @@ import { AgentRole } from "@nearesis/contracts";
 import {
   RoleConfig,
   TOOL_BY_ID,
+  grantFor,
   hashOf,
   loadRoles,
+  primaryQuery,
+  vizRequests,
   type ScriptRule,
-  FakeToolGateway,
-  PgLeases,
-  PgAudit,
 } from "../../src/index.ts";
-import { auditRows, makeRt, sql, type Rt } from "../helpers/rt.ts";
-import { scenarioHandlers } from "../../src/index.ts";
+import { inHours } from "./kernel-helpers.ts";
+import { makeKrt, type Krt } from "../helpers/krt.ts";
 
-let rt: Rt;
+let krt: Krt;
 beforeAll(async () => {
-  rt = await makeRt();
-}, 60_000);
-afterAll(async () => rt.stop());
+  // the matrix exercises every role, so the run grant (root leases) covers the whole catalog
+  krt = await makeKrt({ rootCapabilities: [...TOOL_BY_ID.keys()] });
+}, 120_000);
+afterAll(async () => krt.stop());
 
+/** Schema-valid sample input per catalog tool (the real near-thesis schemas for semantic.* and canvas.preview). */
 const SAMPLE: Record<string, unknown> = {
   "agent.spawn@1": { role: "quant", objective: "x" },
   "evidence.inspect@1": { evidenceId: "e" },
   "evidence.read@1": { evidenceId: "e" },
   "plan.propose@1": { plan: {} },
-  "semantic.discover@1": { metrics: ["intents.swap_count_24h"] },
-  "semantic.query@1": { metric: "intents.swap_count_24h" },
+  "semantic.discover@1": {},
+  "semantic.query@1": primaryQuery(),
   "registry.read@1": { key: "k" },
   "adapter.docs@1": { adapter: "a" },
   "web.fetch_approved@1": { url: "https://example.invalid" },
@@ -36,8 +38,8 @@ const SAMPLE: Record<string, unknown> = {
   "stats.read@1": { metric: "m" },
   "research.run_bounded_test@1": { test: "t", claim: "c" },
   "source.read_verified@1": { source: "s" },
-  "canvas.preview@1": { panelId: "p", spec: {} },
-  "canvas.patch@1": { panelId: "p", spec: {} },
+  "canvas.preview@1": { expectedRevision: 0, requests: vizRequests() },
+  "canvas.patch@1": { proposal: "p" },
   "monitor.read@1": { ruleId: "r" },
   "investigation.start@1": { question: "q" },
   "evidence.verify_hashes@1": { manifest: "m" },
@@ -68,13 +70,22 @@ function ch05Table(): Array<{ role: string; input: string; artifact: string; sto
   });
 }
 
-it("A11: ten role configs validate and out-of-role tool calls are denied (fake gateway; see blocked note)", async () => {
+type Row = {
+  pass: string;
+  role: string;
+  tool: string;
+  expected: "allow" | "deny";
+  got: string;
+  reason: string | null;
+};
+
+it("A11: ten role configs validate and out-of-role tool calls are denied by the real kernel gateway and lease policy", async () => {
   // (a) exactly 10 roles validate and match the ch.05 table
   const roles = loadRoles();
   expect(roles.size).toBe(10);
-  const table = ch05Table();
-  expect(table).toHaveLength(10);
-  for (const row of table) {
+  const tableRows = ch05Table();
+  expect(tableRows).toHaveLength(10);
+  for (const row of tableRows) {
     const key = row.role.toLowerCase().replace(" ", "_");
     const cfg = RoleConfig.parse(roles.get(key as never));
     expect(AgentRole.options).toContain(cfg.role);
@@ -87,105 +98,128 @@ it("A11: ten role configs validate and out-of-role tool calls are denied (fake g
         .toLowerCase()
         .slice(0, 4),
     );
-    // stop/escalation conditions: every configured condition is present in the table cell
     for (const s of cfg.stopConditions)
       expect(row.stop.toLowerCase()).toContain(s.toLowerCase().split(" ")[0]!);
     for (const tool of cfg.allowedTools) expect(TOOL_BY_ID.has(tool)).toBe(true);
   }
-  // matrix: 1 allowed + >=2 disallowed per role, using an OVER-BROAD lease (every tool) so the role allowlist alone must deny
+
   const allTools = [...TOOL_BY_ID.keys()];
-  const gateway = new FakeToolGateway({
-    leases: new PgLeases(rt.pool),
-    audit: new PgAudit(rt.pool),
-    roles: roles as never,
-    handlers: scenarioHandlers(),
-    pool: rt.pool,
-  });
-  const matrix: Array<{
-    role: string;
-    tool: string;
-    expected: "allow" | "deny";
-    got: string;
-    reason: string | null;
-  }> = [];
-  let allowedOk = 0;
-  let allowedTotal = 0;
-  let deniedOk = 0;
-  let deniedTotal = 0;
-  const calls: Array<{ role: string; tool: string }> = [];
-  for (const [role, cfg] of roles) {
-    // lease is attached to a task row with every tool (spawn through the supervisor needs parent subset => insert via admin)
-    const allowed = cfg.allowedTools[0]!;
-    const others = allTools.filter((x) => !cfg.allowedTools.includes(x));
-    const preferred = [
-      { composer: "semantic.query@1", data_scout: "canvas.patch@1", publisher: "agent.spawn@1" }[
-        role as string
-      ],
-      ...others,
-    ].filter(Boolean) as string[];
-    const dis = [...new Set(preferred)].slice(0, 3);
-    for (const [tool, expected] of [[allowed, "allow"], ...dis.map((d) => [d, "deny"])] as Array<
-      [string, "allow" | "deny"]
-    >) {
-      calls.push({ role, tool });
-      const rules: ScriptRule[] = [
-        {
-          match: () => true,
-          respond: (r) =>
-            r.prompt.includes("[step=0]")
-              ? { action: "tool", tool, input: SAMPLE[tool] }
-              : {
-                  action: "finish",
-                  status: "insufficient_data",
-                  statement: "done",
-                  facts: [],
-                  limitations: [],
-                },
-        },
-      ];
-      const task = await rt.spawnTask(role as never, [], 1000, `m-${role}-${tool}`);
-      await rt.db.admin.query("UPDATE tasks SET allowed_capabilities=$2::jsonb WHERE id=$1", [
-        task.taskId,
-        JSON.stringify(allTools),
-      ]);
-      const res = await rt.runRole({ role: role as never, ...task, objective: "matrix", rules, gateway });
-      await rt.db.admin.query("UPDATE tasks SET status='DONE' WHERE id=$1", [task.taskId]);
-      const log = res.toolLog[0]!;
-      const got = log.ok ? "allow" : "deny";
-      matrix.push({ role, tool, expected, got, reason: log.reasonCode });
-      if (expected === "allow") {
-        allowedTotal++;
-        if (got === "allow") allowedOk++;
-      } else {
-        deniedTotal++;
-        if (got === "deny" && log.reasonCode === "TOOL_NOT_GRANTED") deniedOk++;
+  const matrix: Row[] = [];
+  const calls: Array<{ pass: string; role: string; tool: string }> = [];
+  const taskPass = new Map<string, string>();
+  const scripted = (tool: string): ScriptRule[] => [
+    {
+      match: () => true,
+      respond: (r) =>
+        r.prompt.includes("[step=0]")
+          ? { action: "tool", tool, input: SAMPLE[tool] }
+          : { action: "finish", status: "insufficient_data", statement: "done", facts: [], limitations: [] },
+    },
+  ];
+  // Pass K: the lease equals the role allowlist (how the supervisor issues it) and the KERNEL alone decides.
+  // Pass B: an over-broad lease (every tool) is issued by a human admin; the runtime role allowlist must still deny.
+  for (const pass of ["K", "B"] as const) {
+    for (const [role, cfg] of roles) {
+      const allowed = cfg.allowedTools[0]!;
+      const others = allTools.filter((x) => !cfg.allowedTools.includes(x));
+      const preferred = [
+        { composer: "semantic.query@1", data_scout: "canvas.patch@1", publisher: "agent.spawn@1" }[
+          role as string
+        ],
+        ...others,
+      ].filter(Boolean) as string[];
+      const dis = [...new Set(preferred)].slice(0, 3);
+      for (const [tool, expected] of [[allowed, "allow"], ...dis.map((d) => [d, "deny"])] as Array<
+        [string, "allow" | "deny"]
+      >) {
+        calls.push({ pass, role, tool });
+        const task = await krt.spawnTask(role as never, cfg.allowedTools, `m-${pass}-${role}-${tool}`, 1000);
+        taskPass.set(task.taskId, pass);
+        if (pass === "B") {
+          for (const cap of others) {
+            const g = grantFor(cap);
+            await krt.env.kernel.leases.issue(
+              {
+                principal: { kind: "human", actorId: krt.env.userId, orgId: krt.tenantId } as never,
+                userId: krt.env.userId,
+              },
+              {
+                workspaceId: krt.workspaceId,
+                holderActorId: task.taskId,
+                capability: cap,
+                grants: [{ ...g, maxCost: 10, expiresAt: inHours(1) }],
+                expiresAt: inHours(1),
+              },
+            );
+          }
+        }
+        const res = await krt.runRole({
+          role: role as never,
+          ...task,
+          objective: "matrix",
+          rules: scripted(tool),
+          roleAllowlist: pass === "B",
+        });
+        await krt.rq("UPDATE tasks SET status='DONE' WHERE id=$1", [task.taskId]);
+        const log = res.toolLog[0]!;
+        matrix.push({ pass, role, tool, expected, got: log.ok ? "allow" : "deny", reason: log.reasonCode });
       }
     }
   }
-  expect(allowedOk).toBe(allowedTotal); // (b) 100% allowed
-  expect(deniedOk).toBe(deniedTotal); // (c) 100% denied with TOOL_NOT_GRANTED
-  expect(deniedTotal).toBeGreaterThanOrEqual(20);
-  const denialAudit = await auditRows(rt, "kind='gateway.denied' AND reason_code='TOOL_NOT_GRANTED'");
-  expect(denialAudit.length).toBe(deniedTotal);
-  const executedDenied = await sql<{ n: string }>(
-    rt,
-    "SELECT count(*)::text AS n FROM agent_audit WHERE kind='gateway.executed'",
+  const allowedRows = matrix.filter((m) => m.expected === "allow");
+  const deniedRows = matrix.filter((m) => m.expected === "deny");
+  expect(allowedRows.every((m) => m.got === "allow")).toBe(true); // (b) 100% allowed
+  expect(deniedRows.every((m) => m.got === "deny" && m.reason === "TOOL_NOT_GRANTED")).toBe(true); // (c)
+  expect(deniedRows.length).toBeGreaterThanOrEqual(40); // >= 20 per pass
+
+  // (c) audit record for every denial (runtime decision trace) and kernel ground truth
+  const rdenied = await krt.rq<{ reason_code: string; detail: { layer: string } }>(
+    "SELECT reason_code, detail FROM agent_audit WHERE kind='gateway.denied'",
   );
-  expect(Number(executedDenied[0]!.n)).toBe(allowedTotal); // side effects only for allowed calls
-  const denied = new Set(matrix.filter((m) => m.expected === "deny").map((m) => `${m.role}|${m.tool}`));
-  const gwRows = await sql<{ kind: string }>(
-    rt,
-    "SELECT kind FROM agent_side_effects WHERE kind LIKE 'gw:%'",
+  expect(rdenied).toHaveLength(deniedRows.length);
+  expect(rdenied.every((d) => d.reason_code === "TOOL_NOT_GRANTED")).toBe(true);
+  const kPassDenied = deniedRows.filter((m) => m.pass === "K");
+  // canvas.patch@1 is a runtime command tool gated by the same kernel lease table, so the kernel gateway never sees it
+  const kernelDeniedExpected = kPassDenied.filter((m) => m.tool !== "canvas.patch@1").length;
+  const kdenied = await krt.kq<{ actor_id: string; reason_code: string; subject: string }>(
+    "SELECT actor_id, reason_code, subject FROM audit_events WHERE action='tool.invoke.denied'",
   );
-  expect(gwRows.length).toBe(allowedTotal);
-  void denied;
+  expect(kdenied).toHaveLength(kernelDeniedExpected);
+  expect(kdenied.every((d) => d.reason_code === "TOOL_NOT_GRANTED" && taskPass.get(d.actor_id) === "K")).toBe(
+    true,
+  );
+  const layerCounts = rdenied.reduce<Record<string, number>>(
+    (a, d) => ((a[d.detail.layer] = (a[d.detail.layer] ?? 0) + 1), a),
+    {},
+  );
+  expect(layerCounts.role_allowlist).toBe(deniedRows.filter((m) => m.pass === "B").length);
+  expect((layerCounts.gateway ?? 0) + (layerCounts.kernel_lease ?? 0)).toBe(kPassDenied.length);
+
+  // side-effect counters: executed invocations exist only for allowed calls; denied tools never executed
+  const okInv = await krt.kq<{ capability: string; n: string }>(
+    "SELECT capability, count(*)::text AS n FROM tool_invocations WHERE state='ok' GROUP BY capability",
+  );
+  const okByCap = Object.fromEntries(okInv.map((r) => [r.capability, Number(r.n)]));
+  const allowedByCap: Record<string, number> = {};
+  for (const m of allowedRows)
+    if (m.tool !== "canvas.patch@1") allowedByCap[m.tool] = (allowedByCap[m.tool] ?? 0) + 1;
+  expect(okByCap).toEqual(allowedByCap);
+  const fx = (globalThis as unknown as { __roleToolsExec?: Record<string, number> }).__roleToolsExec ?? {};
+  for (const tool of allTools)
+    if (!["semantic.query@1", "semantic.discover@1", "canvas.preview@1", "canvas.patch@1"].includes(tool))
+      expect(fx[tool] ?? 0).toBe(allowedByCap[tool] ?? 0);
 
   observe({
     testId: "A11",
-    blocked:
-      "Gateway under test is the in-memory FakeToolGateway, not the kernel ToolGateway/K10 lease policy (not yet connected). All criteria (a)-(c) were asserted and held against the fake; switch buildDevDeps/makeRt to KernelToolGateway to record PASS.",
-    observed: `10 role configs validated against the ch.05 table; ${allowedTotal}/${allowedTotal} allowed calls permitted; ${deniedOk}/${deniedTotal} out-of-role calls denied TOOL_NOT_GRANTED even with an over-broad lease; ${denialAudit.length} denial audit rows; gateway executions = ${allowedTotal} (allowed only), denied side effects 0`,
+    observed: `10 role configs validated against the ch.05 table; real KernelToolGateway + kernel leases, two passes (K: lease == role allowlist, kernel decides; B: over-broad lease issued by an admin, role allowlist decides): ${allowedRows.length}/${allowedRows.length} allowed calls permitted; ${deniedRows.length}/${deniedRows.length} out-of-role calls denied TOOL_NOT_GRANTED; ${rdenied.length} runtime denial audit rows and ${kdenied.length} kernel tool.invoke.denied audit rows (pass K, decided by kernel leases); kernel executed invocations per capability == allowed calls ${JSON.stringify(allowedByCap)}; fixture plugin executions for denied tools = 0`,
     fixtureHash: hashOf(calls),
-    evidence: { roleCount: roles.size, matrix, denialAuditRows: denialAudit.length, calls: calls.length },
+    evidence: {
+      roleCount: roles.size,
+      matrix,
+      runtimeDenialAuditRows: rdenied.length,
+      kernelDenialAuditRows: kdenied.length,
+      layerCounts,
+      kernelOkByCapability: okByCap,
+    },
   });
-}, 240_000);
+}, 600_000);

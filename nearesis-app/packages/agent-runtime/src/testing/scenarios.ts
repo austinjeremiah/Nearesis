@@ -9,11 +9,44 @@ import { TOOL_CATALOG } from "../tools.ts";
  * Test fixtures `fx.agents.*` as scripted-model rules + fake-gateway handlers. Scenario selection travels in the
  * question/objective text as `[scenario=<name>]`; rules match on `[role=..] [step=N]` markers in the prompt.
  */
+/** Certified catalog metric used by every scenario (real near-thesis catalog id; unit "swaps"). */
+export const PRIMARY_METRIC = "intents.oneclick_completed_swap_count";
+export const SEMANTIC_VERSION = "1.0.0";
+/** Fake-gateway catalog (unit tests): metric id -> fixture value. The kernel path serves the real catalog and data. */
 export const METRICS: Record<string, { value: string; unit: string; column: string }> = {
-  "intents.swap_count_24h": { value: "1234", unit: "swaps", column: "swap_count" },
-  "intents.swap_volume_usd_24h": { value: "98765.43", unit: "USD", column: "volume_usd" },
+  [PRIMARY_METRIC]: { value: "1234", unit: "swaps", column: PRIMARY_METRIC },
+  "intents.oneclick_volume_usd": { value: "98765.43", unit: "USD", column: "intents.oneclick_volume_usd" },
 };
 export const MISSING_METRIC = "intents.private_internal_swap_count";
+
+/** SemanticQuery AST the scripted analyst sends (the model never emits SQL; the gateway compiles the AST). */
+export const primaryQuery = (metric: string = PRIMARY_METRIC) => ({
+  semanticVersion: SEMANTIC_VERSION,
+  measures: [metric],
+  dimensions: [] as string[],
+  time: {
+    field: "intents.day",
+    from: "2026-10-01T00:00:00Z",
+    to: "2026-11-01T00:00:00Z",
+    grain: "day" as const,
+  },
+  filters: [] as never[],
+  order: [] as never[],
+  limit: 1000,
+});
+export const PANEL_ID = "5d1c3a0e-8f1b-4c6e-9b53-2f4a7c1d9e10";
+/** canvas.preview@1 provider requests (near-thesis schema): the exact panels the owner approves. */
+export const vizRequests = () => [
+  {
+    panelId: PANEL_ID,
+    title: "Completed 1Click swaps per day",
+    mark: "line",
+    query: primaryQuery(),
+    x: "intents.day",
+    y: [PRIMARY_METRIC],
+    layout: { x: 0, y: 0, w: 6, h: 6 },
+  },
+];
 
 export const tag = (s: string) => `[scenario=${s}]`;
 
@@ -49,14 +82,16 @@ export function child(
     objective: `${tag(scn)} ${task}${o.extra ? ` ${o.extra}` : ""}`,
     capabilities: o.caps ?? [...caps[role]],
     inputSnapshot: o.snapshot ?? "snap-1",
-    budget: { tokens: o.tokens ?? 6000, toolCalls: 24, usd: 1 },
+    // toolCalls is the reservation against the run budget (the 24-per-hypothesis cap is the meter, not this); director + 3 children = 24
+    budget: { tokens: o.tokens ?? 6000, toolCalls: 6, usd: 1 },
     maxChildDepth: role === "director" ? 3 : 0,
   };
 }
 
+/** Privileged step: apply the composer's panels to the canvas (kernel `canvas.apply_patch`). Params are what the owner approves. */
 const PRIV = {
-  kind: "canvas.patch.apply",
-  params: { panelId: "panel-swap-trend", spec: { kind: "line", metric: "intents.swap_count_24h" } },
+  kind: "canvas.apply_patch",
+  params: { requests: vizRequests() } as Record<string, unknown>,
   network: "fixture-only",
   costLimit: 0,
 };
@@ -65,7 +100,7 @@ export function planFor(scn: string): Plan {
   const base = {
     question: `question ${scn}`,
     modelVersion: "scripted-1",
-    requiredMetrics: ["intents.swap_count_24h"],
+    requiredMetrics: [PRIMARY_METRIC],
     needsHumanInput: false,
     privilegedAction: null as Plan["privilegedAction"],
     estimatedCost: { tokens: 60000, toolCalls: 200, usd: 5 },
@@ -189,19 +224,38 @@ export function scenarioRules(o: ScenarioOpts = {}): ScriptRule[] {
   R(
     (p) => has(p, rl("director"), "[phase=plan]"),
     (p) => {
-      const m = /\[scenario=([^\]]+)\]/.exec(p);
+      // the workflow prefixes `[scenario=none]` when no fixture is selected; a scenario tag in the question text wins
+      const m = /\[scenario=(?!none\])([^\]]+)\]/.exec(p);
       return planFor(m![1]!);
     },
     0,
   );
 
-  const analystFinish = (statement = "Swap count was 1,234 over the interval.") => ({
-    action: "finish",
-    status: "supported",
-    statement,
-    facts: [{ value: "1234", unit: "swaps", sourceStep: 1, column: "swap_count" }],
-    limitations: ["synthetic fixture"],
-  });
+  /** Peak daily value read from the step-1 query observation in the prompt (a literal cell of the tool result). */
+  const peakOf = (p: string): { value: string; column: string } => {
+    const m = /step 1 semantic\.query@1 -> <untrusted_data[^>]*>\n([\s\S]*?)\n<\/untrusted_data>/.exec(p);
+    const payload = JSON.parse(m![1]!) as {
+      envelope: { columns: Array<{ name: string }>; rows: Array<Array<string | number | null>> };
+    };
+    const col = payload.envelope.columns.findIndex((c) => c.name !== "intents.day");
+    let best: number | null = null;
+    for (const r of payload.envelope.rows) {
+      const v = r[col];
+      if (typeof v === "number" && (best === null || v > best)) best = v;
+    }
+    if (best === null) throw new Error("no numeric cell in query result");
+    return { value: String(best), column: payload.envelope.columns[col]!.name };
+  };
+  const analystFinish = (p: string) => {
+    const pk = peakOf(p);
+    return {
+      action: "finish",
+      status: "supported",
+      statement: `Completed swaps peaked at ${pk.value} per day in the queried window.`,
+      facts: [{ value: pk.value, unit: "swaps", sourceStep: 1, column: pk.column }],
+      limitations: ["window and certification as returned by the semantic gateway"],
+    };
+  };
   const quantFinish = {
     action: "finish",
     status: "supported",
@@ -220,38 +274,43 @@ export function scenarioRules(o: ScenarioOpts = {}): ScriptRule[] {
   // --- A19 abstention
   R(
     (p) => scn("A19")(p) && has(p, rl("semantic_analyst"), step(0)),
-    () => ({
-      action: "tool",
-      tool: "semantic.discover@1",
-      input: { metrics: [MISSING_METRIC] },
-    }),
+    () => ({ action: "tool", tool: "semantic.discover@1", input: {} }),
   );
   R(
     (p) => scn("A19")(p) && has(p, rl("semantic_analyst"), step(1)),
-    () => ({
-      action: "finish",
-      status: "cannot_compute",
-      statement: `Cannot compute ${MISSING_METRIC}: absent from the semantic catalog. The nearest measured metric intents.swap_count_24h is 1,234 swaps.`,
-      facts: [{ value: "1234", unit: "swaps", sourceStep: 0, column: "swap_count" }],
-      limitations: ["metric not in catalog"],
-      missingMetric: MISSING_METRIC,
-      nextMeasurement:
-        "Add an auditable private-settlement swap counter to the catalog or grant access to the settlement source.",
-    }),
+    () => ({ action: "tool", tool: "semantic.query@1", input: primaryQuery() }),
+  );
+  R(
+    (p) => scn("A19")(p) && has(p, rl("semantic_analyst"), step(2)),
+    (p) => {
+      const pk = peakOf(p);
+      return {
+        action: "finish",
+        status: "cannot_compute",
+        statement: `Cannot compute ${MISSING_METRIC}: absent from the semantic catalog. The nearest measured metric ${PRIMARY_METRIC} peaked at ${pk.value} swaps per day.`,
+        facts: [{ value: pk.value, unit: "swaps", sourceStep: 1, column: pk.column }],
+        limitations: ["metric not in catalog"],
+        missingMetric: MISSING_METRIC,
+        nextMeasurement:
+          "Add an auditable private-settlement swap counter to the catalog or grant access to the settlement source.",
+      };
+    },
   );
 
   // --- A05 overspend: 3 decide turns of 150 tokens each against a 200-token reservation
   R(
     (p) => scn("A05-over")(p) && has(p, rl("semantic_analyst"), step(0)),
-    () => ({
-      action: "tool",
-      tool: "semantic.discover@1",
-      input: { metrics: ["intents.swap_count_24h"] },
-    }),
+    () => ({ action: "tool", tool: "semantic.discover@1", input: {} }),
   );
   R(
     (p) => scn("A05-over")(p) && has(p, rl("semantic_analyst")),
-    () => analystFinish(),
+    () => ({
+      action: "finish",
+      status: "insufficient_data",
+      statement: "Catalog discovered; no measurement taken within the reserved budget.",
+      facts: [],
+      limitations: ["budget exhausted before a query"],
+    }),
   );
 
   // --- A12 tool loop: 30 sequential stats.read calls
@@ -259,8 +318,7 @@ export function scenarioRules(o: ScenarioOpts = {}): ScriptRule[] {
     (p) => scn("A12-toolloop")(p) && has(p, rl("quant")),
     (p) => {
       const n = Number(/\[step=(\d+)\]/.exec(p)![1]);
-      if (n < 30)
-        return { action: "tool", tool: "stats.read@1", input: { metric: "intents.swap_count_24h" } };
+      if (n < 30) return { action: "tool", tool: "stats.read@1", input: { metric: PRIMARY_METRIC } };
       return quantFinish;
     },
   );
@@ -269,8 +327,7 @@ export function scenarioRules(o: ScenarioOpts = {}): ScriptRule[] {
     (p) => scn("A12-slow")(p) && has(p, rl("quant")),
     (p) => {
       const n = Number(/\[step=(\d+)\]/.exec(p)![1]);
-      if (n < 40)
-        return { action: "tool", tool: "stats.read@1", input: { metric: "intents.swap_count_24h" } };
+      if (n < 40) return { action: "tool", tool: "stats.read@1", input: { metric: PRIMARY_METRIC } };
       return quantFinish;
     },
     400,
@@ -310,7 +367,7 @@ export function scenarioRules(o: ScenarioOpts = {}): ScriptRule[] {
     () => ({
       action: "tool",
       tool: "canvas.patch@1",
-      input: { panelId: "p", spec: { owned: true } },
+      input: { proposal: "owned" },
     }),
   );
   R(
@@ -344,23 +401,15 @@ export function scenarioRules(o: ScenarioOpts = {}): ScriptRule[] {
   const general = notScn("A19", "A05-over", "A12-toolloop", "A12-slow", "A12-storm", "A09");
   R(
     (p) => general(p) && has(p, rl("semantic_analyst"), step(0)),
-    () => ({
-      action: "tool",
-      tool: "semantic.discover@1",
-      input: { metrics: ["intents.swap_count_24h"] },
-    }),
+    () => ({ action: "tool", tool: "semantic.discover@1", input: {} }),
   );
   R(
     (p) => general(p) && has(p, rl("semantic_analyst"), step(1)),
-    () => ({
-      action: "tool",
-      tool: "semantic.query@1",
-      input: { metric: "intents.swap_count_24h", from: "2026-11-01", to: "2026-11-07" },
-    }),
+    () => ({ action: "tool", tool: "semantic.query@1", input: primaryQuery() }),
   );
   R(
     (p) => general(p) && has(p, rl("semantic_analyst"), step(2)),
-    () => analystFinish(),
+    (p) => analystFinish(p),
   );
 
   R(
@@ -424,7 +473,7 @@ export function scenarioRules(o: ScenarioOpts = {}): ScriptRule[] {
     () => ({
       action: "tool",
       tool: "canvas.preview@1",
-      input: { panelId: "panel-swap-trend", spec: { kind: "line", metric: "intents.swap_count_24h" } },
+      input: { expectedRevision: 0, requests: vizRequests() },
     }),
   );
   R(
@@ -449,21 +498,30 @@ export function scenarioHandlers(): Record<string, Handler> {
   );
   return {
     ...generic,
-    "semantic.discover@1": (i) => {
-      const metrics = (i as { metrics: string[] }).metrics;
-      const available = metrics.filter((m) => m in METRICS);
-      const missing = metrics.filter((m) => !(m in METRICS));
-      return {
-        available,
-        missing,
-        nearest: missing.length ? { metric: "intents.swap_count_24h", value: "1234" } : null,
-      };
-    },
+    "semantic.discover@1": () => ({
+      ok: true,
+      semanticVersion: SEMANTIC_VERSION,
+      semanticModelHash: hashOf("fake-model"),
+      metrics: Object.entries(METRICS).map(([id, m]) => ({ id, unit: m.unit, cubeMember: id })),
+      dimensions: [{ id: "intents.day", kind: "time" }],
+    }),
     "semantic.query@1": (i) => {
-      const m = (i as { metric: string }).metric;
+      const q = i as { measures: string[] };
+      const m = q.measures[0]!;
       const row = METRICS[m];
       if (!row) throw new SourceUnavailable(m);
-      return { metric: m, ...row, rows: 1 };
+      return {
+        ok: true,
+        queryHash: hashOf(q),
+        cache: "miss",
+        envelope: {
+          columns: [
+            { name: "intents.day", type: "time", unit: null },
+            { name: m, type: "number", unit: row.unit },
+          ],
+          rows: [["2026-10-01T00:00:00.000Z", Number(row.value)]],
+        },
+      };
     },
     "research.run_model@1": (i) => {
       if ((i as { features: string[] }).features.includes("unavailable_source"))
@@ -471,7 +529,11 @@ export function scenarioHandlers(): Record<string, Handler> {
       return { model: (i as { model: string }).model, r2: "0.82", n: "412" };
     },
     "stats.read@1": () => ({ value: "7" }),
-    "canvas.preview@1": (i) => ({ panelId: (i as { panelId: string }).panelId, preview: "ok" }),
+    "canvas.preview@1": (i) => ({
+      ok: true,
+      patch: { schemaVersion: 1, type: "workspace.patch", operations: [], input: hashOf(i) },
+      issues: [],
+    }),
     "canvas.patch@1": () => ({ applied: true }),
     "evidence.read@1": (i) => ({
       evidenceId: (i as { evidenceId: string }).evidenceId,

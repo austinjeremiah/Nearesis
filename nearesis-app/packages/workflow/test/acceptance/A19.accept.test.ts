@@ -5,20 +5,25 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { observe } from "@nearesis/acceptance";
 import { RUN_TRANSITIONS, RunFailure } from "@nearesis/contracts";
 import { MISSING_METRIC, groundingScan, hashOf, planFor } from "@nearesis/agent-runtime";
-import { makeEnv, q, runInvestigation, startWorker, type Env } from "../helpers/harness.ts";
+import { makeEnv, q, runViaApi, startApi, startWorker, type Api, type Env } from "../helpers/harness.ts";
 
 let env: Env;
+let api: Api;
 beforeAll(async () => {
-  env = await makeEnv();
-}, 120_000);
-afterAll(async () => env.stop());
+  env = await makeEnv({ kernel: true });
+  api = await startApi(env);
+}, 180_000);
+afterAll(async () => {
+  await api?.close();
+  await env.stop();
+});
 
 const corpusPath = fileURLToPath(
   new URL("../../../agent-runtime/test/fixtures/numeric-grounding.json", import.meta.url),
 );
 const appRoot = fileURLToPath(new URL("../../../..", import.meta.url));
 
-it("A19: the director abstains instead of fabricating and the non-complete run carries the structured failure (API and semantic gateway not yet integrated)", async () => {
+it("A19: the director abstains instead of fabricating and the non-complete run carries the structured failure (question via the API, real kernel gateway and semantic plugin)", async () => {
   // scanner must pass its own corpus before it is applied to A19 output
   const fx = JSON.parse(readFileSync(corpusPath, "utf8"));
   const opts = { intervalBounds: fx.intervalBounds as string[] };
@@ -31,7 +36,7 @@ it("A19: the director abstains instead of fabricating and the non-complete run c
 
   const w = await startWorker(env);
   try {
-    const run = await runInvestigation(env, "A19", { question: `What was ${MISSING_METRIC}?` });
+    const run = await runViaApi(env, api, "A19", { question: `What was ${MISSING_METRIC}?` });
     const res = await run.result();
     // (c) PARTIAL/BLOCKED, never COMPLETE; all 5 fields non-empty
     expect(["PARTIAL", "BLOCKED"]).toContain(res.state);

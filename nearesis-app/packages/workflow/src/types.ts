@@ -13,6 +13,8 @@ export interface InvestigationInput {
   runId: string;
   question?: string;
   scenario?: string;
+  /** The human on whose behalf leases are issued and the approved canvas command is applied (server-resolved by the API). */
+  requestedBy?: { userId: string; role: "owner" | "admin" | "analyst" | "viewer" };
 }
 
 export interface BudgetAmount {

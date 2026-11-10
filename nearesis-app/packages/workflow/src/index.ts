@@ -6,3 +6,4 @@ export * from "./worker.ts";
 export * from "./client.ts";
 export * from "./testing/dev-deps.ts";
 export * from "./replay.ts";
+export * from "./kernel-deps.ts";

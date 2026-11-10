@@ -14,6 +14,8 @@
   "dependencies": {
     "@nearesis/agent-runtime": "workspace:*",
     "@nearesis/contracts": "workspace:*",
+    "@nearesis/inference": "workspace:*",
+    "@nearesis/kernel": "workspace:*",
     "@temporalio/activity": "1.25.0",
     "@temporalio/client": "1.25.0",
     "@temporalio/common": "1.25.0",
@@ -24,6 +26,8 @@
   },
   "devDependencies": {
     "@nearesis/acceptance": "workspace:*",
+    "@nearesis/near-thesis": "workspace:*",
+    "@nearesis/plugin-sdk": "workspace:*",
     "@types/pg": "8.23.1"
   }
 }

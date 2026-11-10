@@ -2,6 +2,8 @@
 import { randomUUID } from "node:crypto";
 import { Command } from "@langchain/langgraph";
 import {
+  CompositeLeases,
+  FakeLeaseBroker,
   FakeToolGateway,
   LedgerInference,
   PgAudit,
@@ -15,6 +17,7 @@ import {
   openCheckpointer,
   scenarioHandlers,
   scenarioRules,
+  validatorActorId,
 } from "../../src/index.ts";
 import { makePool } from "../../../workflow/src/db.ts";
 
@@ -23,8 +26,9 @@ const pool = makePool(appUrl!, 4);
 const roles = loadRoles();
 const audit = new PgAudit(pool);
 const sup = new Supervisor(pool, makePolicy(), audit, roles);
+const broker = new FakeLeaseBroker();
 const gateway = new FakeToolGateway({
-  leases: new PgLeases(pool),
+  leases: new CompositeLeases([new PgLeases(pool), broker]),
   audit,
   roles: roles as never,
   handlers: scenarioHandlers(),
@@ -45,22 +49,39 @@ const graph = buildDirectorGraph({
     model: "scripted-1",
   }),
   checkpointer: saver,
+  // FND-20261110-030: plan validation runs as a semantic_analyst principal with its own derived lease (no service principal).
   discoverMetrics: async (metrics, key) => {
+    const validator = validatorActorId(runId!);
+    await broker.ensureChild({
+      tenantId: tenantId!,
+      workspaceId: workspaceId!,
+      runId: runId!,
+      parentTaskId: taskId!,
+      taskId: validator,
+      role: "semantic_analyst",
+      capabilities: ["semantic.discover@1"],
+    });
     const r = await gateway.invoke(
-      { kind: "service", actorId: taskId!, orgId: tenantId!, parentRunId: runId! },
+      { kind: "agent", actorId: validator, orgId: tenantId!, parentRunId: runId! },
       {
         requestId: randomUUID(),
         idempotencyKey: key,
         tenantId: tenantId!,
         workspaceId: workspaceId!,
-        actor: { kind: "agent", actorId: taskId!, parentRunId: runId! },
+        actor: { kind: "agent", actorId: validator, parentRunId: runId! },
         capability: "semantic.discover@1",
-        input: { metrics },
+        input: {},
         deadlineMs: 60000,
         trace: { traceId: "t", researchRunId: runId! },
       },
     );
-    return r.payload as { available: string[]; missing: string[] };
+    const catalog = new Set(
+      ((r.payload as { metrics: Array<{ id: string }> }).metrics ?? []).map((m) => m.id),
+    );
+    return {
+      available: metrics.filter((m) => catalog.has(m)),
+      missing: metrics.filter((m) => !catalog.has(m)),
+    };
   },
 });
 const cfg = { configurable: { thread_id: taskId! }, recursionLimit: 50 };

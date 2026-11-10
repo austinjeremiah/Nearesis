@@ -6,8 +6,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Client } from "@temporalio/client";
 import type { Worker } from "@temporalio/worker";
-import { setupCheckpointer, type Policy } from "@nearesis/agent-runtime";
+import { ScriptedProvider, scenarioRules, setupCheckpointer, type Policy } from "@nearesis/agent-runtime";
+import { APP_ROOT, makeKernelEnv, type KernelEnv } from "../../../agent-runtime/src/testing/kernel-env.ts";
 import {
+  buildKernelDeps,
   bundleWorkflows,
   buildDevDeps,
   connectClient,
@@ -26,6 +28,8 @@ export interface Env {
   bundlePath: string;
   tenantId: string;
   workspaceId: string;
+  /** present when the environment runs the real kernel gateway, leases and plugins */
+  kernel?: KernelEnv;
   stop(): Promise<void>;
 }
 
@@ -40,13 +44,14 @@ export async function getBundlePath(): Promise<string> {
   return p;
 }
 
-export async function makeEnv(): Promise<Env> {
+export async function makeEnv(opts: { kernel?: boolean } = {}): Promise<Env> {
   const db = await createTestDatabase();
   await setupCheckpointer(db.adminUrl);
   const client = await connectClient();
   const bundlePath = await getBundlePath();
-  const tenantId = randomUUID();
-  const workspaceId = randomUUID();
+  const kernel = opts.kernel ? await makeKernelEnv({ rtdb: db }) : undefined;
+  const tenantId = kernel?.orgId ?? randomUUID();
+  const workspaceId = kernel?.workspaceId ?? randomUUID();
   return {
     db,
     client,
@@ -54,9 +59,11 @@ export async function makeEnv(): Promise<Env> {
     bundlePath,
     tenantId,
     workspaceId,
+    ...(kernel ? { kernel } : {}),
     async stop() {
       await client.connection.close();
-      await db.drop();
+      if (kernel) await kernel.stop();
+      else await db.drop();
     },
   };
 }
@@ -82,12 +89,20 @@ export async function startWorker(
   env: Env,
   o: { policy?: Partial<Policy>; stepDelayMs?: number; taskQueue?: string } = {},
 ) {
-  const deps = buildDevDeps({
-    pool: env.db.app,
-    appUrl: env.db.appUrl,
-    ...(o.policy ? { policy: o.policy } : {}),
-    ...(o.stepDelayMs !== undefined ? { stepDelayMs: o.stepDelayMs } : {}),
-  });
+  const deps = env.kernel
+    ? buildKernelDeps({
+        pool: env.db.app,
+        appUrl: env.db.appUrl,
+        kernel: env.kernel.kernel,
+        ...(o.policy ? { policy: o.policy } : {}),
+        provider: new ScriptedProvider(scenarioRules({ stepDelayMs: o.stepDelayMs ?? 0 })),
+      })
+    : buildDevDeps({
+        pool: env.db.app,
+        appUrl: env.db.appUrl,
+        ...(o.policy ? { policy: o.policy } : {}),
+        ...(o.stepDelayMs !== undefined ? { stepDelayMs: o.stepDelayMs } : {}),
+      });
   const { worker, connection } = await createWorker({
     deps,
     taskQueue: o.taskQueue ?? env.taskQueue,
@@ -129,6 +144,12 @@ export async function spawnWorkerProcess(
       WORKFLOW_BUNDLE_PATH: env.bundlePath,
       STEP_DELAY_MS: String(o.stepDelayMs ?? 0),
       POLICY_JSON: JSON.stringify(o.policy ?? {}),
+      ...(env.kernel
+        ? {
+            KERNEL_PLUGIN_ROOT: APP_ROOT,
+            KERNEL_TRUSTED_KEYS_JSON: JSON.stringify(env.kernel.trustedKeys),
+          }
+        : {}),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -193,6 +214,7 @@ export async function runInvestigation(
       budgetId,
       scenario,
       question: o.question ?? "what drove swap activity?",
+      ...(env.kernel ? { requestedBy: { userId: env.kernel.userId, role: "owner" as const } } : {}),
     },
     { taskQueue: env.taskQueue },
   );
@@ -204,6 +226,78 @@ export async function runInvestigation(
     workspaceId,
     budgetId,
     result: () => handle.result() as Promise<InvestigationResult>,
+  };
+}
+
+import { buildApp } from "../../../../apps/api/src/app.ts";
+import { temporalEngine } from "../../../../apps/api/src/temporal-engine.ts";
+type FastifyInstance = Awaited<ReturnType<typeof buildApp>>;
+
+export interface Api {
+  app: FastifyInstance;
+  call(
+    method: "GET" | "POST",
+    url: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ): Promise<{ status: number; json: Record<string, unknown> }>;
+  close(): Promise<void>;
+}
+
+/** The real investigation API (apps/api buildApp) over the test kernel and a Temporal-backed engine on the env's task queue. */
+export async function startApi(env: Env): Promise<Api> {
+  const kenv = env.kernel!;
+  const app = await buildApp({
+    kernel: kenv.kernel,
+    engine: temporalEngine({ taskQueue: env.taskQueue }),
+    nodeEnv: "test",
+  });
+  const token = await kenv.kernel.devAuth!.login(kenv.subject);
+  return {
+    app,
+    async call(method, url, body, headers = {}) {
+      const r = await app.inject({
+        method,
+        url,
+        headers: { authorization: `Bearer ${token}`, ...headers },
+        ...(body === undefined ? {} : { payload: body as never }),
+      });
+      return { status: r.statusCode, json: r.json() as Record<string, unknown> };
+    },
+    async close() {
+      await app.close();
+    },
+  };
+}
+
+/** Starts a run through POST /v1/workspaces/:id/questions (scenario fixture selected by a tag in the question text). */
+export async function runViaApi(
+  env: Env,
+  api: Api,
+  scenario: string,
+  o: { question?: string; budget?: { tokens: number; toolCalls: number; usd: number } } = {},
+) {
+  const r = await api.call(
+    "POST",
+    `/v1/workspaces/${env.workspaceId}/questions`,
+    {
+      question: `[scenario=${scenario}] ${o.question ?? "what drove swap activity?"}`,
+      snapshotPolicy: "pinned",
+      budget: o.budget ?? { tokens: 200_000, toolCalls: 24, usd: 20 },
+    },
+    { "idempotency-key": `idem-${randomUUID()}` },
+  );
+  if (r.status !== 202) throw new Error(`question rejected: ${r.status} ${JSON.stringify(r.json)}`);
+  const { runId, workflowId } = r.json as { runId: string; workflowId: string };
+  const handle = env.client.workflow.getHandle(workflowId);
+  return {
+    runId,
+    workflowId,
+    handle,
+    tenantId: env.tenantId,
+    workspaceId: env.workspaceId,
+    result: () => handle.result() as Promise<InvestigationResult>,
+    view: async () => (await api.call("GET", `/v1/runs/${runId}`)).json,
   };
 }
 

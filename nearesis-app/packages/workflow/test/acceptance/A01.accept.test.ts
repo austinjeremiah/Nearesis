@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
+import { validatorActorId } from "@nearesis/agent-runtime";
 import { observe } from "@nearesis/acceptance";
 import { hashOf, planFor } from "@nearesis/agent-runtime";
 import { makeEnv, q, runInvestigation, startWorker, type Env } from "../helpers/harness.ts";
@@ -57,12 +58,15 @@ it("A01: four role subagents are all traceable to the parent run and workspace",
       [run.runId],
     );
     expect(gw.length).toBeGreaterThanOrEqual(4);
-    const ids = new Set([root.id, ...kids.map((k) => k.id)]); // director's plan-validation discover is attributed to the root task
+    // plan-validation discover runs as the run's semantic_analyst validator principal (FND-20261110-030), a lease-derived agent of this run
+    const ids = new Set([root.id, ...kids.map((k) => k.id), validatorActorId(run.runId)]);
     for (const g of gw) {
       expect(ids.has(g.task_id)).toBe(true);
       expect(g.workspace_id).toBe(run.workspaceId);
     }
-    const covered = new Set(gw.map((g) => g.task_id).filter((id) => id !== root.id));
+    const covered = new Set(
+      gw.map((g) => g.task_id).filter((id) => id !== root.id && id !== validatorActorId(run.runId)),
+    );
     expect(covered.size).toBe(4);
     observe({
       testId: "A01",

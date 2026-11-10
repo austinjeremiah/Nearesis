@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { SemanticQuery } from "@nearesis/contracts";
 import type { ExecutionRequest, ExecutionResponse, Principal, ToolGateway } from "@nearesis/contracts";
 import type pg from "pg";
 import { AgentRuntimeError } from "./errors.ts";
@@ -17,18 +18,47 @@ export interface ToolSpec {
 const s = z.string().min(1).max(2000);
 const obj = <T extends z.ZodRawShape>(shape: T) => z.strictObject(shape);
 
+export const VizRequestInput = z.strictObject({
+  panelId: z.uuid(),
+  title: z.string().min(1).max(180),
+  mark: z.string().min(1).max(40),
+  query: SemanticQuery,
+  x: z.string().max(200).optional(),
+  y: z.array(z.string().max(200)).max(8).optional(),
+  series: z.string().max(200).optional(),
+  tooltip: z.array(z.string().max(200)).max(8).optional(),
+  aggregation: z.enum(["none", "sum", "avg", "min", "max"]).optional(),
+  scale: z.enum(["linear", "log"]).optional(),
+  unitStrategy: z.enum(["single", "index_100", "dual_axis_disclosed"]).optional(),
+  share: z
+    .strictObject({
+      denominator: z.string().nullable(),
+      categoryPolicy: z.enum(["disjoint", "overlapping"]),
+    })
+    .optional(),
+  layout: z.strictObject({
+    x: z.number().int().min(0),
+    y: z.number().int().min(0),
+    w: z.number().int().min(1),
+    h: z.number().int().min(1),
+  }),
+});
+export type VizRequestInput = z.infer<typeof VizRequestInput>;
+export const PreviewToolInput = z.strictObject({
+  expectedRevision: z.number().int().nonnegative(),
+  requests: z.array(VizRequestInput).min(1).max(12),
+});
+
 /** Known tool catalog. A tool the model invents that is not here never reaches the gateway (A04). */
 export const TOOL_CATALOG: ToolSpec[] = [
   { id: "agent.spawn@1", input: obj({ role: s, objective: s }), sideEffect: "workspace_write" },
   { id: "evidence.inspect@1", input: obj({ evidenceId: s }), sideEffect: "read_only" },
   { id: "evidence.read@1", input: obj({ evidenceId: s }), sideEffect: "read_only" },
   { id: "plan.propose@1", input: obj({ plan: z.record(z.string(), z.unknown()) }), sideEffect: "read_only" },
-  { id: "semantic.discover@1", input: obj({ metrics: z.array(s).max(50) }), sideEffect: "read_only" },
-  {
-    id: "semantic.query@1",
-    input: obj({ metric: s, from: s.optional(), to: s.optional() }),
-    sideEffect: "read_only",
-  },
+  /** Provider schema (near-thesis): discover takes no input; the catalog is returned and coverage is computed by the caller. */
+  { id: "semantic.discover@1", input: obj({}), sideEffect: "read_only" },
+  /** Provider schema: the contracts SemanticQuery AST. The model never emits SQL; the gateway compiles the AST. */
+  { id: "semantic.query@1", input: SemanticQuery as z.ZodType<unknown>, sideEffect: "read_only" },
   { id: "registry.read@1", input: obj({ key: s }), sideEffect: "read_only" },
   { id: "adapter.docs@1", input: obj({ adapter: s }), sideEffect: "read_only" },
   { id: "web.fetch_approved@1", input: obj({ url: s }), sideEffect: "read_only" },
@@ -40,14 +70,15 @@ export const TOOL_CATALOG: ToolSpec[] = [
   { id: "stats.read@1", input: obj({ metric: s }), sideEffect: "read_only" },
   { id: "research.run_bounded_test@1", input: obj({ test: s, claim: s }), sideEffect: "read_only" },
   { id: "source.read_verified@1", input: obj({ source: s }), sideEffect: "read_only" },
-  {
-    id: "canvas.preview@1",
-    input: obj({ panelId: s, spec: z.record(z.string(), z.unknown()) }),
-    sideEffect: "read_only",
-  },
+  /** Provider schema (near-thesis canvas.preview@1): {expectedRevision, requests[]} -> {ok, patch|null, issues[]}. */
+  { id: "canvas.preview@1", input: PreviewToolInput, sideEffect: "read_only" },
+  /**
+   * Not a plugin capability. Mapped to the kernel `canvas.apply_patch` command: executed only after owner approval by
+   * the runtime (executePrivilegedAction). An agent calling it directly records a lease-checked proposal, nothing more.
+   */
   {
     id: "canvas.patch@1",
-    input: obj({ panelId: s, spec: z.record(z.string(), z.unknown()) }),
+    input: obj({ proposal: z.string().min(1).max(200) }),
     sideEffect: "workspace_write",
   },
   { id: "monitor.read@1", input: obj({ ruleId: s }), sideEffect: "read_only" },
@@ -129,8 +160,21 @@ export type ToolOutcome =
   | { ok: true; tool: string; response: ExecutionResponse; wrapped: string; resultHash: string }
   | { ok: false; tool: string; reasonCode: string; detail: string };
 
+/** A tool the runtime executes itself (not a plugin capability), still behind the same lease check. */
+export type LocalToolHandler = (a: {
+  principal: Principal;
+  request: ExecutionRequest;
+  input: unknown;
+}) => Promise<{ granted: boolean; payload?: unknown }>;
+
 export interface ToolClientCtx {
   gateway: ToolGateway;
+  /** Defence in depth: the role's ch.05 allowlist, checked before the gateway (the kernel only knows leases). */
+  roleAllowed?: readonly string[];
+  /** Write a runtime `gateway.denied` audit row for a kernel denial (the kernel writes its own audit; the fake gateway writes its own). */
+  auditGatewayDenials?: boolean;
+  /** Runtime-executed tools keyed by capability id (canvas.patch@1 maps to a kernel command). */
+  local?: Record<string, LocalToolHandler>;
   audit: AuditSink;
   meter: ToolCallMeter;
   tenantId: string;
@@ -204,8 +248,59 @@ export class AgentToolClient {
       deadlineMs: 60_000,
       trace: { traceId: `${c.runId}/${c.taskId}`, researchRunId: c.runId },
     };
+    if (c.roleAllowed && !c.roleAllowed.includes(tool)) {
+      await c.audit.write({
+        ...base,
+        kind: "gateway.denied",
+        reasonCode: "TOOL_NOT_GRANTED",
+        detail: { capability: tool, layer: "role_allowlist", role: c.role },
+      });
+      return { ok: false, tool, reasonCode: "TOOL_NOT_GRANTED", detail: "tool outside the role allowlist" };
+    }
+    const localHandler = c.local?.[tool];
+    if (localHandler) {
+      const lr = await localHandler({ principal, request, input: parsed.data });
+      if (!lr.granted) {
+        await c.audit.write({
+          ...base,
+          kind: "gateway.denied",
+          reasonCode: "TOOL_NOT_GRANTED",
+          detail: { capability: tool, layer: "kernel_lease" },
+        });
+        return { ok: false, tool, reasonCode: "TOOL_NOT_GRANTED", detail: "no valid lease grants this tool" };
+      }
+      const payload = lr.payload ?? { ok: true, proposed: true };
+      const resp: ExecutionResponse = {
+        requestId: request.requestId,
+        state: "ok",
+        payload,
+        sourceRefs: [],
+        provenance: {
+          pluginId: "runtime",
+          pluginVersion: "1.0.0",
+          capability: tool as ExecutionResponse["provenance"]["capability"],
+          resultSha256: hashOf(payload),
+        },
+        warnings: [],
+        outputSchemaVersion: 1,
+      };
+      return {
+        ok: true,
+        tool,
+        response: resp,
+        wrapped: wrapAsData(tool, payload),
+        resultHash: resp.provenance.resultSha256,
+      };
+    }
     const response = await c.gateway.invoke(principal, request);
     if (response.state !== "ok" && response.state !== "partial") {
+      if (response.state === "blocked" && c.auditGatewayDenials)
+        await c.audit.write({
+          ...base,
+          kind: "gateway.denied",
+          reasonCode: response.reasonCode ?? "BLOCKED",
+          detail: { capability: tool, layer: "gateway" },
+        });
       return {
         ok: false,
         tool,

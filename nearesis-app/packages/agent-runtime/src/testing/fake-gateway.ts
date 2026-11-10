@@ -5,6 +5,7 @@ import type { AuditSink } from "../audit.ts";
 import { runInternalEffect } from "../ledger.ts";
 import { withTenant } from "../tenant.ts";
 import type { RoleConfig } from "../roles.ts";
+import type { LeaseBroker, LeaseRequest } from "../leases.ts";
 
 /**
  * FAKE ToolGateway used until the kernel gateway is connected (same `ToolGateway` interface). It is a test double:
@@ -19,6 +20,49 @@ export interface Lease {
 }
 export interface LeaseStore {
   get(tenantId: string, taskId: string): Promise<Lease | null>;
+}
+
+/** Test-double broker: in-memory leases for actors that have no `tasks` row (the plan-validation principal). */
+export class FakeLeaseBroker implements LeaseBroker, LeaseStore {
+  private readonly m = new Map<string, Lease>();
+  async ensureRoot(a: LeaseRequest): Promise<void> {
+    this.m.set(a.taskId, {
+      role: a.role ?? "director",
+      capabilities: new Set(a.capabilities),
+      revoked: false,
+    });
+  }
+  async ensureChild(a: LeaseRequest & { parentTaskId: string }): Promise<void> {
+    this.m.set(a.taskId, {
+      role: a.role ?? "unknown",
+      capabilities: new Set(a.capabilities),
+      revoked: false,
+    });
+  }
+  async revokeTask(a: { taskId: string }): Promise<number> {
+    const l = this.m.get(a.taskId);
+    if (l) this.m.set(a.taskId, { ...l, revoked: true });
+    return l ? 1 : 0;
+  }
+  async hasGrant(a: { taskId: string; capability: string }): Promise<boolean> {
+    const l = this.m.get(a.taskId);
+    return !!l && !l.revoked && l.capabilities.has(a.capability);
+  }
+  async get(_t: string, taskId: string): Promise<Lease | null> {
+    return this.m.get(taskId) ?? null;
+  }
+}
+
+/** First store that knows the actor wins (task rows first, then broker-issued leases). */
+export class CompositeLeases implements LeaseStore {
+  constructor(private readonly stores: LeaseStore[]) {}
+  async get(tenantId: string, taskId: string): Promise<Lease | null> {
+    for (const s of this.stores) {
+      const l = await s.get(tenantId, taskId);
+      if (l) return l;
+    }
+    return null;
+  }
 }
 
 export class InMemoryLeases implements LeaseStore {
@@ -97,8 +141,8 @@ export class FakeToolGateway implements ToolGateway {
     const roleCfg = lease ? this.o.roles.get(lease.role) : undefined;
     let deny: string | null = null;
     if (principal.orgId !== req.tenantId) deny = "TENANT_MISMATCH";
-    else if (principal.kind === "service")
-      deny = null; // kernel-brokered system call (plan validation); not an agent grant
+    else if ((principal.kind as string) === "service")
+      deny = "PRINCIPAL_KIND"; // FND-20261110-030: no service principal invokes tools (same as the kernel gateway)
     else if (!lease) deny = "TOOL_NOT_GRANTED";
     else if (lease.revoked) deny = "TOOL_NOT_GRANTED";
     else if (!lease.capabilities.has(req.capability)) deny = "TOOL_NOT_GRANTED";

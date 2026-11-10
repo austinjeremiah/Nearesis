@@ -25,12 +25,58 @@ cubes:
         filters:
           - sql: "{CUBE}.quote_currency = 'usd'"
         description: "Mean daily close price in USD (latest vintage per candle)"
-        meta: {"id":"prices.daily_close_price_usd","displayName":"Daily close price (USD)","kind":"stock","unit":"usd_price","grain":"day","aggregationLaw":"avg","denominator":"n/a: additive count or level with no denominator","zeroPolicy":"zero_requires_complete_coverage","sources":["coingecko:price_candles"],"transformations":["Latest update vintage per daily candle"],"expectedUpdateLag":"PT24H","botProxyDefinition":"n/a: not a per-actor metric, bot traffic is not separated","visibility":"public","segmentOverlap":"n/a","certifiedVersion":"1.0.0","certified":true,"owner":"nearesis-analytics","docUri":"docs/metrics/METRICS.md#pricesdaily_close_price_usd","testFixture":"fx.snapshot.p02-baseline","uncertainty":"Aggregator price; vintages can be revised.","cubeMember":"prices.daily_close_price_usd"}
+        meta:
+          {
+            "id": "prices.daily_close_price_usd",
+            "displayName": "Daily close price (USD)",
+            "kind": "stock",
+            "unit": "usd_price",
+            "grain": "day",
+            "aggregationLaw": "avg",
+            "denominator": "n/a: additive count or level with no denominator",
+            "zeroPolicy": "zero_requires_complete_coverage",
+            "sources": ["coingecko:price_candles"],
+            "transformations": ["Latest update vintage per daily candle"],
+            "expectedUpdateLag": "PT24H",
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
+            "visibility": "public",
+            "segmentOverlap": "n/a",
+            "certifiedVersion": "1.0.0",
+            "certified": true,
+            "owner": "nearesis-analytics",
+            "docUri": "docs/metrics/METRICS.md#pricesdaily_close_price_usd",
+            "testFixture": "fx.snapshot.p02-baseline",
+            "uncertainty": "Aggregator price; vintages can be revised.",
+            "cubeMember": "prices.daily_close_price_usd",
+          }
       - name: daily_volume_usd
         type: number
         sql: "toString(sumIf({CUBE}.volume, {CUBE}.quote_currency = 'usd'))"
         description: "Provider-reported daily volume in USD (exact decimal string)"
-        meta: {"id":"prices.daily_volume_usd","displayName":"Daily volume (USD)","kind":"flow","unit":"usd","grain":"day","aggregationLaw":"sum","denominator":"n/a: additive count or level with no denominator","zeroPolicy":"zero_requires_complete_coverage","sources":["coingecko:price_candles"],"transformations":["Provider-reported volume of the latest vintage"],"expectedUpdateLag":"PT24H","botProxyDefinition":"n/a: not a per-actor metric, bot traffic is not separated","visibility":"public","segmentOverlap":"n/a","certifiedVersion":"1.0.0","certified":true,"owner":"nearesis-analytics","docUri":"docs/metrics/METRICS.md#pricesdaily_volume_usd","testFixture":"fx.snapshot.p02-baseline","uncertainty":"Provider-reported volume across venues.","cubeMember":"prices.daily_volume_usd"}
+        meta:
+          {
+            "id": "prices.daily_volume_usd",
+            "displayName": "Daily volume (USD)",
+            "kind": "flow",
+            "unit": "usd",
+            "grain": "day",
+            "aggregationLaw": "sum",
+            "denominator": "n/a: additive count or level with no denominator",
+            "zeroPolicy": "zero_requires_complete_coverage",
+            "sources": ["coingecko:price_candles"],
+            "transformations": ["Provider-reported volume of the latest vintage"],
+            "expectedUpdateLag": "PT24H",
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
+            "visibility": "public",
+            "segmentOverlap": "n/a",
+            "certifiedVersion": "1.0.0",
+            "certified": true,
+            "owner": "nearesis-analytics",
+            "docUri": "docs/metrics/METRICS.md#pricesdaily_volume_usd",
+            "testFixture": "fx.snapshot.p02-baseline",
+            "uncertainty": "Provider-reported volume across venues.",
+            "cubeMember": "prices.daily_volume_usd",
+          }
 
 views:
   - name: prices

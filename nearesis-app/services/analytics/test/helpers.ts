@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { Redis } from "ioredis";
 import {
   acquireDataLock,
@@ -13,6 +14,9 @@ import {
   type Registry,
 } from "../src/index.ts";
 import type { NormalizedOutput } from "../../ingestion/src/normalized/types.ts";
+
+// Cube-backed tests wait for rollups to refresh; the root runner has no per-package vitest config.
+vi.setConfig({ testTimeout: 240_000, hookTimeout: 240_000 });
 
 export const CUBE_URL = process.env.NEARESIS_CUBE_URL ?? "http://127.0.0.1:4000";
 export const cubeToken = () =>

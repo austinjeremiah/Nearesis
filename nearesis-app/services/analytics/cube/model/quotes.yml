@@ -39,7 +39,30 @@ cubes:
         filters:
           - sql: "{CUBE}.slot = 'observed'"
         description: "Observed dry quote attempts"
-        meta: {"id":"intents.route_quote_attempt_count","displayName":"Dry quote attempts observed","kind":"flow","unit":"quotes","grain":"day","aggregationLaw":"sum","denominator":"n/a: additive count or level with no denominator","zeroPolicy":"zero_requires_complete_coverage","sources":["intents-1click:quote_attempts"],"transformations":["Observed dry quote attempts on the scheduled grid"],"expectedUpdateLag":"PT1H","botProxyDefinition":"n/a: not a per-actor metric, bot traffic is not separated","visibility":"public","segmentOverlap":"n/a","certifiedVersion":"1.0.0","certified":true,"owner":"nearesis-analytics","docUri":"docs/metrics/METRICS.md#intentsroute_quote_attempt_count","testFixture":"fx.snapshot.p02-baseline","uncertainty":"Dry quotes, not executed swaps.","cubeMember":"quotes.route_quote_attempt_count"}
+        meta:
+          {
+            "id": "intents.route_quote_attempt_count",
+            "displayName": "Dry quote attempts observed",
+            "kind": "flow",
+            "unit": "quotes",
+            "grain": "day",
+            "aggregationLaw": "sum",
+            "denominator": "n/a: additive count or level with no denominator",
+            "zeroPolicy": "zero_requires_complete_coverage",
+            "sources": ["intents-1click:quote_attempts"],
+            "transformations": ["Observed dry quote attempts on the scheduled grid"],
+            "expectedUpdateLag": "PT1H",
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
+            "visibility": "public",
+            "segmentOverlap": "n/a",
+            "certifiedVersion": "1.0.0",
+            "certified": true,
+            "owner": "nearesis-analytics",
+            "docUri": "docs/metrics/METRICS.md#intentsroute_quote_attempt_count",
+            "testFixture": "fx.snapshot.p02-baseline",
+            "uncertainty": "Dry quotes, not executed swaps.",
+            "cubeMember": "quotes.route_quote_attempt_count",
+          }
       - name: route_quote_ok_count
         type: count
         filters:
@@ -50,22 +73,92 @@ cubes:
         filters:
           - sql: "{CUBE}.slot = 'unavailable'"
         description: "Missed grid slots (never backfilled)"
-        meta: {"id":"intents.route_quote_unavailable_slot_count","displayName":"Missed quote grid slots","kind":"flow","unit":"slots","grain":"day","aggregationLaw":"sum","denominator":"n/a: additive count or level with no denominator","zeroPolicy":"zero_requires_complete_coverage","sources":["intents-1click:quote_attempts"],"transformations":["Grid slots with no attempt; never backfilled"],"expectedUpdateLag":"PT1H","botProxyDefinition":"n/a: not a per-actor metric, bot traffic is not separated","visibility":"public","segmentOverlap":"n/a","certifiedVersion":"1.0.0","certified":true,"owner":"nearesis-analytics","docUri":"docs/metrics/METRICS.md#intentsroute_quote_unavailable_slot_count","testFixture":"fx.snapshot.p02-baseline","uncertainty":"Missed slots are gaps, not failures of the route.","cubeMember":"quotes.route_quote_unavailable_slot_count"}
+        meta:
+          {
+            "id": "intents.route_quote_unavailable_slot_count",
+            "displayName": "Missed quote grid slots",
+            "kind": "flow",
+            "unit": "slots",
+            "grain": "day",
+            "aggregationLaw": "sum",
+            "denominator": "n/a: additive count or level with no denominator",
+            "zeroPolicy": "zero_requires_complete_coverage",
+            "sources": ["intents-1click:quote_attempts"],
+            "transformations": ["Grid slots with no attempt; never backfilled"],
+            "expectedUpdateLag": "PT1H",
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
+            "visibility": "public",
+            "segmentOverlap": "n/a",
+            "certifiedVersion": "1.0.0",
+            "certified": true,
+            "owner": "nearesis-analytics",
+            "docUri": "docs/metrics/METRICS.md#intentsroute_quote_unavailable_slot_count",
+            "testFixture": "fx.snapshot.p02-baseline",
+            "uncertainty": "Missed slots are gaps, not failures of the route.",
+            "cubeMember": "quotes.route_quote_unavailable_slot_count",
+          }
       - name: route_quote_availability
         type: number
         sql: "{route_quote_ok_count} / nullIf({slot_count}, 0)"
         description: "OK attempts divided by all grid slots"
-        meta: {"id":"intents.route_quote_availability","displayName":"Route quote availability","kind":"rate","unit":"ratio","grain":"day","aggregationLaw":"ratio","denominator":"quote grid slots","zeroPolicy":"zero_requires_complete_coverage","sources":["intents-1click:quote_attempts"],"transformations":["OK attempts / all grid slots"],"expectedUpdateLag":"PT1H","botProxyDefinition":"n/a: not a per-actor metric, bot traffic is not separated","visibility":"public","segmentOverlap":"n/a","certifiedVersion":"1.0.0","certified":true,"owner":"nearesis-analytics","docUri":"docs/metrics/METRICS.md#intentsroute_quote_availability","testFixture":"fx.snapshot.p02-baseline","uncertainty":"Availability of dry quotes on the sampled grid only.","cubeMember":"quotes.route_quote_availability"}
+        meta:
+          {
+            "id": "intents.route_quote_availability",
+            "displayName": "Route quote availability",
+            "kind": "rate",
+            "unit": "ratio",
+            "grain": "day",
+            "aggregationLaw": "ratio",
+            "denominator": "quote grid slots",
+            "zeroPolicy": "zero_requires_complete_coverage",
+            "sources": ["intents-1click:quote_attempts"],
+            "transformations": ["OK attempts / all grid slots"],
+            "expectedUpdateLag": "PT1H",
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
+            "visibility": "public",
+            "segmentOverlap": "n/a",
+            "certifiedVersion": "1.0.0",
+            "certified": true,
+            "owner": "nearesis-analytics",
+            "docUri": "docs/metrics/METRICS.md#intentsroute_quote_availability",
+            "testFixture": "fx.snapshot.p02-baseline",
+            "uncertainty": "Availability of dry quotes on the sampled grid only.",
+            "cubeMember": "quotes.route_quote_availability",
+          }
       - name: route_quote_cost_bps
         type: avg
         sql: "quote_cost_bps"
         filters:
           - sql: "{CUBE}.attempt_class = 'OK'"
         description: "Mean quote cost in bps against the declared benchmark (OK attempts)"
-        meta: {"id":"intents.route_quote_cost_bps","displayName":"Route quote cost (bps)","kind":"rate","unit":"bps","grain":"day","aggregationLaw":"avg","denominator":"n/a: additive count or level with no denominator","zeroPolicy":"zero_requires_complete_coverage","sources":["intents-1click:quote_attempts"],"transformations":["Mean quote cost versus the declared benchmark over OK attempts"],"expectedUpdateLag":"PT1H","botProxyDefinition":"n/a: not a per-actor metric, bot traffic is not separated","visibility":"public","segmentOverlap":"n/a","certifiedVersion":"1.0.0","certified":true,"owner":"nearesis-analytics","docUri":"docs/metrics/METRICS.md#intentsroute_quote_cost_bps","testFixture":"fx.snapshot.p02-baseline","uncertainty":"Benchmark choice drives the sign and size; unweighted mean of attempts.","cubeMember":"quotes.route_quote_cost_bps"}
+        meta:
+          {
+            "id": "intents.route_quote_cost_bps",
+            "displayName": "Route quote cost (bps)",
+            "kind": "rate",
+            "unit": "bps",
+            "grain": "day",
+            "aggregationLaw": "avg",
+            "denominator": "n/a: additive count or level with no denominator",
+            "zeroPolicy": "zero_requires_complete_coverage",
+            "sources": ["intents-1click:quote_attempts"],
+            "transformations": ["Mean quote cost versus the declared benchmark over OK attempts"],
+            "expectedUpdateLag": "PT1H",
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
+            "visibility": "public",
+            "segmentOverlap": "n/a",
+            "certifiedVersion": "1.0.0",
+            "certified": true,
+            "owner": "nearesis-analytics",
+            "docUri": "docs/metrics/METRICS.md#intentsroute_quote_cost_bps",
+            "testFixture": "fx.snapshot.p02-baseline",
+            "uncertainty": "Benchmark choice drives the sign and size; unweighted mean of attempts.",
+            "cubeMember": "quotes.route_quote_cost_bps",
+          }
     pre_aggregations:
       - name: daily_route_rollup
-        measures: [slot_count, route_quote_attempt_count, route_quote_ok_count, route_quote_unavailable_slot_count]
+        measures:
+          [slot_count, route_quote_attempt_count, route_quote_ok_count, route_quote_unavailable_slot_count]
         dimensions: [route_id, privacy_mode]
         time_dimension: day
         granularity: day

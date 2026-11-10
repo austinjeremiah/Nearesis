@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { Redis } from "ioredis";
 import {
   acquireDataLock,
@@ -14,6 +15,9 @@ import {
 } from "@nearesis/analytics";
 import type { NormalizedOutput } from "../../../services/ingestion/src/normalized/types.ts";
 import { createGateway, DEFAULT_POLICY, type Policy, type Session } from "../src/index.ts";
+
+// Cube-backed tests wait for rollups to refresh; the root runner has no per-package vitest config.
+vi.setConfig({ testTimeout: 240_000, hookTimeout: 240_000 });
 
 export const CUBE_URL = process.env.NEARESIS_CUBE_URL ?? "http://127.0.0.1:4000";
 export const W1: Session = { tenantId: "t1", workspaceId: "w1", principalId: "p1", aclClasses: ["member"] };

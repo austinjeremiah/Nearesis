@@ -46,7 +46,6 @@ if (!selected.length) {
 const git = (...args: string[]) =>
   spawnSync("git", ["-C", REPO_ROOT, ...args], { encoding: "utf8" }).stdout.trim();
 const commitSha = git("rev-parse", "HEAD");
-const dirty = git("status", "--porcelain", "--", "nearesis-app").length > 0;
 const runtimeVersions = {
   node: process.version,
   pnpm: spawnSync("pnpm", ["-v"], { encoding: "utf8" }).stdout.trim(),
@@ -103,10 +102,15 @@ for (const t of selected) {
     verdict = "FAIL";
     failureReason = r.status !== 0 ? `vitest exit ${r.status}` : "no observation recorded";
   }
+  // Evidence must reference an exact commit: the test's own package(s) and the shared contracts must be clean.
+  const pkgDirs = [
+    ...new Set(t.testFiles.map((f) => f.split("/").slice(0, 2).join("/"))),
+    "packages/contracts",
+  ].map((d) => `nearesis-app/${d}`);
+  const dirty = git("status", "--porcelain", "--", ...pkgDirs);
   if (verdict === "PASS" && dirty) {
     verdict = "FAIL";
-    failureReason =
-      "working tree has uncommitted changes under nearesis-app; evidence must reference an exact commit";
+    failureReason = `uncommitted changes in ${pkgDirs.join(", ")}; commit before recording evidence`;
   }
   const result = TestResult.parse({
     testId: t.testId,

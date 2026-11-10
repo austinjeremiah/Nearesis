@@ -5,6 +5,7 @@
  *   pnpm coord agent --file <agent-record.json>              (validates AgentRecord, writes coordination/agents/<agentId>.json)
  *   pnpm coord agent-heartbeat --id A2 [--status RUNNING] [--passed N] [--failed N] [--commit sha]
  *   pnpm coord task --id T-P01-KERNEL --status RUNNING        (locked read-modify-write of TASK_BOARD.json)
+ *   pnpm coord bind --id K01 --file packages/kernel/test/acceptance/K01.accept.test.ts  (locked edit of tests/TEST_INDEX.json)
  *   pnpm coord test --file <test-result.json>                (validates TestResult, writes reports/TESTS/<id>/<runId>.json)
  */
 import { join } from "node:path";
@@ -17,7 +18,17 @@ import {
   TaskStatus,
   TestResult,
 } from "@nearesis/contracts";
-import { COORD, REPORTS, appendEvent, gitHead, readJson, withLock, writeJsonAtomic } from "./coord-lib.ts";
+import {
+  APP_ROOT,
+  COORD,
+  REPORTS,
+  appendEvent,
+  exists,
+  gitHead,
+  readJson,
+  withLock,
+  writeJsonAtomic,
+} from "./coord-lib.ts";
 
 const [cmd, ...rest] = process.argv.slice(2);
 const { values: a } = parseArgs({
@@ -123,6 +134,20 @@ switch (cmd) {
   case "test": {
     const r = TestResult.parse(readJson(need("file")));
     writeJsonAtomic(join(REPORTS, "TESTS", r.testId, `${r.runId}.json`), r);
+    break;
+  }
+  case "bind": {
+    const p = join(APP_ROOT, "tests", "TEST_INDEX.json");
+    const file = need("file");
+    if (!exists(join(APP_ROOT, file))) throw new Error(`no such file (relative to nearesis-app/): ${file}`);
+    withLock(p, () => {
+      const idx = readJson<{ tests: Array<{ testId: string; testFiles: string[]; status: string }> }>(p);
+      const t = idx.tests.find((x) => x.testId === need("id"));
+      if (!t) throw new Error(`unknown test ${a.id}`);
+      if (!t.testFiles.includes(file)) t.testFiles.push(file);
+      t.status = "IMPLEMENTED";
+      writeJsonAtomic(p, idx);
+    });
     break;
   }
   default:

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "traceId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "errorCode": {
+      "type": "string",
+      "enum": [
+        "UNAUTHENTICATED",
+        "FORBIDDEN",
+        "NOT_FOUND",
+        "STALE_VERSION",
+        "VALIDATION_FAILED",
+        "DOMAIN_INVARIANT",
+        "RATE_LIMITED",
+        "UPSTREAM_DEGRADED",
+        "BUDGET_EXCEEDED",
+        "APPROVAL_REQUIRED",
+        "INTERNAL"
+      ]
+    },
+    "reasonCode": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "nextAction": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "lastStableRevision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "details": {
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "issue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "issue"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "traceId",
+    "errorCode",
+    "message",
+    "retryable"
+  ],
+  "additionalProperties": false
+}

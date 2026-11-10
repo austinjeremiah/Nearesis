@@ -1,0 +1,33 @@
+{
+  "name": "nearesis-app",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=24.22.1"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r --if-present test",
+    "contracts:schemas": "pnpm --filter @nearesis/contracts gen:schemas",
+    "monitor:dev": "pnpm --filter @nearesis/build-monitor dev",
+    "accept": "tsx scripts/accept.ts",
+    "dev:infra": "docker compose -f infrastructure/compose/docker-compose.yml up -d --wait",
+    "dev:infra:down": "docker compose -f infrastructure/compose/docker-compose.yml down",
+    "quality:all": "pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "eslint": "10.14.0",
+    "globals": "17.14.0",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.1.0"
+  }
+}

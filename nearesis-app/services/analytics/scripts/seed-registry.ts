@@ -542,7 +542,13 @@ const dimensions: RegistryDimension[] = CUBES.flatMap((c) => [
   })),
 ]);
 
-const reg = sealRegistry({ semanticVersion: "1.0.0", metrics, dimensions, evaluators });
+const exactScales: Record<string, number> = {
+  "intents.oneclick_volume_usd": 18,
+  "intents.oneclick_amount_in_smallest_unit": 0,
+  "prices.daily_volume_usd": 18,
+  "economics.externally_reported_revenue_usd": 18,
+};
+const reg = sealRegistry({ semanticVersion: "1.0.0", metrics, dimensions, evaluators, exactScales });
 writeFileSync(join(REGISTRY_DIR, "metrics.v1.json"), stringifyRegistry(reg));
 console.log(
   `wrote metrics.v1.json: ${metrics.length} metrics, ${dimensions.length} dimensions, hash ${reg.contentHash}`,

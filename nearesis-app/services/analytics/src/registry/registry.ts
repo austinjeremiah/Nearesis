@@ -20,8 +20,17 @@ export function canonicalJson(v: unknown): string {
 export const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 
 /** Content hash covers everything that defines semantics (metrics, dimensions, evaluators), not the version label or itself. */
-export function computeHash(r: Pick<Registry, "metrics" | "dimensions" | "evaluators">): string {
-  return sha256(canonicalJson({ metrics: r.metrics, dimensions: r.dimensions, evaluators: r.evaluators }));
+export function computeHash(
+  r: Pick<Registry, "metrics" | "dimensions" | "evaluators" | "exactScales">,
+): string {
+  return sha256(
+    canonicalJson({
+      metrics: r.metrics,
+      dimensions: r.dimensions,
+      evaluators: r.evaluators,
+      exactScales: r.exactScales,
+    }),
+  );
 }
 
 export function latestRegistryFile(dir = REGISTRY_DIR): string {

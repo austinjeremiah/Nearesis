@@ -44,6 +44,8 @@ export const Registry = z.strictObject({
   metrics: z.array(MetricMetadata),
   dimensions: z.array(RegistryDimension),
   evaluators: z.record(z.string(), Evaluator.nullable()),
+  /** Exact-decimal metrics: metric id -> decimal scale. Values are serialized as strings with this scale (S15). */
+  exactScales: z.record(z.string(), z.number().int().nonnegative()),
 });
 export type Registry = z.infer<typeof Registry>;
 

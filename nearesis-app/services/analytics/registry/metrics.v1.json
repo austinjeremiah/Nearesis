@@ -1039,5 +1039,11 @@
       ]
     }
   },
-  "contentHash": "810f0e4cce0c4850fb4c2cb8d19134cbbd764f8312027fc2365f7d25b1b3a291"
+  "exactScales": {
+    "intents.oneclick_volume_usd": 18,
+    "intents.oneclick_amount_in_smallest_unit": 0,
+    "prices.daily_volume_usd": 18,
+    "economics.externally_reported_revenue_usd": 18
+  },
+  "contentHash": "b13a8da616a03dda61585e45ef168d53bd478a4e709a45d9a4f51af43295ad4d"
 }

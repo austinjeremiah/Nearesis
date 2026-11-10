@@ -12,6 +12,7 @@ export * from "./leases.ts";
 export * from "./gateway.ts";
 export * from "./kernel.ts";
 export * from "./plugins/manager.ts";
+export * from "./plugins/install.ts";
 export { Db, DEFAULT_ADMIN_URL, DEFAULT_APP_URL } from "./db/pool.ts";
 export type { Tx, TenantContext } from "./db/pool.ts";
 export { migrate, MIGRATIONS_DIR } from "./db/migrate.ts";

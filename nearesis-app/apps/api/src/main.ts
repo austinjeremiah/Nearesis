@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_ENGINE_INTERFACES, Db, Kernel, migrate } from "@nearesis/kernel";
+import { DEFAULT_ENGINE_INTERFACES, Db, Kernel, loadTrustedKeys, migrate } from "@nearesis/kernel";
 import { buildApp } from "./app.ts";
 import { temporalEngine } from "./temporal-engine.ts";
 
@@ -27,7 +27,7 @@ const kernel = new Kernel({
         : process.env.NEARESIS_PLUGIN_TRUST === "dev_trust"
           ? "dev_trust"
           : "production",
-    trustedKeys: {},
+    trustedKeys: loadTrustedKeys(),
     pluginRoot: process.env.NEARESIS_PLUGIN_ROOT ?? process.cwd(),
     engineInterfaces: DEFAULT_ENGINE_INTERFACES,
   },

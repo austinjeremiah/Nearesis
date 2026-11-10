@@ -21,8 +21,6 @@ jobs:
         working-directory: nearesis-app
     env:
       CI: "true"
-      # Fixture evidence is written here (never into the checkout) and uploaded as a workflow artifact.
-      NEARESIS_CI_REPORTS_DIR: ${{ runner.temp }}/ci-reports
     steps:
       # Every run step below is `sh scripts/ci/steps.sh <name>`: the same file scripts/ci/local-run.ts replays locally.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

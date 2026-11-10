@@ -62,7 +62,9 @@ case "$step" in
   boot) env_on; pnpm exec vitest run tests/boot/secret-scan.test.ts ;;
   accept-fixture)
     env_on
-    R="${NEARESIS_CI_REPORTS_DIR:-$(mktemp -d)/reports}"
+    # On GitHub, $RUNNER_TEMP/ci-reports is what the upload-artifact step collects (job-level env cannot use runner.*).
+    R="${NEARESIS_CI_REPORTS_DIR:-${RUNNER_TEMP:+$RUNNER_TEMP/ci-reports}}"
+    R="${R:-$(mktemp -d)/reports}"
     mkdir -p "$R" "$R/coordination"
     echo "fixture evidence dir: $R"
     NEARESIS_REPORTS_DIR="$R" NEARESIS_COORD_DIR="$R/coordination" pnpm ci:accept-fixture

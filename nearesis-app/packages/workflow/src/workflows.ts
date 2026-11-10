@@ -124,6 +124,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
   let actionVersion = 0;
   let spawnCount = 0;
   const childTaskIds: string[] = [];
+  const childPromises: Promise<unknown>[] = [];
   let approvalHash: string | null = null;
 
   const scope = new CancellationScope({ cancellable: true });
@@ -182,6 +183,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
       const heavy = proxyActivities<Activities>({
         startToCloseTimeout: policy.stageTimeboxMs + 60_000,
         heartbeatTimeout: policy.heartbeatTimeoutMs,
+        cancellationType: "WAIT_CANCELLATION_COMPLETED",
         retry: {
           initialInterval: "500 milliseconds",
           maximumInterval: "5 seconds",
@@ -218,7 +220,6 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
       // ---- run stages; children of one stage run in parallel ----
       const outcomes: ChildOutcome[] = [];
       const handles = new Map<string, Promise<ChildOutcome>>();
-      const childPromises: Promise<unknown>[] = [];
 
       async function runChildWorkflow(
         spec: ChildSpec,
@@ -331,7 +332,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
               });
               continue;
             }
-            spawnCount++;
+            if (sp.created) spawnCount++;
             if (!childTaskIds.includes(sp.taskId)) childTaskIds.push(sp.taskId);
             const pr = runChildWorkflow(spec, sp.taskId, sp.depth, sp.hypothesisId, key).then(
               (o) => void done.set(i, o),
@@ -478,6 +479,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
     if (!isCancellation(err) && !cancelRequested) throw err;
     // A10: cancellation. Children were sent cancellation by the scope; settle, reconcile in-flight external calls, stable parent state.
     return await CancellationScope.nonCancellable(async () => {
+      await Promise.allSettled(childPromises); // children acknowledge cancellation and record CANCELLED
       const rec = await quick.reconcileCancellation({ tenantId, runId });
       const f = failureFor("CANCELLED", wfId, `event:${seq}`);
       const from = state;
@@ -498,6 +500,7 @@ export async function ResearchChildWorkflow(input: ChildInput): Promise<ChildOut
   const heavy = proxyActivities<Activities>({
     startToCloseTimeout: policy.stageTimeboxMs + 60_000,
     heartbeatTimeout: policy.heartbeatTimeoutMs,
+    cancellationType: "WAIT_CANCELLATION_COMPLETED",
     retry: {
       initialInterval: "500 milliseconds",
       maximumInterval: "5 seconds",

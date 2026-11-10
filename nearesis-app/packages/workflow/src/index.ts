@@ -5,3 +5,4 @@ export * from "./activities.ts";
 export * from "./worker.ts";
 export * from "./client.ts";
 export * from "./testing/dev-deps.ts";
+export * from "./replay.ts";

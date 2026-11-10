@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ApplicationFailure, Context } from "@temporalio/activity";
+import { ApplicationFailure, CancelledFailure, Context } from "@temporalio/activity";
 import type pg from "pg";
 import {
   RUN_TRANSITIONS,
@@ -345,7 +345,7 @@ export function createActivities(d: ActivityDeps) {
       hypothesisId: string;
     }): Promise<RoleResult> {
       const ctx = Context.current();
-      const timer = setInterval(() => ctx.heartbeat(), 1000);
+      const timer = setInterval(() => ctx.heartbeat(), 500);
       const saver = d.appUrl ? openCheckpointer(d.appUrl) : undefined;
       try {
         const roleCfg = roles.get(i.role as never)!;
@@ -389,7 +389,7 @@ export function createActivities(d: ActivityDeps) {
         });
         return result;
       } catch (e) {
-        if (e instanceof AbortedError) throw e;
+        if (e instanceof AbortedError) throw new CancelledFailure("role task cancelled");
         if (e instanceof AgentRuntimeError && e.reasonCode !== "CANCELLED") {
           await d.audit.write({
             tenantId: i.tenantId,

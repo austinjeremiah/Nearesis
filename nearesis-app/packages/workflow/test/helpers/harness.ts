@@ -119,7 +119,7 @@ export async function spawnWorkerProcess(
   o: { policy?: Partial<Policy>; stepDelayMs?: number } = {},
 ): Promise<WorkerProc> {
   const main = fileURLToPath(new URL("../../src/worker-main.ts", import.meta.url));
-  const proc = spawn("node_modules/.bin/tsx", [main], {
+  const proc = spawn(process.execPath, ["--import", "tsx", main], {
     cwd: fileURLToPath(new URL("../..", import.meta.url)),
     env: {
       ...process.env,
@@ -229,3 +229,28 @@ export async function waitFor<T>(
     await new Promise((r) => setTimeout(r, everyMs));
   }
 }
+
+import { createHash } from "node:crypto";
+import { mkdirSync, writeFileSync as wf } from "node:fs";
+import { historyToJSON } from "@temporalio/common/lib/proto-utils";
+
+export const HISTORY_DIR = fileURLToPath(new URL("../fixtures/histories", import.meta.url));
+
+/** Exports the parent history and every child history of a run for the A13 replay test. */
+export async function exportHistories(env: Env, workflowId: string, prefix: string): Promise<string[]> {
+  mkdirSync(HISTORY_DIR, { recursive: true });
+  const ids = [workflowId];
+  for await (const wf2 of env.client.workflow.list({
+    query: `WorkflowId STARTS_WITH "child-" AND TaskQueue = "${env.taskQueue}"`,
+  }))
+    ids.push(wf2.workflowId);
+  const written: string[] = [];
+  for (const id of ids) {
+    const h = await env.client.workflow.getHandle(id).fetchHistory();
+    const name = `${prefix}__${id.startsWith("child-") ? id.slice(0, 14) : "parent"}__${id.slice(0, 80)}.json`;
+    wf(`${HISTORY_DIR}/${name}`, historyToJSON(h));
+    written.push(name);
+  }
+  return written;
+}
+export const sha = (s: string) => createHash("sha256").update(s).digest("hex");

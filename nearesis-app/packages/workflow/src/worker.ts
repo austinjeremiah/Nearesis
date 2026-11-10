@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { NativeConnection, Worker, bundleWorkflowCode } from "@temporalio/worker";
+import { DefaultLogger, NativeConnection, Runtime, Worker, bundleWorkflowCode } from "@temporalio/worker";
 import { createActivities, type ActivityDeps } from "./activities.ts";
 import { TASK_QUEUE } from "./types.ts";
 
@@ -23,9 +23,24 @@ export async function bundleWorkflows(): Promise<string> {
   return code;
 }
 
+let runtimeInstalled = false;
+/** Keeps worker logs at ERROR unless NEARESIS_TEMPORAL_LOG=1 (activity retries are expected in crash tests). */
+function installRuntime(): void {
+  if (runtimeInstalled) return;
+  runtimeInstalled = true;
+  try {
+    Runtime.install({
+      logger: new DefaultLogger(process.env.NEARESIS_TEMPORAL_LOG === "1" ? "INFO" : "ERROR"),
+    });
+  } catch {
+    // already installed by the host process
+  }
+}
+
 export async function createWorker(
   opts: WorkerOpts,
 ): Promise<{ worker: Worker; connection: NativeConnection }> {
+  installRuntime();
   const connection = await NativeConnection.connect({
     address: opts.address ?? process.env.TEMPORAL_ADDRESS ?? DEFAULT_ADDRESS,
   });
@@ -38,6 +53,9 @@ export async function createWorker(
     ...(opts.workflowBundlePath
       ? { workflowBundle: { codePath: opts.workflowBundlePath } }
       : { workflowsPath: WORKFLOWS_PATH }),
+    // Cancellation reaches an activity on its next (throttled) heartbeat, so keep the throttle short.
+    defaultHeartbeatThrottleInterval: "500 milliseconds",
+    maxHeartbeatThrottleInterval: "1 second",
     maxConcurrentActivityTaskExecutions: opts.maxConcurrentActivityTaskExecutions ?? 16,
   });
   return { worker, connection };

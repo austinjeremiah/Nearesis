@@ -4,7 +4,7 @@ cubes:
     sql: "SELECT * FROM agent_market_jobs FINAL"
     public: false
     refresh_key:
-      sql: "SELECT sum(cityHash64(*)) FROM agent_market_jobs"
+      sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM agent_market_jobs"
       every: 1 second
     dimensions:
       - name: day
@@ -30,12 +30,12 @@ cubes:
             "unit": "jobs",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["external-report:agent_market_jobs"],
             "transformations": ["Completed jobs for markets that publish them"],
             "expectedUpdateLag": "P1D",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "aggregate_only",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",

@@ -4,7 +4,7 @@ cubes:
     sql: "SELECT * FROM intents_swaps FINAL"
     public: false
     refresh_key:
-      sql: "SELECT sum(cityHash64(*)) FROM intents_swaps"
+      sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM intents_swaps"
       every: 1 second
     dimensions:
       - name: day
@@ -51,12 +51,12 @@ cubes:
             "unit": "swaps",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["intents-1click:intents_swaps"],
             "transformations": ["Explorer 1Click swaps deduplicated by swap key, latest status wins"],
             "expectedUpdateLag": "PT1H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -80,12 +80,12 @@ cubes:
             "unit": "swaps",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["intents-1click:intents_swaps"],
             "transformations": ["Swaps with latest status SUCCESS"],
             "expectedUpdateLag": "PT1H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -109,12 +109,12 @@ cubes:
             "unit": "swaps",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["intents-1click:intents_swaps"],
             "transformations": ["Swaps with latest status FAILED"],
             "expectedUpdateLag": "PT1H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -138,12 +138,12 @@ cubes:
             "unit": "swaps",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["intents-1click:intents_swaps"],
             "transformations": ["Swaps with latest status REFUNDED"],
             "expectedUpdateLag": "PT1H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -167,13 +167,13 @@ cubes:
             "unit": "swaps",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["intents-1click:intents_swaps"],
             "transformations":
               ["Completed swaps with privacy era private_settlement (created on or after 2026-10-27)"],
             "expectedUpdateLag": "PT1H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "aggregate_only",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -196,7 +196,7 @@ cubes:
             "unit": "usd",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["intents-1click:intents_swaps"],
             "transformations":
@@ -204,7 +204,7 @@ cubes:
                 "Sum of provider USD value of origin amount for completed swaps with a final amount; single leg only",
               ],
             "expectedUpdateLag": "PT1H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "overlapping",
             "certifiedVersion": "1.0.0",
@@ -227,13 +227,13 @@ cubes:
             "unit": "smallest_unit",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["intents-1click:intents_swaps"],
             "transformations":
               ["Exact decimal sum of origin amounts in smallest units; group by canonical origin asset"],
             "expectedUpdateLag": "PT1H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -261,7 +261,7 @@ cubes:
             "sources": ["intents-1click:intents_swaps"],
             "transformations": ["completed swaps / all swaps"],
             "expectedUpdateLag": "PT1H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -290,7 +290,7 @@ cubes:
           - name: idx_dims
             columns: [status, privacy_era]
         refresh_key:
-          sql: "SELECT sum(cityHash64(*)) FROM intents_swaps"
+          sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM intents_swaps"
           every: 1 second
 
 views:

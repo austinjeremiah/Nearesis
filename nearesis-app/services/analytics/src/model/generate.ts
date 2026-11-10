@@ -16,7 +16,7 @@ export function renderCubeFile(c: CubeDef, registry: Registry): string {
   L.push(`    sql: ${q(select)}`);
   L.push("    public: false");
   L.push("    refresh_key:");
-  L.push(`      sql: ${q(`SELECT sum(cityHash64(*)) FROM ${c.table}`)}`);
+  L.push(`      sql: ${q(`SELECT sum(cityHash64(toString(tuple(*)))) FROM ${c.table}`)}`);
   L.push("      every: 1 second");
   L.push("    dimensions:");
   L.push("      - name: day");
@@ -56,7 +56,7 @@ export function renderCubeFile(c: CubeDef, registry: Registry): string {
       );
       L.push(
         "        refresh_key:",
-        `          sql: ${q(`SELECT sum(cityHash64(*)) FROM ${c.table}`)}`,
+        `          sql: ${q(`SELECT sum(cityHash64(toString(tuple(*)))) FROM ${c.table}`)}`,
         "          every: 1 second",
       );
     }

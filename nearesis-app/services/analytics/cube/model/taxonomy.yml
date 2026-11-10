@@ -4,7 +4,7 @@ cubes:
     sql: "SELECT * FROM contract_interactions FINAL"
     public: false
     refresh_key:
-      sql: "SELECT sum(cityHash64(*)) FROM contract_interactions"
+      sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM contract_interactions"
       every: 1 second
     dimensions:
       - name: day
@@ -32,13 +32,13 @@ cubes:
             "unit": "interactions",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["near-bigquery:contract_interactions"],
             "transformations":
               ["Receipts joined to the effective-dated contract registry; verified mappings only"],
             "expectedUpdateLag": "PT24H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "disjoint",
             "certifiedVersion": "1.0.0",
@@ -63,12 +63,12 @@ cubes:
             "unit": "interactions",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["near-bigquery:contract_interactions"],
             "transformations": ["Interactions whose receiver has no verified taxonomy mapping"],
             "expectedUpdateLag": "PT24H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "disjoint",
             "certifiedVersion": "1.0.0",
@@ -93,12 +93,12 @@ cubes:
             "unit": "interactions",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["near-bigquery:contract_interactions"],
             "transformations": ["Interactions whose receiver has a verified taxonomy mapping"],
             "expectedUpdateLag": "PT24H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "disjoint",
             "certifiedVersion": "1.0.0",
@@ -126,7 +126,7 @@ cubes:
             "sources": ["near-bigquery:contract_interactions"],
             "transformations": ["uncategorized interactions / all interactions"],
             "expectedUpdateLag": "PT24H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -149,7 +149,7 @@ cubes:
           - name: idx_dims
             columns: [category, segment_state]
         refresh_key:
-          sql: "SELECT sum(cityHash64(*)) FROM contract_interactions"
+          sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM contract_interactions"
           every: 1 second
 
 views:

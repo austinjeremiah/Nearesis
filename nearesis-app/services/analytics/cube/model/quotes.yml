@@ -4,7 +4,7 @@ cubes:
     sql: "SELECT * FROM quote_attempts FINAL"
     public: false
     refresh_key:
-      sql: "SELECT sum(cityHash64(*)) FROM quote_attempts"
+      sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM quote_attempts"
       every: 1 second
     dimensions:
       - name: day
@@ -48,12 +48,12 @@ cubes:
             "unit": "quotes",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["intents-1click:quote_attempts"],
             "transformations": ["Observed dry quote attempts on the scheduled grid"],
             "expectedUpdateLag": "PT1H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -82,12 +82,12 @@ cubes:
             "unit": "slots",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["intents-1click:quote_attempts"],
             "transformations": ["Grid slots with no attempt; never backfilled"],
             "expectedUpdateLag": "PT1H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -115,7 +115,7 @@ cubes:
             "sources": ["intents-1click:quote_attempts"],
             "transformations": ["OK attempts / all grid slots"],
             "expectedUpdateLag": "PT1H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -140,12 +140,12 @@ cubes:
             "unit": "bps",
             "grain": "day",
             "aggregationLaw": "avg",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["intents-1click:quote_attempts"],
             "transformations": ["Mean quote cost versus the declared benchmark over OK attempts"],
             "expectedUpdateLag": "PT1H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -168,7 +168,7 @@ cubes:
           - name: idx_dims
             columns: [route_id, privacy_mode]
         refresh_key:
-          sql: "SELECT sum(cityHash64(*)) FROM quote_attempts"
+          sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM quote_attempts"
           every: 1 second
 
 views:

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { observe } from "@nearesis/acceptance";
-import { baseline, sha256, canonicalJson } from "@nearesis/analytics";
+import { baseline, sha256, canonicalJson, createPg, loadQuery, migratePg } from "@nearesis/analytics";
 import { ast, setupEnv, W1, type Env } from "../helpers.ts";
 
 let env: Env;
@@ -112,7 +112,9 @@ const valids = [
 
 test("S14 negative AST corpus is rejected before execution; security context is server-bound", async () => {
   expect(negatives.length).toBeGreaterThanOrEqual(25);
-  const gw = env.gateway();
+  const pool = createPg();
+  await migratePg(pool);
+  const gw = env.gateway({ pg: pool });
   const table: unknown[] = [];
   for (const c of negatives) {
     const before = gw.stats().executions;
@@ -151,6 +153,9 @@ test("S14 negative AST corpus is rejected before execution; security context is 
     }
   }
   expect(gw.stats().executions).toBe(5);
+  for (const [i, h] of hashes.entries())
+    expect((await loadQuery(pool, h))?.ast).toEqual(JSON.parse(JSON.stringify(valids[i])));
+  await pool.end();
 
   const exec = gw.audit().filter((a) => a.outcome === "executed");
   expect(exec).toHaveLength(5);

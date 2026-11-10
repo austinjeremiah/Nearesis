@@ -4,7 +4,7 @@ cubes:
     sql: "SELECT * FROM near_daily_usage FINAL"
     public: false
     refresh_key:
-      sql: "SELECT sum(cityHash64(*)) FROM near_daily_usage"
+      sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM near_daily_usage"
       every: 1 second
     dimensions:
       - name: day
@@ -28,7 +28,7 @@ cubes:
             "unit": "tx",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["near-bigquery:near_daily_usage"],
             "transformations": ["BigQuery block_date aggregation of successful transactions"],
@@ -56,12 +56,12 @@ cubes:
             "unit": "actions",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["near-bigquery:near_daily_usage"],
             "transformations": ["BigQuery block_date aggregation of FunctionCall actions"],
             "expectedUpdateLag": "PT24H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -84,7 +84,7 @@ cubes:
             "unit": "signers",
             "grain": "day",
             "aggregationLaw": "non_additive",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["near-bigquery:near_daily_usage"],
             "transformations": ["Daily distinct signer accounts from BigQuery"],
@@ -112,12 +112,12 @@ cubes:
             "unit": "contracts",
             "grain": "day",
             "aggregationLaw": "non_additive",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["near-bigquery:near_daily_usage"],
             "transformations": ["Daily distinct receiver contracts with a successful call"],
             "expectedUpdateLag": "PT24H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "overlapping",
             "certifiedVersion": "1.0.0",
@@ -145,7 +145,7 @@ cubes:
           - name: idx_dims
             columns: [source_label]
         refresh_key:
-          sql: "SELECT sum(cityHash64(*)) FROM near_daily_usage"
+          sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM near_daily_usage"
           every: 1 second
 
 views:

@@ -82,7 +82,10 @@ export async function cubeLoad(
   }
 }
 
-export async function cubeMeta(url: string, token: string): Promise<{ cubes: Array<Record<string, unknown>> }> {
+export async function cubeMeta(
+  url: string,
+  token: string,
+): Promise<{ cubes: Array<Record<string, unknown>> }> {
   const res = await cubeFetch(url, token, "meta");
   if (!res.ok)
     throw new CubeError(`cube meta ${res.status}: ${(await res.text()).slice(0, 300)}`, res.status);

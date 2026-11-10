@@ -28,8 +28,8 @@ const ev = (
 });
 const base = {
   segmentOverlap: "n/a" as const,
-  botProxyDefinition: null,
-  denominator: null,
+  botProxyDefinition: "n/a: not a per-actor metric, bot traffic is not separated",
+  denominator: "n/a: additive count or level with no denominator",
   transformations: [] as string[],
 };
 const NEAR = ["near-bigquery:near_daily_usage"];

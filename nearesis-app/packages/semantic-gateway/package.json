@@ -17,6 +17,8 @@
   },
   "devDependencies": {
     "@nearesis/acceptance": "workspace:*",
-    "ioredis": "6.0.0"
+    "ioredis": "6.0.0",
+    "pg": "8.23.1",
+    "@types/pg": "8.23.1"
   }
 }

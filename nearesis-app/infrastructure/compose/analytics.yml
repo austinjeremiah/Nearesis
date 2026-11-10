@@ -20,6 +20,7 @@ services:
       CUBEJS_PRE_AGGREGATIONS_SCHEMA: nearesis_preagg
       CUBEJS_REFRESH_WORKER: "true"
       CUBEJS_SCHEDULED_REFRESH_DEFAULT: "true"
+      CUBEJS_SCHEDULED_REFRESH_TIMER: "2"
       # Single-node Cube Core: in-memory queue/cache, rollups materialize in ClickHouse (schema nearesis_preagg), no Cube Store.
       CUBEJS_CACHE_AND_QUEUE_DRIVER: memory
       CUBEJS_LOG_LEVEL: warn

@@ -4,7 +4,7 @@ cubes:
     sql: "SELECT * FROM price_candles FINAL ORDER BY update_vintage DESC LIMIT 1 BY provider, coin_id, quote_currency, `interval`, bucket_start"
     public: false
     refresh_key:
-      sql: "SELECT sum(cityHash64(*)) FROM price_candles"
+      sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM price_candles"
       every: 1 second
     dimensions:
       - name: day
@@ -34,12 +34,12 @@ cubes:
             "unit": "usd_price",
             "grain": "day",
             "aggregationLaw": "avg",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["coingecko:price_candles"],
             "transformations": ["Latest update vintage per daily candle"],
             "expectedUpdateLag": "PT24H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",
@@ -62,12 +62,12 @@ cubes:
             "unit": "usd",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["coingecko:price_candles"],
             "transformations": ["Provider-reported volume of the latest vintage"],
             "expectedUpdateLag": "PT24H",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "public",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",

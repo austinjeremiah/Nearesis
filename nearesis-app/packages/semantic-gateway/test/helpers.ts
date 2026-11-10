@@ -7,6 +7,8 @@ import {
   loadNormalized,
   loadLatestRegistryForTests,
   resetData,
+  settleRollups,
+  signCubeToken,
   type ClickHouseClient,
   type Registry,
 } from "@nearesis/analytics";
@@ -39,6 +41,7 @@ export interface Env {
   gateway: (opts?: {
     registry?: Registry;
     policy?: (s: Session) => Policy;
+    pg?: import("pg").Pool;
   }) => ReturnType<typeof createGateway>;
 }
 
@@ -55,6 +58,7 @@ export async function setupEnv(data: NormalizedOutput | null): Promise<Env> {
   if (keys.length) await redis.del(...keys);
   const registry = loadLatestRegistryForTests();
   if (!(await cubeReady(CUBE_URL))) throw new Error("Cube is not ready at " + CUBE_URL);
+  if (data) await settle(ch);
   return {
     ch,
     redis,
@@ -74,6 +78,12 @@ export async function setupEnv(data: NormalizedOutput | null): Promise<Env> {
         policyResolver: o.policy ?? (() => ({ ...DEFAULT_POLICY })),
         clock: () => new Date("2026-11-10T12:00:00Z"),
         ch,
+        pg: o.pg,
       }),
   };
 }
+
+export const cubeToken = () =>
+  signCubeToken(defaultCubeSecret(), { tenantId: "t1", workspaceId: "w1", principalId: "test" });
+/** Waits until Cube rollups reflect the data currently in ClickHouse (call after every mid-test load). */
+export const settle = (ch: ClickHouseClient) => settleRollups(ch, CUBE_URL, cubeToken());

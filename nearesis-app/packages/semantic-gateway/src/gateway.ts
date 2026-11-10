@@ -4,6 +4,7 @@ import {
   canonicalJson,
   createCh,
   cubeLoad,
+  saveQuery,
   signCubeToken,
   type Registry,
 } from "@nearesis/analytics";
@@ -49,6 +50,14 @@ export function estimateRows(perDay: Record<string, number>, days: number): numb
   return Math.ceil(Object.values(perDay).reduce((a, b) => a + b, 0) * days);
 }
 
+/** Normalizes an exact decimal string to its declared scale (ClickHouse trims trailing zeros). String-only: no float path. */
+export function formatScale(v: string, scale: number): string {
+  const neg = v.startsWith("-");
+  const [i = "0", f = ""] = (neg ? v.slice(1) : v).split(".");
+  const frac = f.padEnd(scale, "0").slice(0, scale);
+  return `${neg ? "-" : ""}${i}${scale > 0 ? `.${frac}` : ""}`;
+}
+
 const zeroOf = (scale: number) => (scale > 0 ? `0.${"0".repeat(scale)}` : "0");
 const ZERO_FILLABLE = new Set(["sum", "count_distinct", "non_additive"]);
 
@@ -66,6 +75,16 @@ export function createGateway(opts: GatewayOptions) {
     principalId: s.principalId,
     aclClasses: [...s.aclClasses],
   });
+
+  const persist = async (queryHash: string, ast: unknown) => {
+    if (opts.pg)
+      await saveQuery(opts.pg, {
+        queryHash,
+        ast,
+        semanticVersion: reg.semanticVersion,
+        semanticModelHash: reg.contentHash,
+      });
+  };
 
   async function query(session: Session, input: unknown): Promise<QueryResult> {
     const traceId = randomUUID();
@@ -110,6 +129,32 @@ export function createGateway(opts: GatewayOptions) {
           ),
         );
 
+      const fromDay = isoDay(fromMs);
+      const toDay = isoDay(toMs - 1);
+      const coverage = await loadCoverage(ch, sources, fromDay, toDay);
+      const gapsRaw = await loadQualityGaps(ch, sources, ast.time.from, ast.time.to);
+      const watermarks = await loadWatermarks(
+        ch,
+        sources.map((s) => s.slice(0, s.indexOf(":"))),
+      );
+
+      // Refuse before executing when policy says incomplete windows are refused.
+      if (policy.incompleteWindow === "refuse" && (ast.time.grain === "week" || ast.time.grain === "month")) {
+        const excl = excludedDays(plan, coverage, fromMs, toMs, new Set());
+        if (excl.length)
+          return rejectAudit(
+            fail(
+              "DOMAIN_INVARIANT",
+              "INCOMPLETE_WINDOW",
+              `Window contains ${excl.length} unavailable day(s): ${excl.slice(0, 10).join(", ")}.`,
+              {
+                details: [{ path: "time", issue: "INCOMPLETE_WINDOW" }],
+                nextAction: "Query at day grain or choose a complete window.",
+              },
+            ),
+          );
+      }
+
       const queryHash = queryHashOf(ast);
       const vintage = await sourceVintage(ch, sources);
       const cacheKey = buildCacheKey({
@@ -124,6 +169,7 @@ export function createGateway(opts: GatewayOptions) {
       const hit = await opts.redis.get(cacheKey);
       if (hit) {
         stats.cacheHits++;
+        await persist(queryHash, ast);
         record({
           traceId,
           queryHash,
@@ -143,15 +189,6 @@ export function createGateway(opts: GatewayOptions) {
         };
       }
       stats.cacheMisses++;
-
-      const fromDay = isoDay(fromMs);
-      const toDay = isoDay(toMs - 1);
-      const coverage = await loadCoverage(ch, sources, fromDay, toDay);
-      const gapsRaw = await loadQualityGaps(ch, sources, ast.time.from, ast.time.to);
-      const watermarks = await loadWatermarks(
-        ch,
-        sources.map((s) => s.slice(0, s.indexOf(":"))),
-      );
 
       const cubeQuery = {
         measures: plan.metrics.map((m) => m.cubeMember),
@@ -179,23 +216,6 @@ export function createGateway(opts: GatewayOptions) {
         timezone: "UTC",
         cache: "must-revalidate",
       };
-
-      // Refuse before executing when policy says incomplete windows are refused.
-      if (policy.incompleteWindow === "refuse" && (ast.time.grain === "week" || ast.time.grain === "month")) {
-        const excl = excludedDays(plan, coverage, fromMs, toMs, new Set());
-        if (excl.length)
-          return rejectAudit(
-            fail(
-              "DOMAIN_INVARIANT",
-              "INCOMPLETE_WINDOW",
-              `Window contains ${excl.length} unavailable day(s): ${excl.slice(0, 10).join(", ")}.`,
-              {
-                details: [{ path: "time", issue: "INCOMPLETE_WINDOW" }],
-                nextAction: "Query at day grain or choose a complete window.",
-              },
-            ),
-          );
-      }
 
       const boundContext = ctxOf(session);
       const token = signCubeToken(opts.cubeSecret, boundContext);
@@ -235,6 +255,7 @@ export function createGateway(opts: GatewayOptions) {
         generatedAt: opts.clock().toISOString(),
         estRows: est,
       });
+      await persist(queryHash, ast);
       await opts.redis.set(cacheKey, JSON.stringify(env), "EX", policy.cacheTtlSeconds);
       return { ok: true, status: 200, queryHash, cache: "miss", cacheKey, envelope: env };
     } catch (e) {
@@ -308,7 +329,7 @@ export function buildEnvelope(a: BuildArgs): DataFrameEnvelope {
 
   const num = (m: (typeof plan.metrics)[number], v: string | number | null): string | number | null => {
     if (v === null || v === undefined) return null;
-    if (scales[m.id] !== undefined) return String(v);
+    if (scales[m.id] !== undefined) return formatScale(String(v), scales[m.id]!);
     return Number(v);
   };
 

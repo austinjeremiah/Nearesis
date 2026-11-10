@@ -8,3 +8,6 @@ export * from "./model/definition.ts";
 export * from "./model/generate.ts";
 export * from "./fixtures.ts";
 export * from "./testing.ts";
+export * from "./registry/promotions.ts";
+export * from "./registry/metricsdoc.ts";
+export * from "./queries.ts";

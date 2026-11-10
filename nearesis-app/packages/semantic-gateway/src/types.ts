@@ -42,6 +42,8 @@ export interface GatewayOptions {
   clock: () => Date;
   /** ClickHouse client for coverage, vintage and cost probes (read-only, parameterized). Defaults to the dev stack. */
   ch?: ClickHouseClient;
+  /** Optional Postgres pool: when set, every successful query AST is saved by hash to analytics_meta.query_registry. */
+  pg?: import("pg").Pool;
 }
 
 export interface AuditRecord {

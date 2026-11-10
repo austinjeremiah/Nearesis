@@ -4,7 +4,7 @@ cubes:
     sql: "SELECT * FROM near_signer_days FINAL"
     public: false
     refresh_key:
-      sql: "SELECT sum(cityHash64(*)) FROM near_signer_days"
+      sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM near_signer_days"
       every: 1 second
     dimensions:
       - name: day
@@ -28,7 +28,7 @@ cubes:
             "unit": "signers",
             "grain": "day",
             "aggregationLaw": "count_distinct",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["near-bigquery:near_signer_days"],
             "transformations": ["Exact count(distinct signer) over signer-day pairs within the period"],

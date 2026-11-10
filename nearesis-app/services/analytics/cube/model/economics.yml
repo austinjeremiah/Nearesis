@@ -4,7 +4,7 @@ cubes:
     sql: "SELECT * FROM economics_reports FINAL"
     public: false
     refresh_key:
-      sql: "SELECT sum(cityHash64(*)) FROM economics_reports"
+      sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM economics_reports"
       every: 1 second
     dimensions:
       - name: day
@@ -28,12 +28,12 @@ cubes:
             "unit": "usd",
             "grain": "day",
             "aggregationLaw": "sum",
-            "denominator": null,
+            "denominator": "n/a: additive count or level with no denominator",
             "zeroPolicy": "zero_requires_complete_coverage",
             "sources": ["external-report:economics_reports"],
             "transformations": ["Revenue figures reported by a named external party, unaudited"],
             "expectedUpdateLag": "P7D",
-            "botProxyDefinition": null,
+            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
             "visibility": "restricted",
             "segmentOverlap": "n/a",
             "certifiedVersion": "1.0.0",

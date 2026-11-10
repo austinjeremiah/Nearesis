@@ -385,9 +385,11 @@
       "passCondition": "result matches independent SQL golden fixture",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S01.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -398,9 +400,11 @@
       "passCondition": "disallow incorrect period-unique aggregation",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S02.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -426,9 +430,11 @@
       "passCondition": "deny and do not reveal member metadata",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S04.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -484,9 +490,11 @@
       "passCondition": "result metadata says partial, not fresh/complete",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S08.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -497,9 +505,11 @@
       "passCondition": "equality within documented numeric tolerance",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/analytics/test/acceptance/S09.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -660,9 +670,11 @@
       "passCondition": "four typed valid panels with query provenance",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C01.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -898,9 +910,11 @@
       "passCondition": "per-key counts and metrics unchanged except declared status update; result independent of merge timing",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S10.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -911,9 +925,11 @@
       "passCondition": "0 vs null vs partial with coverage flags; incomplete-window total refused or flagged partial",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S11.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -924,9 +940,11 @@
       "passCondition": "inactive until approved; diff has required fields; version and hash bump; experimental promotion refused; METRICS.md in sync",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "services/analytics/test/acceptance/S12.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -937,9 +955,11 @@
       "passCondition": ">=20 fully specified metrics; >=6 views; compile 0 errors; meta equals registry; >=3 rollups built and used",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "services/analytics/test/acceptance/S13.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -965,9 +985,11 @@
       "passCondition": "stored and aggregated values equal independent exact results digit for digit; no float path or unsafe JSON numbers",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S15.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -1220,9 +1242,11 @@
       "passCondition": "all panels show units/freshness/provenance; AST re-execution reproduces hash; stale shown with last good data",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C14.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -1248,9 +1272,11 @@
       "passCondition": "rendered graph equals valid projection; invalid edges reported; layout persists; keyboard reachable; drag creates no edges",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C16.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {

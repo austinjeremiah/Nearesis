@@ -15,7 +15,10 @@ const ALLOWED = [
   /^workspaces\/[0-9a-f-]{36}\/events$/,
   /^workspaces\/[0-9a-f-]{36}\/graph$/,
   /^workspaces\/[0-9a-f-]{36}\/questions$/,
+  /^workspaces\/[0-9a-f-]{36}\/runs$/,
+  /^workspaces\/[0-9a-f-]{36}\/sources$/,
   /^runs\/[0-9a-f-]{36}$/,
+  /^runs\/[0-9a-f-]{36}\/cancel$/,
   /^runs\/[0-9a-f-]{36}\/approvals(\/[0-9a-f-]{36})?$/,
 ];
 

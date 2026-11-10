@@ -1,16 +1,16 @@
 /**
- * Renderer adapter: (PanelSpec, VizIR, ChartData, markers) -> ECharts option. Pure data, built only from validated
- * specs. It never copies a spec- or data-supplied function/formatter (none can exist after validation) and uses the
- * canvas renderer with rich-text tooltips, so labels, series names and category values are drawn as text, never HTML.
+ * Adapter: (PanelSpec, VizIR, ChartData, markers) -> the design system's declared ChartSpec. It is pure data built only
+ * from validated specs; no function, formatter or HTML can pass through. The ui `Chart` turns the spec into an ECharts
+ * option with token colours. Large time series are reduced to min/max buckets here so the footer label and the
+ * rendered point count stay identical to what is drawn (C18).
  */
 import type { ChartData, MarkerSpec, PanelSpec } from "@nearesis/contracts";
 import { downsampleMinMax, type VizIR } from "@nearesis/canvas-schema";
+import type { ChartKind, ChartMarker, ChartSpec } from "@nearesis/ui";
 
-export const RENDERER_VERSION = "echarts-6.1.0/adapter-1";
+export const RENDERER_VERSION = "echarts-6.1.0/ui-theme-1";
 const DOWNSAMPLE_THRESHOLD = 8000;
 const DOWNSAMPLE_BUCKETS = 2000;
-
-export type EChartsOption = Record<string, unknown>;
 
 export function toNumber(v: string | number | null | undefined): number | null {
   if (v === null || v === undefined) return null;
@@ -28,149 +28,90 @@ function toTime(v: string | number | null | undefined): number | null {
   return null;
 }
 
-export interface BuiltOption {
-  option: EChartsOption;
+export interface BuiltChart {
+  spec: ChartSpec;
   downsampling: { method: "none" | "min_max_bucket"; originalPoints: number; renderedPoints: number };
 }
 
-export function buildChartOption(args: {
+function markerToSpec(m: MarkerSpec): ChartMarker {
+  if (m.anchor.kind === "time_range")
+    return { id: m.markerId, kind: "time_range", start: m.anchor.start, end: m.anchor.end, label: "marker" };
+  if (m.anchor.kind === "time_point")
+    return { id: m.markerId, kind: "time_point", at: m.anchor.at, label: "marker" };
+  return {
+    id: m.markerId,
+    kind: "threshold",
+    value: m.anchor.value,
+    op: m.anchor.op,
+    label: `${m.anchor.op} ${m.anchor.value}`,
+  };
+}
+
+export function toChartSpec(args: {
   panel: PanelSpec;
   viz: VizIR;
   data: ChartData;
   gaps: Array<{ from: string; to: string; reason: string }>;
   markers: MarkerSpec[];
-  palette: { fg: string; muted: string; grid: string; series: string[]; gap: string; marker: string };
-}): BuiltOption {
-  const { panel, viz, data, palette } = args;
+}): BuiltChart {
+  const { panel, viz, data } = args;
   const col = (name: string | undefined) => (name ? data.columns.findIndex((c) => c.name === name) : -1);
   const xi = col(panel.encoding.x);
   const yFields = panel.encoding.y ?? [];
   const isTime = viz.x?.type === "utc_time";
   const original = data.rows.length;
-  let rendered = 0;
+  let rows = data.rows;
   let method: "none" | "min_max_bucket" = "none";
 
-  const axisCommon = {
-    axisLine: { lineStyle: { color: palette.muted } },
-    axisLabel: { color: palette.muted, hideOverlap: true },
-    splitLine: { lineStyle: { color: palette.grid } },
-    nameTextStyle: { color: palette.muted },
-  };
-  const rightUnit = viz.axes.find((a) => a.side === "right")?.unit;
-  const leftUnit = viz.axes.find((a) => a.side === "left")?.unit;
-  const yAxisType = viz.scale === "log" ? "log" : "value";
-  const yAxis: Array<Record<string, unknown>> = [
-    { type: yAxisType, name: leftUnit ?? "", ...axisCommon, scale: true },
-  ];
-  if (rightUnit)
-    yAxis.push({ type: yAxisType, name: rightUnit, ...axisCommon, scale: true, splitLine: { show: false } });
-
-  const series: Array<Record<string, unknown>> = [];
-  yFields.forEach((f, si) => {
-    const yi = col(f);
-    const axis = viz.axes.find((a) => a.field === f);
-    const color = palette.series[si % palette.series.length];
-    let pts: Array<[number | string, number | null]> = data.rows.map((r) => [
-      isTime ? (toTime(r[xi]) ?? 0) : String(r[xi] ?? ""),
-      toNumber(r[yi] as string | number | null),
-    ]);
-    if (viz.scale === "index_100") {
-      const first = pts.find((p) => p[1] !== null && p[1] !== 0)?.[1] ?? null;
-      pts = pts.map(([x, y]) => [x, y === null || first === null ? null : (y / first) * 100]);
+  if (isTime && panel.kind !== "scatter" && rows.length > DOWNSAMPLE_THRESHOLD) {
+    const keep = new Set<number>();
+    for (const f of yFields) {
+      const yi = col(f);
+      const pts: Array<[number, number | null]> = rows.map((r) => [
+        toTime(r[xi] as string | number | null) ?? 0,
+        toNumber(r[yi] as string | number | null),
+      ]);
+      const d = downsampleMinMax(pts, DOWNSAMPLE_BUCKETS);
+      if (d.method === "min_max_bucket") method = d.method;
+      for (const p of d.points) keep.add(p[0]);
     }
-    if (isTime && panel.kind !== "scatter" && pts.length > DOWNSAMPLE_THRESHOLD) {
-      const d = downsampleMinMax(pts as Array<[number, number | null]>, DOWNSAMPLE_BUCKETS);
-      method = d.method;
-      pts = d.points;
-    }
-    rendered += pts.length;
-    const base = {
-      name: f,
-      yAxisIndex: axis?.side === "right" ? 1 : 0,
-      data: isTime || panel.kind === "scatter" ? pts : pts.map((p) => p[1]),
-      animation: false,
-      itemStyle: { color },
-      lineStyle: { color, width: 1.5 },
-      emphasis: { disabled: pts.length > 5000 },
-    };
-    if (panel.kind === "scatter")
-      series.push({ ...base, type: "scatter", symbolSize: 2, large: true, largeThreshold: 2000 });
-    else if (panel.kind === "bar" || panel.kind === "waterfall")
-      series.push({ ...base, type: "bar", barMaxWidth: 28 });
-    else
-      series.push({
-        ...base,
-        type: "line",
-        showSymbol: pts.length <= 120,
-        symbolSize: 4,
-        connectNulls: false, // gaps render as breaks; never interpolated (C17)
-        sampling: undefined,
-      });
-  });
-
-  // Missingness shading for declared gaps, and markers anchored in data space (C12).
-  const first = series[0];
-  if (first && isTime) {
-    const areas: unknown[] = args.gaps.map((g) => [
-      { xAxis: Date.parse(g.from), name: `missing: ${g.reason}`, itemStyle: { color: palette.gap } },
-      { xAxis: Date.parse(g.to) },
-    ]);
-    const lines: unknown[] = [];
-    for (const m of args.markers) {
-      if (m.anchor.kind === "time_range")
-        areas.push([
-          {
-            xAxis: Date.parse(m.anchor.start),
-            name: "marker",
-            itemStyle: { color: palette.marker, opacity: 0.15 },
-          },
-          { xAxis: Date.parse(m.anchor.end) },
-        ]);
-      else if (m.anchor.kind === "time_point") lines.push({ xAxis: Date.parse(m.anchor.at), name: "marker" });
-      else lines.push({ yAxis: m.anchor.value, name: `${m.anchor.op} ${m.anchor.value}` });
-    }
-    first.markArea = { silent: true, label: { color: palette.muted, fontSize: 10 }, data: areas };
-    first.markLine = {
-      silent: true,
-      symbol: "none",
-      lineStyle: { color: palette.marker, type: "dashed" },
-      label: { color: palette.marker },
-      data: lines,
-    };
+    if (method === "min_max_bucket")
+      rows = rows.filter((r) => keep.has(toTime(r[xi] as string | number | null) ?? 0));
   }
 
-  const option: EChartsOption = {
-    animation: original < 2000,
-    backgroundColor: "transparent",
-    textStyle: { color: palette.fg },
-    grid: { left: 56, right: rightUnit ? 56 : 16, top: 28, bottom: 40, containLabel: false },
-    legend: yFields.length > 1 ? { top: 0, textStyle: { color: palette.muted } } : undefined,
-    tooltip: {
-      trigger: panel.kind === "scatter" ? "item" : "axis",
-      renderMode: "richText", // drawn on canvas: label text cannot become markup
-      confine: true,
-    },
-    xAxis: {
-      type: isTime ? "time" : panel.kind === "scatter" ? "value" : "category",
-      name: isTime ? "UTC" : (viz.x?.field ?? ""),
-      ...axisCommon,
-      ...(isTime || panel.kind === "scatter" ? {} : { data: data.rows.map((r) => String(r[xi] ?? "")) }),
-      splitLine: { show: false },
-    },
-    yAxis,
-    series,
-    brush: isTime
-      ? {
-          xAxisIndex: 0,
-          brushMode: "single",
-          throttleType: "debounce",
-          throttleDelay: 150,
-          transformable: false,
-        }
-      : undefined,
-    toolbox: { show: false },
-    // Wheel zoom and drag pan on time axes; view changes never touch documentRevision or dataRevision.
-    dataZoom: isTime ? [{ type: "inside", xAxisIndex: 0, filterMode: "none", throttle: 50 }] : undefined,
+  const kind: ChartKind =
+    panel.kind === "scatter"
+      ? "scatter"
+      : panel.kind === "bar" || panel.kind === "waterfall"
+        ? "bar"
+        : viz.mark === "area"
+          ? "area"
+          : "line";
+  const xType: "time" | "category" | "value" = isTime
+    ? "time"
+    : panel.kind === "scatter" || viz.x?.type === "number"
+      ? "value"
+      : "category";
+
+  const spec: ChartSpec = {
+    kind,
+    title: panel.title,
+    columns: data.columns.map((c) => ({ name: c.name, unit: c.unit })),
+    rows,
+    x: { field: panel.encoding.x ?? "", type: xType },
+    y: yFields.map((f) => {
+      const axis = viz.axes.find((a) => a.field === f);
+      const side = axis?.side === "right" ? ("right" as const) : ("left" as const);
+      const unit = panel.dataBinding.units[f] ?? data.columns[col(f)]?.unit ?? null;
+      return { field: f, unit: unit ?? (side === "right" ? f : null), side };
+    }),
+    scale: viz.scale,
+    gaps: args.gaps,
+    markers: args.markers.map(markerToSpec),
+    downsampling: { method, originalPoints: original },
   };
-  return { option, downsampling: { method, originalPoints: original, renderedPoints: rendered } };
+  return {
+    spec,
+    downsampling: { method, originalPoints: original, renderedPoints: rows.length * yFields.length },
+  };
 }

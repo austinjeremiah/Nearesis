@@ -11,6 +11,7 @@ import {
   type NodeChange,
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PanelNotice } from "@nearesis/ui";
 import type { GraphProjection } from "../lib/types.ts";
 import { hooks } from "../lib/test-hooks.ts";
 
@@ -64,12 +65,36 @@ export function checkProjection(g: GraphProjection): ProjectionCheck {
 
 type GData = { label: string; kind: string };
 
-function TypedNode({ data }: NodeProps<Node<GData>>) {
+const KIND_TONE: Record<string, string> = {
+  hypothesis: "var(--s1)",
+  observation: "var(--s3)",
+  query: "var(--s6)",
+  model: "var(--s5)",
+  source: "var(--s6)",
+  marker: "var(--marker)",
+  agent: "var(--s4)",
+};
+/** Contradicts is the one relation that gets a hue; the rest differ by dash so the graph reads in greyscale. */
+const REL_STYLE: Record<string, { stroke: string; dash?: string }> = {
+  supports: { stroke: "var(--fg-subtle)" },
+  contradicts: { stroke: "var(--bad)", dash: "5 3" },
+  derived_from: { stroke: "var(--fg-subtle)", dash: "2 3" },
+  monitors: { stroke: "var(--fg-subtle)", dash: "8 3" },
+  references: { stroke: "var(--border-strong)" },
+  reproduces: { stroke: "var(--ok)" },
+  supersedes: { stroke: "var(--warn)", dash: "5 3" },
+};
+
+function TypedNode({ data, selected }: NodeProps<Node<GData>>) {
   return (
-    <div className="graph-node">
+    <div
+      className="nz-gnode"
+      data-selected={selected ? "true" : undefined}
+      style={{ ["--kind" as string]: KIND_TONE[data.kind] ?? "var(--fg-subtle)" }}
+    >
       <Handle type="target" position={Position.Top} isConnectable={false} />
-      <div className="t">{data.kind}</div>
-      <div>{data.label}</div>
+      <div className="nz-gnode-kind">{data.kind}</div>
+      <div className="nz-gnode-label">{data.label}</div>
       <Handle type="source" position={Position.Bottom} isConnectable={false} />
     </div>
   );
@@ -120,6 +145,13 @@ export function EvidenceGraph({
         target: e.target,
         label: e.relation,
         ariaLabel: `${e.relation} edge`,
+        style: {
+          stroke: (REL_STYLE[e.relation] ?? { stroke: "var(--fg-subtle)" }).stroke,
+          strokeWidth: 1.25,
+          strokeDasharray: REL_STYLE[e.relation]?.dash,
+        },
+        labelStyle: { fill: "var(--fg-muted)", fontSize: 10 },
+        labelBgStyle: { fill: "var(--surface)" },
       })),
     [checked],
   );
@@ -138,12 +170,12 @@ export function EvidenceGraph({
   return (
     <>
       {checked.unresolved.length > 0 && (
-        <div className="notice" role="status" data-testid="unresolved-references">
+        <PanelNotice tone="warn" role="status" data-testid="unresolved-references">
           {checked.unresolved.length} unresolved reference(s) not drawn:{" "}
           {checked.unresolved.map((u) => `${u.id} (${u.reason})`).join("; ")}
-        </div>
+        </PanelNotice>
       )}
-      <div className="graph-host" style={{ top: checked.unresolved.length ? 40 : 0 }}>
+      <div className="nz-chart" style={{ top: checked.unresolved.length ? 40 : 0 }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -157,7 +189,7 @@ export function EvidenceGraph({
           fitView
           proOptions={{ hideAttribution: true }}
         >
-          <Background />
+          <Background gap={20} color="var(--grid)" />
         </ReactFlow>
       </div>
     </>

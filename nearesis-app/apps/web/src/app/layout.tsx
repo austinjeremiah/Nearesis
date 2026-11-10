@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import "@nearesis/ui/styles.css";
 import "./globals.css";
-import "@xyflow/react/dist/style.css";
 
 export const metadata: Metadata = { title: "Nearesis", description: "Verifiable research canvas" };
 

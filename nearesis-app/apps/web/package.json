@@ -16,6 +16,7 @@
     "@nearesis/contracts": "workspace:*",
     "@nearesis/semantic-gateway": "workspace:*",
     "@nearesis/test-fixtures": "workspace:*",
+    "@nearesis/ui": "workspace:*",
     "@xyflow/react": "12.12.1",
     "echarts": "6.1.0",
     "ioredis": "6.0.0",

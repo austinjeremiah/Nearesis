@@ -13,11 +13,25 @@ import {
 } from "@nearesis/canvas-schema";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createBackend, KernelBackend } from "../lib/backend.ts";
-import { AskBox } from "./AskBox.tsx";
 import { RENDERER_VERSION } from "../lib/chart-option.ts";
 import { hooks } from "../lib/test-hooks.ts";
 import type { CanvasBackend, GraphProjection, PanelData } from "../lib/types.ts";
-import { InvalidPanel, type Palette, Panel } from "./Panel.tsx";
+import { InvalidPanel, Panel } from "./Panel.tsx";
+import {
+  AgentChatPanel,
+  AppShell,
+  Button,
+  CommandPalette,
+  HonestyBanner,
+  Sidebar,
+  TopBar,
+  WorkspaceOnboarding,
+  useCommandPaletteShortcut,
+  type ConnectionState,
+  type PaletteCommand,
+  type SidebarData,
+} from "@nearesis/ui";
+import { BUDGET_NOTE, useRunConversation } from "../lib/run-conversation.ts";
 
 const ACTOR = "00000000-0000-4000-8000-0000000000a1";
 
@@ -63,30 +77,29 @@ function readDocument(raw: unknown): LoadedDoc {
   };
 }
 
-function readPalette(): Palette {
-  const cs = getComputedStyle(document.documentElement);
-  const v = (n: string) => cs.getPropertyValue(n).trim();
-  return {
-    fg: v("--fg"),
-    muted: v("--muted"),
-    grid: v("--grid"),
-    series: [v("--s1"), v("--s2"), v("--s3"), v("--s4")],
-    gap: v("--gap"),
-    marker: v("--marker"),
-  };
-}
-
 export function Workspace({ workspaceId }: { workspaceId: string }) {
   const backendRef = useRef<CanvasBackend | null>(null);
   const [doc, setDoc] = useState<LoadedDoc | null>(null);
   const [data, setData] = useState<Record<string, PanelData | null>>({});
   const [runtimes, setRuntimes] = useState<Record<string, PanelRuntime>>({});
   const [graph, setGraph] = useState<GraphProjection | null>(null);
-  const [palette, setPalette] = useState<Palette | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [undoStack, setUndo] = useState<PatchOp[][]>([]);
   const [redoStack, setRedo] = useState<PatchOp[][]>([]);
   const [pendingSel, setPendingSel] = useState<Record<string, Selection>>({});
+  const [mode, setMode] = useState<"kernel" | "fixture" | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [chatOpen, setChatOpen] = useState(false);
+  const [navCollapsed, setNavCollapsed] = useState(false);
+  const [mobileNav, setMobileNav] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [connection, setConnection] = useState<ConnectionState>("live");
+  const [entering, setEntering] = useState<Set<string>>(new Set());
+  const [sources, setSources] = useState<SidebarData["sources"]>([]);
+  const [user, setUser] = useState<{ name: string }>({ name: "Signed out" });
+  const conv = useRunConversation(workspaceId, mode === "kernel");
+  const convRef = useRef(conv);
+  convRef.current = conv;
   const docRef = useRef(doc);
   docRef.current = doc;
   const dataRef = useRef(data);
@@ -165,23 +178,79 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   );
 
   useEffect(() => {
+    let srcTimer: ReturnType<typeof setInterval> | null = null;
     const b = createBackend(new URLSearchParams(window.location.search), workspaceId);
     backendRef.current = b;
     hooks().backend = b;
     hooks().mode = b.mode;
+    setMode(b.mode);
+    const stored = (() => {
+      try {
+        return localStorage.getItem("nz-theme");
+      } catch {
+        return null;
+      }
+    })();
+    setTheme(
+      stored === "dark" || stored === "light"
+        ? stored
+        : window.matchMedia?.("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light",
+    );
     if (b instanceof KernelBackend) {
-      b.onReload = () => void loadDoc();
+      b.onReload = () => {
+        setConnection("reload_required");
+        void loadDoc().then(() => setConnection("live"));
+      };
       hooks().eventStore = b.store;
+      void fetch("/api/session", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((u: { subject?: string | null } | null) => {
+          if (u?.subject) setUser({ name: u.subject });
+        })
+        .catch(() => undefined);
+      if (b.dataMode === "semantic") {
+        const loadSources = () =>
+          fetch(`/api/semantic/watermarks?workspace=${workspaceId}`, { cache: "no-store" })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((w: Record<string, { state: string; newestEventTime: string | null }> | null) => {
+              if (w)
+                setSources(
+                  Object.entries(w).map(([id, v]) => ({
+                    id,
+                    name: id,
+                    freshness: (["fresh", "late", "partial", "stale", "unavailable"].includes(v.state)
+                      ? v.state
+                      : "unavailable") as SidebarData["sources"][number]["freshness"],
+                  })),
+                );
+            })
+            .catch(() => undefined);
+        void loadSources();
+        srcTimer = setInterval(() => void loadSources(), 5000);
+      }
     }
-    setPalette(readPalette());
+    const goOffline = () => setConnection("offline");
+    const goOnline = () => setConnection("live");
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("online", goOnline);
+    setChatOpen(window.innerWidth > 900);
     let unsub = () => {};
     void (async () => {
       const d = await loadDoc();
+      if (b.mode === "kernel") setChatOpen(window.innerWidth > 900 && d.panels.length === 0);
+      else setChatOpen(false);
       await Promise.all(d.panels.map(loadPanel));
       unsub = b.subscribe(onEvent);
       hooks().ready = true;
     })();
-    return () => unsub();
+    return () => {
+      unsub();
+      if (srcTimer) clearInterval(srcTimer);
+      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online", goOnline);
+    };
     // Mount once per workspace.
   }, [workspaceId]);
 
@@ -231,6 +300,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   /** Watermark transitions (C14c) and data refresh (C12d / C18c): data revision only, document revision untouched. */
   const onEvent = useCallback(
     (e: DomainEvent) => {
+      convRef.current.ingestEvent(e);
       const d = docRef.current;
       if (!d) return;
       if (e.type === "snapshot.finalized" && e.data.kind === "watermark") {
@@ -253,7 +323,19 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       } else if (e.type === "canvas.patched") {
         // Panels added by another writer (e.g. a composer run) load their data when they first appear.
         void loadDoc().then((nd) => {
-          for (const p of nd.panels) if (!loadedRef.current.has(p.panelId)) void loadPanel(p);
+          const added = nd.panels.filter((p) => !loadedRef.current.has(p.panelId));
+          for (const p of added) void loadPanel(p);
+          if (added.length) {
+            setEntering((cur) => new Set([...cur, ...added.map((p) => p.panelId)]));
+            convRef.current.notePanels(
+              added.map((p) => ({
+                panelId: p.panelId,
+                title: p.title,
+                queryHash: p.queryRef.hash,
+                sourceLabel: backendRef.current?.sourceLabel ?? "SYNTHETIC",
+              })),
+            );
+          }
         });
       }
     },
@@ -403,58 +485,240 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     return m;
   }, [doc]);
 
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => {
+      const n = t === "dark" ? "light" : "dark";
+      try {
+        localStorage.setItem("nz-theme", n);
+      } catch {
+        /* storage unavailable: the choice lasts for this page only */
+      }
+      return n;
+    });
+  }, []);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+  useCommandPaletteShortcut(setPaletteOpen);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        setChatOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const focusPanel = useCallback((panelId: string) => {
+    const el = document.querySelector<HTMLElement>(`[data-testid='panel-${panelId}']`);
+    el?.scrollIntoView({ block: "center" });
+    el?.focus();
+  }, []);
+  const askNow = useCallback(() => {
+    setChatOpen(true);
+    setTimeout(() => document.querySelector<HTMLElement>("[data-testid='ask-input']")?.focus(), 60);
+  }, []);
+  const openCitation = useCallback(
+    (c: { queryHash: string }) => {
+      const p = docRef.current?.panels.find((x) => x.queryRef.hash === c.queryHash);
+      if (!p) return;
+      focusPanel(p.panelId);
+      const tgl = document.querySelector<HTMLElement>(
+        `[data-testid='panel-${p.panelId}'] [data-testid='provenance-toggle']`,
+      );
+      if (tgl && tgl.getAttribute("aria-expanded") !== "true") tgl.click();
+    },
+    [focusPanel],
+  );
+
+  const kernel = mode === "kernel";
+  const sidebar: SidebarData = {
+    workspaces: [{ id: workspaceId, name: kernel ? "Workspace" : "Fixture workspace" }],
+    activeWorkspaceId: workspaceId,
+    investigations: conv.investigations.map((r) => ({
+      id: r.runId,
+      title: r.questionSummary,
+      state: r.state,
+      updated: r.updatedAt,
+    })),
+    sources,
+    reports: [],
+    user,
+  };
+  const commands: PaletteCommand[] = [
+    { id: "ask", label: "Ask a research question", group: "Agent", shortcut: "⌘J", run: askNow },
+    {
+      id: "chat",
+      label: chatOpen ? "Hide agent panel" : "Show agent panel",
+      group: "Agent",
+      run: () => setChatOpen((o) => !o),
+    },
+    {
+      id: "theme",
+      label: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+      group: "View",
+      keywords: ["dark", "light", "appearance"],
+      run: toggleTheme,
+    },
+    {
+      id: "canvas",
+      label: "Go to canvas",
+      group: "Navigate",
+      run: () => document.getElementById("main")?.scrollTo({ top: 0 }),
+    },
+    ...(doc?.panels ?? []).map((p) => ({
+      id: `panel-${p.panelId}`,
+      label: p.title,
+      group: "Panels",
+      hint: p.kind,
+      run: () => focusPanel(p.panelId),
+    })),
+    ...conv.investigations.map((r) => ({
+      id: `run-${r.runId}`,
+      label: r.questionSummary,
+      group: "Investigations",
+      hint: r.state,
+      run: () => {
+        setChatOpen(true);
+        conv.openRun(r.runId, r.questionSummary);
+      },
+    })),
+  ];
+  const run = conv.activeRun;
+  const runIndicator =
+    run?.budget && !run.run.terminal
+      ? {
+          label: "Tokens",
+          used: run.budget.tokens.used ?? 0,
+          total: run.budget.tokens.total,
+        }
+      : null;
+  const onSubmit = async (q: string) => {
+    if (!kernel) {
+      setToast("Questions need the kernel backend. Open this workspace with ?backend=kernel.");
+      return;
+    }
+    await conv.submit(q);
+  };
+
   return (
     <>
-      <header className="ws-header">
-        <h1>Workspace</h1>
-        <span className="rev" data-testid="document-revision">
-          doc rev {doc?.revision ?? "…"}
-        </span>
-        <span className="rev" data-testid="data-revision">
-          data rev {doc?.dataRevision ?? "…"}
-        </span>
-        {backendRef.current?.mode === "fixture" && (
-          <span className="badge synthetic" data-testid="mode-badge">
-            fixture mode · SYNTHETIC data
-          </span>
-        )}
-        {backendRef.current?.mode === "kernel" && <AskBox workspaceId={workspaceId} />}
-        <span className="spacer" />
-        <button onClick={() => void undo()} disabled={!undoStack.length} data-testid="undo">
-          Undo
-        </button>
-        <button onClick={() => void redo()} disabled={!redoStack.length} data-testid="redo">
-          Redo
-        </button>
-      </header>
-      <main className="canvas-grid" aria-label="Research canvas">
-        {doc?.invalid.map((i) => (
-          <InvalidPanel key={`inv-${i.index}`} index={i.index} raw={i.raw} issues={i.issues} />
-        ))}
-        {doc?.panels.map((p) => (
-          <Panel
-            key={p.panelId}
-            panel={p}
-            runtime={runtimes[p.panelId] ?? initialRuntime()}
-            data={data[p.queryRef.hash] ?? null}
-            markers={markersByPanel[p.panelId] ?? []}
-            graph={p.kind === "evidenceGraph" ? graph : null}
-            palette={palette}
-            onMove={(dx, dy) => move(p, dx, dy)}
-            onBrush={(a, b) => select(p, a, b)}
-            onKeyboardRange={(a, b) => select(p, a, b)}
-            onMarkRange={() => markRange(p)}
-            onResize={(dw, dh) => resize(p, dw, dh)}
-            onThreshold={(v) => addThreshold(p, v)}
-            onGraphLayout={saveLayout}
-            hasSelection={Boolean(
-              pendingSel[p.panelId] ?? doc.selections.find((s) => s.panelId === p.panelId),
-            )}
+      <AppShell
+        sidebarCollapsed={navCollapsed}
+        chatOpen={chatOpen}
+        mobileNavOpen={mobileNav}
+        onDismissOverlays={() => {
+          setMobileNav(false);
+          setChatOpen(false);
+        }}
+        sidebar={
+          <Sidebar
+            data={sidebar}
+            active="canvas"
+            collapsed={navCollapsed}
+            onToggleCollapsed={() => setNavCollapsed((c) => !c)}
+            onNavigate={(key) => {
+              setMobileNav(false);
+              if (key.startsWith("inv:")) {
+                const id = key.slice(4);
+                setChatOpen(true);
+                conv.openRun(id, conv.investigations.find((r) => r.runId === id)?.questionSummary);
+              } else if (key === "settings") setToast("Settings are not available yet.");
+            }}
           />
-        ))}
-      </main>
+        }
+        topbar={
+          <TopBar
+            crumbs={[{ label: kernel ? "Workspace" : "Fixture workspace" }, { label: "Canvas" }]}
+            connection={connection}
+            run={runIndicator}
+            onOpenPalette={() => setPaletteOpen(true)}
+            chatOpen={chatOpen}
+            onToggleChat={() => setChatOpen((o) => !o)}
+            onOpenNav={() => setMobileNav(true)}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            actions={
+              <>
+                <span className="nz-sb-meta nz-tabular" data-testid="document-revision">
+                  doc rev {doc?.revision ?? "…"}
+                </span>
+                <span className="nz-sb-meta nz-tabular" data-testid="data-revision">
+                  data rev {doc?.dataRevision ?? "…"}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void undo()}
+                  disabled={!undoStack.length}
+                  data-testid="undo"
+                >
+                  Undo
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void redo()}
+                  disabled={!redoStack.length}
+                  data-testid="redo"
+                >
+                  Redo
+                </Button>
+              </>
+            }
+          />
+        }
+        dock={
+          <AgentChatPanel
+            thread={conv.thread}
+            runs={conv.runs}
+            onSubmit={onSubmit}
+            onCancel={conv.cancel}
+            onDecide={conv.decide}
+            onAddToCanvas={(_runId, panelId) => focusPanel(panelId)}
+            onOpenCitation={openCitation}
+            onClose={() => setChatOpen(false)}
+            error={conv.error}
+            budgetNote={BUDGET_NOTE}
+          />
+        }
+      >
+        {mode === "fixture" && (
+          <HonestyBanner data-testid="mode-badge">fixture mode · SYNTHETIC data</HonestyBanner>
+        )}
+        {doc && doc.panels.length === 0 && doc.invalid.length === 0 && <WorkspaceOnboarding onAsk={askNow} />}
+        <div className="nz-canvas">
+          {doc?.invalid.map((i) => (
+            <InvalidPanel key={`inv-${i.index}`} index={i.index} raw={i.raw} issues={i.issues} />
+          ))}
+          {doc?.panels.map((p) => (
+            <Panel
+              key={p.panelId}
+              panel={p}
+              runtime={runtimes[p.panelId] ?? initialRuntime()}
+              data={data[p.queryRef.hash] ?? null}
+              markers={markersByPanel[p.panelId] ?? []}
+              graph={p.kind === "evidenceGraph" ? graph : null}
+              entering={entering.has(p.panelId)}
+              onMove={(dx, dy) => move(p, dx, dy)}
+              onBrush={(a, b) => select(p, a, b)}
+              onKeyboardRange={(a, b) => select(p, a, b)}
+              onMarkRange={() => markRange(p)}
+              onResize={(dw, dh) => resize(p, dw, dh)}
+              onThreshold={(v) => addThreshold(p, v)}
+              onGraphLayout={saveLayout}
+              hasSelection={Boolean(
+                pendingSel[p.panelId] ?? doc.selections.find((s) => s.panelId === p.panelId),
+              )}
+            />
+          ))}
+        </div>
+      </AppShell>
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={commands} />
       {toast && (
-        <div className="toast" role="alert" data-testid="toast">
+        <div className="nz-toast" role="alert" data-testid="toast">
           {toast}
         </div>
       )}

@@ -31,7 +31,8 @@ case "$step" in
   playwright) env_on; pnpm --filter @nearesis/web exec playwright install --with-deps chromium ;;
   services-up)
     # Compose (not job `services:`): Temporal needs a command and Cube mounts repo files.
-    compose up -d --wait
+    # cube-live (host port 4001, real-data model) only serves live tests, which CI skips.
+    compose up -d --wait postgres redis clickhouse temporal cube
     ;;
   db-roles)
     # The postgres container applies infrastructure/postgres/init/00-roles.sql on first boot. Re-apply only if absent

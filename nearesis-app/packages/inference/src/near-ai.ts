@@ -4,6 +4,7 @@ import type { InferenceProvider, StructuredResult, VerificationResult } from "@n
 import { InferenceError, redact } from "./errors.ts";
 import { sha256Hex } from "./hash.ts";
 import { loadDefaultPolicy } from "./policy.ts";
+import { SpendLedger } from "./spend.ts";
 import { validateWithRepair } from "./structured.ts";
 import {
   verifyNearAiResult,
@@ -25,6 +26,10 @@ export interface NearAiOptions {
   timeoutMs?: number;
   fetch?: typeof globalThis.fetch;
   verifyDeps?: VerifyDeps;
+  /** Cumulative USD ledger. Defaults to .data/spend/near-ai.json with a 5.00 USD cap (NEAR_AI_BUDGET_USD can lower it). */
+  ledger?: SpendLedger;
+  /** Override published pricing (USD per token), mainly for tests. */
+  pricing?: (model: string) => Promise<{ input: number; output: number } | null>;
 }
 
 export interface ModelDiscovery {
@@ -54,11 +59,16 @@ export class NearAiProvider implements InferenceProvider {
   private readonly verifyDeps: VerifyDeps;
   private readonly tokenBudget: number;
   private tokensSpent = 0;
+  private readonly spend: SpendLedger;
+  private readonly pricingOverride?: NearAiOptions["pricing"];
+  private readonly priceCache = new Map<string, { input: number; output: number }>();
+  usdSpentThisRun = 0;
   readonly ledger: Array<{
     requestId: string | null;
     model: string;
     inputTokens: number;
     outputTokens: number;
+    usd?: number;
   }> = [];
 
   constructor(opts: NearAiOptions) {
@@ -69,7 +79,71 @@ export class NearAiProvider implements InferenceProvider {
     this.fetchImpl = opts.fetch ?? globalThis.fetch;
     this.verifyDeps = opts.verifyDeps ?? {};
     this.tokenBudget = opts.tokenBudget ?? 20_000;
+    this.spend = opts.ledger ?? new SpendLedger({ apiKey: opts.apiKey });
+    this.pricingOverride = opts.pricing;
     this.policy = { ...loadDefaultPolicy(), ...opts.policy };
+  }
+
+  budgetRemainingUsd(): Promise<number> {
+    return this.spend.remainingUsd();
+  }
+
+  /** Published per-token USD pricing for a model; null if unavailable (callers must then refuse). */
+  async modelPricing(model: string): Promise<{ input: number; output: number } | null> {
+    if (this.pricingOverride) return this.pricingOverride(model);
+    const hit = this.priceCache.get(model);
+    if (hit) return hit;
+    let price: { input: number; output: number } | null = null;
+    try {
+      const r = await this.http(`/model/${encodeURIComponent(model)}`);
+      if (r.ok) {
+        const j = (await r.json()) as {
+          inputCostPerToken?: { amount?: number; scale?: number };
+          outputCostPerToken?: { amount?: number; scale?: number };
+        };
+        const f = (c?: { amount?: number; scale?: number }) =>
+          c && typeof c.amount === "number" && typeof c.scale === "number" ? c.amount / 10 ** c.scale : NaN;
+        const input = f(j.inputCostPerToken);
+        const output = f(j.outputCostPerToken);
+        if (Number.isFinite(input) && Number.isFinite(output) && input >= 0 && output >= 0)
+          price = { input, output };
+      } else await r.arrayBuffer();
+    } catch {
+      price = null;
+    }
+    if (price) this.priceCache.set(model, price);
+    return price;
+  }
+
+  /** Worst case = estimated input tokens x input price + max_tokens x output price. Refuses on unknown pricing. */
+  private async reserveBudget(model: string, estInputTokens: number, maxTokens: number) {
+    const price = await this.modelPricing(model);
+    if (!price)
+      throw new InferenceError(
+        "BUDGET_EXCEEDED",
+        `published pricing unavailable for ${model}; refusing to spend`,
+      );
+    const worst = estInputTokens * price.input + maxTokens * price.output;
+    const id = await this.spend.reserve(model, worst);
+    return { id, price };
+  }
+
+  /** Refuse early (before any other network traffic) when the worst case cannot fit; reservation happens just before sending. */
+  private async precheckBudget(model: string, estInputTokens: number, maxTokens: number): Promise<void> {
+    const price = await this.modelPricing(model);
+    if (!price)
+      throw new InferenceError(
+        "BUDGET_EXCEEDED",
+        `published pricing unavailable for ${model}; refusing to spend`,
+      );
+    const worst = estInputTokens * price.input + maxTokens * price.output;
+    const remaining = await this.spend.remainingUsd();
+    if (worst > remaining + 1e-12) {
+      throw new InferenceError(
+        "BUDGET_EXCEEDED",
+        `worst-case cost USD ${worst.toFixed(6)} exceeds remaining budget USD ${remaining.toFixed(6)}`,
+      );
+    }
   }
 
   get tokensUsed(): number {
@@ -176,6 +250,7 @@ export class NearAiProvider implements InferenceProvider {
       if (this.tokensSpent + estIn + args.maxTokens > this.tokenBudget) {
         throw new InferenceError("BUDGET_EXCEEDED", `token budget ${this.tokenBudget} would be exceeded`);
       }
+      await this.precheckBudget(args.model, estIn, args.maxTokens);
       // 1. preflight attestation (fresh client nonce) strictly before the completion
       const fetchedAtMs = Date.now();
       let fetched;
@@ -204,7 +279,9 @@ export class NearAiProvider implements InferenceProvider {
         }),
         "utf8",
       );
+      const reservation = await this.reserveBudget(args.model, estIn, args.maxTokens);
       const atMs = Date.now();
+      // a transport failure keeps the worst-case reservation charged (cost unknown)
       const r = await this.http("/chat/completions", {
         method: "POST",
         body: requestBody,
@@ -217,6 +294,7 @@ export class NearAiProvider implements InferenceProvider {
       const responseBody = Buffer.from(await r.arrayBuffer());
       const requestId = r.headers.get("x-request-id");
       if (!r.ok) {
+        if ([400, 401, 402, 403, 404, 422, 429].includes(r.status)) await this.spend.release(reservation.id);
         throw new InferenceError(
           "UPSTREAM_DEGRADED",
           redact(`chat/completions -> ${r.status} (request ${requestId ?? "n/a"})`, [this.apiKey]),
@@ -238,6 +316,10 @@ export class NearAiProvider implements InferenceProvider {
         outputTokens: parsed.usage?.completion_tokens ?? args.maxTokens,
       };
       this.charge(usage.inputTokens, usage.outputTokens, requestId, args.model);
+      const usd = usage.inputTokens * reservation.price.input + usage.outputTokens * reservation.price.output;
+      this.usdSpentThisRun += usd;
+      await this.spend.settle(reservation.id, { usd, ...usage, requestId });
+      this.ledger[this.ledger.length - 1]!.usd = usd;
       // 3. signature over the exact bytes (bounded retry: it may be recorded shortly after the response)
       let signature = null;
       if (parsed.id) {
@@ -291,6 +373,8 @@ export class NearAiProvider implements InferenceProvider {
     if (this.tokensSpent + args.maxTokens + 1000 > this.tokenBudget) {
       throw new InferenceError("BUDGET_EXCEEDED", `token budget ${this.tokenBudget} would be exceeded`);
     }
+    const estIn = Math.ceil((args.system.length + args.prompt.length) / 3);
+    const reservation = await this.reserveBudget(args.model, estIn, args.maxTokens);
     const r = await this.http("/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -304,8 +388,19 @@ export class NearAiProvider implements InferenceProvider {
         ],
       }),
     });
-    if (!r.ok || !r.body) throw new InferenceError("UPSTREAM_DEGRADED", `stream -> ${r.status}`);
-    this.tokensSpent += args.maxTokens; // conservative: streamed output is unverified and charged at the cap
+    if (!r.ok || !r.body) {
+      if ([400, 401, 402, 403, 404, 422, 429].includes(r.status)) await this.spend.release(reservation.id);
+      throw new InferenceError("UPSTREAM_DEGRADED", `stream -> ${r.status}`, r.status);
+    }
+    // conservative: streamed usage is not reported, so charge the worst case (already reserved) at the cap
+    this.tokensSpent += args.maxTokens;
+    this.usdSpentThisRun += reservation.price.input * estIn + reservation.price.output * args.maxTokens;
+    await this.spend.settle(reservation.id, {
+      usd: reservation.price.input * estIn + reservation.price.output * args.maxTokens,
+      inputTokens: estIn,
+      outputTokens: args.maxTokens,
+      requestId: r.headers.get("x-request-id"),
+    });
     const dec = new TextDecoder();
     let buf = "";
     for await (const chunk of r.body as unknown as AsyncIterable<Uint8Array>) {
@@ -344,7 +439,10 @@ export class NearAiProvider implements InferenceProvider {
     );
   }
 
-  verifyResponse(result: StructuredResult<unknown>): Promise<VerificationResult> {
-    return verifyNearAiResult(result, this.policy, this.verifyDeps);
+  verifyResponse(
+    result: StructuredResult<unknown>,
+    opts: { mode?: "development" | "production" } = {},
+  ): Promise<VerificationResult> {
+    return verifyNearAiResult(result, this.policy, this.verifyDeps, opts.mode);
   }
 }

@@ -25,6 +25,8 @@ export {
 export { InferenceError, redact, type InferenceErrorCode } from "./errors.ts";
 export { validateWithRepair, MAX_REPAIR_ATTEMPTS } from "./structured.ts";
 export { sha256Hex } from "./hash.ts";
+export { SpendLedger, MAX_BUDGET_USD, resolveBudgetUsd, credentialKey, defaultLedgerPath } from "./spend.ts";
+export { NOT_PRODUCTION_APPROVED, PROVISIONAL_NOTE, PRODUCTION_APPROVED_PROVENANCE } from "./near-verify.ts";
 export { loadDefaultPolicy } from "./policy.ts";
 export { loadEnvVar } from "./env.ts";
 

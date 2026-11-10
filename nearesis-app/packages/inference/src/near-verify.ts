@@ -29,6 +29,17 @@ export interface NearAiVerificationPolicy {
   /** Max time between the completion and verification. */
   maxVerifyDelayMs: number;
   gpuEvidence: "if-present" | "required";
+  /** "tofu_provisional_dev" policies are not production-approved (ADR-20261110-003). */
+  provenance?: string;
+}
+
+export const PRODUCTION_APPROVED_PROVENANCE = "production_approved";
+export const NOT_PRODUCTION_APPROVED = "MEASUREMENT_POLICY_NOT_PRODUCTION_APPROVED";
+export const PROVISIONAL_NOTE =
+  "verified against provisional development baseline (TOFU, not production-approved)";
+
+export function isProduction(mode?: "development" | "production"): boolean {
+  return mode === "production" || (mode === undefined && process.env.NODE_ENV === "production");
 }
 
 export const DEFAULT_TCB_STATUSES: readonly TcbStatus[] = ["UpToDate", "OutOfDate"];
@@ -117,7 +128,10 @@ export async function verifyNearAiResult(
   result: StructuredResult<unknown>,
   policy: NearAiVerificationPolicy,
   deps: VerifyDeps = {},
+  mode?: "development" | "production",
 ): Promise<VerificationResult> {
+  const prod = isProduction(mode);
+  const provisional = policy.provenance !== PRODUCTION_APPROVED_PROVENANCE;
   const ev = result.evidence;
   if (!isEvidence(ev)) return failAll("EVIDENCE_MISSING_OR_MALFORMED");
   const now = (deps.now ?? Date.now)();
@@ -289,7 +303,17 @@ export async function verifyNearAiResult(
     set("response_binding", false, `response binding failed: ${msg}`);
   }
 
-  return finish(checks);
+  if (prod && provisional) {
+    set(
+      "measurement_accepted",
+      false,
+      `${NOT_PRODUCTION_APPROVED}: policy provenance ${policy.provenance ?? "unspecified"} is not production-approved`,
+    );
+    return finish(checks, NOT_PRODUCTION_APPROVED);
+  }
+  const done = finish(checks);
+  if (done.verified && provisional) done.reason = PROVISIONAL_NOTE;
+  return done;
 }
 
 function finish(

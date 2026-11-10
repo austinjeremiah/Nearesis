@@ -37,6 +37,8 @@ describe("A16 NEAR AI live adapter", () => {
       return;
     }
     const p = new NearAiProvider({ apiKey: key, tokenBudget: TOKEN_CAP });
+    const policyProvenance = p.policy.provenance ?? null;
+    const budgetBeforeUsd = await p.budgetRemainingUsd();
     const health = await p.health();
     let discovery: ModelDiscovery[];
     try {
@@ -119,6 +121,11 @@ describe("A16 NEAR AI live adapter", () => {
         ),
         verification: v,
         tamperedVerification: { verified: tv.verified, status: tv.status },
+        policyProvenance,
+        verificationLabel: v.reason ?? null,
+        budgetRemainingUsdBefore: budgetBeforeUsd,
+        budgetRemainingUsdAfter: await p.budgetRemainingUsd(),
+        actual: { tokens: total, costUsd: p.usdSpentThisRun },
         keyLeakCount: 0,
       };
       const serialised = JSON.stringify(evidence);
@@ -134,7 +141,7 @@ describe("A16 NEAR AI live adapter", () => {
       }
       observe({
         testId: "A16",
-        observed: `model ${model}; schema-valid; verified=true with ${v.checks.filter((c) => c.passed).length}/5 checks passed; tampered copy verified=false; X-Request-Id ${res.requestId}; tokens ${total}/${TOKEN_CAP}; key occurrences 0`,
+        observed: `model ${model}; schema-valid; verified=true with ${v.checks.filter((c) => c.passed).length}/5 checks passed; tampered copy verified=false; X-Request-Id ${res.requestId}; tokens ${total}/${TOKEN_CAP}; cost USD ${p.usdSpentThisRun.toFixed(6)}; budget remaining USD ${budgetBeforeUsd.toFixed(4)} -> ${evidence.budgetRemainingUsdAfter.toFixed(4)}; policy provenance ${policyProvenance}: ${v.reason ?? ""}; key occurrences 0`,
         fixtureHash,
         evidence,
       });
@@ -151,7 +158,7 @@ describe("A16 NEAR AI live adapter", () => {
         };
         observe({
           testId: "A16",
-          observed: `discovery ok (${discovery.length} models; ${candidates.length} attested with json_schema); live preflight attestation for ${model} verified (real DCAP) but completion rejected with HTTP 402 (no credits), so no response could be attested`,
+          observed: `discovery ok (${discovery.length} models; ${candidates.length} attested with json_schema); live preflight attestation for ${model} verified (real DCAP) but completion rejected with HTTP 402 (no credits), so no response could be attested; policy provenance ${policyProvenance}; budget remaining USD ${budgetBeforeUsd.toFixed(4)} -> ${(await p.budgetRemainingUsd()).toFixed(4)}; actual tokens ${p.tokensUsed}, cost USD ${p.usdSpentThisRun.toFixed(6)}`,
           fixtureHash,
           blocked:
             "NEAR AI account has no credits (HTTP 402 no_limit_configured); response-level attestation impossible",

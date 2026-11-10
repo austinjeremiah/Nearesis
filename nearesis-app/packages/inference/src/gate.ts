@@ -21,7 +21,24 @@ export interface GateDecision {
 }
 
 /** Pure decision (fail-closed): allowed only if status is "verified", verified is true and all five checks passed. */
-export function evaluatePublication(artifact: PublishableArtifact): GateDecision {
+export function evaluatePublication(
+  artifact: PublishableArtifact,
+  opts: { mode?: "development" | "production" } = {},
+): GateDecision {
+  const d = evaluateBase(artifact);
+  const prod =
+    opts.mode === "production" || (opts.mode === undefined && process.env.NODE_ENV === "production");
+  if (
+    prod &&
+    d.allowed &&
+    artifact.verification?.reason?.startsWith("verified against provisional development")
+  ) {
+    return { allowed: false, status: d.status, reasons: ["MEASUREMENT_POLICY_NOT_PRODUCTION_APPROVED"] };
+  }
+  return d;
+}
+
+function evaluateBase(artifact: PublishableArtifact): GateDecision {
   const v = artifact.verification;
   const reasons: string[] = [];
   if (!v) return { allowed: false, status: "missing", reasons: ["NO_VERIFICATION_RESULT"] };
@@ -39,8 +56,11 @@ export function evaluatePublication(artifact: PublishableArtifact): GateDecision
 }
 
 /** Throws PUBLICATION_REFUSED unless the artifact carries a genuine `verified` result. */
-export function assertPublishable(artifact: PublishableArtifact): void {
-  const d = evaluatePublication(artifact);
+export function assertPublishable(
+  artifact: PublishableArtifact,
+  opts: { mode?: "development" | "production" } = {},
+): void {
+  const d = evaluatePublication(artifact, opts);
   if (!d.allowed) {
     throw new InferenceError(
       "PUBLICATION_REFUSED",

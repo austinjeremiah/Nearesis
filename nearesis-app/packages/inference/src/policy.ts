@@ -13,5 +13,6 @@ export function loadDefaultPolicy(): NearAiVerificationPolicy {
     maxEvidenceAgeMs: raw.maxEvidenceAgeMs,
     maxVerifyDelayMs: raw.maxVerifyDelayMs,
     gpuEvidence: raw.gpuEvidence,
+    provenance: (raw as unknown as { provenance?: string }).provenance,
   };
 }

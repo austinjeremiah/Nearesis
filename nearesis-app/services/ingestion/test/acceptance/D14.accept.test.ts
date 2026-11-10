@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { observe } from "@nearesis/acceptance";
 import { RawObservation } from "@nearesis/contracts";
@@ -107,22 +107,32 @@ it("archives immutably by SHA-256, validates every envelope, and leaks no canary
     expect(sha(await env.store.get(h))).toBe(h);
 
     // (d) every envelope validates (zod contract AND Bible JSON schema); timestamps present
-    const schema = JSON.parse(
-      readFileSync(
-        join(
-          import.meta.dirname,
-          "..",
-          "..",
-          "..",
-          "..",
-          "..",
-          "NEARESIS_Build_Bible",
-          "schemas",
-          "raw_observation.schema.json",
-        ),
-        "utf8",
-      ),
+    // vendored copy is the input; when the Bible is present locally, it must not have drifted
+    const vendoredPath = join(
+      import.meta.dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "packages",
+      "contracts",
+      "schemas",
+      "raw_observation.schema.json",
     );
+    const biblePath = join(
+      import.meta.dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "..",
+      "NEARESIS_Build_Bible",
+      "schemas",
+      "raw_observation.schema.json",
+    );
+    const vendoredText = readFileSync(vendoredPath, "utf8");
+    if (existsSync(biblePath)) expect(vendoredText).toBe(readFileSync(biblePath, "utf8"));
+    const schema = JSON.parse(vendoredText);
     const ajv = new Ajv2020({ strict: false, allErrors: true });
     const validate = ajv.compile(schema);
     const rows = await env.tdb.db.query<{ envelope: unknown; request: unknown }>(

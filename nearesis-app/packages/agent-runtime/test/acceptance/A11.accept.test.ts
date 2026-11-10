@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { observe } from "@nearesis/acceptance";
@@ -51,19 +51,24 @@ const SAMPLE: Record<string, unknown> = {
 
 // ch.05 "Agent roles and tool contracts" table, parsed from the chapter so the configs are checked against the source of record
 function ch05Table(): Array<{ role: string; input: string; artifact: string; stop: string }> {
-  const md = readFileSync(
-    fileURLToPath(
-      new URL("../../../../../NEARESIS_Build_Bible/chapters/05_AGENT_ORCHESTRATION.md", import.meta.url),
-    ),
+  const rowRe =
+    /^\| (Director|Semantic analyst|Data scout|Quant|Skeptic|Economics|Composer|Monitoring|Auditor|Publisher) \|/;
+  const vendored = readFileSync(
+    fileURLToPath(new URL("../fixtures/ch05_roles_table.md", import.meta.url)),
     "utf8",
   );
-  const rows = md
-    .split("\n")
-    .filter((l) =>
-      /^\| (Director|Semantic analyst|Data scout|Quant|Skeptic|Economics|Composer|Monitoring|Auditor|Publisher) \|/.test(
-        l,
-      ),
-    );
+  // when the Bible is present locally, the vendored snapshot must not have drifted
+  const bible = fileURLToPath(
+    new URL("../../../../../NEARESIS_Build_Bible/chapters/05_AGENT_ORCHESTRATION.md", import.meta.url),
+  );
+  if (existsSync(bible)) {
+    const live = readFileSync(bible, "utf8")
+      .split("\n")
+      .filter((l) => rowRe.test(l));
+    expect(vendored.split("\n").filter((l) => rowRe.test(l))).toEqual(live);
+  }
+  const md = vendored;
+  const rows = md.split("\n").filter((l) => rowRe.test(l));
   return rows.map((l) => {
     const c = l.split("|").map((x) => x.trim());
     return { role: c[1]!, input: c[2]!, artifact: c[4]!, stop: c[5]! };

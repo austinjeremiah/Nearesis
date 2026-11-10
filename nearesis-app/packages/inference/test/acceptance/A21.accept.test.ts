@@ -10,6 +10,7 @@ import {
   sha256Hex,
   MAX_BUDGET_USD,
 } from "../../src/index.ts";
+import { a21OutcomeForError } from "../support/a21-mapping.ts";
 
 const TOKEN_CAP = 20_000;
 const PROBE = {
@@ -87,22 +88,21 @@ describe("A21 provider-neutral live structured inference (OpenRouter BYOK)", () 
       // 3. forced fallback (c)
       fallback = await run("forced-fallback", FORCED_BAD_MODEL);
     } catch (e) {
-      if (
-        e instanceof InferenceError &&
-        ["UPSTREAM_AUTH", "UPSTREAM_BILLING", "NOT_BYOK_SHARED_CAPACITY"].includes(e.code)
-      ) {
-        const why =
-          e.code === "NOT_BYOK_SHARED_CAPACITY"
-            ? "BYOK not configured for the allowed providers (response came from shared capacity and was discarded)"
-            : e.code === "UPSTREAM_BILLING"
-              ? "OpenRouter account has no credits (HTTP 402)"
-              : "OpenRouter rejected the key (HTTP 401/403)";
-        return blocked(`${why}: ${e.message.replace(key, "[REDACTED]")}`, {
-          discovery,
-          attempts: p.attempts,
-          ledger: await p.spend.entries(),
-          keyLeakCount: 0,
-        });
+      if (e instanceof InferenceError) {
+        const m = a21OutcomeForError(e.code);
+        if (m.outcome !== "RETHROW") {
+          const evidence = {
+            discovery,
+            attempts: p.attempts,
+            ledger: await p.spend.entries(),
+            keyLeakCount: 0,
+          };
+          const text = `${m.reason}: ${e.message.replace(key, "[REDACTED]")}`;
+          if (m.outcome === "BLOCKED_DEPENDENCY") return blocked(text, evidence);
+          // non-BYOK response spent outside the owner's BYOK credits: FAIL (16a section 7 clarification ii)
+          observe({ testId: "A21", observed: text, fixtureHash, evidence });
+          expect.fail(text);
+        }
       }
       throw e;
     }

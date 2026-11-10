@@ -5,7 +5,7 @@
  *   --from <step>   start at <step> (earlier steps are recorded as "skipped")
  *   --only a,b      run just these steps
  *   --keep          leave the nearesis-ci stack and runner container up afterwards
- *   --bail          stop at the first failing step (default: setup failures stop the run, check failures do not)
+ *   --bail          stop at the first failing step (default: a failing setup step skips everything after it; a failing check does not)
  *
  * Isolation: the compose project is `nearesis-ci` with different host ports (scripts/ci/compose.local.yml), so the
  * developers' `nearesis` stack is never touched; teardown refuses any other project name. The checks run inside an
@@ -156,7 +156,7 @@ for (const step of steps) {
     results.push({ step, where: "-", status: "skipped", seconds: 0, exitCode: null });
     continue;
   }
-  if (setupFailed && SETUP_STEPS.has(step)) {
+  if (setupFailed) {
     results.push({ step, where: "-", status: "skipped", seconds: 0, exitCode: null });
     continue;
   }
@@ -194,7 +194,7 @@ const summary = {
   commit: head,
   workDir: work,
   composeProject: PROJECT,
-  hostPorts: "postgres 65432, redis 66379, clickhouse 68123/69000, temporal 67233/68233, cube 64000",
+  hostPorts: "postgres 65432, redis 65379, clickhouse 65123/65000, temporal 65233/65234, cube 65400",
   runner: "ubuntu:24.04 container (aarch64) + socat loopback forwarders",
   allPassed: results.every((r) => r.status !== "fail"),
   steps: results,
@@ -211,6 +211,8 @@ if (!a.keep) {
     join(clone, "nearesis-app/infrastructure/compose/docker-compose.yml"),
     "-f",
     join(clone, "nearesis-app/infrastructure/compose/analytics.yml"),
+    "-f",
+    join(clone, "nearesis-app/scripts/ci/compose.ci.yml"),
     "down",
     "-v",
     "--remove-orphans",

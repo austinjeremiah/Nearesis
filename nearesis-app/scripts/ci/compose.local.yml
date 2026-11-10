@@ -5,10 +5,10 @@ services:
   postgres:
     ports: !override ["127.0.0.1:65432:5432"]
   redis:
-    ports: !override ["127.0.0.1:66379:6379"]
+    ports: !override ["127.0.0.1:65379:6379"]
   clickhouse:
-    ports: !override ["127.0.0.1:68123:8123", "127.0.0.1:69000:9000"]
+    ports: !override ["127.0.0.1:65123:8123", "127.0.0.1:65000:9000"]
   temporal:
-    ports: !override ["127.0.0.1:67233:7233", "127.0.0.1:68233:8233"]
+    ports: !override ["127.0.0.1:65233:7233", "127.0.0.1:65234:8233"]
   cube:
-    ports: !override ["127.0.0.1:64000:4000"]
+    ports: !override ["127.0.0.1:65400:4000"]

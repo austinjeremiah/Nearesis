@@ -78,7 +78,7 @@ jobs:
       - name: Compose logs on failure
         if: failure()
         run: >-
-          docker compose -f infrastructure/compose/docker-compose.yml -f infrastructure/compose/analytics.yml
+          docker compose -f infrastructure/compose/docker-compose.yml -f infrastructure/compose/analytics.yml -f scripts/ci/compose.ci.yml
           logs --no-color --tail 200
       - name: Upload acceptance evidence
         if: always()

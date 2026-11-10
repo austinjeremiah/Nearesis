@@ -16,7 +16,7 @@ STEPS="toolchain install-js install-py playwright services-up db-roles typecheck
 
 compose() {
   set -- -f infrastructure/compose/docker-compose.yml -f infrastructure/compose/analytics.yml \
-    ${NEARESIS_COMPOSE_EXTRA:+-f "$NEARESIS_COMPOSE_EXTRA"} "$@"
+    -f scripts/ci/compose.ci.yml ${NEARESIS_COMPOSE_EXTRA:+-f "$NEARESIS_COMPOSE_EXTRA"} "$@"
   if [ -n "${NEARESIS_COMPOSE_PROJECT:-}" ]; then set -- -p "$NEARESIS_COMPOSE_PROJECT" "$@"; fi
   docker compose "$@"
 }

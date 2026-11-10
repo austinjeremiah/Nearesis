@@ -165,6 +165,10 @@ describe("A16 NEAR AI live adapter", () => {
           evidence: {
             discoveryReport,
             unsupportedVerification: unsupported,
+            policyProvenance,
+            budgetRemainingUsdBefore: budgetBeforeUsd,
+            budgetRemainingUsdAfter: await p.budgetRemainingUsd(),
+            actual: { tokens: p.tokensUsed, costUsd: p.usdSpentThisRun },
             keyLeakCount: JSON.stringify(unsupported).includes(key) ? 1 : 0,
           },
         });

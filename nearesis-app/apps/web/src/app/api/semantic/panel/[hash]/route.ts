@@ -1,4 +1,4 @@
-import { panelData, sessionFor } from "../../../../../lib/server/semantic.ts";
+import { panelData, parseSource, sessionFor } from "../../../../../lib/server/semantic.ts";
 
 export const runtime = "nodejs";
 
@@ -8,6 +8,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ hash: string }>
   if (!/^[0-9a-f]{64}$/.test(hash)) return Response.json({ errorCode: "VALIDATION_FAILED" }, { status: 422 });
   const session = await sessionFor(new URL(req.url).searchParams.get("workspace") ?? "");
   if (!session) return Response.json({ errorCode: "NOT_FOUND" }, { status: 404 });
-  const r = await panelData(session, hash);
+  const r = await panelData(session, hash, parseSource(new URL(req.url).searchParams.get("source")));
   return Response.json(r.body, { status: r.status });
 }

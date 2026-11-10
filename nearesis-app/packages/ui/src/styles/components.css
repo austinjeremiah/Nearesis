@@ -1338,3 +1338,19 @@ button.nz-chip:hover {
   font: inherit;
   font-variant-numeric: tabular-nums;
 }
+
+/* Two-option switch (data source). */
+.nz-segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.nz-segmented .nz-btn {
+  border-radius: 0;
+}
+.nz-segmented .nz-btn[aria-pressed="true"] {
+  background: var(--bg-sunken, var(--surface-2, var(--border)));
+  color: var(--fg);
+  font-weight: 600;
+}

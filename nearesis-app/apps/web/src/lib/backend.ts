@@ -2,7 +2,7 @@ import { CanvasDocument, type DomainEvent, type PatchOp, SaveGraphLayoutPayload 
 import { applyCanvasPatch, applyOps, hashCanonical } from "@nearesis/canvas-schema";
 import { connectSse, EventStore } from "./event-store.ts";
 import { loadScenario, type Scenario } from "../fixtures/scenarios.ts";
-import type { ApplyOutcome, CanvasBackend, GraphProjection, PanelData } from "./types.ts";
+import type { ApplyOutcome, CanvasBackend, GraphProjection, PanelData, SourceLabel } from "./types.ts";
 
 /**
  * In-browser fixture backend. SYNTHETIC data only; it exists so the canvas can be developed and its renderer-level
@@ -127,7 +127,7 @@ export class FixtureBackend implements CanvasBackend {
  */
 export class KernelBackend implements CanvasBackend {
   readonly mode = "kernel" as const;
-  readonly sourceLabel = "SYNTHETIC" as const;
+  readonly sourceLabel: SourceLabel;
   private lastDoc: CanvasDocument | null = null;
   private positions: Record<string, { x: number; y: number }> = {};
   readonly store: EventStore;
@@ -136,8 +136,9 @@ export class KernelBackend implements CanvasBackend {
 
   constructor(
     readonly workspaceId: string,
-    readonly dataMode: "fixture" | "semantic" = "fixture",
+    readonly dataMode: "fixture" | "semantic" | "live" = "fixture",
   ) {
+    this.sourceLabel = dataMode === "live" ? "LIVE" : "SYNTHETIC";
     this.store = new EventStore({
       onBatch: (evs) => evs.forEach((e) => this.listeners.forEach((l) => l(e))),
       onReloadRequired: () => this.onReload?.(),
@@ -209,9 +210,11 @@ export class KernelBackend implements CanvasBackend {
 
   async fetchData(queryHash: string): Promise<PanelData | null> {
     const url =
-      this.dataMode === "semantic"
-        ? `/api/semantic/panel/${queryHash}?workspace=${this.workspaceId}`
-        : `/api/data/${queryHash}?vintage=${this.vintage}`;
+      this.dataMode === "live"
+        ? `/api/semantic/panel/${queryHash}?workspace=${this.workspaceId}&source=live`
+        : this.dataMode === "semantic"
+          ? `/api/semantic/panel/${queryHash}?workspace=${this.workspaceId}`
+          : `/api/data/${queryHash}?vintage=${this.vintage}`;
     const r = await fetch(url, { cache: "no-store" });
     return r.ok ? ((await r.json()) as PanelData) : null;
   }
@@ -258,7 +261,7 @@ export class KernelBackend implements CanvasBackend {
     this.listeners.add(onEvent);
     if (this.listeners.size === 1 && this.lastDoc) this.store.reset(0);
     const stop = connectSse(this.api("/events"), this.store);
-    const stopWm = this.dataMode === "semantic" ? this.pollWatermarks() : () => undefined;
+    const stopWm = this.dataMode !== "fixture" ? this.pollWatermarks() : () => undefined;
     return () => {
       this.listeners.delete(onEvent);
       stop();
@@ -273,9 +276,10 @@ KernelBackend.prototype.pollWatermarks = function (this: KernelBackend): () => v
   let last: Record<string, string> = {};
   let first = true;
   const tick = async () => {
-    const r = await fetch(`/api/semantic/watermarks?workspace=${this.workspaceId}`, {
-      cache: "no-store",
-    }).catch(() => null);
+    const r = await fetch(
+      `/api/semantic/watermarks?workspace=${this.workspaceId}${this.dataMode === "live" ? "&source=live" : ""}`,
+      { cache: "no-store" },
+    ).catch(() => null);
     if (!r?.ok) return;
     const wm = (await r.json()) as Record<string, { state: string }>;
     for (const [providerId, { state }] of Object.entries(wm)) {
@@ -292,6 +296,9 @@ KernelBackend.prototype.pollWatermarks = function (this: KernelBackend): () => v
 
 export function createBackend(search: URLSearchParams, workspaceId: string): CanvasBackend {
   if (search.get("backend") === "kernel" && /^[0-9a-f-]{36}$/.test(workspaceId))
-    return new KernelBackend(workspaceId, search.get("data") === "semantic" ? "semantic" : "fixture");
+    return new KernelBackend(
+      workspaceId,
+      search.get("source") === "live" ? "live" : search.get("data") === "semantic" ? "semantic" : "fixture",
+    );
   return new FixtureBackend(search.get("scenario") ?? "baseline");
 }

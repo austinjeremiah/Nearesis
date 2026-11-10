@@ -5,6 +5,9 @@ import {
   createPg,
   CUBE_URL_DEFAULT,
   defaultCubeSecret,
+  LIVE_CUBE_URL_DEFAULT,
+  LIVE_DATABASE,
+  loadLiveRegistry,
   loadQuery,
   loadRegistry,
   type Registry,
@@ -15,37 +18,47 @@ import { hashCanonical } from "@nearesis/canvas-schema";
 import type { PanelData } from "../types.ts";
 import { upstream, sessionToken } from "./upstream.ts";
 
+/** Data source: SYNTHETIC fixture cubes (default, used by tests) or the LIVE real-data layer (cube-live, :4001). */
+export type DataSource = "fixture" | "live";
+export const parseSource = (v: string | null): DataSource => (v === "live" ? "live" : "fixture");
+
 /** Server-side semantic access for the canvas BFF: the same guarded gateway agents use (no other query path). */
-let state: {
+interface SemState {
   gateway: ReturnType<typeof createGateway>;
   registry: Registry;
   pg: ReturnType<typeof createPg>;
   ch: ReturnType<typeof createCh>;
-} | null = null;
-export function semantic() {
-  if (!state) {
-    const registry = loadRegistry();
-    const pg = createPg();
-    const ch = createCh();
-    const redis = new Redis(process.env.NEARESIS_REDIS_URL ?? "redis://127.0.0.1:56379", {
-      maxRetriesPerRequest: 2,
-    });
-    state = {
+}
+const states: Partial<Record<DataSource, SemState>> = {};
+let redisClient: Redis | null = null;
+export function semantic(source: DataSource = "fixture"): SemState {
+  const cached = states[source];
+  if (cached) return cached;
+  const live = source === "live";
+  const registry = live ? loadLiveRegistry() : loadRegistry();
+  const pg = createPg();
+  const ch = live ? createCh({ database: LIVE_DATABASE }) : createCh();
+  redisClient ??= new Redis(process.env.NEARESIS_REDIS_URL ?? "redis://127.0.0.1:56379", {
+    maxRetriesPerRequest: 2,
+  });
+  const state: SemState = {
+    registry,
+    pg,
+    ch,
+    gateway: createGateway({
+      cubeUrl: live
+        ? (process.env.CUBE_LIVE_URL ?? LIVE_CUBE_URL_DEFAULT)
+        : (process.env.CUBE_URL ?? CUBE_URL_DEFAULT),
+      cubeSecret: defaultCubeSecret(),
+      redis: redisClient as never,
       registry,
+      policyResolver: () => ({ ...DEFAULT_POLICY }),
+      clock: () => new Date(),
       pg,
       ch,
-      gateway: createGateway({
-        cubeUrl: process.env.CUBE_URL ?? CUBE_URL_DEFAULT,
-        cubeSecret: defaultCubeSecret(),
-        redis: redis as never,
-        registry,
-        policyResolver: () => ({ ...DEFAULT_POLICY }),
-        clock: () => new Date(),
-        pg,
-        ch,
-      }),
-    };
-  }
+    }),
+  };
+  states[source] = state;
   return state;
 }
 
@@ -68,16 +81,22 @@ export async function sessionFor(workspaceId: string): Promise<Session | null> {
 export async function panelData(
   session: Session,
   queryHash: string,
+  source: DataSource = "fixture",
 ): Promise<{ status: number; body: PanelData | unknown }> {
-  const s = semantic();
+  const s = semantic(source);
   const saved = await loadQuery(s.pg, queryHash);
   if (!saved) return { status: 404, body: { errorCode: "NOT_FOUND", reasonCode: "QUERY_UNKNOWN" } };
   const r = await s.gateway.query(session, saved.ast);
   if (!r.ok) return { status: r.status, body: r.error };
-  return { status: 200, body: toPanelData(r.envelope, saved.ast, s.registry) };
+  return { status: 200, body: toPanelData(r.envelope, saved.ast, s.registry, source) };
 }
 
-function toPanelData(env: DataFrameEnvelope, ast: unknown, registry: Registry): PanelData {
+function toPanelData(
+  env: DataFrameEnvelope,
+  ast: unknown,
+  registry: Registry,
+  source: DataSource,
+): PanelData {
   const a = ast as { measures: string[]; time: { grain: "hour" | "day" | "week" | "month" } };
   const metrics = registry.metrics.filter((m) => a.measures.includes(m.cubeMember));
   const sources = [...new Set(metrics.flatMap((m) => m.sources.map((x) => x.split(":")[0]!)))];
@@ -119,7 +138,7 @@ function toPanelData(env: DataFrameEnvelope, ast: unknown, registry: Registry): 
       rawManifestHash: snap && hasFixture(snap) ? fixtureHash(snap) : null,
       certification: env.certification,
       ast,
-      sourceLabel: snap?.startsWith("fx.") ? "SYNTHETIC" : "LIVE",
+      sourceLabel: source === "live" ? "LIVE" : snap?.startsWith("fx.") ? "SYNTHETIC" : "LIVE",
       resultHash: hashCanonical({ columns: env.columns, rows: env.rows }),
       sources,
     },
@@ -128,10 +147,10 @@ function toPanelData(env: DataFrameEnvelope, ast: unknown, registry: Registry): 
 }
 
 /** Current source watermark states (ReplacingMergeTree read with FINAL). */
-export async function watermarks(): Promise<
-  Record<string, { state: string; newestEventTime: string | null }>
-> {
-  const rs = await semantic().ch.query({
+export async function watermarks(
+  source: DataSource = "fixture",
+): Promise<Record<string, { state: string; newestEventTime: string | null }>> {
+  const rs = await semantic(source).ch.query({
     query: "SELECT provider_id, state, newest_event_time FROM source_watermarks FINAL",
     format: "JSONEachRow",
   });

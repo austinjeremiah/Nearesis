@@ -88,6 +88,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   const [redoStack, setRedo] = useState<PatchOp[][]>([]);
   const [pendingSel, setPendingSel] = useState<Record<string, Selection>>({});
   const [mode, setMode] = useState<"kernel" | "fixture" | null>(null);
+  const [source, setSource] = useState<"fixture" | "live">("fixture");
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [chatOpen, setChatOpen] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -184,6 +185,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     hooks().backend = b;
     hooks().mode = b.mode;
     setMode(b.mode);
+    setSource(b instanceof KernelBackend && b.dataMode === "live" ? "live" : "fixture");
     const stored = (() => {
       try {
         return localStorage.getItem("nz-theme");
@@ -210,9 +212,14 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
           if (u?.subject) setUser({ name: u.subject });
         })
         .catch(() => undefined);
-      if (b.dataMode === "semantic") {
+      if (b.dataMode !== "fixture") {
         const loadSources = () =>
-          fetch(`/api/semantic/watermarks?workspace=${workspaceId}`, { cache: "no-store" })
+          fetch(
+            `/api/semantic/watermarks?workspace=${workspaceId}${b.dataMode === "live" ? "&source=live" : ""}`,
+            {
+              cache: "no-store",
+            },
+          )
             .then((r) => (r.ok ? r.json() : null))
             .then((w: Record<string, { state: string; newestEventTime: string | null }> | null) => {
               if (w)
@@ -586,6 +593,16 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       },
     })),
   ];
+  /** The source is part of the URL (single source of truth, shareable); switching reloads the canvas on the other layer. */
+  const switchSource = (next: "fixture" | "live") => {
+    if (next === source) return;
+    const u = new URL(window.location.href);
+    if (next === "live") u.searchParams.set("source", "live");
+    else u.searchParams.delete("source");
+    u.searchParams.set("backend", "kernel");
+    if (next === "fixture" && !u.searchParams.has("data")) u.searchParams.set("data", "semantic");
+    window.location.assign(u.toString());
+  };
   const run = conv.activeRun;
   const runIndicator =
     run?.budget && !run.run.terminal
@@ -642,6 +659,34 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
             onToggleTheme={toggleTheme}
             actions={
               <>
+                {kernel && (
+                  <div
+                    className="nz-segmented"
+                    role="group"
+                    aria-label="Data source"
+                    data-testid="source-switch"
+                    data-source={source}
+                  >
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-pressed={source === "fixture"}
+                      onClick={() => switchSource("fixture")}
+                      data-testid="source-fixture"
+                    >
+                      Fixture (SYNTHETIC)
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-pressed={source === "live"}
+                      onClick={() => switchSource("live")}
+                      data-testid="source-live"
+                    >
+                      Live (LIVE)
+                    </Button>
+                  </div>
+                )}
                 <span className="nz-sb-meta nz-tabular" data-testid="document-revision">
                   doc rev {doc?.revision ?? "…"}
                 </span>
@@ -685,6 +730,13 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
           />
         }
       >
+        {source === "live" && (
+          <HonestyBanner data-testid="live-banner">
+            LIVE data: real provider data from the live layer. Gaps stay gaps, partial days are labelled, and
+            each panel shows its source watermark. The agent still queries through the worker's configured
+            gateway.
+          </HonestyBanner>
+        )}
         {mode === "fixture" && (
           <HonestyBanner data-testid="mode-badge">fixture mode · SYNTHETIC data</HonestyBanner>
         )}

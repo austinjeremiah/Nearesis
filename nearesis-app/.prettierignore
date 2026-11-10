@@ -11,3 +11,4 @@ playwright-report
 .data
 .pytest_cache
 docs/metrics/METRICS.md
+packages/contracts/schemas/

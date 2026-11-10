@@ -1,0 +1,11 @@
+{
+  "failFromPage": 3,
+  "statuses": [401, 403],
+  "errorBody": {
+    "status": 401,
+    "error": {
+      "code": "UNAUTHORIZED",
+      "message": "invalid or expired token"
+    }
+  }
+}

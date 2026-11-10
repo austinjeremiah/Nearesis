@@ -1,0 +1,57 @@
+{
+  "maxUint128": "340282366920938463463374607431768211455",
+  "precision": 80,
+  "sums": {
+    "amountInDecimalByOriginAsset": {
+      "nep141:eth.omft.near": "0.600000000000000000",
+      "nep141:wrap.near": "340282366920938.463463374607431768211456"
+    },
+    "amountInUnitsByOriginAsset": {
+      "nep141:eth.omft.near": "600000000000000000",
+      "nep141:wrap.near": "340282366920938463463374607431768211456"
+    },
+    "ethToEthAmountOutUnitsExact": "18014398509481988",
+    "ethToEthAmountOutUnitsFloat64": "18014398509481984",
+    "exactSumEthIn": "0.600000000000000000",
+    "float64DiffersFromExact": true,
+    "float64LosesUnits": true,
+    "float64SumEthIn": "0.6000000000000001"
+  },
+  "swaps": [
+    {
+      "amountIn": "340282366920938463463374607431768211455",
+      "amountInDecimal": "340282366920938.463463374607431768211455",
+      "amountOut": "1",
+      "amountOutDecimal": "0.000000000000000001",
+      "swapKey": "dep0501synthetic|"
+    },
+    {
+      "amountIn": "1",
+      "amountInDecimal": "0.000000000000000000000001",
+      "amountOut": "999999999999999999999999",
+      "amountOutDecimal": "0.999999999999999999999999",
+      "swapKey": "dep0502synthetic|"
+    },
+    {
+      "amountIn": "100000000000000000",
+      "amountInDecimal": "0.100000000000000000",
+      "amountOut": "9007199254740993",
+      "amountOutDecimal": "0.009007199254740993",
+      "swapKey": "dep0503synthetic|"
+    },
+    {
+      "amountIn": "200000000000000000",
+      "amountInDecimal": "0.200000000000000000",
+      "amountOut": "2",
+      "amountOutDecimal": "0.000000000000000002",
+      "swapKey": "dep0504synthetic|memo-0504"
+    },
+    {
+      "amountIn": "300000000000000000",
+      "amountInDecimal": "0.300000000000000000",
+      "amountOut": "9007199254740993",
+      "amountOutDecimal": "0.009007199254740993",
+      "swapKey": "dep0505synthetic|"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "id": "fx.registry.contracts-v1",
+  "label": "SYNTHETIC",
+  "description": "Contract registry: verified, taxonomy change on 2026-11-09, unverified OutLayer contract, and two conflicting rows for shared-dao.near.",
+  "files": [
+    { "path": "contracts.json", "sha256": "8de88e2595fdcdf4329774e31c75089efb42762d0e7897f6b8625ca86911f08e" }
+  ]
+}

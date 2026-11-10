@@ -1,0 +1,5 @@
+{
+  "uniqueSwaps": 9,
+  "swap3FinalStatus": "SUCCESS",
+  "rule": "ReplacingMergeTree key swapKey, later version wins; terminal statuses are never regressed"
+}

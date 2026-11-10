@@ -1,0 +1,196 @@
+{
+  "snapshotId": "fx.snapshot.p02-baseline",
+  "replayNowUTC": "2026-11-10T12:00:00.000Z",
+  "explorer": {
+    "environment": "fixture_synthetic",
+    "pageSize": 5,
+    "streams": [
+      {
+        "kind": "pages",
+        "name": "main",
+        "pages": [
+          {
+            "file": "explorer/page-1.json",
+            "fetchedAtUTC": "2026-10-20T13:00:00.000Z",
+            "status": 200
+          },
+          {
+            "file": "explorer/page-2.json",
+            "fetchedAtUTC": "2026-10-20T13:00:05.000Z",
+            "status": 200
+          },
+          {
+            "file": "explorer/page-3.json",
+            "fetchedAtUTC": "2026-10-20T13:00:10.000Z",
+            "status": 200
+          }
+        ]
+      },
+      {
+        "kind": "pages",
+        "name": "private-era",
+        "pages": [
+          {
+            "file": "explorer/page-4-private.json",
+            "fetchedAtUTC": "2026-10-28T13:00:00.000Z",
+            "status": 200
+          }
+        ]
+      }
+    ]
+  },
+  "oneclick": {
+    "environment": "fixture_synthetic",
+    "tokens": {
+      "file": "oneclick/tokens.json",
+      "fetchedAtUTC": "2026-11-10T11:00:00.000Z"
+    },
+    "attempts": [
+      {
+        "routeId": "eth-usdc",
+        "originAsset": "nep141:eth.omft.near",
+        "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+        "amountBaseUnits": "1000000000000000000",
+        "privacyMode": "public",
+        "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+        "attemptNo": 1,
+        "fetchedAtUTC": "2026-11-10T11:00:01.000Z",
+        "outcome": "response",
+        "status": 200,
+        "file": "oneclick/quote-ok.json",
+        "benchmarkOutFormatted": "3101.00"
+      },
+      {
+        "routeId": "eth-usdc",
+        "originAsset": "nep141:eth.omft.near",
+        "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+        "amountBaseUnits": "1000000000000000000",
+        "privacyMode": "basic",
+        "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+        "attemptNo": 1,
+        "fetchedAtUTC": "2026-11-10T11:00:03.000Z",
+        "outcome": "response",
+        "status": 400,
+        "file": "oneclick/quote-no-liquidity.json"
+      },
+      {
+        "routeId": "eth-usdc",
+        "originAsset": "nep141:eth.omft.near",
+        "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+        "amountBaseUnits": "1000000000000000000",
+        "privacyMode": "advanced",
+        "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+        "attemptNo": 1,
+        "fetchedAtUTC": "2026-11-10T11:00:05.000Z",
+        "outcome": "network_error"
+      },
+      {
+        "routeId": "eth-usdc",
+        "originAsset": "nep141:eth.omft.near",
+        "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+        "amountBaseUnits": "10000000000000000000",
+        "privacyMode": "public",
+        "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+        "attemptNo": 1,
+        "fetchedAtUTC": "2026-11-10T11:00:07.000Z",
+        "outcome": "timeout"
+      },
+      {
+        "routeId": "eth-usdc",
+        "originAsset": "nep141:eth.omft.near",
+        "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+        "amountBaseUnits": "10000000000000000000",
+        "privacyMode": "basic",
+        "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+        "attemptNo": 1,
+        "fetchedAtUTC": "2026-11-10T11:00:09.000Z",
+        "outcome": "response",
+        "status": 200,
+        "file": "oneclick/quote-invalid-schema.json"
+      },
+      {
+        "routeId": "eth-usdc",
+        "originAsset": "nep141:eth.omft.near",
+        "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+        "amountBaseUnits": "10000000000000000000",
+        "privacyMode": "advanced",
+        "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+        "attemptNo": 1,
+        "fetchedAtUTC": "2026-11-10T11:00:11.000Z",
+        "outcome": "response",
+        "status": 200,
+        "file": "oneclick/quote-zero-out.json"
+      },
+      {
+        "routeId": "eth-usdc",
+        "originAsset": "nep141:eth.omft.near",
+        "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+        "amountBaseUnits": "100000000000000000000",
+        "privacyMode": "public",
+        "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+        "attemptNo": 1,
+        "fetchedAtUTC": "2026-11-10T11:00:13.000Z",
+        "outcome": "response",
+        "status": 200,
+        "file": "oneclick/quote-bad-scale.json"
+      },
+      {
+        "routeId": "eth-usdc",
+        "originAsset": "nep141:eth.omft.near",
+        "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+        "amountBaseUnits": "100000000000000000000",
+        "privacyMode": "basic",
+        "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+        "attemptNo": 1,
+        "fetchedAtUTC": "2026-11-10T11:00:15.000Z",
+        "outcome": "not_attempted"
+      }
+    ]
+  },
+  "price": {
+    "environment": "fixture_synthetic",
+    "coinId": "near",
+    "symbol": "NEAR",
+    "quoteCurrency": "usd",
+    "window": {
+      "from": "2026-10-10",
+      "to": "2026-11-08"
+    },
+    "fetches": [
+      {
+        "file": "price/ohlc-v1.json",
+        "volumeFile": "price/volumes-v1.json",
+        "fetchedAtUTC": "2026-11-09T06:00:00.000Z"
+      },
+      {
+        "file": "price/ohlc-v2.json",
+        "fetchedAtUTC": "2026-11-10T06:00:00.000Z"
+      }
+    ]
+  },
+  "bigquery": {
+    "environment": "fixture_synthetic",
+    "jobs": [
+      {
+        "kind": "daily_usage",
+        "file": "bigquery/daily-usage.json",
+        "fetchedAtUTC": "2026-11-10T09:00:00.000Z"
+      },
+      {
+        "kind": "signer_days",
+        "file": "bigquery/signer-days.json",
+        "fetchedAtUTC": "2026-11-10T09:00:05.000Z"
+      },
+      {
+        "kind": "contract_interactions",
+        "file": "bigquery/contract-interactions.json",
+        "fetchedAtUTC": "2026-11-10T09:00:10.000Z"
+      }
+    ]
+  },
+  "registry": {
+    "environment": "fixture_synthetic",
+    "contracts": "registry/contracts.json",
+    "aliases": "registry/aliases.json"
+  }
+}

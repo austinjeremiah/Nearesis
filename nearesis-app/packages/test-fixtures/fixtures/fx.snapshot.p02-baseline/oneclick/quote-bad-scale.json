@@ -1,0 +1,20 @@
+{
+  "correlationId": "corr-synthetic-0001",
+  "timestamp": "2026-11-10T11:30:00.000Z",
+  "signature": "synthetic-signature",
+  "quoteRequest": {
+    "dry": true,
+    "swapType": "EXACT_INPUT"
+  },
+  "quote": {
+    "amountIn": "100000000000000000000",
+    "amountInFormatted": "100",
+    "amountInUsd": "3100.50",
+    "minAmountIn": "100000000000000000000",
+    "amountOut": "309800000000",
+    "amountOutFormatted": "3098.123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
+    "amountOutUsd": "3098.00",
+    "minAmountOut": "309800000000",
+    "timeEstimate": 35
+  }
+}

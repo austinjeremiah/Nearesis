@@ -1,0 +1,25 @@
+{
+  "id": "fx.oneclick.quote-dry",
+  "label": "SYNTHETIC",
+  "description": "1Click dry POST /v0/quote cases: one of each class (OK, NO_QUOTE, NETWORK_ERROR, TIMEOUT, INVALID_OUTPUT x3 reasons) plus a never-attempted grid slot.",
+  "files": [
+    { "path": "plan.json", "sha256": "7aec3ee3a6271acd45108d29fbdf549e78c6bc394ade2178c9dd29f123494ef9" },
+    {
+      "path": "quote-bad-scale.json",
+      "sha256": "eefb8c9277340c35b7243dc9b15509192ec886ecedb5c67a6f9eae5046b17caa"
+    },
+    {
+      "path": "quote-invalid-schema.json",
+      "sha256": "7aa4ddb480e74d163bb4ab8a2d3db9734afdc21356eb0b424dcd4f6a77a8796f"
+    },
+    {
+      "path": "quote-no-liquidity.json",
+      "sha256": "d0ce5ab8100c39fdc2c71818115da8bf32e776ed400b7e716503b6f0f1aa86ba"
+    },
+    { "path": "quote-ok.json", "sha256": "32dd600369ed4b12a7c5ef3928dbc6c267fe1bd80a2abf40d05bebe9eaafe439" },
+    {
+      "path": "quote-zero-out.json",
+      "sha256": "e42c41cf4acb94ca8b077328f363eea99658589c59cea6b7a308b72c5f4bd15c"
+    }
+  ]
+}

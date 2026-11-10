@@ -1,0 +1,8 @@
+{
+  "id": "fx.registry.asset-aliases",
+  "label": "SYNTHETIC",
+  "description": "Effective-dated asset aliases incl. the 2026-11-09 BNB legacy HOT id -> nep141:bsc.omft.near migration.",
+  "files": [
+    { "path": "aliases.json", "sha256": "17aa549b453a73ccd3885fea52d10be0b938083fceb8b4b84fef575891b5cc2c" }
+  ]
+}

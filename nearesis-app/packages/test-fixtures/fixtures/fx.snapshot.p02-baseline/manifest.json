@@ -1,0 +1,81 @@
+{
+  "id": "fx.snapshot.p02-baseline",
+  "label": "SYNTHETIC",
+  "description": "Complete credential-free P02 snapshot: Explorer public+private era pages, 1Click tokens and dry-quote attempts of every class, CoinGecko daily candles with a gap and a revised vintage, BigQuery daily usage, signer days and contract interactions, asset aliases and contract registry.",
+  "files": [
+    {
+      "path": "bigquery/contract-interactions.json",
+      "sha256": "26dcde0a0bb37db3905ab0ff009e00f3a0479d184f2b8f6d6f8e307c5bcb87ab"
+    },
+    {
+      "path": "bigquery/daily-usage.json",
+      "sha256": "150f306b5bd1ea2fe063573af2444af79f2864a243f09590b2552d3ff28b6ae8"
+    },
+    {
+      "path": "bigquery/signer-days.json",
+      "sha256": "8d96d4d138c97c99edd7b4cc08f229536935de091914b14884a5e8a11d1aacb7"
+    },
+    {
+      "path": "explorer/page-1.json",
+      "sha256": "7e2114bcee921d43985c81b061bc981819a0c1d9c36e4c3c3dbc8ee9ea7a553c"
+    },
+    {
+      "path": "explorer/page-2.json",
+      "sha256": "55067040e587411bc388d19cda084896e493c8042370f5cfe2d48b37d56b3dce"
+    },
+    {
+      "path": "explorer/page-3.json",
+      "sha256": "7ca0e3c8e4cda2a2f9c4972971a945c522a9ca99696bcda1d9dab3aab84f1a10"
+    },
+    {
+      "path": "explorer/page-4-private.json",
+      "sha256": "0ff1fa7e599d008740d88c9d4181c8475e1c2362beb0cf99c55b6f5a7d0ac0c7"
+    },
+    {
+      "path": "oneclick/quote-bad-scale.json",
+      "sha256": "eefb8c9277340c35b7243dc9b15509192ec886ecedb5c67a6f9eae5046b17caa"
+    },
+    {
+      "path": "oneclick/quote-invalid-schema.json",
+      "sha256": "7aa4ddb480e74d163bb4ab8a2d3db9734afdc21356eb0b424dcd4f6a77a8796f"
+    },
+    {
+      "path": "oneclick/quote-no-liquidity.json",
+      "sha256": "d0ce5ab8100c39fdc2c71818115da8bf32e776ed400b7e716503b6f0f1aa86ba"
+    },
+    {
+      "path": "oneclick/quote-ok.json",
+      "sha256": "32dd600369ed4b12a7c5ef3928dbc6c267fe1bd80a2abf40d05bebe9eaafe439"
+    },
+    {
+      "path": "oneclick/quote-zero-out.json",
+      "sha256": "e42c41cf4acb94ca8b077328f363eea99658589c59cea6b7a308b72c5f4bd15c"
+    },
+    {
+      "path": "oneclick/tokens.json",
+      "sha256": "51fa64d4653695859520bae9dc2cc60b9324d6a4025305d895a29d39566a22ea"
+    },
+    {
+      "path": "price/ohlc-v1.json",
+      "sha256": "11e9def909bfc9517806159a0b9b4d9a9f1e2f0d226036ad8c6b343a49add32f"
+    },
+    {
+      "path": "price/ohlc-v2.json",
+      "sha256": "96e0017de85b339757f64f9c22dd29469268d65aeb97ac64c4cc9f1c3918904a"
+    },
+    {
+      "path": "price/volumes-v1.json",
+      "sha256": "e17d50ce91671eff44fb839f3f17addec58fdd392a29f56e8c48b71b2849213b"
+    },
+    {
+      "path": "registry/aliases.json",
+      "sha256": "17aa549b453a73ccd3885fea52d10be0b938083fceb8b4b84fef575891b5cc2c"
+    },
+    {
+      "path": "registry/contracts.json",
+      "sha256": "8de88e2595fdcdf4329774e31c75089efb42762d0e7897f6b8625ca86911f08e"
+    },
+    { "path": "snapshot.json", "sha256": "1682925f06ce7674ad7ff5c999e0faf1535244055af6b02a9a38874a334e305b" }
+  ],
+  "expectedNormalizedDigest": "a7c6797797ff6c12e4e09630587b6ac7a61c31f1503ef0622d3c9203d71dd79f"
+}

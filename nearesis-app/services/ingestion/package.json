@@ -1,0 +1,27 @@
+{
+  "name": "@nearesis/ingestion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run test/unit",
+    "replay": "tsx src/cli/replay.ts",
+    "migrate": "tsx src/cli/migrate.ts"
+  },
+  "dependencies": {
+    "@google-cloud/bigquery": "9.6.0",
+    "@nearesis/acceptance": "workspace:*",
+    "@nearesis/contracts": "workspace:*",
+    "@nearesis/test-fixtures": "workspace:*",
+    "ioredis": "6.0.0",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}

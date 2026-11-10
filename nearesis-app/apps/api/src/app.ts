@@ -5,11 +5,15 @@ import { z } from "zod";
 import { HTTP_STATUS_FOR } from "@nearesis/contracts";
 import { KernelError, noWorkspaceAccess, toErrorResponse, workspaceNotFound } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
+import { RunsService } from "./runs.ts";
+import type { InvestigationEngine } from "./runs.ts";
 
 const Uuid = z.uuid();
 
 export interface AppOptions {
   kernel: Kernel;
+  /** Starts/signals investigation workflows (production: `temporalEngine()`). Without one, question/cancel/approval writes are 503. */
+  engine?: InvestigationEngine;
   nodeEnv?: string | undefined;
   /** SSE journal poll interval (ms). */
   ssePollMs?: number;
@@ -33,6 +37,11 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   const { kernel } = opts;
   const nodeEnv = opts.nodeEnv ?? process.env.NODE_ENV;
   const BODY_LIMIT_BYTES = 1_000_000;
+  const unavailableEngine: InvestigationEngine = {
+    start: () => Promise.reject(new Error("no investigation engine configured")),
+    signal: () => Promise.reject(new Error("no investigation engine configured")),
+  };
+  const runs = new RunsService(kernel, opts.engine ?? unavailableEngine);
   const app = Fastify({ logger: false, bodyLimit: BODY_LIMIT_BYTES, genReqId: () => randomUUID() });
 
   app.decorateRequest("traceId", "");
@@ -275,6 +284,60 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     });
     return res;
   });
+
+  // ---- Investigation API (ch.11): outsiders and unknown ids are the same 404 everywhere below. ----
+  const uuidOr404 = (id: string) => {
+    if (!Uuid.safeParse(id).success) throw workspaceNotFound();
+  };
+  const ifMatchVersion = (h: unknown): number | undefined => {
+    if (typeof h !== "string") return undefined;
+    const n = /^"?(\d+)"?$/.exec(h.trim());
+    if (!n)
+      throw new KernelError("VALIDATION_FAILED", "INVALID_IF_MATCH", "If-Match must be a version number.");
+    return Number(n[1]);
+  };
+
+  app.post<{ Params: { id: string } }>("/v1/workspaces/:id/questions", async (req, reply) => {
+    const session = await authenticate(req);
+    uuidOr404(req.params.id);
+    const idem = req.headers["idempotency-key"];
+    const res = await runs.submitQuestion(session, req.params.id, req.body, {
+      ...(typeof idem === "string" ? { idempotencyKey: idem } : {}),
+    });
+    return reply.status(202).send(res);
+  });
+
+  app.get<{ Params: { id: string } }>("/v1/runs/:id", async (req) => {
+    const session = await authenticate(req);
+    uuidOr404(req.params.id);
+    return runs.getRun(session, req.params.id);
+  });
+
+  app.post<{ Params: { id: string } }>("/v1/runs/:id/cancel", async (req, reply) => {
+    const session = await authenticate(req);
+    uuidOr404(req.params.id);
+    const res = await runs.cancel(session, req.params.id, req.body, ifMatchVersion(req.headers["if-match"]));
+    return reply.status(202).send(res);
+  });
+
+  app.get<{ Params: { id: string }; Querystring: { status?: string } }>(
+    "/v1/runs/:id/approvals",
+    async (req) => {
+      const session = await authenticate(req);
+      uuidOr404(req.params.id);
+      return runs.listApprovals(session, req.params.id, req.query.status === "all" ? "all" : "pending");
+    },
+  );
+
+  app.post<{ Params: { id: string; approvalId: string } }>(
+    "/v1/runs/:id/approvals/:approvalId",
+    async (req, reply) => {
+      const session = await authenticate(req);
+      uuidOr404(req.params.id);
+      const res = await runs.decide(session, req.params.id, req.params.approvalId, req.body);
+      return reply.status(202).send(res);
+    },
+  );
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.
   void HTTP_STATUS_FOR;

@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_ENGINE_INTERFACES, Db, Kernel, migrate } from "@nearesis/kernel";
 import { buildApp } from "./app.ts";
+import { temporalEngine } from "./temporal-engine.ts";
 
 /** Minimal .env loader (server-side only; values are never logged). */
 function loadEnv(): void {
@@ -33,7 +34,7 @@ const kernel = new Kernel({
 });
 await kernel.boot();
 kernel.outbox.start();
-const app = await buildApp({ kernel });
+const app = await buildApp({ kernel, engine: temporalEngine() });
 const port = Number(process.env.PORT ?? 4100);
 await app.listen({ host: "127.0.0.1", port });
 console.log(`nearesis api listening on 127.0.0.1:${port}`);

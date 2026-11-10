@@ -16,6 +16,7 @@
     "@nearesis/contracts": "workspace:*",
     "@nearesis/kernel": "workspace:*",
     "@nearesis/plugin-sdk": "workspace:*",
+    "@nearesis/workflow": "workspace:*",
     "fastify": "5.12.8",
     "zod": "4.6.7"
   }

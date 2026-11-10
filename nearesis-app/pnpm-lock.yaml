@@ -218,6 +218,9 @@ importers:
       '@nearesis/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
+      '@nearesis/workflow':
+        specifier: workspace:*
+        version: link:../../packages/workflow
       fastify:
         specifier: 5.12.8
         version: 5.12.8
@@ -333,6 +336,15 @@ importers:
       '@nearesis/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@nearesis/inference':
+        specifier: workspace:*
+        version: link:../inference
+      '@nearesis/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@nearesis/plugin-sdk':
+        specifier: workspace:*
+        version: link:../plugin-sdk
       pg:
         specifier: 8.23.1
         version: 8.23.1
@@ -343,6 +355,9 @@ importers:
       '@nearesis/acceptance':
         specifier: workspace:*
         version: link:../acceptance
+      '@nearesis/near-thesis':
+        specifier: workspace:*
+        version: link:../../plugins/near-thesis
       '@types/pg':
         specifier: 8.23.1
         version: 8.23.1
@@ -450,6 +465,12 @@ importers:
       '@nearesis/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@nearesis/inference':
+        specifier: workspace:*
+        version: link:../inference
+      '@nearesis/kernel':
+        specifier: workspace:*
+        version: link:../kernel
       '@temporalio/activity':
         specifier: 1.25.0
         version: 1.25.0(long@5.3.2)(protobufjs@8.8.1)
@@ -475,6 +496,12 @@ importers:
       '@nearesis/acceptance':
         specifier: workspace:*
         version: link:../acceptance
+      '@nearesis/near-thesis':
+        specifier: workspace:*
+        version: link:../../plugins/near-thesis
+      '@nearesis/plugin-sdk':
+        specifier: workspace:*
+        version: link:../plugin-sdk
       '@types/pg':
         specifier: 8.23.1
         version: 8.23.1

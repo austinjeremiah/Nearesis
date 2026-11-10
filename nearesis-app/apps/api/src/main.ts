@@ -34,7 +34,10 @@ const kernel = new Kernel({
 });
 await kernel.boot();
 kernel.outbox.start();
-const app = await buildApp({ kernel, engine: temporalEngine() });
+const app = await buildApp({
+  kernel,
+  engine: temporalEngine(process.env.TASK_QUEUE ? { taskQueue: process.env.TASK_QUEUE } : {}),
+});
 const port = Number(process.env.PORT ?? 4100);
 await app.listen({ host: "127.0.0.1", port });
 console.log(`nearesis api listening on 127.0.0.1:${port}`);

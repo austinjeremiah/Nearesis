@@ -18,7 +18,8 @@
         "canvas.apply_patch",
         "marker.create",
         "plugin.enable",
-        "plugin.disable"
+        "plugin.disable",
+        "graph.save_layout"
       ]
     },
     "payload": {

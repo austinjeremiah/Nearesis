@@ -19,6 +19,7 @@ export const CommandType = z.enum([
   "marker.create",
   "plugin.enable",
   "plugin.disable",
+  "graph.save_layout",
 ]);
 export const WorkspaceCommand = z.strictObject({
   apiVersion: z.literal("v1"),

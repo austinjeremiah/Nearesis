@@ -33,6 +33,8 @@ export const EXPORTED = {
   TaskBoard: C.TaskBoard,
   CoordinationEvent: C.CoordinationEvent,
   TestResult: C.TestResult,
+  GraphProjection: C.GraphProjection,
+  SaveGraphLayoutPayload: C.SaveGraphLayoutPayload,
 } as const;
 
 export function toSchemas(): Record<string, unknown> {

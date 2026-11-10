@@ -57,7 +57,8 @@
         "run.state_changed",
         "approval.granted",
         "approval.rejected",
-        "access.denied"
+        "access.denied",
+        "graph.layout_saved"
       ]
     },
     "causationId": {

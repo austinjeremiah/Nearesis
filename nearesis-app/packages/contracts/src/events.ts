@@ -28,6 +28,7 @@ export const DomainEventType = z.enum([
   "approval.granted",
   "approval.rejected",
   "access.denied",
+  "graph.layout_saved",
 ]);
 export type DomainEventType = z.infer<typeof DomainEventType>;
 

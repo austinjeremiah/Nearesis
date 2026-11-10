@@ -193,11 +193,42 @@ describe("v1.1.0 additions (INTEGRATION_QUEUE 11:53Z/11:58Z)", () => {
   });
   it("v1.0.0 patch payloads remain valid (backward compatible)", () => {
     expect(C.PatchOp.safeParse({ op: "removePanel", panelId: uuid }).success).toBe(true);
-    expect(C.CONTRACTS_VERSION).toBe("1.1.0");
+    // additive releases only move forward within major 1
+    const [maj, min] = C.CONTRACTS_VERSION.split(".").map(Number);
+    expect(maj).toBe(1);
+    expect(min).toBeGreaterThanOrEqual(1);
   });
   it("enum types are usable as types", () => {
     const q: C.QuoteAttemptClass = "NO_QUOTE";
     const v: C.TestVerdict = "PASS";
     expect([q, v]).toEqual(["NO_QUOTE", "PASS"]);
+  });
+});
+
+describe("v1.2.0 additions (graph)", () => {
+  it("GraphProjection validates a kernel-shaped projection and rejects unknown relations", () => {
+    const g = {
+      workspaceId: uuid,
+      version: 3,
+      nodes: [
+        { id: "q1", type: "query", label: "Daily swaps", queryRef: sha },
+        { id: "m1", type: "marker", label: "Oct 27" },
+      ],
+      edges: [{ id: "e1", source: "m1", target: "q1", relation: "references", origin: "derived" }],
+      unresolved: [],
+    };
+    expect(C.GraphProjection.safeParse(g).success).toBe(true);
+    expect(C.GraphProjection.safeParse({ ...g, edges: [{ ...g.edges[0], relation: "owns" }] }).success).toBe(
+      false,
+    );
+    expect(
+      C.GraphProjection.safeParse({ ...g, nodes: [{ id: "x", type: "widget", label: "x" }] }).success,
+    ).toBe(false);
+  });
+  it("graph.save_layout is a contract command and v1.1.0 commands remain valid", () => {
+    expect(C.CommandType.safeParse("graph.save_layout").success).toBe(true);
+    expect(C.CommandType.safeParse("canvas.apply_patch").success).toBe(true);
+    expect(C.SaveGraphLayoutPayload.safeParse({ positions: { q1: { x: 1, y: 2 } } }).success).toBe(true);
+    expect(C.CONTRACTS_VERSION).toBe("1.2.0");
   });
 });

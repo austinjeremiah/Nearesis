@@ -1,6 +1,7 @@
 /**
  * URL/source-register auditor (BOOT03). Extracts http(s) host literals from git-tracked source files and
- * requires every host to be listed in a source-register entry's `hosts`. localhost / 127.0.0.1 are allowed.
+ * requires every host to be listed in a source-register entry's `hosts`. localhost / 127.0.0.1 and the RFC 6761
+ * reserved `.invalid` TLD (never resolvable; fixture placeholders) are allowed.
  * Exit code 1 when undocumented hosts exist.
  */
 import { spawnSync } from "node:child_process";
@@ -94,7 +95,9 @@ export function auditUrls(
       .forEach((text, i) => {
         for (const m of text.matchAll(URL_RE)) {
           const host = m[1]!.toLowerCase().replace(/\.$/, "");
-          if (ALWAYS_ALLOWED.has(host) || known.has(host)) continue;
+          // RFC 6761 reserves ".invalid": guaranteed never to resolve, used for placeholder/fixture URLs.
+          if (ALWAYS_ALLOWED.has(host) || host === "invalid" || host.endsWith(".invalid") || known.has(host))
+            continue;
           undocumented.push({ host, file, line: i + 1 });
         }
       });

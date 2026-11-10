@@ -179,3 +179,12 @@ sources:
     rateLimits: "n/a"
     status: TO_VERIFY
     notes: "Reachable (HTTP 200)."
+  - id: near-docs
+    hosts: [docs.near.org]
+    officialDocUrl: https://docs.near.org/
+    accessedAt: "2026-11-10"
+    version: "n/a (documentation site)"
+    auth: "none"
+    rateLimits: "n/a"
+    status: TO_VERIFY
+    notes: "Official NEAR documentation. Referenced as an evidence URL in packages/test-fixtures/scripts/generate.ts (contract registry fixture). Not an API endpoint; no runtime calls."

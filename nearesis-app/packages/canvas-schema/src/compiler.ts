@@ -90,7 +90,11 @@ const NON_ADDITIVE = new Set(["count_distinct", "non_additive", "ratio"]);
 export function compileVisualization(req: VizRequest, metrics: readonly MetricMetadata[]): Result<Compiled> {
   const issues: Issue[] = [];
   const fields = new Map<string, FieldInfo>(req.result.fields.map((f) => [f.name, f]));
-  const metricByMember = new Map(metrics.map((m) => [m.cubeMember, m]));
+  // Result columns are named by metric id; some metrics (e.g. near.*) have a cube member that differs from the id.
+  const metricByMember = new Map<string, MetricMetadata>([
+    ...metrics.map((m): [string, MetricMetadata] => [m.cubeMember, m]),
+    ...metrics.map((m): [string, MetricMetadata] => [m.id, m]),
+  ]);
   const y = req.y ?? [];
   const xInfo = req.x ? fields.get(req.x) : undefined;
   const yInfo = y.map((f) => fields.get(f));

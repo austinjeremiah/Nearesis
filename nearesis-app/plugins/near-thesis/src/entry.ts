@@ -11,6 +11,7 @@ import {
   type VizRequest,
 } from "@nearesis/canvas-schema";
 import {
+  createCh,
   createPg,
   CUBE_URL_DEFAULT,
   defaultCubeSecret,
@@ -22,19 +23,57 @@ import { definePlugin, type InvocationContext } from "@nearesis/plugin-sdk";
 import { PreviewInput } from "./capabilities.ts";
 
 type Gateway = ReturnType<typeof createGateway>;
-let gw: { gateway: Gateway; registry: Registry; redis: Redis } | null = null;
+let gw: { gateway: Gateway; registry: Registry; redis: Redis; ch: ReturnType<typeof createCh> } | null = null;
+
+/** Fact table -> its UTC day column, for the data windows the catalog advertises to composers. */
+const DAY_COLUMN: Record<string, string> = {
+  intents_swaps: "created_day",
+  quote_attempts: "day",
+  price_candles: "day",
+  near_daily_usage: "block_date",
+  near_signer_days: "block_date",
+  contract_interactions: "block_date",
+  economics_reports: "report_day",
+  agent_market_jobs: "job_day",
+};
+
+/** Observed first/last day per dataset (null = no rows). Table and column names come from the fixed map above. */
+export async function dataWindows(
+  ch: ReturnType<typeof createCh>,
+): Promise<Record<string, { from: string; to: string } | null>> {
+  const out: Record<string, { from: string; to: string } | null> = {};
+  for (const [table, col] of Object.entries(DAY_COLUMN)) {
+    try {
+      const rs = await ch.query({
+        query: `SELECT toString(min(${col})) AS f, toString(max(${col})) AS t, count() AS n FROM ${table}`,
+        format: "JSONEachRow",
+      });
+      const r = ((await rs.json()) as Array<{ f: string; t: string; n: string }>)[0];
+      out[table] = r && Number(r.n) > 0 ? { from: r.f, to: r.t } : null;
+    } catch {
+      out[table] = null;
+    }
+  }
+  return out;
+}
 
 /** Lazily wires the gateway from server-side configuration (env), so importing the module has no side effects. */
-export function gateway(): { gateway: Gateway; registry: Registry } {
+export function gateway(): {
+  gateway: Gateway;
+  registry: Registry;
+  ch: ReturnType<typeof createCh>;
+} {
   if (!gw) {
     const registry = loadRegistry();
     const redis = new Redis(process.env.NEARESIS_REDIS_URL ?? "redis://127.0.0.1:56379", {
       maxRetriesPerRequest: 2,
       lazyConnect: false,
     });
+    const ch = createCh();
     gw = {
       registry,
       redis,
+      ch,
       gateway: createGateway({
         cubeUrl: process.env.CUBE_URL ?? CUBE_URL_DEFAULT,
         cubeSecret: defaultCubeSecret(),
@@ -44,6 +83,7 @@ export function gateway(): { gateway: Gateway; registry: Registry } {
         clock: () => new Date(),
         // Every executed query is recorded content-addressed (hash -> AST) so panels can be re-executed (C14).
         pg: createPg(),
+        ch,
       }),
     };
   }
@@ -89,8 +129,9 @@ export function completenessOf(env: DataFrameEnvelope): "complete" | "partial" |
 export default definePlugin({
   handlers: {
     "semantic.discover@1": async (_input, ctx) => {
-      const r = await gateway().gateway.discover(sessionOf(ctx));
-      return { ok: true, ...r };
+      const g = gateway();
+      const r = await g.gateway.discover(sessionOf(ctx));
+      return { ok: true, ...r, dataWindows: await dataWindows(g.ch) };
     },
     "semantic.query@1": async (input, ctx) => {
       const r = await gateway().gateway.query(sessionOf(ctx), input);

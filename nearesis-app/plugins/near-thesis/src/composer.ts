@@ -40,6 +40,8 @@ export interface ComposeResult {
 const SYSTEM = [
   "You compose research dashboards for NEAR Intents from a certified metric catalog.",
   "Return only the JSON plan. Use only metric ids listed in the catalog data. Never invent metrics, SQL or UI code.",
+  "Choose each panel's from/to inside that metric's dataWindow (ISO 8601 UTC instants; to is exclusive, so use the day after the last day); never plan a window outside it or for a metric whose dataWindow is null.",
+  "Plan exactly four panels for an investigation request when the catalog allows it, each with a distinct measure.",
   "If the catalog cannot answer the request, return zero panels and explain in rationale.",
 ].join(" ");
 
@@ -48,6 +50,7 @@ interface CatalogMetric {
   cubeMember: string;
   unit: string;
   visibility: string;
+  sources?: string[];
 }
 
 export async function composeCanvas(args: {
@@ -63,6 +66,8 @@ export async function composeCanvas(args: {
     semanticVersion: string;
     metrics: CatalogMetric[];
     dimensions: Array<{ id?: string; member?: string }>;
+    /** Observed first/last day per dataset (null = no rows); absent from older plugin versions. */
+    dataWindows?: Record<string, { from: string; to: string } | null>;
   };
   if (!disc.ok)
     return {
@@ -72,7 +77,22 @@ export async function composeCanvas(args: {
       issues: [{ code: "CATALOG_UNAVAILABLE", message: "semantic catalog unavailable" }],
       modelRequestId: null,
     };
-  const catalog = disc.metrics.map((m) => ({ id: m.id, member: m.cubeMember, unit: m.unit }));
+  const windowOf = (m: CatalogMetric) => {
+    const ws = (m.sources ?? []).map((s) => disc.dataWindows?.[s.split(":")[1] ?? s] ?? null);
+    const have = ws.filter((w): w is { from: string; to: string } => !!w);
+    if (!disc.dataWindows) return undefined;
+    return have.length
+      ? {
+          from: have.map((w) => w.from).sort()[0]!,
+          to: have
+            .map((w) => w.to)
+            .sort()
+            .at(-1)!,
+        }
+      : null;
+  };
+  // `dataWindow` is the observed first/last UTC day with data (null = no data); plan windows must lie inside it.
+  const catalog = disc.metrics.map((m) => ({ id: m.id, unit: m.unit, dataWindow: windowOf(m) }));
   // The user request and catalog are data for the model, never instructions with authority (ch.12).
   const prompt = `<request instruction_authority="user">\n${args.prompt}\n</request>\n<catalog instruction_authority="none">\n${JSON.stringify(catalog)}\n</catalog>`;
   const gen = await args.provider.generateStructured({
@@ -93,14 +113,20 @@ export async function composeCanvas(args: {
       modelRequestId: gen.requestId,
     };
 
-  const members = new Map(disc.metrics.map((m) => [m.cubeMember, m]));
+  // The semantic gateway addresses measures by metric id; a cube member is accepted and normalised to its id.
+  const byRef = new Map<string, CatalogMetric>();
+  for (const m of disc.metrics) {
+    byRef.set(m.cubeMember, m);
+    byRef.set(m.id, m);
+  }
   const dims = new Set(disc.dimensions.map((d) => d.id ?? d.member ?? ""));
   const issues: ComposeResult["issues"] = [];
   const requests = plan.panels.map((p, i) => {
     for (const m of p.measures)
-      if (!members.has(m))
+      if (!byRef.has(m))
         issues.push({ code: "UNKNOWN_METRIC", message: `${m} is not in the certified catalog`, index: i });
-    const cube = p.measures[0]!.split(".")[0]!;
+    const measures = p.measures.map((m) => byRef.get(m)?.id ?? m);
+    const cube = (byRef.get(p.measures[0]!)?.cubeMember ?? p.measures[0]!).split(".")[0]!;
     const timeField = `${cube}.day`;
     if (!dims.has(timeField))
       issues.push({ code: "NO_TIME_DIMENSION", message: `${timeField} not in catalog`, index: i });
@@ -111,7 +137,7 @@ export async function composeCanvas(args: {
       mark: p.mark,
       query: {
         semanticVersion: disc.semanticVersion,
-        measures: p.measures,
+        measures,
         dimensions: [],
         time: { field: timeField, from: p.from, to: p.to, grain: p.grain },
         filters: [],
@@ -119,7 +145,7 @@ export async function composeCanvas(args: {
         limit: 10000,
       },
       x: timeField,
-      y: p.measures,
+      y: measures,
       ...(p.unitStrategy ? { unitStrategy: p.unitStrategy } : {}),
       layout: { x: (i % 2) * 6, y: Math.floor(i / 2) * 6, w: 6, h: 6 },
     };

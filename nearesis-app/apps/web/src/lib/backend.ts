@@ -270,6 +270,6 @@ KernelBackend.prototype.pollWatermarks = function (this: KernelBackend): () => v
 
 export function createBackend(search: URLSearchParams, workspaceId: string): CanvasBackend {
   if (search.get("backend") === "kernel" && /^[0-9a-f-]{36}$/.test(workspaceId))
-    return new KernelBackend(workspaceId);
+    return new KernelBackend(workspaceId, search.get("data") === "semantic" ? "semantic" : "fixture");
   return new FixtureBackend(search.get("scenario") ?? "baseline");
 }

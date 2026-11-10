@@ -258,9 +258,10 @@ export function panelSemanticIssues(p: PanelSpec, ctx: ValidationContext, prefix
 }
 
 export function isQuoteMetric(m: MetricMetadata): boolean {
-  // Sources are "provider" or "provider:dataset" (registry form).
+  // Sources are "provider:dataset" (registry form). Only the quote-attempt dataset is sampled on fetchedAt time;
+  // swap datasets from the same provider are event-time series.
   return (
-    m.sources.some((x) => x.split(":")[0] === "intents-1click") || m.id.startsWith("intents.route_quote")
+    m.sources.some((x) => x === "intents-1click:quote_attempts") || m.id.startsWith("intents.route_quote")
   );
 }
 

@@ -113,6 +113,74 @@ describe("api", () => {
     expect(orgId).toBeTruthy();
   });
 
+  it("canvas: patch via commands then read; outsiders get 404", async () => {
+    const c = await f.app.inject({
+      method: "POST",
+      url: "/v1/workspaces",
+      headers: { ...bearer(tok), "idempotency-key": "create-canvas1" },
+      payload: { objective: "o", networkScope: "fixture-only" },
+    });
+    const { workspaceId } = c.json() as { workspaceId: string };
+    const panelId = randomUUID();
+    const patch = {
+      schemaVersion: 1,
+      type: "workspace.patch",
+      operationId: randomUUID(),
+      expectedRevision: 0,
+      operations: [
+        {
+          op: "addPanel",
+          panel: {
+            panelId,
+            schemaVersion: 1,
+            kind: "note",
+            title: "n",
+            queryRef: { hash: "a".repeat(64), semanticVersion: "1.0.0" },
+            dataBinding: { fields: ["a"], units: {}, timezone: "UTC", completeness: "complete" },
+            encoding: {},
+            layout: { x: 0, y: 0, w: 2, h: 2 },
+            refreshPolicy: { mode: "manual" },
+            provenanceRequired: true,
+          },
+        },
+      ],
+    };
+    const r = await f.app.inject({
+      method: "POST",
+      url: `/v1/workspaces/${workspaceId}/commands`,
+      headers: { ...bearer(tok), "if-match": "1" },
+      payload: {
+        apiVersion: "v1",
+        commandId: randomUUID(),
+        commandType: "canvas.apply_patch",
+        payload: patch,
+        expectedVersion: 1,
+      },
+    });
+    expect(r.statusCode).toBe(200);
+    const g = await f.app.inject({ url: `/v1/workspaces/${workspaceId}/canvas`, headers: bearer(tok) });
+    expect(g.json()).toMatchObject({ documentRevision: 1, dataRevision: 0 });
+    const stale = await f.app.inject({
+      method: "POST",
+      url: `/v1/workspaces/${workspaceId}/commands`,
+      headers: { ...bearer(tok), "if-match": "2" },
+      payload: {
+        apiVersion: "v1",
+        commandId: randomUUID(),
+        commandType: "canvas.apply_patch",
+        payload: { ...patch, operationId: randomUUID() },
+        expectedVersion: 2,
+      },
+    });
+    expect(stale.statusCode).toBe(409);
+    expect((stale.json() as { lastStableRevision: number }).lastStableRevision).toBe(1);
+    const b = await seedOrg(f.db.admin, "outsiders", { bob: "owner" });
+    const bob = await login(f.app, b.users.bob!.subject);
+    expect(
+      (await f.app.inject({ url: `/v1/workspaces/${workspaceId}/canvas`, headers: bearer(bob) })).statusCode,
+    ).toBe(404);
+  });
+
   it("dev login does not exist in production", async () => {
     const prod = await buildApp({ kernel: f.kernel, nodeEnv: "production" });
     const r = await prod.inject({ method: "POST", url: "/v1/dev/login", payload: { oidcSubject: "x" } });

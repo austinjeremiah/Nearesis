@@ -28,7 +28,7 @@ it("K03: retrying the same command ID yields one event, one object and the same 
   ]);
 
   const commandId = randomUUID();
-  const payload = { panelId, anchor: { x: 1, y: 2 } };
+  const payload = { panelId, anchor: { kind: "time_point", at: "2026-01-01T00:00:00Z" } };
   const r1 = await runCmd(k, s, workspaceId, "marker.create", payload, 1, commandId);
   // Sequential retries (the workspace version has since moved on, so a naive CAS would fail), then a concurrent burst.
   const r2 = await runCmd(k, s, workspaceId, "marker.create", payload, 1, commandId);

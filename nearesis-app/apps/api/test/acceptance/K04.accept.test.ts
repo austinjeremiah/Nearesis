@@ -61,13 +61,29 @@ it("K04: cross-tenant marker injection is denied with 403 and leaks no object ex
     });
 
   // (1) Attacker targets the victim workspace directly, with a real victim panel id.
-  const direct = await post(wa, cmd("marker.create", { panelId: panelA, anchor: { x: 1 } }, 1));
+  const direct = await post(
+    wa,
+    cmd("marker.create", { panelId: panelA, anchor: { kind: "time_point", at: "2026-01-01T00:00:00Z" } }, 1),
+  );
   // (2) Same, against a workspace id that does not exist.
-  const ghostWs = await post(randomUUID(), cmd("marker.create", { panelId: panelA, anchor: { x: 1 } }, 1));
+  const ghostWs = await post(
+    randomUUID(),
+    cmd("marker.create", { panelId: panelA, anchor: { kind: "time_point", at: "2026-01-01T00:00:00Z" } }, 1),
+  );
   // (3) Attacker uses its OWN workspace but injects the victim's panel id.
-  const viaPanel = await post(wb, cmd("marker.create", { panelId: panelA, anchor: { x: 1 } }, 1));
+  const viaPanel = await post(
+    wb,
+    cmd("marker.create", { panelId: panelA, anchor: { kind: "time_point", at: "2026-01-01T00:00:00Z" } }, 1),
+  );
   // (4) Same, with a panel id that does not exist anywhere.
-  const ghostPanel = await post(wb, cmd("marker.create", { panelId: randomUUID(), anchor: { x: 1 } }, 1));
+  const ghostPanel = await post(
+    wb,
+    cmd(
+      "marker.create",
+      { panelId: randomUUID(), anchor: { kind: "time_point", at: "2026-01-01T00:00:00Z" } },
+      1,
+    ),
+  );
 
   for (const r of [direct, ghostWs, viaPanel, ghostPanel]) {
     expect(r.statusCode).toBe(403);
@@ -100,7 +116,10 @@ it("K04: cross-tenant marker injection is denied with 403 and leaks no object ex
   expect(denyAudit).toBe(4);
 
   // Positive control: attacker's own panel in its own workspace works.
-  const own = await post(wb, cmd("marker.create", { panelId: panelB, anchor: { x: 1 } }, 1));
+  const own = await post(
+    wb,
+    cmd("marker.create", { panelId: panelB, anchor: { kind: "time_point", at: "2026-01-01T00:00:00Z" } }, 1),
+  );
   expect(own.statusCode).toBe(200);
   const ownMarkers = (
     await f.db.admin.query("SELECT count(*)::int n FROM markers WHERE workspace_id=$1", [wb])

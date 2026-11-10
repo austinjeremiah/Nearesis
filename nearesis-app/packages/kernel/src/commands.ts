@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { WorkspaceCommand, CommandAccepted as CommandAcceptedSchema } from "@nearesis/contracts";
+import {
+  MarkerAnchor,
+  WorkspaceCommand,
+  CommandAccepted as CommandAcceptedSchema,
+} from "@nearesis/contracts";
 import type { DomainEventType } from "@nearesis/contracts";
 import { z } from "zod";
 import { canonicalJson, sha256Hex } from "@nearesis/plugin-sdk";
@@ -39,7 +43,7 @@ const ObjectiveUpdate = z.strictObject({ objective: z.string().min(1).max(4000) 
 const MarkerCreate = z.strictObject({
   panelId: z.uuid(),
   markerId: z.uuid().optional(),
-  anchor: z.record(z.string(), z.unknown()),
+  anchor: MarkerAnchor,
 });
 const PluginRef = z.strictObject({ pluginId: z.string().regex(/^[a-z][a-z0-9-]{1,63}$/) });
 
@@ -84,15 +88,15 @@ export class CommandBus {
         const p = parsePayload(MarkerCreate, payload);
         // The panel must belong to THIS workspace (and be visible under RLS). Foreign and unknown panels give the same
         // response, so cross-tenant marker injection cannot probe for object existence (K04).
-        const panel = await ctx.tx.query("SELECT id FROM panels WHERE id = $1 AND workspace_id = $2", [
-          p.panelId,
-          ctx.workspace.id,
-        ]);
+        const panel = await ctx.tx.query(
+          "SELECT id FROM panels WHERE id = $1 AND workspace_id = $2 AND removed_at IS NULL",
+          [p.panelId, ctx.workspace.id],
+        );
         if (!panel.rows[0]) throw new KernelError("FORBIDDEN", "ACCESS_DENIED", "Access denied.");
         const markerId = p.markerId ?? randomUUID();
         await ctx.tx.query(
-          `INSERT INTO markers(id, org_id, workspace_id, branch_id, panel_id, anchor_json)
-           VALUES ($1,$2,$3,$4,$5,$6)`,
+          `INSERT INTO markers(id, org_id, workspace_id, branch_id, panel_id, anchor_json, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
           [
             markerId,
             ctx.workspace.orgId,
@@ -100,6 +104,7 @@ export class CommandBus {
             ctx.workspace.activeBranchId,
             p.panelId,
             JSON.stringify(p.anchor),
+            ctx.session.userId,
           ],
         );
         return { eventType: "marker.created", data: { markerId, panelId: p.panelId }, result: { markerId } };
@@ -133,7 +138,12 @@ export class CommandBus {
     }
     const cmd = parsed.data;
     const expectedVersion = opts.expectedVersion ?? cmd.expectedVersion;
-    const key = opts.idempotencyKey ?? cmd.commandId;
+    // A canvas patch's operationId is its natural idempotency key (ch.26): a retried operation replays, never re-applies.
+    const opId =
+      cmd.commandType === "canvas.apply_patch"
+        ? (cmd.payload as { operationId?: unknown }).operationId
+        : undefined;
+    const key = opts.idempotencyKey ?? (typeof opId === "string" ? `op:${opId}` : cmd.commandId);
     const ctx = { orgId: session.principal.orgId, userId: session.userId };
     try {
       return await this.attempt(session, workspaceId, cmd, expectedVersion, key);

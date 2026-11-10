@@ -109,6 +109,18 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     return kernel.workspaces.get(session, req.params.id);
   });
 
+  app.get<{ Params: { id: string } }>("/v1/workspaces/:id/canvas", async (req) => {
+    const session = await authenticate(req);
+    if (!Uuid.safeParse(req.params.id).success) throw workspaceNotFound();
+    try {
+      return await kernel.canvas.get(session, req.params.id);
+    } catch (e) {
+      // Same outcome as GET /v1/workspaces/:id for inaccessible and unknown workspaces.
+      if (e instanceof KernelError && e.code === "FORBIDDEN") throw workspaceNotFound();
+      throw e;
+    }
+  });
+
   app.post<{ Params: { id: string } }>("/v1/workspaces/:id/commands", async (req) => {
     const session = await authenticate(req);
     if (!Uuid.safeParse(req.params.id).success) throw noWorkspaceAccess();

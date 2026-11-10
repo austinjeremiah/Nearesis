@@ -1,6 +1,7 @@
 import { CanvasPatch } from "@nearesis/contracts";
+import { applyCanvasPatch, documentContentHash } from "@nearesis/canvas-schema";
 import type { CanvasDocument, MarkerSpec, PanelSpec, Selection } from "@nearesis/contracts";
-import { canonicalJson, sha256Hex } from "@nearesis/plugin-sdk";
+import { canonicalJson } from "@nearesis/plugin-sdk";
 import { randomUUID } from "node:crypto";
 import type { CommandHandler, CommandContext } from "./commands.ts";
 import type { Db, Tx } from "./db/pool.ts";
@@ -25,26 +26,6 @@ const DEFAULT_LAYOUT: LayoutJson = {
   layoutMode: "grid",
   activeSelections: [],
 };
-
-export const MAX_PANELS = 200;
-export const MAX_MARKERS = 2000;
-export const MAX_SELECTIONS = 50;
-
-function contentHash(
-  d: Pick<CanvasDocument, "panels" | "markers" | "viewport" | "layoutMode" | "activeSelections">,
-): string {
-  const byId = <T extends Record<string, unknown>>(a: T[], k: string) =>
-    [...a].sort((x, y) => String(x[k]).localeCompare(String(y[k])));
-  return sha256Hex(
-    canonicalJson({
-      panels: byId(d.panels as unknown as Array<Record<string, unknown>>, "panelId"),
-      markers: byId(d.markers as unknown as Array<Record<string, unknown>>, "markerId"),
-      viewport: d.viewport,
-      layoutMode: d.layoutMode,
-      activeSelections: byId(d.activeSelections as unknown as Array<Record<string, unknown>>, "panelId"),
-    }),
-  );
-}
 
 /** Canvas persistence + the `canvas.apply_patch` command handler. */
 export class CanvasService {
@@ -151,12 +132,10 @@ export class CanvasService {
     const { tx, workspace, session } = ctx;
     const branchId = workspace.activeBranchId!;
     let doc = await this.load(tx, workspace.id, branchId);
-    let docId = doc?.id;
     if (!doc) {
-      docId = randomUUID();
       const lay = DEFAULT_LAYOUT;
       doc = {
-        id: docId,
+        id: randomUUID(),
         workspaceId: workspace.id,
         branchId,
         documentRevision: 0,
@@ -169,7 +148,7 @@ export class CanvasService {
       };
       await tx.query(
         "INSERT INTO canvas_documents(id, org_id, workspace_id, branch_id, layout_json, revision, data_revision, content_hash) VALUES ($1,$2,$3,$4,$5,0,0,$6)",
-        [docId, workspace.orgId, workspace.id, branchId, JSON.stringify(lay), contentHash(doc)],
+        [doc.id, workspace.orgId, workspace.id, branchId, JSON.stringify(lay), documentContentHash(doc)],
       );
     }
     if (patch.expectedRevision !== doc.documentRevision) {
@@ -180,136 +159,15 @@ export class CanvasService {
       });
     }
 
-    // Engine B semantic validation (hook), then structural reference checks, over an in-memory copy.
+    // Optional extra hook first, then Engine B's semantic validation + pure apply (all-or-nothing, dataRevision untouched).
     const problems: Array<{ path: string; issue: string }> = [];
     if (this.semanticValidator) {
       const sem = this.semanticValidator(doc, patch);
       if (!sem.ok) for (const e of sem.errors) problems.push({ path: e.path, issue: e.message });
     }
-    const panels = new Map(doc.panels.map((p) => [p.panelId, p]));
-    const markers = new Map(doc.markers.map((m) => [m.markerId, m]));
-    const selections = new Map(doc.activeSelections.map((s) => [s.panelId, s]));
-    const writes: Array<() => Promise<void>> = [];
-    const summary: Array<Record<string, string>> = [];
-    const known = (id: string) => panels.has(id);
-    patch.operations.forEach((op, i) => {
-      const at = `operations.${i}`;
-      switch (op.op) {
-        case "addPanel": {
-          const p = op.panel;
-          if (panels.has(p.panelId))
-            problems.push({ path: `${at}.panel.panelId`, issue: "panel already exists" });
-          else if (panels.size >= MAX_PANELS)
-            problems.push({ path: at, issue: `canvas is limited to ${MAX_PANELS} panels` });
-          else {
-            panels.set(p.panelId, p);
-            writes.push(async () => {
-              // Soft-removed id reuse is refused: the identity row survives removal.
-              await tx.query("INSERT INTO panels(id, org_id, workspace_id, kind) VALUES ($1,$2,$3,$4)", [
-                p.panelId,
-                workspace.orgId,
-                workspace.id,
-                p.kind,
-              ]);
-              await tx.query(
-                `INSERT INTO panel_specs(id, org_id, workspace_id, document_id, query_hash, schema_version, kind, spec, layout_json)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-                [
-                  p.panelId,
-                  workspace.orgId,
-                  workspace.id,
-                  docId,
-                  p.queryRef.hash,
-                  p.schemaVersion,
-                  p.kind,
-                  JSON.stringify(p),
-                  JSON.stringify(p.layout),
-                ],
-              );
-            });
-          }
-          summary.push({ op: op.op, panelId: p.panelId });
-          break;
-        }
-        case "updatePanel":
-        case "movePanel": {
-          const cur = panels.get(op.panelId);
-          if (!cur) {
-            problems.push({ path: `${at}.panelId`, issue: "unknown panel" });
-            break;
-          }
-          if (op.op === "updatePanel" && op.panel.panelId !== op.panelId) {
-            problems.push({ path: `${at}.panel.panelId`, issue: "panelId must match the target panel" });
-            break;
-          }
-          const next: PanelSpec = op.op === "updatePanel" ? op.panel : { ...cur, layout: op.layout };
-          panels.set(op.panelId, next);
-          writes.push(async () => {
-            await tx.query(
-              "UPDATE panel_specs SET spec=$2, layout_json=$3, query_hash=$4, kind=$5 WHERE id=$1",
-              [op.panelId, JSON.stringify(next), JSON.stringify(next.layout), next.queryRef.hash, next.kind],
-            );
-          });
-          summary.push({ op: op.op, panelId: op.panelId });
-          break;
-        }
-        case "removePanel": {
-          if (!panels.delete(op.panelId)) {
-            problems.push({ path: `${at}.panelId`, issue: "unknown panel" });
-            break;
-          }
-          for (const [mid, m] of markers) if (m.panelId === op.panelId) markers.delete(mid);
-          selections.delete(op.panelId);
-          writes.push(async () => {
-            await tx.query("UPDATE panel_specs SET removed_at = now() WHERE id = $1", [op.panelId]);
-            await tx.query("UPDATE panels SET removed_at = now() WHERE id = $1", [op.panelId]);
-          });
-          summary.push({ op: op.op, panelId: op.panelId });
-          break;
-        }
-        case "addMarker": {
-          const m = op.marker;
-          if (!known(m.panelId)) problems.push({ path: `${at}.marker.panelId`, issue: "unknown panel" });
-          else if (markers.has(m.markerId))
-            problems.push({ path: `${at}.marker.markerId`, issue: "marker already exists" });
-          else if (markers.size >= MAX_MARKERS)
-            problems.push({ path: at, issue: `canvas is limited to ${MAX_MARKERS} markers` });
-          else {
-            markers.set(m.markerId, m);
-            writes.push(async () => {
-              await tx.query(
-                `INSERT INTO markers(id, org_id, workspace_id, branch_id, panel_id, anchor_json, status, question, created_by, created_at)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-                [
-                  m.markerId,
-                  workspace.orgId,
-                  workspace.id,
-                  branchId,
-                  m.panelId,
-                  JSON.stringify(m.anchor),
-                  m.status,
-                  m.question ?? null,
-                  session.userId,
-                  m.createdAt,
-                ],
-              );
-            });
-          }
-          summary.push({ op: op.op, markerId: m.markerId, panelId: m.panelId });
-          break;
-        }
-        case "setSelection": {
-          const s = op.selection;
-          if (!known(s.panelId)) problems.push({ path: `${at}.selection.panelId`, issue: "unknown panel" });
-          else if (!selections.has(s.panelId) && selections.size >= MAX_SELECTIONS)
-            problems.push({ path: at, issue: `at most ${MAX_SELECTIONS} active selections` });
-          else selections.set(s.panelId, s);
-          summary.push({ op: op.op, panelId: s.panelId });
-          break;
-        }
-      }
-    });
-    if (problems.length) {
+    const res = problems.length ? null : applyCanvasPatch(doc, patch, { now: new Date().toISOString() });
+    if (res && !res.ok) for (const i of res.issues) problems.push({ path: i.path, issue: i.message });
+    if (problems.length || !res || !res.ok) {
       throw new KernelError(
         "VALIDATION_FAILED",
         "PATCH_REJECTED",
@@ -320,22 +178,14 @@ export class CanvasService {
         },
       );
     }
-
-    for (const w of writes) await w();
-    const next = {
-      panels: [...panels.values()],
-      markers: [...markers.values()],
-      viewport: doc.viewport,
-      layoutMode: doc.layoutMode,
-      activeSelections: [...selections.values()],
-    };
-    const hash = contentHash(next);
-    const revision = doc.documentRevision + 1;
+    const next = res.document;
+    await this.persistDiff(tx, ctx, doc, next);
+    const hash = documentContentHash(next);
     await tx.query(
       "UPDATE canvas_documents SET revision=$2, layout_json=$3, content_hash=$4, updated_at=now() WHERE id=$1",
       [
-        docId,
-        revision,
+        doc.id,
+        next.documentRevision,
         JSON.stringify({
           viewport: next.viewport,
           layoutMode: next.layoutMode,
@@ -344,16 +194,136 @@ export class CanvasService {
         hash,
       ],
     );
+    await tx.query(
+      `INSERT INTO canvas_patches(id, org_id, workspace_id, document_id, operation_id, revision, patch, inverse, preview_hash, applied_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        randomUUID(),
+        workspace.orgId,
+        workspace.id,
+        doc.id,
+        patch.operationId,
+        next.documentRevision,
+        JSON.stringify(patch),
+        JSON.stringify(res.inverse),
+        res.previewHash,
+        session.userId,
+      ],
+    );
+    const summary = patch.operations.map((o) => {
+      const x = o as Record<string, unknown>;
+      const ref = (x.panelId ??
+        x.markerId ??
+        (x.panel as { panelId?: string } | undefined)?.panelId ??
+        (x.marker as { markerId?: string } | undefined)?.markerId ??
+        (x.selection as { panelId?: string } | undefined)?.panelId) as string;
+      return { op: o.op, ref };
+    });
     return {
       eventType: "canvas.patched" as const,
       data: {
         operationId: patch.operationId,
-        documentRevision: revision,
-        dataRevision: doc.dataRevision,
+        documentRevision: next.documentRevision,
+        dataRevision: next.dataRevision,
         contentHash: hash,
+        previewHash: res.previewHash,
         operations: summary,
       },
-      result: { documentRevision: revision, contentHash: hash },
+      result: { documentRevision: next.documentRevision, contentHash: hash },
     };
+  }
+
+  /** Inverse operations recorded for a revision (undo source). */
+  async inverseOf(session: Session, workspaceId: string, revision: number): Promise<unknown[] | null> {
+    return this.db.tx({ orgId: session.principal.orgId, userId: session.userId }, async (tx) => {
+      const r = await tx.query(
+        "SELECT inverse FROM canvas_patches WHERE workspace_id = $1 AND revision = $2",
+        [workspaceId, revision],
+      );
+      return r.rows[0] ? (r.rows[0].inverse as unknown[]) : null;
+    });
+  }
+
+  /** Write the difference between two documents. Panels are soft-removed so identities survive undo. */
+  private async persistDiff(
+    tx: Tx,
+    ctx: CommandContext,
+    before: CanvasDocument,
+    after: CanvasDocument,
+  ): Promise<void> {
+    const { workspace, session } = ctx;
+    const bp = new Map(before.panels.map((p) => [p.panelId, p]));
+    const ap = new Map(after.panels.map((p) => [p.panelId, p]));
+    for (const [id, p] of ap) {
+      const old = bp.get(id);
+      if (old && canonicalJson(old) === canonicalJson(p)) continue;
+      const exists = old
+        ? true
+        : (await tx.query("SELECT 1 FROM panels WHERE id = $1", [id])).rows.length > 0;
+      if (!exists) {
+        await tx.query("INSERT INTO panels(id, org_id, workspace_id, kind) VALUES ($1,$2,$3,$4)", [
+          id,
+          workspace.orgId,
+          workspace.id,
+          p.kind,
+        ]);
+        await tx.query(
+          `INSERT INTO panel_specs(id, org_id, workspace_id, document_id, query_hash, schema_version, kind, spec, layout_json)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [
+            id,
+            workspace.orgId,
+            workspace.id,
+            before.id,
+            p.queryRef.hash,
+            p.schemaVersion,
+            p.kind,
+            JSON.stringify(p),
+            JSON.stringify(p.layout),
+          ],
+        );
+      } else {
+        await tx.query("UPDATE panels SET removed_at = NULL, kind = $2 WHERE id = $1", [id, p.kind]);
+        await tx.query(
+          "UPDATE panel_specs SET spec=$2, layout_json=$3, query_hash=$4, kind=$5, removed_at=NULL WHERE id=$1",
+          [id, JSON.stringify(p), JSON.stringify(p.layout), p.queryRef.hash, p.kind],
+        );
+      }
+    }
+    for (const id of bp.keys()) {
+      if (ap.has(id)) continue;
+      await tx.query("UPDATE panel_specs SET removed_at = now() WHERE id = $1", [id]);
+      await tx.query("UPDATE panels SET removed_at = now() WHERE id = $1", [id]);
+    }
+    const bm = new Map(before.markers.map((m) => [m.markerId, m]));
+    const am = new Map(after.markers.map((m) => [m.markerId, m]));
+    for (const [id, m] of am) {
+      const old = bm.get(id);
+      if (old && canonicalJson(old) === canonicalJson(m)) continue;
+      if (old) {
+        await tx.query(
+          "UPDATE markers SET anchor_json=$2, status=$3, question=$4, panel_id=$5, version = version + 1 WHERE id=$1",
+          [id, JSON.stringify(m.anchor), m.status, m.question ?? null, m.panelId],
+        );
+      } else {
+        await tx.query(
+          `INSERT INTO markers(id, org_id, workspace_id, branch_id, panel_id, anchor_json, status, question, created_by, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [
+            id,
+            workspace.orgId,
+            workspace.id,
+            after.branchId,
+            m.panelId,
+            JSON.stringify(m.anchor),
+            m.status,
+            m.question ?? null,
+            m.createdBy ?? session.userId,
+            m.createdAt,
+          ],
+        );
+      }
+    }
+    for (const id of bm.keys()) if (!am.has(id)) await tx.query("DELETE FROM markers WHERE id = $1", [id]);
   }
 }

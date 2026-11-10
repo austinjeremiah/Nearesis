@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@nearesis/acceptance": "workspace:*",
+    "@nearesis/canvas-schema": "workspace:*",
     "@nearesis/contracts": "workspace:*",
     "@nearesis/plugin-sdk": "workspace:*",
     "ajv": "8.20.0",

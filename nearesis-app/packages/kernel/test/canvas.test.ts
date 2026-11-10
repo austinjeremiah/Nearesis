@@ -152,8 +152,8 @@ describe("canvas.apply_patch", () => {
     );
     expect(err).toMatchObject({ code: "VALIDATION_FAILED", reasonCode: "PATCH_REJECTED" });
     expect(err.opts.details?.map((d: { path: string }) => d.path)).toEqual([
-      "operations.1.panelId",
-      "operations.2.marker.panelId",
+      "patch.operations.1.panelId",
+      "patch.operations.2.marker.panelId",
     ]);
     expect(await counts(workspaceId)).toEqual(before);
     expect((await k.canvas.get(s, workspaceId)).documentRevision).toBe(0);
@@ -181,7 +181,7 @@ describe("canvas.apply_patch", () => {
     expect((await counts(workspaceId)).panels).toBe(1);
   });
 
-  it("update, move, remove and selection ops; removal drops the panel's markers from the document", async () => {
+  it("update, move, remove and selection ops; removal needs dependents gone; inverse restores", async () => {
     const { workspaceId, version } = await createWs(k, s);
     const p1 = panel();
     await runCmd(
@@ -213,18 +213,46 @@ describe("canvas.apply_patch", () => {
     let doc = await k.canvas.get(s, workspaceId);
     expect(doc.panels[0]).toMatchObject({ title: "Renamed", layout: { x: 3, y: 3, w: 3, h: 3 } });
     expect(doc.documentRevision).toBe(2);
+    const markerId = doc.markers[0]!.markerId;
+    const blocked = await asErr(
+      runCmd(
+        k,
+        s,
+        workspaceId,
+        "canvas.apply_patch",
+        patch(2, [{ op: "removePanel", panelId: p1.panelId }]),
+        version + 2,
+      ),
+    );
+    expect(blocked).toMatchObject({ reasonCode: "PATCH_REJECTED" });
+    expect((await k.canvas.get(s, workspaceId)).documentRevision).toBe(2);
+    const before = await k.canvas.get(s, workspaceId);
     await runCmd(
       k,
       s,
       workspaceId,
       "canvas.apply_patch",
-      patch(2, [{ op: "removePanel", panelId: p1.panelId }]),
+      patch(2, [
+        { op: "removeMarker", markerId },
+        { op: "removePanel", panelId: p1.panelId },
+      ]),
       version + 2,
     );
     doc = await k.canvas.get(s, workspaceId);
     expect(doc.panels).toHaveLength(0);
     expect(doc.markers).toHaveLength(0);
     expect(doc.documentRevision).toBe(3);
+    // Undo with the recorded inverse restores panels and markers exactly.
+    const inverse = await k.canvas.inverseOf(s, workspaceId, 3);
+    expect(inverse).toHaveLength(2);
+    await runCmd(k, s, workspaceId, "canvas.apply_patch", patch(3, inverse as unknown[]), version + 3);
+    const restored = await k.canvas.get(s, workspaceId);
+    expect(restored.documentRevision).toBe(4);
+    expect({ ...restored, documentRevision: 0, updatedAt: "" }).toEqual({
+      ...before,
+      documentRevision: 0,
+      updatedAt: "",
+    });
   });
 
   it("keeps dataRevision separate from documentRevision", async () => {

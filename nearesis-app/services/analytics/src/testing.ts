@@ -67,6 +67,13 @@ const CANARIES: Canary[] = [
     sql: "SELECT toString(countIf(status = 'FAILED')) AS v FROM intents_swaps FINAL",
   },
   {
+    // not served from the rollup (a `number` measure), but Cube's query result cache can still hold the pre-load value
+    rollup: "intents_swaps",
+    member: "intents.oneclick_volume_usd",
+    timeMember: "intents.day",
+    sql: "SELECT toString(sumIf(amount_in_usd, status = 'SUCCESS' AND amount_final = 1)) AS v FROM intents_swaps FINAL",
+  },
+  {
     rollup: "quote_attempts",
     member: "quotes.route_quote_attempt_count",
     timeMember: "quotes.day",

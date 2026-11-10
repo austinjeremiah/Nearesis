@@ -75,7 +75,7 @@ const steps = run("sh", [join(clone, "nearesis-app/scripts/ci/steps.sh"), "list"
 
 // The workflow must call exactly these steps, in this order.
 const wf = readFileSync(join(clone, ".github/workflows/ci.yml"), "utf8");
-const wfSteps = [...wf.matchAll(/steps\.sh ([a-z-]+)/g)].map((m) => m[1]);
+const wfSteps = [...wf.matchAll(/steps\.sh ([a-z0-9-]+)/g)].map((m) => m[1]);
 if (wfSteps.join() !== steps.join()) {
   throw new Error(`workflow steps [${wfSteps}] differ from steps.sh [${steps}]`);
 }

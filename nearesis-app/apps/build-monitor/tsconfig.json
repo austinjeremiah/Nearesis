@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "lib": ["ES2024", "DOM", "DOM.Iterable"], "jsx": "react-jsx", "types": ["node"] },
+  "include": [
+    "server",
+    "web/src",
+    "web/vite.config.ts",
+    "test",
+    "e2e",
+    "playwright.config.ts",
+    "vitest.config.ts"
+  ]
+}

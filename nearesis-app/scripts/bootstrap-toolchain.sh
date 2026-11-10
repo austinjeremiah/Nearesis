@@ -28,6 +28,7 @@ if ! "$T/bin/uv" --version 2>/dev/null | grep -q "uv $UV_VERSION"; then
   shasum -a 256 -c "$U.sha256"
   tar -xzf "$U" -C "$T/bin" --strip-components=1
 fi
+NEARESIS_APP_ROOT="$ROOT"; export NEARESIS_APP_ROOT
 . "$ROOT/scripts/toolchain-env.sh"
 uv python install "$PY_VERSION"
 corepack enable --install-directory "$T/bin" pnpm

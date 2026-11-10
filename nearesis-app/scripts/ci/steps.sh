@@ -12,11 +12,11 @@ APP="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$APP"
 NEARESIS_APP_ROOT="$APP"; export NEARESIS_APP_ROOT
 
-STEPS="toolchain install-js install-py playwright services-up db-roles typecheck lint format test e2e pytest security boot accept-fixture"
+STEPS="toolchain install-js install-py playwright services-up db-roles migrate typecheck lint format test e2e pytest security boot accept-fixture"
 
 compose() {
   set -- -f infrastructure/compose/docker-compose.yml -f infrastructure/compose/analytics.yml \
-    -f scripts/ci/compose.ci.yml ${NEARESIS_COMPOSE_EXTRA:+-f "$NEARESIS_COMPOSE_EXTRA"} "$@"
+    ${NEARESIS_COMPOSE_EXTRA:+-f "$NEARESIS_COMPOSE_EXTRA"} "$@"
   if [ -n "${NEARESIS_COMPOSE_PROJECT:-}" ]; then set -- -p "$NEARESIS_COMPOSE_PROJECT" "$@"; fi
   docker compose "$@"
 }
@@ -43,11 +43,18 @@ case "$step" in
     compose exec -T postgres psql -U nearesis -d nearesis -tAc \
       "select rolname, rolsuper, rolbypassrls from pg_roles where rolname='nearesis_app'" | grep -q '^nearesis_app|f|f$'
     ;;
+  migrate)
+    # Fresh databases have no schema; the dev stack was migrated by hand. Each migrator is idempotent and owns its schema.
+    env_on
+    pnpm --filter @nearesis/kernel migrate
+    pnpm --filter @nearesis/ingestion migrate
+    pnpm --filter @nearesis/analytics migrate
+    ;;
   typecheck) env_on; pnpm typecheck ;;
   lint) env_on; pnpm lint ;;
   format) env_on; pnpm format:check ;;
   # One workspace at a time: package suites share Postgres, Redis, ClickHouse and Temporal.
-  test) env_on; pnpm -r --workspace-concurrency=1 --if-present test ;;
+  test) env_on; pnpm -r --workspace-concurrency=1 --no-bail --if-present test ;;
   e2e) env_on; pnpm --filter @nearesis/build-monitor test:e2e ;;
   pytest) env_on; uv run pytest ;;
   security) env_on; pnpm security:all ;;

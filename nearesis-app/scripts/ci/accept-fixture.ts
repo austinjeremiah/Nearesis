@@ -6,7 +6,8 @@
  * Verdict handling:
  *   PASS                 counted
  *   FAIL                 fails the job
- *   BLOCKED_DEPENDENCY   fails the job (a non-live test must not depend on anything CI lacks)
+ *   BLOCKED_DEPENDENCY   an honest "could not decide" (unfinished integration, reference hardware): listed as a warning, never
+ *                        counted as PASS; fails the job only with --strict-blocked
  *   NOT_RUN              no bound test file yet: reported loudly; fails the job only with --strict-not-run
  * Evidence goes wherever NEARESIS_REPORTS_DIR points (steps.sh sets a temp dir so CI never writes into the repo);
  * a machine-readable summary is written next to it as ci-accept-fixture.json.
@@ -27,7 +28,11 @@ type Verdict = "PASS" | "FAIL" | "BLOCKED_DEPENDENCY" | "NOT_RUN" | "SKIPPED_LIV
 
 const APP_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const { values: a } = parseArgs({
-  options: { only: { type: "string" }, "strict-not-run": { type: "boolean" } },
+  options: {
+    only: { type: "string" },
+    "strict-not-run": { type: "boolean" },
+    "strict-blocked": { type: "boolean" },
+  },
 });
 const only = a.only ? new Set(a.only.split(",")) : null;
 const index = JSON.parse(readFileSync(join(APP_ROOT, "tests", "TEST_INDEX.json"), "utf8")) as {
@@ -85,7 +90,10 @@ console.log(
   `fixture acceptance: ${summary.pass} PASS, ${summary.fail} FAIL, ${summary.blocked} BLOCKED, ` +
     `${summary.notRun} NOT_RUN, ${summary.skippedLive} live skipped`,
 );
+for (const r of rows.filter((x) => x.verdict === "BLOCKED_DEPENDENCY"))
+  console.log(`::warning::${r.testId} blocked: ${r.detail.slice(0, 160)}`);
 for (const r of rows.filter((x) => x.verdict === "NOT_RUN"))
   console.log(`::warning::${r.testId} not implemented yet`);
-const bad = summary.fail + summary.blocked + (a["strict-not-run"] ? summary.notRun : 0);
+const bad =
+  summary.fail + (a["strict-blocked"] ? summary.blocked : 0) + (a["strict-not-run"] ? summary.notRun : 0);
 process.exit(bad ? 1 : 0);

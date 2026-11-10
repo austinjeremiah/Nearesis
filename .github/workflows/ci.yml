@@ -56,6 +56,9 @@ jobs:
       - name: Apply database roles
         run: sh scripts/ci/steps.sh db-roles
 
+      - name: Migrate databases (Postgres schemas, ClickHouse tables)
+        run: sh scripts/ci/steps.sh migrate
+
       - name: Typecheck
         run: sh scripts/ci/steps.sh typecheck
       - name: Lint
@@ -78,7 +81,7 @@ jobs:
       - name: Compose logs on failure
         if: failure()
         run: >-
-          docker compose -f infrastructure/compose/docker-compose.yml -f infrastructure/compose/analytics.yml -f scripts/ci/compose.ci.yml
+          docker compose -f infrastructure/compose/docker-compose.yml -f infrastructure/compose/analytics.yml
           logs --no-color --tail 200
       - name: Upload acceptance evidence
         if: always()

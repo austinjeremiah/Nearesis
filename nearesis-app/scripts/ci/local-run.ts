@@ -25,7 +25,7 @@ import { parseArgs } from "node:util";
 const APP_ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..");
 const REPO_ROOT = resolve(APP_ROOT, "..");
 const REPORTS = process.env.NEARESIS_REPORTS_DIR ?? join(REPO_ROOT, "NEARESIS_Build_Bible", "reports");
-const PROJECT = "nearesis-ci";
+const PROJECT: string = "nearesis-ci";
 const CONTAINER = "nearesis-ci-runner";
 const NETWORK = `${PROJECT}_default`;
 if (PROJECT === "nearesis") throw new Error("refusing to operate on the default compose project");
@@ -211,8 +211,6 @@ if (!a.keep) {
     join(clone, "nearesis-app/infrastructure/compose/docker-compose.yml"),
     "-f",
     join(clone, "nearesis-app/infrastructure/compose/analytics.yml"),
-    "-f",
-    join(clone, "nearesis-app/scripts/ci/compose.ci.yml"),
     "down",
     "-v",
     "--remove-orphans",

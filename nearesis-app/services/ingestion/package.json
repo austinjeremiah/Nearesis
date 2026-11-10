@@ -10,9 +10,12 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run test/unit",
     "replay": "tsx src/cli/replay.ts",
-    "migrate": "tsx src/cli/migrate.ts"
+    "migrate": "tsx src/cli/migrate.ts",
+    "backfill": "tsx src/backfill/cli.ts",
+    "test:backfill": "vitest run test/backfill"
   },
   "dependencies": {
+    "@clickhouse/client": "1.25.0",
     "@google-cloud/bigquery": "9.6.0",
     "@nearesis/acceptance": "workspace:*",
     "@nearesis/contracts": "workspace:*",

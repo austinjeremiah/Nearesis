@@ -671,6 +671,9 @@ importers:
 
   services/ingestion:
     dependencies:
+      '@clickhouse/client':
+        specifier: 1.25.0
+        version: 1.25.0
       '@google-cloud/bigquery':
         specifier: 9.6.0
         version: 9.6.0(supports-color@8.1.1)

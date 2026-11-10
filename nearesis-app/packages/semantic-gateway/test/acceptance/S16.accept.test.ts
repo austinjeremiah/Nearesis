@@ -18,6 +18,8 @@ const policyFor = (s: Session): Policy => ({
 });
 
 test("S16 discovery and cache are partitioned by tenant, workspace and ACL class", async () => {
+  // Snapshot the shared keyspace so every key created during this test (by any writer) can be checked for full scope.
+  const keysBefore = new Set(await env.redis.keys("semantic:q:*"));
   const base = env.registry;
   const reg: Registry = sealRegistry({
     ...base,
@@ -80,6 +82,15 @@ test("S16 discovery and cache are partitioned by tenant, workspace and ACL class
     .filter((k) => ["t1", "t2"].includes(parseCacheKey(k).tenant ?? ""))
     .sort();
   expect(keys.length).toBeGreaterThanOrEqual(4);
+  // No cache key created during this test may lack scope: a key without tenant/workspace/acl would be shareable across
+  // scopes (the leak S16 guards against). This applies to every new key, not only this test's own tenants.
+  const created = (await env.redis.keys("semantic:q:*")).filter((k) => !keysBefore.has(k));
+  expect(created.length).toBeGreaterThanOrEqual(keys.length);
+  for (const k of created) {
+    expect(k.split(":")).toHaveLength(9);
+    const p = parseCacheKey(k);
+    expect(Boolean(p.tenant && p.workspace && p.acl)).toBe(true);
+  }
   for (const k of keys) {
     const p = parseCacheKey(k);
     expect(p.semanticVersion).toBe(reg.semanticVersion);

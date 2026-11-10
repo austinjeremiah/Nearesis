@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { z } from "zod";
 import { ApplicationFailure, CancelledFailure, Context } from "@temporalio/activity";
 import type pg from "pg";
 import {
@@ -26,6 +27,9 @@ import {
   sha256Hex,
   withTenant,
   validatorActorId,
+  hashOf,
+  taskIdFromHash,
+  type ToolLogEntry,
   type AuditSink,
   type LeaseBroker,
   type LocalToolHandler,
@@ -49,7 +53,32 @@ export interface CanvasExecutor {
   }): Promise<{ state: string; detail?: Record<string, unknown> }>;
 }
 
+/**
+ * Live (model-planned) composer: used for runs that are not scripted test scenarios. `compose` is near-thesis
+ * `composeCanvas()`: the model proposes only a typed plan of certified members; queries, previews and the patch are
+ * derived from tool results through the kernel gateway.
+ */
+export interface LiveComposer {
+  model: string;
+  compose(a: {
+    prompt: string;
+    provider: InferenceProvider;
+    model: string;
+    invoke: (capability: string, input: unknown) => Promise<unknown>;
+    expectedRevision: number;
+    idempotencyKey: string;
+  }): Promise<{
+    status: "ok" | "cannot_compute" | "rejected";
+    plan: { rationale: string; panels: unknown[] } | null;
+    patch: { operations: unknown[] } | null;
+    issues: Array<{ code: string; message: string }>;
+    modelRequestId: string | null;
+  }>;
+}
+const isScripted = (text: string): boolean => /\[scenario=(?!none\])/.test(text);
+
 export interface ActivityDeps {
+  liveComposer?: LiveComposer;
   /** App-role pool (nearesis_app, search_path=runtime). */
   pool: pg.Pool;
   /** Connection string for the LangGraph Postgres checkpointer (app role). Checkpointing is off when absent. */
@@ -112,7 +141,246 @@ export function createActivities(d: ActivityDeps) {
     if (inserted) throw new Error(`injected transient failure at ${point}`);
   }
 
+  async function liveCompose(
+    i: { tenantId: string; workspaceId: string; runId: string; taskId: string; objective: string },
+    tools: AgentToolClient,
+    inference: LedgerInference,
+  ): Promise<RoleResult> {
+    const live = d.liveComposer!;
+    const row = await withTenant(d.pool, i.tenantId, async (c) => {
+      const r = await c.query<{ snapshot_ref: string; parent: string | null }>(
+        "SELECT r.snapshot_ref, t.parent_task_id AS parent FROM runs r JOIN tasks t ON t.run_id = r.id WHERE t.id=$1",
+        [i.taskId],
+      );
+      return r.rows[0];
+    });
+    // Queries are pinned to the run's source snapshot when the question asked for a pinned one.
+    const pinned = row?.snapshot_ref?.startsWith("pinned:") ? row.snapshot_ref.slice(0, 100) : null;
+    const toolLog: ToolLogEntry[] = [];
+    const validator = validatorActorId(i.runId);
+    const invoke = async (capability: string, input: unknown): Promise<unknown> => {
+      const step = toolLog.length;
+      if (capability === "semantic.discover@1") {
+        // catalog discovery runs as the run's semantic_analyst validator principal (FND-20261110-030)
+        await d.leases.ensureChild({
+          tenantId: i.tenantId,
+          workspaceId: i.workspaceId,
+          runId: i.runId,
+          parentTaskId: row?.parent ?? i.taskId,
+          taskId: validator,
+          role: "semantic_analyst",
+          capabilities: ["semantic.discover@1"],
+        });
+        const r = await d.gateway.invoke(
+          { kind: "agent", actorId: validator, orgId: i.tenantId, parentRunId: i.runId },
+          {
+            requestId: randomUUID(),
+            idempotencyKey: `${i.runId}:live-discover`,
+            tenantId: i.tenantId,
+            workspaceId: i.workspaceId,
+            actor: { kind: "agent", actorId: validator, parentRunId: i.runId },
+            capability: "semantic.discover@1",
+            input: {},
+            deadlineMs: 60_000,
+            trace: { traceId: `${i.runId}/${validator}`, researchRunId: i.runId },
+          },
+        );
+        toolLog.push({
+          step,
+          tool: capability,
+          ok: r.state === "ok",
+          reasonCode: r.state === "ok" ? null : (r.reasonCode ?? r.state),
+          resultHash: r.state === "ok" ? r.provenance.resultSha256 : null,
+        });
+        if (r.state !== "ok")
+          throw new AgentRuntimeError("SOURCE_UNAVAILABLE", `discover ${r.state}`, {
+            reasonCode: r.reasonCode ?? null,
+          });
+        return r.payload;
+      }
+      const shaped =
+        pinned && capability === "canvas.preview@1"
+          ? {
+              ...(input as Record<string, unknown>),
+              requests: (
+                (input as { requests: Array<{ query: Record<string, unknown> }> }).requests ?? []
+              ).map((q) => ({ ...q, query: { ...q.query, sourceSnapshotId: pinned } })),
+            }
+          : input;
+      const out = await tools.call(capability, shaped, `live${step}`);
+      toolLog.push({
+        step,
+        tool: capability,
+        ok: out.ok,
+        reasonCode: out.ok ? null : out.reasonCode,
+        resultHash: out.ok ? out.resultHash : null,
+      });
+      if (!out.ok)
+        throw new AgentRuntimeError(
+          out.reasonCode === "TOOL_NOT_GRANTED" ? "TOOL_NOT_GRANTED" : "SOURCE_UNAVAILABLE",
+          `${capability}: ${out.reasonCode}`,
+          {},
+        );
+      return out.response.payload;
+    };
+    const provider: InferenceProvider = {
+      id: "ledger",
+      health: async () => ({ ok: true, detail: "ledger" }),
+      listModels: async () => [],
+      generateStructured: async (a: {
+        model: string;
+        system: string;
+        prompt: string;
+        schema: z.ZodType<unknown>;
+        idempotencyKey: string;
+        maxTokens: number;
+      }) => {
+        const output = await inference.generate({
+          key: a.idempotencyKey,
+          system: a.system,
+          prompt: a.prompt,
+          schema: a.schema,
+          maxTokens: a.maxTokens,
+        });
+        return {
+          output,
+          provider: "ledger",
+          model: a.model,
+          requestId: null,
+          usage: { inputTokens: 0, outputTokens: 0 },
+          evidence: null,
+          rawResponseSha256: "",
+        };
+      },
+      // eslint-disable-next-line require-yield
+      streamText: async function* () {
+        throw new Error("not supported");
+      },
+      verifyResponse: async () => ({
+        verified: false,
+        status: "unattested_dev" as const,
+        checks: [],
+        reason: "LEDGER_WRAPPER",
+      }),
+    } as unknown as InferenceProvider;
+    const base = {
+      taskId: i.taskId,
+      role: "composer" as const,
+      toolLog,
+      parentRunId: i.runId,
+      workspaceId: i.workspaceId,
+      spawnRequests: [],
+    };
+    let res;
+    try {
+      res = await live.compose({
+        prompt: i.objective,
+        provider,
+        model: live.model,
+        invoke,
+        expectedRevision: 0,
+        idempotencyKey: `${i.taskId}:compose`,
+      });
+    } catch (e) {
+      if (e instanceof AgentRuntimeError && e.reasonCode === "STAGE_TIMEOUT") throw e;
+      const reason = e instanceof AgentRuntimeError ? e.reasonCode : "SOURCE_UNAVAILABLE";
+      return {
+        ...base,
+        status: "failed",
+        reasonCode: reason,
+        message: String((e as Error).message).slice(0, 300),
+        finding: null,
+        artifact: {
+          type: "canvas-patch.json",
+          label: "unattested_dev",
+          sha256: sha256Hex(canonicalJson({ failed: reason, task: i.taskId })),
+          missingMetric: null,
+          nextMeasurement: null,
+        },
+      };
+    }
+    const finding = (status: "supported" | "cannot_compute", statement: string) => ({
+      id: taskIdFromHash(sha256Hex(`finding:${i.taskId}`)),
+      workspaceId: i.workspaceId,
+      runId: i.runId,
+      agentRole: "composer" as const,
+      status,
+      statement,
+      facts: [],
+      limitations: ["model-planned composition; label unattested_dev"],
+      createdAt: new Date().toISOString(),
+    });
+    if (res.status === "ok" && res.patch)
+      return {
+        ...base,
+        status: "finished",
+        reasonCode: null,
+        message: null,
+        finding: finding(
+          "supported",
+          "Composed a canvas proposal from the certified catalog and verified it with the preview tool.",
+        ),
+        artifact: {
+          type: "canvas-patch.json",
+          label: "unattested_dev",
+          sha256: hashOf(res.patch),
+          missingMetric: null,
+          nextMeasurement: null,
+        },
+        proposal: { patch: res.patch, plan: res.plan, modelRequestId: res.modelRequestId },
+      };
+    if (res.status === "cannot_compute")
+      return {
+        ...base,
+        status: "finished",
+        reasonCode: null,
+        message: null,
+        finding: finding(
+          "cannot_compute",
+          "The certified catalog cannot answer this request; no panels were proposed.",
+        ),
+        artifact: {
+          type: "canvas-patch.json",
+          label: "unattested_dev",
+          sha256: hashOf(res.issues),
+          missingMetric: (res.plan?.rationale ?? "unknown").slice(0, 200),
+          nextMeasurement: "Add the missing metric to the certified catalog or narrow the request.",
+        },
+      };
+    return {
+      ...base,
+      status: "failed",
+      reasonCode: "PATCH_REJECTED",
+      message: JSON.stringify(res.issues).slice(0, 300),
+      finding: null,
+      artifact: {
+        type: "canvas-patch.json",
+        label: "unattested_dev",
+        sha256: hashOf(res.issues),
+        missingMetric: null,
+        nextMeasurement: null,
+      },
+    };
+  }
+
   return {
+    /** Binds a live composer's verified patch into the privileged action, so the owner approves the exact patch (hash covers it). */
+    async bindComposerAction(i: {
+      tenantId: string;
+      runId: string;
+      action: { kind: string; params: Record<string, unknown>; network: string; costLimit: number };
+    }): Promise<{ kind: string; params: Record<string, unknown>; network: string; costLimit: number }> {
+      const patch = await withTenant(d.pool, i.tenantId, async (c) => {
+        const r = await c.query<{ patch: unknown }>(
+          "SELECT result->'result'->'proposal'->'patch' AS patch FROM tasks WHERE run_id=$1 AND role='composer' AND status='DONE' ORDER BY created_at LIMIT 1",
+          [i.runId],
+        );
+        return r.rows[0]?.patch ?? null;
+      });
+      if (!patch) throw new AgentRuntimeError("APPROVAL_INVALID", "no composer proposal to approve", {});
+      return { ...i.action, params: { patch } };
+    },
+
     async loadPolicy(): Promise<PolicyView> {
       return {
         stageTimeboxMs: d.policy.stageTimeboxMs,
@@ -220,6 +488,41 @@ export function createActivities(d: ActivityDeps) {
       scenario?: string;
     }): Promise<PlanView & { missingMetrics: string[] }> {
       return guarded(async () => {
+        if (d.liveComposer && !isScripted(i.question)) {
+          // Live question: the plan is deterministic (one composer branch, then the approval-gated canvas apply); the
+          // model is used inside the composer, where every number and query is derived from tool results.
+          const snapshotRef = await withTenant(d.pool, i.tenantId, async (c) => {
+            const r = await c.query<{ snapshot_ref: string }>("SELECT snapshot_ref FROM runs WHERE id=$1", [
+              i.runId,
+            ]);
+            return r.rows[0]?.snapshot_ref ?? "live";
+          });
+          const text = i.question.replace(/^\[scenario=none\]\s*/, "");
+          return {
+            stages: [
+              [
+                {
+                  task: "compose canvas",
+                  role: "composer",
+                  objective: text.slice(0, 3900),
+                  capabilities: ["canvas.preview@1"],
+                  inputSnapshot: snapshotRef.slice(0, 500),
+                  budget: { tokens: 12000, toolCalls: 6, usd: 1 },
+                  maxChildDepth: 0,
+                },
+              ],
+            ],
+            privilegedAction: {
+              kind: "canvas.apply_patch",
+              params: { fromComposer: true },
+              network: "fixture-only",
+              costLimit: 0,
+            },
+            requiredMetrics: [],
+            modelVersion: d.liveComposer.model,
+            missingMetrics: [],
+          };
+        }
         const saver = d.appUrl ? openCheckpointer(d.appUrl) : undefined;
         try {
           const inference = new LedgerInference(d.provider, d.pool, supervisor, {
@@ -441,6 +744,8 @@ export function createActivities(d: ActivityDeps) {
           model: model(d),
           signal: ctx.cancellationSignal,
         });
+        if (i.role === "composer" && d.liveComposer && !isScripted(i.objective))
+          return await liveCompose(i, tools, inference);
         const result = await runRoleGraph({
           tenantId: i.tenantId,
           workspaceId: i.workspaceId,

@@ -5,7 +5,8 @@
  */
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
-import { createProvider } from "@nearesis/inference";
+import { createProviderFromEnv, loadEnvVar, resolveProviderMode } from "@nearesis/inference";
+import { composeCanvas } from "@nearesis/near-thesis";
 import { DEFAULT_ENGINE_INTERFACES, Db, Kernel, type Session } from "@nearesis/kernel";
 import type { ExecutionRequest, InferenceProvider } from "@nearesis/contracts";
 import {
@@ -25,14 +26,15 @@ import {
 import type { ActivityDeps, CanvasExecutor } from "./activities.ts";
 
 /**
- * Model selection: the deterministic `mock` provider unless NEARESIS_ACCEPT_LIVE=1 (then OpenRouter, subject to the
- * USD 5 ledger in @nearesis/inference). Scenario tests inject a scripted provider instead.
+ * Model selection from the environment (INFERENCE_PROVIDER, root .env): `openrouter` uses the live provider (spend
+ * goes through the shared USD 5 ledger in @nearesis/inference); otherwise the deterministic `mock`. Scenario tests
+ * inject a scripted provider instead.
  */
 export function createRuntimeProvider(): InferenceProvider {
-  return process.env.NEARESIS_ACCEPT_LIVE === "1"
-    ? createProvider({ mode: "openrouter" })
-    : createProvider({ mode: "mock" });
+  return createProviderFromEnv();
 }
+export const liveModelFromEnv = (): string =>
+  loadEnvVar("OPENROUTER_PRIMARY_MODEL")?.trim() || "openai/gpt-4o-mini";
 
 /**
  * Who asked: the run's recorded requester when the starter supplied one, otherwise the user the kernel audited as
@@ -91,6 +93,18 @@ export class KernelCanvas implements CanvasExecutor {
       requester,
     });
     const revision = await exec.documentRevision(session, a.workspaceId);
+    const approvedPatch = (a.params as { patch?: Record<string, unknown> }).patch;
+    if (approvedPatch) {
+      // Live composer: the owner approved this exact, already-previewed patch (the action hash covers it). The kernel
+      // still validates it structurally and semantically; only the CAS revision is brought to the current one.
+      const patch = {
+        ...approvedPatch,
+        expectedRevision: revision,
+        operationId: taskIdFromHash(a.actionHash),
+      };
+      const r = await exec.apply(session, a.workspaceId, patch as never);
+      return { state: "ok", detail: { workspaceVersion: r.workspaceVersion, eventSeq: r.eventSeq } };
+    }
     const req: ExecutionRequest = {
       requestId: randomUUID(),
       idempotencyKey: `priv-preview-${a.actionHash}`,
@@ -140,7 +154,10 @@ export function buildKernelDeps(a: {
   policy?: Partial<Policy>;
   provider?: InferenceProvider;
   model?: string;
+  /** Model-planned composer for non-scenario questions. Default: on when INFERENCE_PROVIDER=openrouter and no provider is injected. */
+  liveComposer?: boolean;
 }): ActivityDeps {
+  const live = a.liveComposer ?? (!a.provider && resolveProviderMode() === "openrouter");
   const requesterOf = requesterFromKernel(a.pool, a.kernel);
   const leases = new KernelLeaseBroker({ kernel: a.kernel, requesterOf });
   const gateway = a.kernel.gateway;
@@ -155,7 +172,15 @@ export function buildKernelDeps(a: {
     localTools: { "canvas.patch@1": canvasPatchProposalTool(leases) },
     kernelMode: true,
     provider: a.provider ?? createRuntimeProvider(),
-    ...(a.model ? { model: a.model } : {}),
+    ...(a.model ? { model: a.model } : live ? { model: liveModelFromEnv() } : {}),
+    ...(live
+      ? {
+          liveComposer: {
+            model: a.model ?? liveModelFromEnv(),
+            compose: composeCanvas as unknown as NonNullable<ActivityDeps["liveComposer"]>["compose"],
+          },
+        }
+      : {}),
     investigationGrant: INVESTIGATION_GRANT,
   };
 }

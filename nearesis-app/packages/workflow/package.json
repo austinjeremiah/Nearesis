@@ -9,7 +9,8 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --exclude 'test/acceptance/**'",
-    "replay": "tsx src/replay-cli.ts"
+    "replay": "tsx src/replay-cli.ts",
+    "worker": "NEARESIS_PRODUCTION_WORKER=1 tsx src/worker-main.ts"
   },
   "dependencies": {
     "@nearesis/agent-runtime": "workspace:*",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@nearesis/acceptance": "workspace:*",
+    "@nearesis/canvas-schema": "workspace:*",
     "@nearesis/near-thesis": "workspace:*",
     "@nearesis/plugin-sdk": "workspace:*",
     "@types/pg": "8.23.1"

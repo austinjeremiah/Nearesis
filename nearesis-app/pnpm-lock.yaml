@@ -606,6 +606,9 @@ importers:
       '@nearesis/acceptance':
         specifier: workspace:*
         version: link:../acceptance
+      '@nearesis/canvas-schema':
+        specifier: workspace:*
+        version: link:../canvas-schema
       '@nearesis/near-thesis':
         specifier: workspace:*
         version: link:../../plugins/near-thesis

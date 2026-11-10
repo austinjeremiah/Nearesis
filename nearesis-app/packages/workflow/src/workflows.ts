@@ -365,6 +365,9 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
       const anyFailed = outcomes.some((o) => o.status !== "finished");
       if (plan.privilegedAction && !anyFailed && !abstained) {
         currentAction = plan.privilegedAction;
+        // live composer: the approved action must carry the exact verified patch
+        if (currentAction.params.fromComposer === true)
+          currentAction = await quick.bindComposerAction({ tenantId, runId, action: currentAction });
         await transition("APPROVAL_NEEDED", { actionHash: privilegedActionHash(currentAction) });
         await note("approval.requested", {
           actionHash: privilegedActionHash(currentAction),

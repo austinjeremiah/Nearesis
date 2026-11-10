@@ -10,6 +10,8 @@ import { ScriptedProvider, scenarioRules, setupCheckpointer, type Policy } from 
 import { APP_ROOT, makeKernelEnv, type KernelEnv } from "../../../agent-runtime/src/testing/kernel-env.ts";
 import {
   buildKernelDeps,
+  createRuntimeProvider,
+  liveModelFromEnv,
   bundleWorkflows,
   buildDevDeps,
   connectClient,
@@ -87,7 +89,7 @@ export async function seedBudget(
 /** In-process worker (shares the test's pool). */
 export async function startWorker(
   env: Env,
-  o: { policy?: Partial<Policy>; stepDelayMs?: number; taskQueue?: string } = {},
+  o: { policy?: Partial<Policy>; stepDelayMs?: number; taskQueue?: string; live?: boolean } = {},
 ) {
   const deps = env.kernel
     ? buildKernelDeps({
@@ -95,7 +97,9 @@ export async function startWorker(
         appUrl: env.db.appUrl,
         kernel: env.kernel.kernel,
         ...(o.policy ? { policy: o.policy } : {}),
-        provider: new ScriptedProvider(scenarioRules({ stepDelayMs: o.stepDelayMs ?? 0 })),
+        ...(o.live
+          ? { provider: createRuntimeProvider(), liveComposer: true, model: liveModelFromEnv() }
+          : { provider: new ScriptedProvider(scenarioRules({ stepDelayMs: o.stepDelayMs ?? 0 })) }),
       })
     : buildDevDeps({
         pool: env.db.app,

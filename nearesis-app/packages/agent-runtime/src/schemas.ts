@@ -100,5 +100,7 @@ export const RoleResult = z.strictObject({
   parentRunId: z.string(),
   workspaceId: z.string(),
   spawnRequests: z.array(PlannedChild).default([]),
+  /** Composer output kept for the approval step (the exact patch the owner approves). */
+  proposal: z.unknown().optional(),
 });
 export type RoleResult = z.infer<typeof RoleResult>;

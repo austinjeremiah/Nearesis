@@ -37,7 +37,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await env?.close();
-});
+}, 120_000);
 
 async function renderedNodes(page: Page) {
   return page.evaluate(() =>

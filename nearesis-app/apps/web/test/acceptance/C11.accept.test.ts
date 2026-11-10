@@ -38,7 +38,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await env?.close();
-});
+}, 120_000);
 
 async function counts(ws: string) {
   const q = async (sql: string) => Number((await env.db.admin.query(sql, [ws])).rows[0].n);

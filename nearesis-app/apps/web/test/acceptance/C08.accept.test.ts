@@ -17,7 +17,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await stopWeb();
-});
+}, 120_000);
 
 type H = {
   __nearesis: {

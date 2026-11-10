@@ -27,7 +27,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await env?.close();
-});
+}, 120_000);
 
 describe("C05 concurrent panel edits", () => {
   it("accepts one edit, surfaces the conflict to the stale tab and converges on one version", async () => {

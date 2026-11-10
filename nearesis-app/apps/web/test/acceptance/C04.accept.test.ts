@@ -30,7 +30,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await env?.close();
-});
+}, 120_000);
 
 const snapshot = (page: Page) =>
   page.evaluate(() => {

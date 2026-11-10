@@ -24,7 +24,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await env?.close();
-});
+}, 120_000);
 
 const content = (d: CanvasDocument) =>
   hashCanonical({ panels: d.panels, markers: d.markers, sel: d.activeSelections ?? [] });

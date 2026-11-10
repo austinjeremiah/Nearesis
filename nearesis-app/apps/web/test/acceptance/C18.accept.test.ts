@@ -53,7 +53,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await stopWeb();
-});
+}, 120_000);
 
 async function heapAfterGc(page: Page): Promise<number> {
   const cdp = await page.context().newCDPSession(page);

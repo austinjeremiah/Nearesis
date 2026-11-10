@@ -19,7 +19,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await stopWeb();
-});
+}, 120_000);
 
 describe("C10 inert rendering of hostile strings", () => {
   it("never executes or renders payloads as markup", async () => {

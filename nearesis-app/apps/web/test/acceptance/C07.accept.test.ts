@@ -17,7 +17,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await stopWeb();
-});
+}, 120_000);
 
 describe("C07 zero rows", () => {
   it("shows an empty state with limitations and plots nothing", async () => {

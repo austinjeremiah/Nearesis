@@ -232,7 +232,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await stopWeb();
-});
+}, 120_000);
 
 describe("C17 chart semantic validation", () => {
   it("refuses or explicitly transforms every violation; valid counterparts compile; gaps render as breaks", async () => {

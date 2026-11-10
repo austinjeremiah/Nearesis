@@ -64,7 +64,7 @@ afterAll(async () => {
   await browser?.close();
   await env?.close();
   redis.disconnect();
-});
+}, 120_000);
 
 type WmRow = {
   provider_id: string;

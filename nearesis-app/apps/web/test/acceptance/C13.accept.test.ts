@@ -32,7 +32,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await env?.close();
-});
+}, 120_000);
 
 describe("C13 selection context", () => {
   it("captures the full data context by mouse and keyboard, persists it, spawns nothing", async () => {

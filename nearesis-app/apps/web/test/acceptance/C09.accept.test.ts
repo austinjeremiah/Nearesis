@@ -51,7 +51,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await env?.close();
-});
+}, 120_000);
 
 describe("C09 malformed and unknown panel specs", () => {
   it("rejects every spec with 422, isolates a corrupted stored panel, instantiates only registered kinds", async () => {

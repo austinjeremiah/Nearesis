@@ -35,7 +35,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await env?.close();
-});
+}, 120_000);
 
 /** Finds the rendered marker range polygon (ECharts markArea) and inverts its pixel edges to data space. */
 async function overlay(page: Page) {

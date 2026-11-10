@@ -19,7 +19,7 @@ beforeAll(async () => {
 }, 300_000);
 afterAll(async () => {
   await env?.close();
-});
+}, 120_000);
 
 interface Reader {
   stop: () => void;

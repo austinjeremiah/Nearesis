@@ -510,9 +510,11 @@
       "passCondition": "all traceable to parent and workspace ID",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/A01.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -538,9 +540,11 @@
       "passCondition": "next tool request denied despite cached prompt",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/agent-runtime/test/acceptance/A03.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -551,9 +555,11 @@
       "passCondition": "schema/policy rejection, no execution",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/agent-runtime/test/acceptance/A04.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -579,9 +585,11 @@
       "passCondition": "no privileged action before approved action hash",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/A06.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -592,9 +600,11 @@
       "passCondition": "old approval invalid and action blocked",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/A07.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -620,9 +630,11 @@
       "passCondition": "tool does not export secrets or change grants",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/agent-runtime/test/acceptance/A09.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -981,9 +993,11 @@
       "passCondition": "10 roles valid per ch.05; allowed calls permitted; all out-of-role calls denied with audit and 0 side effects",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/agent-runtime/test/acceptance/A11.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -1024,9 +1038,11 @@
       "passCondition": "checkpoint persisted; state equal after resume; completed tool calls not repeated; plan valid",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/agent-runtime/test/acceptance/A14.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -1069,9 +1085,11 @@
       "passCondition": "0 foreign items with no existence leak; role scope enforced; unresolved evidence flagged; RLS present",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/agent-runtime/test/acceptance/A17.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -1097,9 +1115,11 @@
       "passCondition": "cannot compute artifact; no further spawning; PARTIAL/BLOCKED with 5 structured fields; 0 unsupported numbers in conclusions per frozen grammar excluding dates/IDs/versions (scanner corpus passes)",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/A19.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -1110,9 +1130,11 @@
       "passCondition": "positive scenario reaches COMPLETE; 4 agents traceable; internal and idempotent external effects exactly once; non-idempotent inference = exactly-once acceptance with duplicates disclosed; scope expansion denied; privileged step only after approval; budget respected; negative variants reach specified PARTIAL/BLOCKED",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/A20.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {

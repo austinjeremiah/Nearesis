@@ -8,6 +8,8 @@ import {
 import type { DomainEventType } from "@nearesis/contracts";
 import { z } from "zod";
 import { canonicalJson, sha256Hex } from "@nearesis/plugin-sdk";
+import { operationIdFromActionHash } from "./approvals.ts";
+import type { ApprovalService } from "./approvals.ts";
 import { canAdmin, canWrite } from "./auth.ts";
 import type { Session } from "./auth.ts";
 import type { Db, Tx } from "./db/pool.ts";
@@ -45,6 +47,17 @@ export interface CommandHandler {
   handle(ctx: CommandContext, payload: Record<string, unknown>): Promise<HandlerResult>;
 }
 
+/**
+ * Commands an agent principal may only run with a kernel-verified approval (ch.05). Humans are unaffected: their
+ * authority is their role. Plugin lifecycle is listed for completeness (agents are never admins).
+ */
+export const PRIVILEGED_AGENT_COMMANDS: ReadonlySet<string> = new Set([
+  "canvas.apply_patch",
+  "workspace.update_objective",
+  "plugin.enable",
+  "plugin.disable",
+]);
+
 export interface PluginWorkspaceOps {
   enableInWorkspace(ctx: CommandContext, pluginId: string): Promise<HandlerResult>;
   disableInWorkspace(ctx: CommandContext, pluginId: string): Promise<HandlerResult>;
@@ -79,6 +92,7 @@ export class CommandBus {
     private readonly db: Db,
     private readonly journal: EventJournal,
     plugins: PluginWorkspaceOps,
+    private readonly approvals?: ApprovalService,
   ) {
     this.register("workspace.update_objective", {
       handle: async (ctx, payload) => {
@@ -163,7 +177,7 @@ export class CommandBus {
         // A concurrent twin committed first; the retry takes the replay path.
         return this.attempt(session, workspaceId, cmd, expectedVersion, key);
       }
-      if (e instanceof KernelError && e.code === "FORBIDDEN") {
+      if (e instanceof KernelError && (e.code === "FORBIDDEN" || e.code === "APPROVAL_REQUIRED")) {
         await this.auditDeny(ctx, session, workspaceId, e, opts.traceId);
       }
       throw e;
@@ -250,6 +264,28 @@ export class CommandBus {
           retryable: true,
           lastStableRevision: ws.version,
           nextAction: "Re-read the workspace and resubmit with the current version.",
+        });
+      }
+      // 3b. Agent principals need an approval that matches this exact command; consumed atomically with the mutation.
+      if (session.principal.kind === "agent" && PRIVILEGED_AGENT_COMMANDS.has(cmd.commandType)) {
+        if (!this.approvals)
+          throw new KernelError(
+            "APPROVAL_REQUIRED",
+            "APPROVAL_MISSING",
+            "Approval verification is unavailable.",
+          );
+        const opId = (cmd.payload as { operationId?: unknown }).operationId;
+        await this.approvals.consume(tx, {
+          workspaceId,
+          runId: session.principal.parentRunId,
+          usedBy: cmd.commandId,
+          // The kernel's canonical hash of the exact command, or (canvas patches) the approved action hash the runtime
+          // bound into the patch's operationId.
+          matches: (h) =>
+            h === payloadHash ||
+            (cmd.commandType === "canvas.apply_patch" &&
+              typeof opId === "string" &&
+              operationIdFromActionHash(h) === opId),
         });
       }
       // 4. Apply, 5. event + outbox, 6. bump version.

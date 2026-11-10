@@ -370,6 +370,11 @@ describe("approvals API", () => {
       [wsA, run.runId],
     );
     expect(ev.rowCount).toBe(1);
+    const grant = await f.db.admin.query(
+      "SELECT used_at FROM command_approvals WHERE run_id=$1 AND action_hash=$2",
+      [run.runId, HASH],
+    );
+    expect(grant.rows).toEqual([{ used_at: null }]);
     const aud = await f.db.admin.query(
       "SELECT actor_id FROM audit_events WHERE action='approval.approve' AND subject=$1",
       [run.runId],

@@ -1,3 +1,4 @@
+import { ApprovalService } from "./approvals.ts";
 import { Db } from "./db/pool.ts";
 import { DevAuthProvider, IdentityPolicy } from "./auth.ts";
 import type { AuthProvider } from "./auth.ts";
@@ -41,6 +42,7 @@ export class Kernel {
   readonly canvas: CanvasService;
   readonly stream: EventStreamService;
   readonly graph: EvidenceGraphService;
+  readonly approvals: ApprovalService;
   readonly identity: IdentityPolicy;
   readonly devAuth: DevAuthProvider | undefined;
   readonly engine: { inspect: PluginManager["inspect"] };
@@ -50,9 +52,10 @@ export class Kernel {
     this.journal = new EventJournal();
     this.plugins = new PluginManager(cfg.db, cfg.plugins);
     this.leases = new LeaseService(cfg.db);
-    this.gateway = new KernelToolGateway(cfg.db, this.plugins, this.leases);
+    this.approvals = new ApprovalService();
+    this.gateway = new KernelToolGateway(cfg.db, this.plugins, this.leases, this.approvals);
     this.workspaces = new WorkspaceRegistry(cfg.db, this.journal);
-    this.commands = new CommandBus(cfg.db, this.journal, this.plugins);
+    this.commands = new CommandBus(cfg.db, this.journal, this.plugins, this.approvals);
     this.outbox = new OutboxPublisher(cfg.db);
     this.stream = new EventStreamService(cfg.db, this.journal, cfg.stream);
     this.canvas = new CanvasService(cfg.db, cfg.semanticValidator);

@@ -435,6 +435,15 @@ export class RunsService {
           ),
         };
       }
+      // The kernel verifies approvals itself when an agent later applies the action (ch.05): record the exact hash.
+      if (body.decision === "approve")
+        await this.kernel.approvals.grant(tx, {
+          orgId: s.principal.orgId,
+          workspaceId: run.workspace_id,
+          runId: run.id,
+          actionHash: target.actionHash,
+          approvedBy: s.userId,
+        });
       return { ok: true, run };
     });
     if (!out.ok) throw out.error;

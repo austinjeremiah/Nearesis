@@ -4,6 +4,7 @@ import type { ValidateFunction } from "ajv";
 import { ExecutionRequest } from "@nearesis/contracts";
 import type { ExecutionResponse, Principal, ToolGateway } from "@nearesis/contracts";
 import { canonicalJson, grantKey, sha256Hex } from "@nearesis/plugin-sdk";
+import type { ApprovalService } from "./approvals.ts";
 import type { Db } from "./db/pool.ts";
 import { KernelError } from "./errors.ts";
 import { writeAudit } from "./journal.ts";
@@ -24,6 +25,7 @@ export class KernelToolGateway implements ToolGateway {
     private readonly db: Db,
     private readonly plugins: PluginManager,
     private readonly leases: LeaseService,
+    private readonly approvals?: ApprovalService,
   ) {}
 
   private validator(schema: Record<string, unknown>): ValidateFunction {
@@ -109,11 +111,17 @@ export class KernelToolGateway implements ToolGateway {
         `inv:${req.workspaceId}:${req.idempotencyKey}`,
       ]);
       const prior = await tx.query(
-        "SELECT state, response FROM tool_invocations WHERE workspace_id = $1 AND idempotency_key = $2",
+        `SELECT id, state, response,
+                (COALESCE(deadline_at, started_at + interval '10 minutes') < now()) AS expired
+           FROM tool_invocations WHERE workspace_id = $1 AND idempotency_key = $2`,
         [req.workspaceId, req.idempotencyKey],
       );
+      // A `running` record whose deadline has passed belongs to a dead worker: a replay may claim it (FND-036).
+      let takeoverId: string | undefined;
       if (prior.rows[0]) {
-        if (prior.rows[0].state === "running") {
+        if (prior.rows[0].state === "running" && prior.rows[0].expired) {
+          takeoverId = prior.rows[0].id as string;
+        } else if (prior.rows[0].state === "running") {
           return {
             kind: "replay",
             response: this.respond(req, undefined, req.capability, {
@@ -122,11 +130,10 @@ export class KernelToolGateway implements ToolGateway {
               message: "An identical request is still running.",
             }),
           };
-        }
-        return { kind: "replay", response: prior.rows[0].response as ExecutionResponse };
+        } else return { kind: "replay", response: prior.rows[0].response as ExecutionResponse };
       }
 
-      const invocationId = randomUUID();
+      const invocationId = takeoverId ?? randomUUID();
       const deny = async (
         d: Denial,
         inst?: { pluginId: string; version: string },
@@ -137,24 +144,41 @@ export class KernelToolGateway implements ToolGateway {
           reasonCode: d.reasonCode,
           message: d.message,
         });
-        await tx.query(
-          `INSERT INTO tool_invocations(id, org_id, workspace_id, request_id, idempotency_key, actor_id, capability, plugin_version, state, reason_code, result_sha256, response, completed_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())`,
-          [
-            invocationId,
-            principal.orgId,
-            req.workspaceId,
-            req.requestId,
-            req.idempotencyKey,
-            principal.actorId,
-            req.capability,
-            inst?.version ?? null,
-            d.state,
-            d.reasonCode,
-            response.provenance.resultSha256,
-            JSON.stringify(response),
-          ],
-        );
+        if (takeoverId) {
+          const cas = await tx.query(
+            `UPDATE tool_invocations SET state = $2, reason_code = $3, result_sha256 = $4, response = $5, completed_at = now()
+              WHERE id = $1 AND state = 'running'`,
+            [invocationId, d.state, d.reasonCode, response.provenance.resultSha256, JSON.stringify(response)],
+          );
+          if (cas.rowCount !== 1)
+            return {
+              kind: "replay",
+              response: this.respond(req, undefined, req.capability, {
+                state: "blocked",
+                reasonCode: "DUPLICATE_IN_FLIGHT",
+                message: "An identical request is still running.",
+              }),
+            };
+        } else {
+          await tx.query(
+            `INSERT INTO tool_invocations(id, org_id, workspace_id, request_id, idempotency_key, actor_id, capability, plugin_version, state, reason_code, result_sha256, response, completed_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())`,
+            [
+              invocationId,
+              principal.orgId,
+              req.workspaceId,
+              req.requestId,
+              req.idempotencyKey,
+              principal.actorId,
+              req.capability,
+              inst?.version ?? null,
+              d.state,
+              d.reasonCode,
+              response.provenance.resultSha256,
+              JSON.stringify(response),
+            ],
+          );
+        }
         await writeAudit(tx, {
           ...auditBase,
           action: "tool.invoke.denied",
@@ -184,6 +208,19 @@ export class KernelToolGateway implements ToolGateway {
       }
       const { installation, capability } = res.resolved;
       const prov = { pluginId: installation.pluginId, version: installation.version };
+
+      // Abandoned in-flight invocation: only an idempotent capability may be re-executed; anything else needs a human.
+      if (takeoverId && !capability.idempotent) {
+        return deny(
+          {
+            state: "failed",
+            reasonCode: "IN_FLIGHT_ABANDONED",
+            message:
+              "A previous attempt of this non-idempotent call did not complete and may have taken effect; it needs human review.",
+          },
+          prov,
+        );
+      }
 
       // Authoritative lease lookup; a client grantFingerprint is only echoed.
       const warnings: string[] = [];
@@ -223,28 +260,90 @@ export class KernelToolGateway implements ToolGateway {
         );
       }
 
+      // Step 3b (ch.05): paid and chain-writing calls by an agent need a kernel-verified approval of this exact call,
+      // consumed in this transaction. Denied calls are audited but not recorded, so a retry after approval can run.
+      if (
+        !takeoverId &&
+        principal.kind === "agent" &&
+        (capability.sideEffect === "paid_call" || capability.sideEffect === "chain_write")
+      ) {
+        try {
+          if (!this.approvals)
+            throw new KernelError("APPROVAL_REQUIRED", "APPROVAL_MISSING", "No approvals.");
+          const hash = sha256Hex(canonicalJson({ capability: req.capability, input: req.input }));
+          await this.approvals.consume(tx, {
+            workspaceId: req.workspaceId,
+            runId: principal.parentRunId,
+            usedBy: req.requestId,
+            matches: (h) => h === hash,
+          });
+        } catch (e) {
+          if (!(e instanceof KernelError)) throw e;
+          await writeAudit(tx, {
+            ...auditBase,
+            action: "tool.invoke.denied",
+            subject: req.capability,
+            outcome: "denied",
+            reasonCode: e.reasonCode,
+            detail: { requestId: req.requestId, sideEffect: capability.sideEffect },
+          });
+          return {
+            kind: "done",
+            response: this.respond(req, prov, req.capability, {
+              state: "blocked",
+              reasonCode: "APPROVAL_REQUIRED",
+              message: "This call needs an approval matching its exact capability and input.",
+            }),
+          };
+        }
+      }
+
       // Step 4: audit intent + idempotency record.
-      await tx.query(
-        `INSERT INTO tool_invocations(id, org_id, workspace_id, request_id, idempotency_key, actor_id, capability, installation_id, plugin_version, state)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'running')`,
-        [
-          invocationId,
-          principal.orgId,
-          req.workspaceId,
-          req.requestId,
-          req.idempotencyKey,
-          principal.actorId,
-          req.capability,
-          installation.id,
-          installation.version,
-        ],
-      );
+      const deadlineMs = String(Math.min(capability.timeoutMs, req.deadlineMs) + 1000);
+      if (takeoverId) {
+        const cas = await tx.query(
+          `UPDATE tool_invocations SET request_id = $2, installation_id = $3, plugin_version = $4, started_at = now(),
+                  deadline_at = now() + ($5 || ' milliseconds')::interval, takeover_count = takeover_count + 1
+            WHERE id = $1 AND state = 'running' RETURNING id`,
+          [invocationId, req.requestId, installation.id, installation.version, deadlineMs],
+        );
+        if (cas.rowCount !== 1)
+          return {
+            kind: "replay",
+            response: this.respond(req, undefined, req.capability, {
+              state: "blocked",
+              reasonCode: "DUPLICATE_IN_FLIGHT",
+              message: "An identical request is still running.",
+            }),
+          };
+      } else {
+        await tx.query(
+          `INSERT INTO tool_invocations(id, org_id, workspace_id, request_id, idempotency_key, actor_id, capability, installation_id, plugin_version, state, deadline_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'running', now() + ($10 || ' milliseconds')::interval)`,
+          [
+            invocationId,
+            principal.orgId,
+            req.workspaceId,
+            req.requestId,
+            req.idempotencyKey,
+            principal.actorId,
+            req.capability,
+            installation.id,
+            installation.version,
+            deadlineMs,
+          ],
+        );
+      }
       await writeAudit(tx, {
         ...auditBase,
         action: "tool.invoke.intent",
         subject: req.capability,
         outcome: "ok",
-        detail: { requestId: req.requestId, pluginVersion: installation.version },
+        detail: {
+          requestId: req.requestId,
+          pluginVersion: installation.version,
+          ...(takeoverId ? { takeover: true } : {}),
+        },
       });
       return { kind: "run", resolved: res.resolved, invocationId, warnings };
     });

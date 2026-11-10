@@ -7,6 +7,7 @@ export * from "./commands.ts";
 export * from "./canvas.ts";
 export * from "./stream.ts";
 export * from "./graph.ts";
+export * from "./approvals.ts";
 export * from "./outbox.ts";
 export * from "./leases.ts";
 export * from "./gateway.ts";

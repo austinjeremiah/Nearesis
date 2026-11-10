@@ -197,3 +197,47 @@ describe("collapseStarts", () => {
     expect(out.map((x) => x.kind)).toEqual(["heartbeat", "test.passed"]);
   });
 });
+
+describe("required flag (historical tests)", () => {
+  const entries = [
+    { testId: "A15", gate: "G04" },
+    { testId: "A16", gate: "G04", required: false, supersededBy: "A21" },
+    { testId: "A21", gate: "G04", required: true },
+  ];
+  const write = (p: ReturnType<typeof tempPaths>): void =>
+    writeJson(p.testIndex, {
+      version: 1,
+      tests: entries.map((t) => ({ name: t.testId, status: "NOT_IMPLEMENTED", ...t })),
+    });
+
+  it("non-required tests stay in the matrix but are excluded from totals, gates and milestone", () => {
+    const p = tempPaths();
+    write(p);
+    const s = buildSnapshot(p, NOW);
+    expect(s.tests).toHaveLength(3);
+    expect(s.tests.find((t) => t.testId === "A16")).toMatchObject({ required: false, supersededBy: "A21" });
+    expect(s.counts.required).toBe(2);
+    expect(s.milestone.total).toBe(2);
+    expect(s.gates.find((g) => g.gate === "G04")?.total).toBe(2);
+  });
+  it("a failing or blocked historical test never blocks or fails the gate", () => {
+    const p = tempPaths();
+    write(p);
+    writeEvidence(p, testResult("A16", "BLOCKED_DEPENDENCY", ago(1000)));
+    writeEvidence(p, testResult("A15", "PASS", ago(1000)));
+    writeEvidence(p, testResult("A21", "PASS", ago(1000)));
+    const s = buildSnapshot(p, NOW);
+    const g4 = s.gates.find((g) => g.gate === "G04");
+    expect(g4).toMatchObject({ total: 2, passed: 2, blocked: 0, failed: 0 });
+    expect(s.counts).toMatchObject({ blocked: 0, failed: 0, passed: 2 });
+    // G04 still waits on upstream, but its own tests are not held back by A16
+    expect(g4?.verdict).toBe("WAITING_UPSTREAM");
+    expect(s.tests.find((t) => t.testId === "A16")?.latestVerdict).toBe("BLOCKED_DEPENDENCY");
+  });
+  it("missing required field is treated as true", () => {
+    const p = tempPaths();
+    writeIndex(p, [{ testId: "K01", gate: "G01" }]);
+    expect(buildSnapshot(p, NOW).tests[0]?.required).toBe(true);
+    expect(buildSnapshot(p, NOW).counts.required).toBe(1);
+  });
+});

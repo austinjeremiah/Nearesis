@@ -194,6 +194,12 @@ function TestBody({ t, openFile }: { t: TestView; openFile: (p: string, line?: n
   return (
     <div className="drawer-body">
       <h3>PASS condition</h3>
+      {!t.required && (
+        <p className="warn">
+          Historical{t.supersededBy ? `, superseded by ${t.supersededBy}` : ""}. Not counted toward gates or
+          the milestone.
+        </p>
+      )}
       <p>{t.passCondition || "unavailable"}</p>
       <p className="muted">
         Owner {t.owner || "unknown"} · {t.implemented ? "implemented" : "not implemented"} · latest{" "}

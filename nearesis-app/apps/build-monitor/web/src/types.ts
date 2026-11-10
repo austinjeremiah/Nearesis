@@ -70,6 +70,8 @@ export interface TestView {
   name: string;
   passCondition: string;
   owner: string;
+  required: boolean;
+  supersededBy: string | null;
   latestCommit: string | null;
   staleEvidence: boolean;
   history: HistoryItem[];

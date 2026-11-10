@@ -904,3 +904,15 @@ details > summary {
   background: var(--warn-bg);
   display: inline;
 }
+.c-hist {
+  opacity: 0.4;
+  background: var(--soft);
+  border: 1px dashed var(--muted);
+  color: var(--muted);
+}
+.c-hist.c-pass,
+.c-hist.c-fail,
+.c-hist.c-blocked {
+  background: var(--soft);
+  color: var(--muted);
+}

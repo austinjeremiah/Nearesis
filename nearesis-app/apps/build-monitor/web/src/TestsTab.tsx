@@ -3,6 +3,7 @@ import type { State, TestView } from "./types.ts";
 import { GATE_NAMES, ageOf, gatePill } from "./util.ts";
 
 export function cellClass(t: TestView): string {
+  if (!t.required) return "c-hist";
   if (t.latestVerdict === "PASS") return t.staleEvidence ? "c-pass c-stale" : "c-pass";
   if (t.latestVerdict === "FAIL") return "c-fail";
   if (t.latestVerdict === "BLOCKED_DEPENDENCY") return "c-blocked";
@@ -84,6 +85,10 @@ export function TestsTab({
           <i className="cellkey c-none" />
           not implemented
         </span>
+        <span>
+          <i className="cellkey c-hist" />
+          historical (not required)
+        </span>
       </div>
       {s.tests.length === 0 && <p className="muted">No test index.</p>}
       {s.gates.map((g) => (
@@ -142,6 +147,11 @@ export function TestsTab({
             {tip.t.latestCommit ? ` · ${tip.t.latestCommit.slice(0, 7)}` : ""}
           </div>
           {!tip.t.implemented && <div className="muted">not implemented</div>}
+          {!tip.t.required && (
+            <div className="muted">
+              historical{tip.t.supersededBy ? `, superseded by ${tip.t.supersededBy}` : ""}
+            </div>
+          )}
         </div>
       )}
     </section>

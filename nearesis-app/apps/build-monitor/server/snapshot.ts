@@ -123,6 +123,9 @@ export interface TestView {
   evidencePath: string | null;
   passCondition: string;
   owner: string;
+  /** false = historical (excluded from gates and milestone). Missing field means true. */
+  required: boolean;
+  supersededBy: string | null;
   latestCommit: string | null;
   /** Evidence commit is not among the recent commits (HEAD has moved on or commit unknown). */
   staleEvidence: boolean;
@@ -310,6 +313,8 @@ interface IndexEntry {
   passCondition?: string;
   owner?: string;
   testFiles?: unknown;
+  required?: boolean;
+  supersededBy?: string;
 }
 
 export const isTestResultFile = (name: string): boolean => /^[^.]+\.json$/.test(name);
@@ -583,6 +588,8 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
       evidencePath: l ? relative(paths.bibleDir, l.file) : null,
       passCondition: e.passCondition ?? "",
       owner: e.owner ?? "",
+      required: e.required !== false,
+      supersededBy: typeof e.supersededBy === "string" ? e.supersededBy : null,
       latestCommit: sha,
       staleEvidence:
         sha !== null &&
@@ -592,6 +599,8 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
     };
   });
 
+  // only required tests count toward gates and the milestone; historical ones are display-only
+  const req = tests.filter((t) => t.required);
   // ---- gates (upstream-aware)
   const gateIds = [...new Set([...GATES, ...tests.map((t) => t.gate)])];
   const own = new Map<string, boolean>();
@@ -599,7 +608,7 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
   const pass = new Map<string, boolean>();
   const ordered = [...gateIds].sort();
   const ownPass = (g: string): { passed: number; total: number } => {
-    const ts = tests.filter((t) => t.gate === g);
+    const ts = req.filter((t) => t.gate === g);
     return { passed: ts.filter((t) => t.latestVerdict === "PASS").length, total: ts.length };
   };
   for (const g of ordered)
@@ -621,7 +630,7 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
   };
   for (const g of ordered) {
     const { passed, total } = ownPass(g);
-    const ts = tests.filter((t) => t.gate === g);
+    const ts = req.filter((t) => t.gate === g);
     const gp = resolveGate(g);
     let verdict: GateView["verdict"];
     if (gp) verdict = "PASS";
@@ -650,19 +659,19 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
     current: firstOpen ? firstOpen.gate : gates.length ? "ALL_GATES_PASS" : null,
     blocked: gates.filter((g) => g.verdict === "BLOCKED" || g.verdict === "FAIL").map((g) => g.gate),
   };
-  const passed = tests.filter((t) => t.latestVerdict === "PASS").length;
+  const passed = req.filter((t) => t.latestVerdict === "PASS").length;
   const counts = {
-    required: tests.length,
+    required: req.length,
     passed,
-    failed: tests.filter((t) => t.latestVerdict === "FAIL").length,
-    blocked: tests.filter((t) => t.latestVerdict === "BLOCKED_DEPENDENCY").length,
-    notRun: tests.filter((t) => t.latestVerdict === "NOT_RUN").length,
-    implemented: tests.filter((t) => t.implemented).length,
+    failed: req.filter((t) => t.latestVerdict === "FAIL").length,
+    blocked: req.filter((t) => t.latestVerdict === "BLOCKED_DEPENDENCY").length,
+    notRun: req.filter((t) => t.latestVerdict === "NOT_RUN").length,
+    implemented: req.filter((t) => t.implemented).length,
   };
   const milestone = {
     passed,
-    total: tests.length,
-    percent: tests.length ? Math.round((passed / tests.length) * 1000) / 10 : 0,
+    total: req.length,
+    percent: req.length ? Math.round((passed / req.length) * 1000) / 10 : 0,
     basis: "evidence-based" as const,
   };
   const latestResults = [...allResults]

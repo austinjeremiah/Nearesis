@@ -7,30 +7,20 @@
  * production web build. The model is never mocked; without NEARESIS_ACCEPT_LIVE=1 the test records BLOCKED.
  * The directive's milestone demo (edit, save, reload, verify) is part of this evidence.
  */
-import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Browser } from "playwright";
 import { observe } from "@nearesis/acceptance";
+import { buildApp } from "@nearesis/api";
 import { CanvasDocument, SemanticQuery } from "@nearesis/contracts";
 import { createPg, loadQuery } from "@nearesis/analytics";
 import { createProvider, openRouterOptionsFromEnv } from "@nearesis/inference";
-import { KernelCanvasExecutor } from "@nearesis/agent-runtime";
-import { buildManifest, composeCanvas, PLUGIN_ROOT, type ComposeResult } from "@nearesis/near-thesis";
 import { hashCanonical, validatePanelSpec } from "@nearesis/canvas-schema";
-import {
-  createWs,
-  execReq,
-  giveLease,
-  grant,
-  pluginUp,
-  TEST_KEY,
-  TEST_PUBLISHER,
-} from "@nearesis/kernel/testing";
-import { BASE, launch } from "./harness.ts";
-import { type KernelEnv, loggedIn, startKernelEnv } from "./kernel-harness.ts";
+import { temporalEngine } from "../../../api/src/temporal-engine.ts";
+import { makeEnv, startWorker, type Env } from "../../../../packages/workflow/test/helpers/harness.ts";
+import { BASE, launch, startWeb, stopWeb } from "./harness.ts";
+import { API_PORT } from "./kernel-harness.ts";
 
 const PROMPT = "investigate NEAR Intents activity after the private-settlement change";
-const MAX_ATTEMPTS = 3;
 const live = process.env.NEARESIS_ACCEPT_LIVE === "1";
 
 type H = {
@@ -41,17 +31,34 @@ type H = {
 };
 type Layout = { x: number; y: number; w: number; h: number };
 
-let env: KernelEnv | undefined;
+type App = Awaited<ReturnType<typeof buildApp>>;
+let env: Env | undefined;
+let worker: Awaited<ReturnType<typeof startWorker>> | undefined;
+let app: App | undefined;
 let browser: Browser | undefined;
 beforeAll(async () => {
   if (!live) return;
-  env = await startKernelEnv({ alice: "owner" }, { pluginRoot: PLUGIN_ROOT });
+  // Real path: kernel + runtime schema in one disposable database, a Temporal worker with the live composer, the
+  // investigation API (Temporal-backed engine) on :4199 and the production web build in front of it.
+  env = await makeEnv({ kernel: true });
+  worker = await startWorker(env, { live: true });
+  app = await buildApp({
+    kernel: env.kernel!.kernel,
+    engine: temporalEngine({ taskQueue: env.taskQueue }),
+    nodeEnv: "test",
+    ssePollMs: 50,
+  });
+  await app.listen({ host: "127.0.0.1", port: API_PORT });
+  await startWeb({ NEARESIS_API_URL: `http://127.0.0.1:${API_PORT}` });
   browser = await launch();
-}, 300_000);
+}, 600_000);
 afterAll(async () => {
   await browser?.close();
-  await env?.close();
-}, 120_000);
+  await stopWeb();
+  await app?.close();
+  await worker?.stop();
+  await env?.stop();
+}, 180_000);
 
 describe("C01 natural-language request to four provenance-backed panels (live model)", () => {
   it("composes, persists, renders, and survives an edit, save and reload", async () => {
@@ -65,84 +72,58 @@ describe("C01 natural-language request to four provenance-backed panels (live mo
       return;
     }
     const e = env!;
-    const s = await e.session("alice");
-    const created = await createWs(e.kernel, s, "C01 blank workspace");
-    const ws = created.workspaceId;
-    const version = created.version;
-    await e.kernel.plugins.install(
-      s.principal.actorId,
-      buildManifest({ publisher: TEST_PUBLISHER, privateKey: TEST_KEY.privateKey }),
-    );
-    await e.kernel.plugins.enable(s.principal.actorId, "near-thesis");
-    await pluginUp(e.kernel, s, ws, version, "near-thesis");
-    for (const [cap, res, action] of [
-      ["semantic.discover@1", "semantic", "discover"],
-      ["semantic.query@1", "semantic", "query"],
-      ["canvas.preview@1", "canvas", "preview"],
-    ] as const)
-      await giveLease(e.kernel, s, ws, cap, [grant({ resource: res, action })]);
-    const blank = await e.kernel.canvas.get(s, ws);
+    const k = e.kernel!;
+    const ws = k.workspaceId;
+    const blank = await k.kernel.canvas.get(k.session, ws);
     expect(blank.panels).toHaveLength(0);
 
     const opts = openRouterOptionsFromEnv();
-    const provider = createProvider({ mode: "openrouter" });
     const model = opts.primaryModel!;
     const ledger = (
-      provider as unknown as { spend: { spentUsd(): Promise<number>; entries(): Promise<unknown[]> } }
+      createProvider({ mode: "openrouter" }) as unknown as {
+        spend: { spentUsd(): Promise<number>; entries(): Promise<unknown[]> };
+      }
     ).spend;
     const spentBefore = await ledger.spentUsd();
     const entriesBefore = (await ledger.entries()).length;
 
-    const invoke = async (capability: string, input: unknown) => {
-      const r = await e.kernel.gateway.invoke(
-        s.principal,
-        execReq(s, ws, capability, input, { deadlineMs: 90_000 }),
-      );
-      if (r.state !== "ok") throw new Error(`${capability}: ${r.state} ${r.reasonCode ?? ""}`);
-      return r.payload;
-    };
-    // Bounded: the composer re-asks (with a new idempotency key) when the plan is rejected or not four panels.
-    const attempts: Array<{
-      status: string;
-      panels: number;
-      issues: unknown;
-      modelRequestId: string | null;
-    }> = [];
-    let res: ComposeResult | null = null;
-    for (let i = 0; i < MAX_ATTEMPTS; i++) {
-      const r = await composeCanvas({
-        prompt: PROMPT,
-        provider,
-        model,
-        invoke,
-        expectedRevision: 0,
-        idempotencyKey: `c01-${randomUUID()}`,
-      });
-      attempts.push({
-        status: r.status,
-        panels: r.patch?.operations.length ?? 0,
-        issues: r.issues,
-        modelRequestId: r.modelRequestId,
-      });
-      res = r;
-      if (r.status === "ok" && r.patch?.operations.length === 4) break;
-    }
-    const spentAfter = await ledger.spentUsd();
-    expect(res!.status, JSON.stringify(attempts)).toBe("ok");
-    expect(res!.patch!.operations).toHaveLength(4);
-
-    // Persist through the kernel command as the composing agent acting for the owner.
-    const exec = new KernelCanvasExecutor(e.kernel);
-    const agentSession = exec.sessionFor({
-      tenantId: s.principal.orgId,
-      runId: randomUUID(),
-      agentActorId: randomUUID(),
-      requester: { userId: s.userId, role: "owner" } as never,
+    // The user asks in the browser (blank workspace -> POST /v1/workspaces/:id/questions, no scenario tag).
+    const ctx = await browser!.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+    const login = await ctx.request.post(`${BASE}/api/dev/login`, { data: { subject: k.subject } });
+    expect(login.status()).toBe(204);
+    const page = await ctx.newPage();
+    await page.goto(`${BASE}/w/${ws}?backend=kernel&data=semantic`);
+    await page.waitForFunction(() => (window as unknown as H).__nearesis?.ready === true, null, {
+      timeout: 60_000,
     });
-    await exec.apply(agentSession, ws, res!.patch!);
+    expect(await page.locator("[data-panel-kind]").count()).toBe(0);
+    await page.locator("[data-testid='ask-input']").fill(PROMPT);
+    await page.locator("[data-testid='ask-submit']").click();
+
+    // The run plans and composes; it stops at APPROVAL_NEEDED with the exact patch hash on an approval card.
+    const card = page.locator("[data-testid='approval-card'][data-approval-status='pending']");
+    await card.waitFor({ timeout: 300_000 });
+    const actionHash = ((await card.locator("[data-testid='approval-hash']").textContent()) ?? "").trim();
+    expect(actionHash).toMatch(/^[0-9a-f]{64}$/);
+    const patchesBefore = await k.kernelAdmin.query(
+      "SELECT count(*)::int AS n FROM canvas_patches WHERE workspace_id=$1",
+      [ws],
+    );
+    expect(patchesBefore.rows[0].n).toBe(0); // nothing applied before the human approves
+    expect(await page.locator("[data-panel-kind]").count()).toBe(0);
+    await page.screenshot({ path: "test-results/C01-approval.png", fullPage: true });
+
+    // The user approves the exact action hash (POST /v1/runs/:id/approvals/:approvalId); the kernel records it.
+    await card.locator("[data-testid='approval-approve']").click();
+    await page.locator("[data-testid='run-status'][data-run-state='COMPLETE']").waitFor({ timeout: 300_000 });
+    const approval = await k.kernelAdmin.query(
+      "SELECT action_hash FROM runtime.approvals ORDER BY id DESC LIMIT 1",
+    );
+    expect(approval.rows[0]?.action_hash).toBe(actionHash);
+    const spentAfter = await ledger.spentUsd();
 
     // Persisted: four typed valid panels, each with a resolvable query record (provenance).
-    const doc = CanvasDocument.parse(await e.kernel.canvas.get(s, ws));
+    const doc = CanvasDocument.parse(await k.kernel.canvas.get(k.session, ws));
     expect(doc.panels).toHaveLength(4);
     const pg = createPg();
     const provenance = [];
@@ -168,7 +149,7 @@ describe("C01 natural-language request to four provenance-backed panels (live mo
     expect(new Set(provenance.map((p) => p.queryHash)).size).toBe(4);
     const rowCount = Number(
       (
-        await e.db.admin.query(
+        await k.kernelAdmin.query(
           "SELECT count(*) n FROM panel_specs WHERE workspace_id=$1 AND removed_at IS NULL",
           [ws],
         )
@@ -176,13 +157,7 @@ describe("C01 natural-language request to four provenance-backed panels (live mo
     );
     expect(rowCount).toBe(4);
 
-    // Visible in the browser, with the inspector resolving each panel's query.
-    const ctx = await loggedIn(browser!, e, "alice");
-    const page = await ctx.newPage();
-    await page.goto(`${BASE}/w/${ws}?backend=kernel&data=semantic`);
-    await page.waitForFunction(() => (window as unknown as H).__nearesis?.ready === true, null, {
-      timeout: 60_000,
-    });
+    // Visible in the browser (panels arrived over canvas.patched), with the inspector resolving each query.
     await page.waitForFunction(
       () => document.querySelectorAll("[data-panel-state='READY']").length === 4,
       null,
@@ -228,7 +203,7 @@ describe("C01 natural-language request to four provenance-backed panels (live mo
       target.panelId
     ]!.layout;
     expect(edited).not.toEqual(before);
-    const stored = CanvasDocument.parse(await e.kernel.canvas.get(s, ws));
+    const stored = CanvasDocument.parse(await k.kernel.canvas.get(k.session, ws));
     expect(stored.documentRevision).toBe(rev0 + 2);
     expect(stored.panels.find((p) => p.panelId === target.panelId)!.layout).toEqual(edited);
     await page.reload();
@@ -252,10 +227,10 @@ describe("C01 natural-language request to four provenance-backed panels (live mo
     const spentUsd = Math.round((spentAfter - spentBefore) * 1e6) / 1e6;
     observe({
       testId: "C01",
-      observed: `live ${model}: blank workspace + "${PROMPT}" -> ${attempts.length} composition attempt(s) (${attempts.map((a) => a.status).join(",")}); 4 typed valid panels (${provenance.map((p) => `${p.kind}:${p.measures.join("+")}`).join("; ")}) each with a distinct recorded query (hash, semanticVersion, AST resolvable), persisted by the kernel and visible in the browser (4/4 READY); edit demo moved/resized "${target.title}" (${JSON.stringify(before)} -> ${JSON.stringify(edited)}), revision ${rev0} -> ${rev0 + 2}, identical after reload; model spend USD ${spentUsd} (ledger entries +${(await ledger.entries()).length - entriesBefore}) within the USD 5 cap`,
+      observed: `live ${model}: blank workspace + "${PROMPT}" asked in the browser -> POST /questions -> Temporal run -> approval card shown with action hash ${actionHash.slice(0, 12)} (0 patches applied before approval) -> user approved the exact hash in the UI (kernel approval record matches) -> run COMPLETE; 4 typed valid panels (${provenance.map((p) => `${p.kind}:${p.measures.join("+")}`).join("; ")}) each with a distinct recorded query (hash, semanticVersion, AST resolvable), persisted by the kernel and visible in the browser (4/4 READY); edit demo moved/resized "${target.title}" (${JSON.stringify(before)} -> ${JSON.stringify(edited)}), revision ${rev0} -> ${rev0 + 2}, identical after reload; model spend USD ${spentUsd} (ledger entries +${(await ledger.entries()).length - entriesBefore}) within the USD 5 cap`,
       fixtureHash: hashCanonical({ prompt: PROMPT, model }),
       evidence: {
-        attempts,
+        actionHash,
         provenance,
         visible,
         before,
@@ -263,8 +238,6 @@ describe("C01 natural-language request to four provenance-backed panels (live mo
         afterReload,
         spentUsd,
         model,
-        plan: res!.plan,
-        modelRequestId: res!.modelRequestId,
       },
     });
   }, 600_000);

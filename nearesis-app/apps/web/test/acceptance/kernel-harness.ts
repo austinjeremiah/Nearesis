@@ -18,7 +18,7 @@ import {
 } from "@nearesis/kernel/testing";
 import { BASE, startWeb, stopWeb } from "./harness.ts";
 
-export const API_PORT = 4199;
+export const API_PORT = Number(process.env.NEARESIS_WEB_API_PORT ?? 4199);
 
 export interface KernelEnv {
   db: TestDb;

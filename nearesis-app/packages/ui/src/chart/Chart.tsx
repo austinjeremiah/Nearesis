@@ -145,7 +145,10 @@ export function Chart({
     if (!cursor) return "";
     const t = timeAt(cursor.i);
     const v = spec.rows[cursor.i]?.[yIdx];
-    return `${t !== null ? new Date(t).toISOString().slice(0, 16) : "?"}: ${v === null || v === undefined ? "missing" : String(v)} ${spec.y[0]?.unit ?? ""}`;
+    const from = cursor.anchor !== null ? timeAt(cursor.anchor) : null;
+    const range =
+      cursor.anchor !== null ? ` (range from ${new Date(from ?? 0).toISOString().slice(0, 10)})` : "";
+    return `${t !== null ? new Date(t).toISOString().slice(0, 16) : "?"}: ${v === null || v === undefined ? "missing" : String(v)} ${spec.y[0]?.unit ?? ""}${range}`;
   })();
 
   return (

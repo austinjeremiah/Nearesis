@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { type Browser, chromium, type Page } from "playwright";
 
 export const WEB_DIR = new URL("../..", import.meta.url).pathname;
-export const PORT = 3100;
+export const PORT = Number(process.env.NEARESIS_WEB_PORT ?? 3100);
 export const BASE = `http://127.0.0.1:${PORT}`;
 
 let server: ChildProcess | null = null;
@@ -36,7 +36,7 @@ export async function startWeb(
   const buildIdPath = join(WEB_DIR, ".next", "BUILD_ID");
   const stale = !existsSync(buildIdPath) || newestMtime(join(WEB_DIR, "src")) > 0;
   if (stale && (await up()))
-    throw new Error("a stale server is running on :3100; stop it before running acceptance tests");
+    throw new Error(`a stale server is running on :${PORT}; stop it before running acceptance tests`);
   if (stale) {
     const b = spawnSync("pnpm", ["exec", "next", "build"], {
       cwd: WEB_DIR,
@@ -48,7 +48,7 @@ export async function startWeb(
   const buildId = readFileSync(buildIdPath, "utf8").trim();
   if (await up()) {
     if (Object.keys(extraEnv).length)
-      throw new Error("port 3100 busy; kernel-backed tests need their own web server");
+      throw new Error(`port ${PORT} busy; kernel-backed tests need their own web server`);
     return { reused: true, buildId };
   }
   server = spawn("pnpm", ["exec", "next", "start", "-p", String(PORT), "-H", "127.0.0.1"], {

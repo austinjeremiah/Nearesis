@@ -12,7 +12,7 @@ import type { Browser, Page } from "playwright";
 import { observe } from "@nearesis/acceptance";
 import { canTransition, hashCanonical, type PanelState } from "@nearesis/canvas-schema";
 import { loadScenario } from "../../src/fixtures/scenarios.ts";
-import { launch, openPage, startWeb, stopWeb, WEB_DIR } from "./harness.ts";
+import { BASE, launch, openPage, startWeb, stopWeb, WEB_DIR } from "./harness.ts";
 
 const REF_PATH = `${WEB_DIR}test/perf/C18.reference.json`;
 const refBytes = readFileSync(REF_PATH);
@@ -115,13 +115,13 @@ describe("C18 panel states, revisions and large series", () => {
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
     const page = await ctx.newPage();
     await init(page);
-    await page.goto("http://127.0.0.1:3100/w/fixture?scenario=empty");
+    await page.goto(`${BASE}/w/fixture?scenario=empty`);
     await page.waitForFunction(
       () => (window as unknown as { __nearesis?: { ready: boolean } }).__nearesis?.ready === true,
     );
     await page.waitForTimeout(500);
     const heapBefore = await heapAfterGc(page);
-    await page.goto("http://127.0.0.1:3100/w/fixture?scenario=large");
+    await page.goto(`${BASE}/w/fixture?scenario=large`);
     await page.waitForFunction(
       () => Object.keys((window as unknown as Hooks).__nearesis?.firstFrameMs ?? {}).length === 2,
       null,

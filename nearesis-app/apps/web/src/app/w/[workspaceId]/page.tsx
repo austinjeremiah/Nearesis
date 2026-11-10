@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
-import { Workspace } from "../../../components/Workspace";
+import { WorkspaceClient } from "../../../components/WorkspaceClient";
 
 export default async function WorkspacePage({ params }: { params: Promise<{ workspaceId: string }> }) {
   await headers();
   const { workspaceId } = await params;
-  return <Workspace workspaceId={workspaceId} />;
+  return <WorkspaceClient workspaceId={workspaceId} />;
 }

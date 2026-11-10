@@ -83,7 +83,7 @@ export function InvalidSpecState({
 }) {
   return (
     <div className="nz-state" data-testid={`invalid-panel-${index}`}>
-      <strong>This panel was not rendered</strong>
+      <strong>Invalid panel spec: this panel was not rendered</strong>
       <div>Its stored specification failed validation (stored panel #{index + 1}).</div>
       <ul style={{ margin: 0, paddingLeft: 18 }}>
         {issues.slice(0, 6).map((i, k) => (

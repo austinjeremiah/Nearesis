@@ -1265,27 +1265,20 @@ button.nz-chip:hover {
   color: var(--fg-subtle);
   font-size: var(--text-2xs);
 }
+/* Tools stay laid out (no reflow, hit-testable for pointer and automation) and fade in on hover, focus or selection. */
 .nz-panel-toolbar {
   opacity: 0;
-  max-height: 0;
-  overflow: hidden;
-  padding-bottom: 0;
-  transition:
-    opacity var(--dur-base) var(--ease-standard),
-    max-height var(--dur-base) var(--ease-standard);
+  min-height: 28px;
+  transition: opacity var(--dur-base) var(--ease-standard);
 }
 .nz-panel:hover .nz-panel-toolbar,
 .nz-panel:focus-within .nz-panel-toolbar,
 .nz-panel[data-selected="true"] .nz-panel-toolbar {
   opacity: 1;
-  max-height: 40px;
-  padding-bottom: var(--space-2);
 }
 @media (hover: none) {
   .nz-panel-toolbar {
     opacity: 1;
-    max-height: none;
-    padding-bottom: var(--space-2);
   }
 }
 .nz-banner {

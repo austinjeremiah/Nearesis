@@ -8,7 +8,7 @@ import type { ChartData, MarkerSpec, PanelSpec } from "@nearesis/contracts";
 import { downsampleMinMax, type VizIR } from "@nearesis/canvas-schema";
 import type { ChartKind, ChartMarker, ChartSpec } from "@nearesis/ui";
 
-export const RENDERER_VERSION = "echarts-6.1.0/ui-theme-1";
+export const RENDERER_VERSION = "echarts-6.1.0/adapter-1";
 const DOWNSAMPLE_THRESHOLD = 8000;
 const DOWNSAMPLE_BUCKETS = 2000;
 

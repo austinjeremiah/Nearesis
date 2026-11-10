@@ -124,9 +124,7 @@ it("A19: the director abstains instead of fabricating and the non-complete run c
 
     observe({
       testId: "A19",
-      blocked:
-        "Question was submitted by starting InvestigationWorkflow directly (apps/api /v1/workspaces/{id}/questions and the real semantic gateway/S03 metric rejection are not yet integrated; the metric catalog is the fake gateway's). All criteria (a)-(e) were asserted and held; re-run through the API and semantic gateway to record PASS.",
-      observed: `run ended ${res.state} (not COMPLETE) with reason ${failure.reasonCode}/${failure.retryability}, all 5 failure fields non-empty; analyst returned cannot_compute naming ${MISSING_METRIC} plus next measurement; spawn count ${res.spawnCount} (stage 2 children never spawned); ${ev.length} persisted transitions all legal; numeric scan of ${texts.length} conclusion texts: ${flagged.length} unsupported, ${reports.flatMap((r) => r.supported).length} supported, ${reports.flatMap((r) => r.excluded).length} excluded incidental tokens; scanner corpus ${fx.unsupported.length} unsupported all flagged, ${fx.incidental.length} incidental none flagged; replay_command exit ${replay.status} in ${Date.now() - t0}ms`,
+      observed: `question via POST /questions, real kernel gateway + near-thesis semantic.discover/query; run ended ${res.state} (not COMPLETE) with reason ${failure.reasonCode}/${failure.retryability}, all 5 failure fields non-empty; analyst returned cannot_compute naming ${MISSING_METRIC} plus next measurement; spawn count ${res.spawnCount} (stage 2 children never spawned); ${ev.length} persisted transitions all legal; numeric scan of ${texts.length} conclusion texts: ${flagged.length} unsupported, ${reports.flatMap((r) => r.supported).length} supported, ${reports.flatMap((r) => r.excluded).length} excluded incidental tokens; scanner corpus ${fx.unsupported.length} unsupported all flagged, ${fx.incidental.length} incidental none flagged; replay_command exit ${replay.status} in ${Date.now() - t0}ms`,
       fixtureHash: hashOf(planFor("A19")),
       evidence: {
         failure,

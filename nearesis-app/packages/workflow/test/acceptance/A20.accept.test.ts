@@ -28,8 +28,11 @@ afterAll(async () => {
 
 /** Owner decision through the approvals API for the run's pending request. */
 async function decide(runId: string, decision: "approve" | "reject", expectHash?: string) {
-  const list = await api.call("GET", `/v1/runs/${runId}/approvals`);
-  const pending = (list.json.approvals as Array<{ approvalId: string; actionHash: string }>)[0]!;
+  // the approval.requested event is written right after the APPROVAL_NEEDED transition: poll until it is listed
+  const pending = await waitFor(async () => {
+    const list = await api.call("GET", `/v1/runs/${runId}/approvals`);
+    return (list.json.approvals as Array<{ approvalId: string; actionHash: string }>)[0];
+  }, 30_000);
   if (expectHash) expect(pending.actionHash).toBe(expectHash);
   const r = await api.call("POST", `/v1/runs/${runId}/approvals/${pending.approvalId}`, {
     decision,
@@ -129,7 +132,10 @@ it("A20: four-agent investigation survives a worker crash and restart with no re
       expect(r.toolLog.filter((l) => l.ok).every((l) => /^[0-9a-f]{64}$/.test(l.resultHash ?? ""))).toBe(
         true,
       );
-      expect(r.toolLog.some((l) => l.ok)).toBe(true);
+      expect(
+        r.toolLog.some((l) => l.ok),
+        JSON.stringify({ role: k.role, toolLog: r.toolLog }),
+      ).toBe(true);
       const hashes = new Set(r.toolLog.map((l) => l.resultHash));
       for (const f of r.finding?.facts ?? []) expect(hashes.has(f.resultRef.queryHash)).toBe(true);
       expect(["unattested_dev", "fixture_synthetic"]).toContain(r.artifact.label);

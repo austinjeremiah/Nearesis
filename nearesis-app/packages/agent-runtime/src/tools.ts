@@ -292,7 +292,19 @@ export class AgentToolClient {
         resultHash: resp.provenance.resultSha256,
       };
     }
-    const response = await c.gateway.invoke(principal, request);
+    let response = await c.gateway.invoke(principal, request);
+    // A worker killed inside a plugin call leaves the kernel invocation `running` (DUPLICATE_IN_FLIGHT on replay). Only
+    // read-only, idempotent tools are safely re-executed, under a fresh attempt key; anything else surfaces the block.
+    for (
+      let attempt = 1;
+      spec.sideEffect === "read_only" && response.reasonCode === "DUPLICATE_IN_FLIGHT" && attempt <= 3;
+      attempt++
+    )
+      response = await c.gateway.invoke(principal, {
+        ...request,
+        requestId: randomUUID(),
+        idempotencyKey: `${request.idempotencyKey}:r${attempt}`.slice(0, 200),
+      });
     if (response.state !== "ok" && response.state !== "partial") {
       if (response.state === "blocked" && c.auditGatewayDenials)
         await c.audit.write({

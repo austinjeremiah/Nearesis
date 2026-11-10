@@ -22,3 +22,5 @@ __pycache__/
 
 # Local runtime data: raw archive, spend ledger (never commit)
 .data/
+test-results/
+playwright-report/

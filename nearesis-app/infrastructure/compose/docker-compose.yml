@@ -3,7 +3,7 @@
 name: nearesis
 services:
   postgres:
-    image: postgres:17.11
+    image: postgres:17.11@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
     environment:
       POSTGRES_USER: nearesis
       POSTGRES_PASSWORD: nearesis
@@ -16,12 +16,12 @@ services:
       { test: ["CMD-SHELL", "pg_isready -U nearesis -d nearesis"], interval: 3s, timeout: 3s, retries: 30 }
     mem_limit: 768m
   redis:
-    image: redis:8.6.8
+    image: redis:8.6.8@sha256:8b30009c0de4fdb3fb67deb8afab050fe454e9b233c6a2c142ec34fcc51fa7f5
     ports: ["127.0.0.1:56379:6379"]
     healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 3s, timeout: 3s, retries: 30 }
     mem_limit: 256m
   clickhouse:
-    image: clickhouse/clickhouse-server:26.8.36.3
+    image: clickhouse/clickhouse-server:26.8.36.3@sha256:d426d2f612e1e189c90f9a3f8dcd85a03c6851273833817a296bb327e63aa7a7
     environment:
       CLICKHOUSE_USER: nearesis
       CLICKHOUSE_PASSWORD: nearesis
@@ -39,7 +39,7 @@ services:
       }
     mem_limit: 2g
   temporal:
-    image: temporalio/temporal:1.9.1
+    image: temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e
     user: "0:0" # dev-only: named volume is root-owned
     command:
       ["server", "start-dev", "--ip", "0.0.0.0", "--db-filename", "/data/temporal.db", "--ui-port", "8233"]

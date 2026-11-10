@@ -1,0 +1,54 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: nearesis-app
+    services:
+      postgres:
+        image: postgres:17.11@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
+        env:
+          POSTGRES_USER: nearesis
+          POSTGRES_PASSWORD: nearesis
+          POSTGRES_DB: nearesis
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U nearesis -d nearesis"
+          --health-interval 3s --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache project-local toolchain
+        uses: actions/cache@v4
+        with:
+          path: nearesis-app/.toolchain
+          key: toolchain-${{ runner.os }}-${{ hashFiles('nearesis-app/scripts/bootstrap-toolchain.sh') }}
+      - name: Bootstrap toolchain (Node, pnpm, uv, Python)
+        run: sh scripts/bootstrap-toolchain.sh
+      - name: Install JS dependencies
+        run: . scripts/toolchain-env.sh && pnpm install --frozen-lockfile
+      - name: Install Python dependencies
+        run: . scripts/toolchain-env.sh && uv sync --frozen
+      - name: Create database roles
+        run: PGPASSWORD=nearesis psql -h 127.0.0.1 -p 55432 -U nearesis -d nearesis -v ON_ERROR_STOP=1 -f infrastructure/postgres/init/00-roles.sql
+      - name: Typecheck, lint and tests
+        run: . scripts/toolchain-env.sh && pnpm quality:all
+      - name: Format check
+        run: . scripts/toolchain-env.sh && pnpm format:check
+      - name: Python tests
+        run: . scripts/toolchain-env.sh && uv run pytest
+      - name: Secret scan
+        run: . scripts/toolchain-env.sh && pnpm security:secrets
+      - name: URL and source-register audit
+        run: . scripts/toolchain-env.sh && pnpm security:urls
+      - name: Boot unit tests
+        run: . scripts/toolchain-env.sh && pnpm exec vitest run tests/boot/secret-scan.test.ts

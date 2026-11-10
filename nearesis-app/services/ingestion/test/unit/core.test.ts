@@ -105,6 +105,7 @@ describe("1Click classifier", () => {
   const enc = (s: string) => new TextEncoder().encode(s);
   it("covers every class", () => {
     expect(classifyQuote({ status: 200, body: enc(ok), destDecimals: 6 }).class).toBe("OK");
+    expect(classifyQuote({ status: 201, body: enc(ok), destDecimals: 6 }).class).toBe("OK"); // live API answers 201 Created
     expect(classifyQuote({ status: 400, body: enc('{"message":"No route found"}') }).class).toBe("NO_QUOTE");
     expect(classifyQuote({ status: 400, body: enc('{"message":"bad recipient"}') }).class).toBe(
       "INVALID_OUTPUT",

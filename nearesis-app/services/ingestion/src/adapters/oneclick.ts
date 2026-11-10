@@ -109,7 +109,7 @@ export function classifyQuote(i: ClassifyInput): Classified {
   } catch {
     return { class: "INVALID_OUTPUT", amountOutBaseUnits: null, reason: "response is not JSON" };
   }
-  if (i.status !== 200) {
+  if (i.status < 200 || i.status >= 300) {
     const msg = (json as { message?: unknown } | null)?.message;
     if ((i.status === 400 || i.status === 404) && typeof msg === "string" && NO_ROUTE.test(msg))
       return { class: "NO_QUOTE", amountOutBaseUnits: null, reason: "provider reports no route/liquidity" };

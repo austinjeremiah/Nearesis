@@ -1,5 +1,6 @@
 import { CanvasDocument } from "@nearesis/contracts";
 import { previewHash, validateCanvasPatchSemantics } from "@nearesis/canvas-schema";
+import { isAllowed } from "../../../../lib/server/bff-allow.ts";
 import { upstream } from "../../../../lib/server/upstream.ts";
 
 /**
@@ -7,27 +8,13 @@ import { upstream } from "../../../../lib/server/upstream.ts";
  * `POST workspaces/:id/canvas/preview` is answered here: a pure validation of the patch against the current
  * persisted document (no writes, no events; C11a). It returns 422 with per-operation issues, or a stable preview hash.
  */
-const ALLOWED = [
-  /^workspaces$/,
-  /^workspaces\/[0-9a-f-]{36}$/,
-  /^workspaces\/[0-9a-f-]{36}\/canvas$/,
-  /^workspaces\/[0-9a-f-]{36}\/commands$/,
-  /^workspaces\/[0-9a-f-]{36}\/events$/,
-  /^workspaces\/[0-9a-f-]{36}\/graph$/,
-  /^workspaces\/[0-9a-f-]{36}\/questions$/,
-  /^workspaces\/[0-9a-f-]{36}\/runs$/,
-  /^workspaces\/[0-9a-f-]{36}\/sources$/,
-  /^runs\/[0-9a-f-]{36}$/,
-  /^runs\/[0-9a-f-]{36}\/cancel$/,
-  /^runs\/[0-9a-f-]{36}\/approvals(\/[0-9a-f-]{36})?$/,
-];
 
 async function forward(req: Request, path: string[]): Promise<Response> {
   const p = path.join("/");
   const url = new URL(req.url);
   const pv = /^workspaces\/([0-9a-f-]{36})\/canvas\/preview$/.exec(p);
   if (pv && req.method === "POST") return preview(pv[1]!, await req.json());
-  if (!ALLOWED.some((r) => r.test(p))) return Response.json({ errorCode: "NOT_FOUND" }, { status: 404 });
+  if (!isAllowed(p)) return Response.json({ errorCode: "NOT_FOUND" }, { status: 404 });
   const headers: Record<string, string> = {};
   for (const h of ["content-type", "if-match", "idempotency-key", "last-event-id", "accept"]) {
     const v = req.headers.get(h);

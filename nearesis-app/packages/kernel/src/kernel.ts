@@ -10,6 +10,8 @@ import { LeaseService } from "./leases.ts";
 import { OutboxPublisher } from "./outbox.ts";
 import { PluginManager } from "./plugins/manager.ts";
 import type { PluginManagerConfig } from "./plugins/manager.ts";
+import { EventStreamService } from "./stream.ts";
+import type { StreamOptions } from "./stream.ts";
 import { WorkspaceRegistry } from "./workspace.ts";
 
 export interface KernelConfig {
@@ -20,6 +22,7 @@ export interface KernelConfig {
   nodeEnv?: string;
   /** Engine B canvas-schema semantic validation hook (runs inside the command transaction). */
   semanticValidator?: SemanticValidator;
+  stream?: StreamOptions;
 }
 
 export const DEFAULT_ENGINE_INTERFACES = ["kernel.tool_gateway@1", "kernel.journal@1", "kernel.leases@1"];
@@ -35,6 +38,7 @@ export class Kernel {
   readonly commands: CommandBus;
   readonly outbox: OutboxPublisher;
   readonly canvas: CanvasService;
+  readonly stream: EventStreamService;
   readonly identity: IdentityPolicy;
   readonly devAuth: DevAuthProvider | undefined;
   readonly engine: { inspect: PluginManager["inspect"] };
@@ -48,6 +52,7 @@ export class Kernel {
     this.workspaces = new WorkspaceRegistry(cfg.db, this.journal);
     this.commands = new CommandBus(cfg.db, this.journal, this.plugins);
     this.outbox = new OutboxPublisher(cfg.db);
+    this.stream = new EventStreamService(cfg.db, this.journal, cfg.stream);
     this.canvas = new CanvasService(cfg.db, cfg.semanticValidator);
     this.commands.register("canvas.apply_patch", this.canvas.handler);
     const nodeEnv = cfg.nodeEnv ?? process.env.NODE_ENV;

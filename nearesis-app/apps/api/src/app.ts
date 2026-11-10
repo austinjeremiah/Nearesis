@@ -11,6 +11,8 @@ const Uuid = z.uuid();
 export interface AppOptions {
   kernel: Kernel;
   nodeEnv?: string | undefined;
+  /** SSE journal poll interval (ms). */
+  ssePollMs?: number;
 }
 
 declare module "fastify" {
@@ -120,6 +122,93 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       throw e;
     }
   });
+
+  /**
+   * SSE: ordered committed events from the journal. `Last-Event-ID` (or ?cursor=) is the last applied seq.
+   * Frames carry id=seq so clients dedupe by id. Expired/invalid cursor => reload_required. Lagging subscribers get a
+   * coalesced aggregate; the server never buffers more than one batch per subscriber (reads are cursor-driven).
+   */
+  app.get<{ Params: { id: string }; Querystring: { cursor?: string } }>(
+    "/v1/workspaces/:id/events",
+    async (req, reply) => {
+      const session = await authenticate(req);
+      if (!Uuid.safeParse(req.params.id).success) throw workspaceNotFound();
+      try {
+        await kernel.stream.authorize(session, req.params.id);
+      } catch (e) {
+        if (e instanceof KernelError && e.code === "FORBIDDEN") throw workspaceNotFound();
+        throw e;
+      }
+      const rawCursor = (req.headers["last-event-id"] as string | undefined) ?? req.query.cursor ?? "0";
+      const parsedCursor = /^\d+$/.test(rawCursor) ? Number(rawCursor) : Number.NaN;
+      const res = reply.raw;
+      reply.hijack();
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive",
+        "x-accel-buffering": "no",
+        "x-trace-id": req.traceId,
+      });
+      let closed = false;
+      req.raw.on("close", () => (closed = true));
+      const frame = (event: string, id: number | null, data: unknown) =>
+        res.write(`${id === null ? "" : `id: ${id}\n`}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+      const pollMs = opts.ssePollMs ?? 250;
+      let cursor = Number.isNaN(parsedCursor) ? -1 : parsedCursor;
+      let first = true;
+      let lastBeat = Date.now();
+      try {
+        if (cursor < 0) {
+          const r = await kernel.stream.read(session, req.params.id, 0, true);
+          frame("reload_required", r.head, {
+            reason: "INVALID_CURSOR",
+            currentSeq: r.head,
+            workspaceVersion: "workspaceVersion" in r ? r.workspaceVersion : null,
+          });
+          return res.end();
+        }
+        while (!closed) {
+          const r = await kernel.stream.read(session, req.params.id, cursor, first);
+          first = false;
+          if (r.status === "reload_required") {
+            frame("reload_required", r.head, {
+              reason: "CURSOR_EXPIRED",
+              currentSeq: r.head,
+              workspaceVersion: r.workspaceVersion,
+            });
+            break;
+          }
+          let ok = true;
+          if (r.status === "coalesced") {
+            ok = frame("coalesced", r.aggregate.toSeq, r.aggregate);
+            cursor = r.aggregate.toSeq;
+          } else if (r.events.length) {
+            for (const ev of r.events) {
+              ok = frame(ev.type, ev.seq, ev) && ok;
+              cursor = ev.seq;
+            }
+          } else {
+            if (Date.now() - lastBeat > 15_000) {
+              res.write(": ping\n\n");
+              lastBeat = Date.now();
+            }
+            await sleep(pollMs);
+            continue;
+          }
+          if (!ok && !closed)
+            await new Promise<void>((resolve) => {
+              res.once("drain", resolve);
+              res.once("close", resolve);
+            });
+        }
+      } catch {
+        /* connection torn down or auth lost: just end the stream */
+      }
+      if (!res.writableEnded) res.end();
+    },
+  );
 
   app.post<{ Params: { id: string } }>("/v1/workspaces/:id/commands", async (req) => {
     const session = await authenticate(req);

@@ -6,49 +6,85 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same ref supersedes a running one.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  quality:
+  suite:
+    name: full suite
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: nearesis-app
-    services:
-      postgres:
-        image: postgres:17.11@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
-        env:
-          POSTGRES_USER: nearesis
-          POSTGRES_PASSWORD: nearesis
-          POSTGRES_DB: nearesis
-        ports:
-          - 55432:5432
-        options: >-
-          --health-cmd "pg_isready -U nearesis -d nearesis"
-          --health-interval 3s --health-timeout 3s --health-retries 30
+    env:
+      CI: "true"
+      # Fixture evidence is written here (never into the checkout) and uploaded as a workflow artifact.
+      NEARESIS_CI_REPORTS_DIR: ${{ runner.temp }}/ci-reports
     steps:
-      - uses: actions/checkout@v4
-      - name: Cache project-local toolchain
-        uses: actions/cache@v4
+      # Every run step below is `sh scripts/ci/steps.sh <name>`: the same file scripts/ci/local-run.ts replays locally.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Cache project-local toolchain (Node, uv, Python)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: nearesis-app/.toolchain
           key: toolchain-${{ runner.os }}-${{ hashFiles('nearesis-app/scripts/bootstrap-toolchain.sh') }}
-      - name: Bootstrap toolchain (Node, pnpm, uv, Python)
-        run: sh scripts/bootstrap-toolchain.sh
+      - name: Cache pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('nearesis-app/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+      - name: Cache Playwright browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('nearesis-app/pnpm-lock.yaml') }}
+
+      - name: Bootstrap toolchain
+        run: sh scripts/ci/steps.sh toolchain
       - name: Install JS dependencies
-        run: . scripts/toolchain-env.sh && pnpm install --frozen-lockfile
+        run: sh scripts/ci/steps.sh install-js
       - name: Install Python dependencies
-        run: . scripts/toolchain-env.sh && uv sync --frozen
-      - name: Create database roles
-        run: PGPASSWORD=nearesis psql -h 127.0.0.1 -p 55432 -U nearesis -d nearesis -v ON_ERROR_STOP=1 -f infrastructure/postgres/init/00-roles.sql
-      - name: Typecheck, lint and tests
-        run: . scripts/toolchain-env.sh && pnpm quality:all
+        run: sh scripts/ci/steps.sh install-py
+      - name: Install Playwright Chromium
+        run: sh scripts/ci/steps.sh playwright
+      - name: Start services (Postgres, Redis, ClickHouse, Temporal, Cube)
+        run: sh scripts/ci/steps.sh services-up
+      - name: Apply database roles
+        run: sh scripts/ci/steps.sh db-roles
+
+      - name: Typecheck
+        run: sh scripts/ci/steps.sh typecheck
+      - name: Lint
+        run: sh scripts/ci/steps.sh lint
       - name: Format check
-        run: . scripts/toolchain-env.sh && pnpm format:check
+        run: sh scripts/ci/steps.sh format
+      - name: Package tests
+        run: sh scripts/ci/steps.sh test
+      - name: Browser e2e (build monitor)
+        run: sh scripts/ci/steps.sh e2e
       - name: Python tests
-        run: . scripts/toolchain-env.sh && uv run pytest
-      - name: Secret scan
-        run: . scripts/toolchain-env.sh && pnpm security:secrets
-      - name: URL and source-register audit
-        run: . scripts/toolchain-env.sh && pnpm security:urls
+        run: sh scripts/ci/steps.sh pytest
+      - name: Security scans (secrets, URL and source-register audit)
+        run: sh scripts/ci/steps.sh security
       - name: Boot unit tests
-        run: . scripts/toolchain-env.sh && pnpm exec vitest run tests/boot/secret-scan.test.ts
+        run: sh scripts/ci/steps.sh boot
+      - name: Fixture-mode acceptance (live tests skipped)
+        run: sh scripts/ci/steps.sh accept-fixture
+
+      - name: Compose logs on failure
+        if: failure()
+        run: >-
+          docker compose -f infrastructure/compose/docker-compose.yml -f infrastructure/compose/analytics.yml
+          logs --no-color --tail 200
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-evidence
+          path: ${{ runner.temp }}/ci-reports
+          if-no-files-found: ignore
+          retention-days: 14

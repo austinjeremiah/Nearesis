@@ -1,0 +1,14 @@
+# Local-validation override ONLY (never passed by .github/workflows/ci.yml): moves every published host port of the
+# compose stack away from the developer stack (55432, 56379, 58123, 59000, 57233, 58233, 4000) so a second project,
+# `-p nearesis-ci`, can run beside it. Services still listen on their default ports inside the compose network.
+services:
+  postgres:
+    ports: !override ["127.0.0.1:65432:5432"]
+  redis:
+    ports: !override ["127.0.0.1:66379:6379"]
+  clickhouse:
+    ports: !override ["127.0.0.1:68123:8123", "127.0.0.1:69000:9000"]
+  temporal:
+    ports: !override ["127.0.0.1:67233:7233", "127.0.0.1:68233:8233"]
+  cube:
+    ports: !override ["127.0.0.1:64000:4000"]

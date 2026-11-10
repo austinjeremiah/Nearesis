@@ -14,7 +14,8 @@
         "tests/boot/BOOT01.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "BOOT02",
@@ -28,7 +29,8 @@
         "tests/boot/BOOT02.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "BOOT03",
@@ -42,7 +44,8 @@
         "tests/boot/BOOT03.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "K01",
@@ -56,7 +59,8 @@
         "apps/api/test/acceptance/K01.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "K02",
@@ -70,7 +74,8 @@
         "packages/kernel/test/acceptance/K02.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "K03",
@@ -84,7 +89,8 @@
         "packages/kernel/test/acceptance/K03.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "K04",
@@ -98,7 +104,8 @@
         "apps/api/test/acceptance/K04.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "K05",
@@ -112,7 +119,8 @@
         "packages/kernel/test/acceptance/K05.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "K06",
@@ -126,7 +134,8 @@
         "packages/kernel/test/acceptance/K06.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "K07",
@@ -140,7 +149,8 @@
         "packages/kernel/test/acceptance/K07.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "K08",
@@ -154,7 +164,8 @@
         "packages/kernel/test/acceptance/K08.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "K09",
@@ -168,7 +179,8 @@
         "packages/kernel/test/acceptance/K09.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "K10",
@@ -182,7 +194,8 @@
         "packages/kernel/test/acceptance/K10.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D01",
@@ -192,9 +205,12 @@
       "passCondition": "all unique stable IDs imported exactly once",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D01.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D02",
@@ -204,9 +220,12 @@
       "passCondition": "rate backoff respects partner limit, no dropped cursor",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D02.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D03",
@@ -216,9 +235,12 @@
       "passCondition": "resume matches clean import checksum",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D03.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D04",
@@ -228,9 +250,12 @@
       "passCondition": "global 1 request / 5 seconds enforced",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D04.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D05",
@@ -240,9 +265,12 @@
       "passCondition": "gap flagged unknown, not zero swap",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D05.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D06",
@@ -252,9 +280,12 @@
       "passCondition": "quarantine and trace event, no fact promotion",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D06.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D07",
@@ -264,9 +295,12 @@
       "passCondition": "`dry=true`, no real deposit/transaction side effect",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D07.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D08",
@@ -276,9 +310,12 @@
       "passCondition": "effective-dated lookup returns correct historical ID",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D08.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D09",
@@ -288,9 +325,12 @@
       "passCondition": "non-public swap hash not fabricated or counted exact",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D09.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D10",
@@ -300,9 +340,12 @@
       "passCondition": "reject without `block_date` and estimated cost cap",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D10.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D11",
@@ -312,9 +355,12 @@
       "passCondition": "exact arithmetic, no float rounding corruption",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D11.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D12",
@@ -324,9 +370,12 @@
       "passCondition": "same normalized output digest on two identical runs",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D12.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S01",
@@ -338,7 +387,8 @@
       "definition": "ch16",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S02",
@@ -350,7 +400,8 @@
       "definition": "ch16",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S03",
@@ -360,9 +411,12 @@
       "passCondition": "reject 422, no raw SQL fallback",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S03.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S04",
@@ -374,7 +428,8 @@
       "definition": "ch16",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S05",
@@ -384,9 +439,12 @@
       "passCondition": "refuse/require explicit indexed transform",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S05.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S06",
@@ -396,9 +454,12 @@
       "passCondition": "query cost cap enforced before DB load",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S06.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S07",
@@ -408,9 +469,12 @@
       "passCondition": "stale result not returned under new semantic hash",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S07.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S08",
@@ -422,7 +486,8 @@
       "definition": "ch16",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S09",
@@ -434,7 +499,8 @@
       "definition": "ch16",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A01",
@@ -446,7 +512,8 @@
       "definition": "ch16",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A02",
@@ -456,9 +523,12 @@
       "passCondition": "resumed exactly once for external side effects",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/A02.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A03",
@@ -470,7 +540,8 @@
       "definition": "ch16",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A04",
@@ -482,7 +553,8 @@
       "definition": "ch16",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A05",
@@ -492,9 +564,12 @@
       "passCondition": "blocked with cost and audit record",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/A05.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A06",
@@ -506,7 +581,8 @@
       "definition": "ch16",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A07",
@@ -518,7 +594,8 @@
       "definition": "ch16",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A08",
@@ -532,7 +609,8 @@
         "packages/inference/test/acceptance/A08.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A09",
@@ -544,7 +622,8 @@
       "definition": "ch16",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A10",
@@ -554,9 +633,12 @@
       "passCondition": "children cancelled/reconciled, stable parent status",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/A10.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C01",
@@ -568,7 +650,8 @@
       "definition": "ch16",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C02",
@@ -578,9 +661,12 @@
       "passCondition": "schema validator rejects, no code execution",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/canvas-schema/test/acceptance/C02.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C03",
@@ -590,9 +676,12 @@
       "passCondition": "compiler labels/indexes or refuses",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "packages/canvas-schema/test/acceptance/C03.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C04",
@@ -602,9 +691,12 @@
       "passCondition": "layout/queries/markers same persisted revision",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C04.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C05",
@@ -614,9 +706,12 @@
       "passCondition": "one consistent version; conflict surfaced",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C05.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C06",
@@ -626,9 +721,12 @@
       "passCondition": "reversible patch and event history preserved",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C06.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C07",
@@ -638,9 +736,12 @@
       "passCondition": "empty-state panel and limitations, no fake points",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C07.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C08",
@@ -650,9 +751,12 @@
       "passCondition": "chart/marker/panel can be navigated without mouse",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C08.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "K11",
@@ -666,7 +770,8 @@
         "packages/kernel/test/acceptance/K11.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "K12",
@@ -680,7 +785,8 @@
         "packages/kernel/test/acceptance/K12.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D13",
@@ -690,9 +796,12 @@
       "passCondition": "provenance on every candle; missing day is a gap with no fill; both vintages kept; conversion on gap returns PRICE_UNAVAILABLE",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D13.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D14",
@@ -702,9 +811,12 @@
       "passCondition": "keys equal SHA-256 of bytes; overwrite rejected; 100% envelopes schema-valid with timestamps; 0 canary/Authorization hits",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D14.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D15",
@@ -714,9 +826,12 @@
       "passCondition": "exit 0; 0 egress attempts; 0 credential reads; output digest equals snapshot manifest",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D15.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D16",
@@ -726,9 +841,12 @@
       "passCondition": "each provider schema-valid and fingerprint-matched; BigQuery identity/project/location discovered and recorded (not hardcoded); within frozen probe budget; dry=true and only allowlisted 1Click endpoints; documented unauthenticated endpoints allowed; missing required key = BLOCKED_DEPENDENCY",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D16.accept.test.ts"
+      ],
       "live": true,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D17",
@@ -738,9 +856,12 @@
       "passCondition": "date-correct lookups; conflicts quarantined as ambiguous; unverified contracts never counted in named segments",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D17.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "D18",
@@ -750,9 +871,12 @@
       "passCondition": "bounded retries and open circuit; source degraded/unavailable; no facts or zeros for gap; blocker artifact; clean resume from cursor",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "services/ingestion/test/acceptance/D18.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S10",
@@ -764,7 +888,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S11",
@@ -776,7 +901,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S12",
@@ -788,7 +914,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S13",
@@ -800,7 +927,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S14",
@@ -810,9 +938,12 @@
       "passCondition": "every out-of-contract AST 422 with 0 executions; client tenant/security context never honoured",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S14.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S15",
@@ -824,7 +955,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "S16",
@@ -834,9 +966,12 @@
       "passCondition": "restricted members hidden; cache keys carry scope/ACL/version/vintage; no restricted result served cross-scope",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S16.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A11",
@@ -848,7 +983,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A12",
@@ -858,9 +994,12 @@
       "passCondition": "<=6 concurrent children; depth<=3; 25th tool call rejected; stage timeout enforced; limits from server policy",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/A12.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A13",
@@ -870,9 +1009,12 @@
       "passCondition": "0 nondeterminism errors on production histories; 0 activities executed; negative control fails",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/A13.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A14",
@@ -884,7 +1026,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A15",
@@ -898,7 +1041,8 @@
         "packages/inference/test/acceptance/A15.accept.test.ts"
       ],
       "live": false,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A16",
@@ -912,7 +1056,10 @@
         "packages/inference/test/acceptance/A16.accept.test.ts"
       ],
       "live": true,
-      "status": "IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": false,
+      "supersededBy": "A21",
+      "note": "Historical NEAR AI attested test; disabled (ADR-20261110-004). Never PASS from non-NEAR-AI output."
     },
     {
       "testId": "A17",
@@ -924,7 +1071,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A18",
@@ -934,9 +1082,12 @@
       "passCondition": "one child per 5-tuple identity; side effects once; distinct snapshot yields distinct child",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/A18.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A19",
@@ -948,7 +1099,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "A20",
@@ -960,7 +1112,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C09",
@@ -970,9 +1123,12 @@
       "passCondition": "all rejected 422 with revision unchanged; corrupted stored panel isolated as error panel; no unregistered component",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C09.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C10",
@@ -982,9 +1138,12 @@
       "passCondition": "0 script execution; 0 content CSP violations; text inert; spec formatter functions rejected",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C10.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C11",
@@ -994,9 +1153,12 @@
       "passCondition": "nothing applied on invalid op; preview pure and stable; valid patch one revision atomically",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C11.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C12",
@@ -1008,7 +1170,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C13",
@@ -1018,9 +1181,12 @@
       "passCondition": "selection has query hash/version/interval/series/points/units/watermark/renderer; persists; 0 agent spawns",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C13.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C14",
@@ -1032,7 +1198,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C15",
@@ -1044,7 +1211,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C16",
@@ -1056,7 +1224,8 @@
       "definition": "ch16a",
       "testFiles": [],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C17",
@@ -1066,9 +1235,12 @@
       "passCondition": "each violation refused or explicitly labelled transform; daily-distinct weekly sum refused; gaps not interpolated",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C17.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
     },
     {
       "testId": "C18",
@@ -1078,9 +1250,25 @@
       "passCondition": "legal transitions only; ERROR keeps last good data; revisions independent; declared downsampling preserves spikes; frozen thresholds (DOM<=5000/panel, heap<=150MB, first frame<=3000ms, no task>250ms) in pre-committed reference environment",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C18.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED",
+      "required": true
+    },
+    {
+      "testId": "A21",
+      "gate": "G04",
+      "phase": "P04",
+      "name": "Live structured inference via OpenRouter BYOK (substitutes A16)",
+      "passCondition": "schema-valid primary + forced fallback; every response BYOK; usage/cost/latency/status logged; <=USD 5; outputs unattested and refused by publication gate; 0 key leaks",
+      "owner": "ENGINE_A",
+      "definition": "ch16a",
+      "testFiles": [],
+      "live": true,
+      "status": "NOT_IMPLEMENTED",
+      "required": true
     }
   ]
 }

@@ -188,3 +188,12 @@ sources:
     rateLimits: "n/a"
     status: TO_VERIFY
     notes: "Official NEAR documentation. Referenced as an evidence URL in packages/test-fixtures/scripts/generate.ts (contract registry fixture). Not an API endpoint; no runtime calls."
+  - id: openrouter
+    hosts: [openrouter.ai]
+    officialDocUrl: https://openrouter.ai/docs
+    accessedAt: "2026-11-10"
+    version: "API v1 (OpenAI-compatible)"
+    auth: "Bearer OPENROUTER_API_KEY; BYOK provider keys configured in the OpenRouter dashboard"
+    rateLimits: "TO_VERIFY"
+    status: TO_VERIFY
+    notes: "Primary live inference provider per ADR-20261110-004. BYOK routing must be verified per response via generation metadata."

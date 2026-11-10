@@ -114,6 +114,9 @@ function startRunner(): void {
     CONTAINER,
     "-v",
     `${work}:/work`,
+    // GitHub runners ship a docker CLI wired to the daemon; S13 inspects the Cube container through it.
+    "-v",
+    "/var/run/docker.sock:/var/run/docker.sock",
     "-v",
     "nearesis-ci-cache:/root/.cache",
     "-v",
@@ -131,7 +134,7 @@ function startRunner(): void {
   if (r.status) throw new Error(`runner container failed: ${r.out}`);
   // Stand-in for the GitHub runner image's preinstalled tools.
   const p = dx(
-    "export DEBIAN_FRONTEND=noninteractive; apt-get update -qq && apt-get install -y -qq curl xz-utils ca-certificates git socat sudo >/dev/null && git config --global --add safe.directory '*'",
+    "export DEBIAN_FRONTEND=noninteractive; apt-get update -qq && apt-get install -y -qq curl xz-utils ca-certificates git socat sudo docker.io >/dev/null && git config --global --add safe.directory '*'",
     join(logs, "runner-prep.log"),
   );
   if (p.status) throw new Error("runner prep failed, see logs/runner-prep.log");

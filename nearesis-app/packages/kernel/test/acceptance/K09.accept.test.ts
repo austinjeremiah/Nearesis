@@ -69,12 +69,16 @@ it("K09: duplicate outbox delivery produces exactly one logical effect per consu
 
   // Two publishers racing over fresh work: SKIP LOCKED + receipts => still one effect each.
   await runCmd(k, s, workspaceId, "workspace.update_objective", { objective: "again" }, version + 1);
+  // The second publisher has the same consumer set, so whichever one claims the row, every consumer sees it once.
   const pub2 = new OutboxPublisher(db.app);
-  pub2.register("projector", async ({ tx, event }) => {
-    await tx.query("INSERT INTO consumer_effects(consumer, event_id) VALUES ('projector', $1)", [
-      event.eventId,
-    ]);
-  });
+  for (const name of ["projector", "notifier"]) {
+    pub2.register(name, async ({ tx, event }) => {
+      await tx.query("INSERT INTO consumer_effects(consumer, event_id) VALUES ($1, $2)", [
+        name,
+        event.eventId,
+      ]);
+    });
+  }
   await Promise.all([pub.runOnce(), pub2.runOnce()]);
 
   const final = await effects();

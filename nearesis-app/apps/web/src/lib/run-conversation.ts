@@ -19,8 +19,9 @@ import type { SourceLabel } from "./types.ts";
 type ApiRun = RunView & { budget?: RunBudgetUsage };
 
 const POLL_MS = 1000;
-const BUDGET = { tokens: 60000, toolCalls: 16, usd: 1 };
-export const BUDGET_NOTE = "60k tokens · 16 calls · $1.00 per question";
+// The runtime reserves 32,000 tokens, 12 calls and $3 for a composer run: a smaller cap leaves the run stuck at REQUESTED.
+const BUDGET = { tokens: 200000, toolCalls: 24, usd: 10 };
+export const BUDGET_NOTE = "200k tokens · 24 calls · $10.00 cap per question";
 
 const isTerminal = (s: RunState) => TERMINAL_RUN_STATES.includes(s);
 const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
@@ -192,7 +193,7 @@ export function useRunConversation(workspaceId: string, enabled: boolean): RunCo
       const r = await fetch(`/api/k/workspaces/${workspaceId}/questions`, {
         method: "POST",
         headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
-        body: JSON.stringify({ question, snapshotPolicy: "live", budget: BUDGET }),
+        body: JSON.stringify({ question, snapshotPolicy: "pinned", budget: BUDGET }),
       });
       if (!r.ok) {
         const b = (await r.json().catch(() => ({}))) as { message?: string; reasonCode?: string };

@@ -48,12 +48,34 @@ export function parseEnv(text: string): { name: string; value: string }[] {
   return out;
 }
 
+/** Variable names that denote credentials. Any value of such a variable is treated as secret. */
+const SECRET_NAME = /(KEY|TOKEN|JWT|SECRET|PASSWORD|PASSWD|PRIVATE|SIGNING|CREDENTIAL|AUTH)/i;
+
+function shannonEntropy(v: string): number {
+  const counts = new Map<string, number>();
+  for (const ch of v) counts.set(ch, (counts.get(ch) ?? 0) + 1);
+  let h = 0;
+  for (const n of counts.values()) h -= (n / v.length) * Math.log2(n / v.length);
+  return h;
+}
+
+/**
+ * A `.env` value is compared against tracked files when it is a credential: its variable name is credential-like, or
+ * the value itself looks like key material (>= 20 chars, entropy >= 3.5 bits/char). Plain configuration such as
+ * `INFERENCE_PROVIDER=openrouter` or a model id is not secret and would otherwise flag every doc that names it.
+ */
+export function isSecretCandidate(name: string, value: string): boolean {
+  return SECRET_NAME.test(name) || (value.length >= 20 && shannonEntropy(value) >= 3.5);
+}
+
 export function scanRepo(repoRoot: string, allow: AllowEntry[] = []): Finding[] {
   const ls = spawnSync("git", ["-C", repoRoot, "ls-files", "-z"], { encoding: "buffer", maxBuffer: 1 << 28 });
   if (ls.status !== 0) throw new Error("git ls-files failed");
   const files = ls.stdout.toString("utf8").split("\0").filter(Boolean);
   const envPath = join(repoRoot, ".env");
-  const envVars = existsSync(envPath) ? parseEnv(readFileSync(envPath, "utf8")) : [];
+  const envVars = (existsSync(envPath) ? parseEnv(readFileSync(envPath, "utf8")) : []).filter((v) =>
+    isSecretCandidate(v.name, v.value),
+  );
   const findings: Finding[] = [];
   for (const file of files) {
     const abs = join(repoRoot, file);

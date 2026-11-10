@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { auditUrls } from "../../scripts/security/url-audit.ts";
-import { parseEnv, scanRepo } from "../../scripts/security/secret-scan.ts";
+import { isSecretCandidate, parseEnv, scanRepo } from "../../scripts/security/secret-scan.ts";
 
 // All canaries are synthetic and assembled at runtime so this file itself never matches a pattern.
 const canaries = {
@@ -67,6 +67,22 @@ describe("secret scanner", () => {
   it("passes a clean repo", () => {
     repo({ "ok.ts": "export const a = 1;\n" });
     expect(scanRepo(dir)).toEqual([]);
+  });
+});
+
+describe("secret scanner: which .env values count as secrets", () => {
+  it("flags credential-named and high-entropy values but not plain configuration", () => {
+    const highEntropy = "Zq8" + "x2LmP9vT4kR7wN1sB6yH3cJ5";
+    repo({
+      ".env": `INFERENCE_PROVIDER=openrouter\nOPENROUTER_PRIMARY_MODEL=openai/gpt-5-nano\nAPI_TOKEN=plain-but-named-token\nUNNAMED=${highEntropy}\n`,
+      "README.md": `uses openrouter with openai/gpt-5-nano\ntoken plain-but-named-token\nblob ${highEntropy}\n`,
+    });
+    const names = scanRepo(dir)
+      .map((x) => x.name)
+      .sort();
+    expect(names).toEqual(["API_TOKEN", "UNNAMED"]);
+    expect(isSecretCandidate("INFERENCE_PROVIDER", "openrouter")).toBe(false);
+    expect(isSecretCandidate("OPENROUTER_API_KEY", "short")).toBe(true);
   });
 });
 

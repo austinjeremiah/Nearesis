@@ -18,7 +18,10 @@
     "dev:infra": "docker compose -f infrastructure/compose/docker-compose.yml up -d --wait",
     "dev:infra:down": "docker compose -f infrastructure/compose/docker-compose.yml down",
     "quality:all": "pnpm typecheck && pnpm lint && pnpm test",
-    "coord": "tsx scripts/coord.ts"
+    "coord": "tsx scripts/coord.ts",
+    "security:secrets": "tsx scripts/security/secret-scan.ts",
+    "security:urls": "tsx scripts/security/url-audit.ts",
+    "security:all": "pnpm security:secrets && pnpm security:urls"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -33,7 +36,7 @@
     "zod": "4.6.7"
   },
   "dependencies": {
-    "@nearesis/contracts": "workspace:*",
-    "@nearesis/acceptance": "workspace:*"
+    "@nearesis/acceptance": "workspace:*",
+    "@nearesis/contracts": "workspace:*"
   }
 }

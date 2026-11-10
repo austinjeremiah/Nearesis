@@ -6,9 +6,9 @@
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import { createProviderFromEnv, loadEnvVar, resolveProviderMode } from "@nearesis/inference";
-import { composeCanvas } from "@nearesis/near-thesis";
+import { composeCanvas, registerRunSource } from "@nearesis/near-thesis";
 import { DEFAULT_ENGINE_INTERFACES, Db, Kernel, type Session } from "@nearesis/kernel";
-import type { ExecutionRequest, InferenceProvider } from "@nearesis/contracts";
+import type { ExecutionRequest, InferenceProvider, ToolGateway } from "@nearesis/contracts";
 import {
   INVESTIGATION_GRANT,
   KernelCanvasExecutor,
@@ -62,6 +62,31 @@ export function requesterFromKernel(pool: pg.Pool, kernel: Kernel): RequesterRes
   };
 }
 const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * Makes every gateway call for a run carry the run's semantic source (contracts 1.4.0 `source`): before delegating, the
+ * source stored on the run's `runs` row (tenant-scoped read) is registered for the near-thesis plugin, which selects the
+ * fixture cubes or cube-live from it. One choke point covers discovery, queries and canvas previews, whoever issues them.
+ */
+export function withRunSource(inner: ToolGateway, pool: pg.Pool): ToolGateway {
+  const known = new Set<string>();
+  return {
+    async invoke(principal, request) {
+      const runId = principal.parentRunId;
+      if (runId && !known.has(runId)) {
+        const r = await withTenant(pool, principal.orgId, (c) =>
+          c.query<{ source: string }>("SELECT source FROM runs WHERE id = $1", [runId]),
+        );
+        if (r.rows[0]) {
+          registerRunSource(runId, r.rows[0].source === "live" ? "live" : "fixture");
+          if (known.size > 5000) known.clear();
+          known.add(runId);
+        }
+      }
+      return inner.invoke(principal, request);
+    },
+  };
+}
 
 export class KernelCanvas implements CanvasExecutor {
   constructor(
@@ -160,7 +185,7 @@ export function buildKernelDeps(a: {
   const live = a.liveComposer ?? (!a.provider && resolveProviderMode() === "openrouter");
   const requesterOf = requesterFromKernel(a.pool, a.kernel);
   const leases = new KernelLeaseBroker({ kernel: a.kernel, requesterOf });
-  const gateway = a.kernel.gateway;
+  const gateway = withRunSource(a.kernel.gateway, a.pool);
   return {
     pool: a.pool,
     ...(a.appUrl ? { appUrl: a.appUrl } : {}),

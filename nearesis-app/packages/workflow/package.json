@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@nearesis/acceptance": "workspace:*",
+    "@nearesis/analytics": "workspace:*",
     "@nearesis/canvas-schema": "workspace:*",
     "@nearesis/near-thesis": "workspace:*",
     "@nearesis/plugin-sdk": "workspace:*",

@@ -1,30 +1,9 @@
-/**
- * Per-run semantic source: the plugin answers from the layer the run was submitted with (runtime.runs.source), never
- * from anything in the invocation input. Needs the dev Postgres with the runtime schema migrated (pnpm dev:seed).
- */
+/** Per-run semantic source: the plugin answers from the layer registered for the principal's run, defaulting to fixture. */
 import { randomUUID } from "node:crypto";
-import { afterAll, describe, expect, it } from "vitest";
-import { createPg } from "@nearesis/analytics";
+import { describe, expect, it } from "vitest";
 import type { InvocationContext } from "@nearesis/plugin-sdk";
-import { gateway, sourceOf } from "../src/entry.ts";
+import { gateway, registerRunSource, sourceOf } from "../src/entry.ts";
 
-const pool = createPg();
-const made: string[] = [];
-afterAll(async () => {
-  for (const id of made) await pool.query("DELETE FROM runtime.runs WHERE id = $1", [id]);
-  await pool.end();
-});
-
-async function run(source: "fixture" | "live"): Promise<string> {
-  const id = randomUUID();
-  made.push(id);
-  await pool.query(
-    `INSERT INTO runtime.runs (id, tenant_id, workspace_id, investigation_id, question_id, snapshot_ref, budget_id, workflow_id, state, source)
-     VALUES ($1,$2,$3,$4,$5,'pinned:ws-v1',$6,$7,'REQUESTED',$8)`,
-    [id, randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), `wf-${id}`, source],
-  );
-  return id;
-}
 const ctx = (parentRunId?: string) =>
   ({
     principal: {
@@ -37,13 +16,17 @@ const ctx = (parentRunId?: string) =>
   }) as unknown as InvocationContext;
 
 describe("sourceOf", () => {
-  it("returns the stored source of the principal's run", async () => {
-    expect(await sourceOf(ctx(await run("live")))).toBe("live");
-    expect(await sourceOf(ctx(await run("fixture")))).toBe("fixture");
+  it("returns the source registered for the principal's run", () => {
+    const live = randomUUID();
+    const fx = randomUUID();
+    registerRunSource(live, "live");
+    registerRunSource(fx, "fixture");
+    expect(sourceOf(ctx(live))).toBe("live");
+    expect(sourceOf(ctx(fx))).toBe("fixture");
   });
-  it("falls back to fixture, never live, without a run or for an unknown run", async () => {
-    expect(await sourceOf(ctx())).toBe("fixture");
-    expect(await sourceOf(ctx(randomUUID()))).toBe("fixture");
+  it("falls back to fixture, never live, without a run or for an unregistered run", () => {
+    expect(sourceOf(ctx())).toBe("fixture");
+    expect(sourceOf(ctx(randomUUID()))).toBe("fixture");
   });
 });
 

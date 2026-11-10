@@ -105,30 +105,29 @@ export function gateway(source: SemanticSource = "fixture"): Wired {
   return w;
 }
 
-const sourceCache = new Map<string, SemanticSource>();
 /**
- * The source the run was submitted with (`runtime.runs.source`, set from the question's `source`). Agent principals carry
- * the run id as `parentRunId`; anything without a run (health probes, humans) uses the fixture layer. A lookup failure
- * also falls back to fixture, never to live: real data is only served when the run explicitly asked for it.
+ * Run -> source registry, held on `globalThis` so the worker's gateway decorator and this plugin module share it even
+ * when the module is loaded through a different specifier. The worker registers a run's source (read from its own
+ * `runs` row) before every gateway call made for that run; the plugin never reads a source from invocation input.
  */
-export async function sourceOf(ctx: InvocationContext): Promise<SemanticSource> {
+const REGISTRY = Symbol.for("nearesis.near-thesis.run-source");
+const registry = (): Map<string, SemanticSource> => {
+  const g = globalThis as unknown as Record<symbol, Map<string, SemanticSource> | undefined>;
+  return (g[REGISTRY] ??= new Map());
+};
+export function registerRunSource(runId: string, source: SemanticSource): void {
+  const m = registry();
+  if (m.size > 5000) m.clear();
+  m.set(runId, source);
+}
+/**
+ * The source the run was submitted with. Agent principals carry the run id as `parentRunId`; anything without a
+ * registered run (health probes, humans, unknown runs) uses the fixture layer: real data is only served when the run
+ * explicitly asked for it.
+ */
+export function sourceOf(ctx: InvocationContext): SemanticSource {
   const runId = ctx.principal.parentRunId;
-  if (!runId) return "fixture";
-  const cached = sourceCache.get(runId);
-  if (cached) return cached;
-  try {
-    const r = await pool().query<{ source: string }>("SELECT source FROM runtime.runs WHERE id = $1", [
-      runId,
-    ]);
-    const s: SemanticSource = r.rows[0]?.source === "live" ? "live" : "fixture";
-    if (r.rows[0]) {
-      if (sourceCache.size > 1000) sourceCache.clear();
-      sourceCache.set(runId, s);
-    }
-    return s;
-  } catch {
-    return "fixture";
-  }
+  return (runId && registry().get(runId)) || "fixture";
 }
 
 /** Observed data windows of the LIVE datasets, keyed by table like `dataWindows` (null = no rows). */
@@ -185,7 +184,7 @@ export function completenessOf(env: DataFrameEnvelope): "complete" | "partial" |
 export default definePlugin({
   handlers: {
     "semantic.discover@1": async (_input, ctx) => {
-      const source = await sourceOf(ctx);
+      const source = sourceOf(ctx);
       const g = gateway(source);
       const r = await g.gateway.discover(sessionOf(ctx));
       return {
@@ -196,7 +195,7 @@ export default definePlugin({
       };
     },
     "semantic.query@1": async (input, ctx) => {
-      const r = await gateway(await sourceOf(ctx)).gateway.query(sessionOf(ctx), input);
+      const r = await gateway(sourceOf(ctx)).gateway.query(sessionOf(ctx), input);
       return r.ok
         ? { ok: true, queryHash: r.queryHash, cache: r.cache, envelope: r.envelope }
         : { ok: false, status: r.status, error: r.error };
@@ -207,7 +206,7 @@ export default definePlugin({
      */
     "canvas.preview@1": async (input, ctx) => {
       const parsed = PreviewInput.parse(input);
-      const { gateway: g, registry } = gateway(await sourceOf(ctx));
+      const { gateway: g, registry } = gateway(sourceOf(ctx));
       const metrics = registry.metrics as unknown as MetricMetadata[];
       const issues: Array<{ index: number; code: string; path: string; message: string }> = [];
       const ops = [];

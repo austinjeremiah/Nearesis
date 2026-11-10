@@ -612,6 +612,9 @@ importers:
       '@nearesis/acceptance':
         specifier: workspace:*
         version: link:../acceptance
+      '@nearesis/analytics':
+        specifier: workspace:*
+        version: link:../../services/analytics
       '@nearesis/canvas-schema':
         specifier: workspace:*
         version: link:../canvas-schema

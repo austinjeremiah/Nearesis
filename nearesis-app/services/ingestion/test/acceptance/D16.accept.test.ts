@@ -191,8 +191,8 @@ it("probes BigQuery, Explorer, 1Click and CoinGecko within the frozen budget", a
       privacyMode: "public",
       scheduledBucketUTC: new Date().toISOString(),
       attemptNo: 1,
-      recipient: "nearesis-probe.near",
-      refundTo: "nearesis-probe.near",
+      recipient: "aurora",
+      refundTo: "aurora",
       destDecimals: dest.decimals,
     });
     const endpoints = [...new Set(sampler.callLog.map((c) => `${c.method} ${c.path}`))].sort();

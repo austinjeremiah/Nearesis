@@ -485,7 +485,9 @@ export class OpenRouterProvider implements InferenceProvider {
         { role: "user", content: prompt },
       ],
       max_tokens: args.maxTokens,
-      temperature: 0,
+      // No `temperature`: OpenAI/Anthropic endpoints for current reasoning models do not list it, and with
+      // require_parameters=true sending an unsupported parameter excludes every endpoint (HTTP 404 "No endpoints
+      // found that can handle the requested parameters"). Outputs are schema-validated instead.
       response_format: {
         type: "json_schema",
         json_schema: { name: "result", strict: true, schema: jsonSchema },

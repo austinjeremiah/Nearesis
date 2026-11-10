@@ -34,6 +34,9 @@ describe("OpenRouterProvider", () => {
       require_parameters: true,
     });
     expect((chat.body!.response_format as { type: string }).type).toBe("json_schema");
+    // Regression (live A21 run 2026-11-10): sending a parameter the endpoint does not list, with
+    // require_parameters=true, excludes every endpoint (HTTP 404). Never send `temperature`.
+    expect(chat.body).not.toHaveProperty("temperature");
     expect(f.calls.some((c) => c.path.startsWith("/generation?id=gen-"))).toBe(true);
     const ev = r.evidence as {
       byok: boolean;

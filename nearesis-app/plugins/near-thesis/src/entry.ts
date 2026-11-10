@@ -57,8 +57,14 @@ export function shapeOf(env: DataFrameEnvelope, grain: QueryResultShape["grain"]
     name: c.name,
     unit: c.unit,
     role: c.type === "time" ? "time" : c.type === "number" || c.type === "decimal" ? "measure" : "dimension",
+    // Quote views bucket by sample time (fetchedAt), never settlement time (C17); other views use event time.
     ...(c.type === "time"
-      ? { timeSemantics: /fetched_at/.test(c.name) ? ("fetched_at" as const) : ("event_time" as const) }
+      ? {
+          timeSemantics:
+            /fetched_at/.test(c.name) || c.name.startsWith("quotes.")
+              ? ("fetched_at" as const)
+              : ("event_time" as const),
+        }
       : {}),
     ...(c.type === "number" || c.type === "decimal" ? { metricId: c.name } : {}),
   }));

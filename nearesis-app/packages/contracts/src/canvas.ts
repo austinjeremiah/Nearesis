@@ -127,6 +127,8 @@ export const PatchOp = z.discriminatedUnion("op", [
   z.strictObject({ op: z.literal("removePanel"), panelId: Uuid }),
   z.strictObject({ op: z.literal("addMarker"), marker: MarkerSpec }),
   z.strictObject({ op: z.literal("setSelection"), selection: Selection }),
+  z.strictObject({ op: z.literal("removeMarker"), markerId: Uuid }),
+  z.strictObject({ op: z.literal("clearSelection"), panelId: Uuid }),
 ]);
 export type PatchOp = z.infer<typeof PatchOp>;
 
@@ -155,3 +157,4 @@ export const ChartData = z.strictObject({
   sourceWatermark: IsoDateTime.nullable(),
 });
 export type ChartData = z.infer<typeof ChartData>;
+export type MarkerAnchor = z.infer<typeof MarkerAnchor>;

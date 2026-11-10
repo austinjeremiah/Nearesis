@@ -119,3 +119,7 @@ export const TestResult = z.strictObject({
   failureReason: z.string().nullable(),
 });
 export type TestResult = z.infer<typeof TestResult>;
+export type EngineId = z.infer<typeof EngineId>;
+export type AgentStatus = z.infer<typeof AgentStatus>;
+export type TaskStatus = z.infer<typeof TaskStatus>;
+export type TestVerdict = z.infer<typeof TestVerdict>;

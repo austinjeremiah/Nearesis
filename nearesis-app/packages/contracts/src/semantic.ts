@@ -65,6 +65,7 @@ export const MetricMetadata = z.strictObject({
 export type MetricMetadata = z.infer<typeof MetricMetadata>;
 
 export const Coverage = z.enum(["complete", "partial", "unavailable"]);
+export type Coverage = z.infer<typeof Coverage>;
 const Cell = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
 /** ch.06 step 6 DataFrameEnvelope. Exact amounts are strings with `scale`. */

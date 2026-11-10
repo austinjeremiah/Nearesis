@@ -183,3 +183,21 @@ describe("JSON Schema export", () => {
     for (const v of Object.values(s)) expect(typeof v).toBe("object");
   });
 });
+
+describe("v1.1.0 additions (INTEGRATION_QUEUE 11:53Z/11:58Z)", () => {
+  it("PatchOp accepts removeMarker and clearSelection, still rejects unknown ops", () => {
+    expect(C.PatchOp.safeParse({ op: "removeMarker", markerId: uuid }).success).toBe(true);
+    expect(C.PatchOp.safeParse({ op: "clearSelection", panelId: uuid }).success).toBe(true);
+    expect(C.PatchOp.safeParse({ op: "dropTable", panelId: uuid }).success).toBe(false);
+    expect(C.PatchOp.safeParse({ op: "removeMarker", markerId: "x" }).success).toBe(false);
+  });
+  it("v1.0.0 patch payloads remain valid (backward compatible)", () => {
+    expect(C.PatchOp.safeParse({ op: "removePanel", panelId: uuid }).success).toBe(true);
+    expect(C.CONTRACTS_VERSION).toBe("1.1.0");
+  });
+  it("enum types are usable as types", () => {
+    const q: C.QuoteAttemptClass = "NO_QUOTE";
+    const v: C.TestVerdict = "PASS";
+    expect([q, v]).toEqual(["NO_QUOTE", "PASS"]);
+  });
+});

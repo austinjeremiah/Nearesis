@@ -77,6 +77,7 @@ export const PluginManifest = z.strictObject({
 export type PluginManifest = z.infer<typeof PluginManifest>;
 
 export const PluginState = z.enum(["installed", "enabled", "disabled", "degraded", "quarantined"]);
+export type PluginState = z.infer<typeof PluginState>;
 export const TrustMode = z.enum(["production", "dev_trust"]);
 
 export const CapabilityGrant = z.strictObject({
@@ -125,3 +126,5 @@ export const ExecutionResponse = z.strictObject({
   reasonCode: z.string().optional(),
 });
 export type ExecutionResponse = z.infer<typeof ExecutionResponse>;
+export type TrustMode = z.infer<typeof TrustMode>;
+export type CapabilityCategory = z.infer<typeof CapabilityCategory>;

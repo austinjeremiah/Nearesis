@@ -31,3 +31,4 @@ export const ResearchFinding = z.strictObject({
   createdAt: IsoDateTime,
 });
 export type ResearchFinding = z.infer<typeof ResearchFinding>;
+export type EvidenceRelation = z.infer<typeof EvidenceRelation>;

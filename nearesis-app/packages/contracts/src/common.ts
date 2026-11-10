@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Contract family version. Breaking change => major bump + ADR (CONTRACT_REGISTRY.md). */
-export const CONTRACTS_VERSION = "1.0.0";
+export const CONTRACTS_VERSION = "1.1.0";
 
 export const Uuid = z.uuid();
 export const IsoDateTime = z.iso.datetime({ offset: true });
@@ -58,5 +58,6 @@ export const HTTP_STATUS_FOR: Record<ErrorCode, number> = {
 };
 
 export const Visibility = z.enum(["public", "aggregate_only", "restricted"]);
+export type Visibility = z.infer<typeof Visibility>;
 export const SourceMode = z.enum(["fixture_synthetic", "fixture_recorded", "live"]);
 export type SourceMode = z.infer<typeof SourceMode>;

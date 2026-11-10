@@ -61,6 +61,7 @@ export type ContractRegistryEntry = z.infer<typeof ContractRegistryEntry>;
 
 /** D07 clarified classes. */
 export const QuoteAttemptClass = z.enum(["OK", "NO_QUOTE", "NETWORK_ERROR", "TIMEOUT", "INVALID_OUTPUT"]);
+export type QuoteAttemptClass = z.infer<typeof QuoteAttemptClass>;
 export const QuoteAttempt = z.strictObject({
   routeId: z.string().min(1),
   amountBaseUnits: DecimalString,

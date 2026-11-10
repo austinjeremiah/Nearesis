@@ -58,3 +58,4 @@ export const Topic = z.enum([
   "evidence.verification.result.v1",
   "publication.ready.v1",
 ]);
+export type Topic = z.infer<typeof Topic>;

@@ -31,10 +31,11 @@ export interface KernelEnv {
 
 export async function startKernelEnv(
   members: Record<string, "owner" | "admin" | "analyst" | "viewer"> = { alice: "owner", bob: "analyst" },
+  kernelOver: Parameters<typeof testKernel>[1] = {},
 ): Promise<KernelEnv> {
   const db = await createTestDb();
   const org = await seedOrg(db.admin, "orgb", members);
-  const kernel = testKernel(db);
+  const kernel = testKernel(db, kernelOver);
   await kernel.boot();
   kernel.outbox.start();
   const app = await buildApp({ kernel, nodeEnv: "test", ssePollMs: 50 });

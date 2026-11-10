@@ -6,12 +6,11 @@
  * Output: NEARESIS_Build_Bible/reports/RELEASES/MILESTONE-<runId>/{steps.json,logs,screenshots} and the release
  * report MILESTONE-P00-P05-<runId>.md. One coordination event per step via `pnpm coord event`.
  *
- * Flags: --no-web (skip starting the web app), --keep (leave API/web running), --run-gates (execute `pnpm accept --gate`
- * instead of summarising recorded evidence for step 17).
+ * Flags: --no-web (skip starting the web app), --keep (leave API/web running)
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createConnection } from "node:net";
 import {
@@ -31,7 +30,7 @@ import {
 import { migrate as migrateRuntime, makePool } from "../../packages/workflow/src/db.ts";
 import { setupCheckpointer } from "../../packages/agent-runtime/src/checkpointer.ts";
 import { writeReport } from "./report.ts";
-import { agentSteps, findWorkerEntry, startWorker } from "./agent-steps.ts";
+import { agentSteps, startWorker } from "./agent-steps.ts";
 import {
   CUBE_URL_DEFAULT,
   acquireDataLock,
@@ -50,19 +49,22 @@ import { DEFAULT_POLICY, createGateway } from "../../packages/semantic-gateway/s
 
 loadEnv();
 const flags = new Set(process.argv.slice(2));
-let API = "http://127.0.0.1:4100";
-const WEB = "http://127.0.0.1:3100";
+const API_PORT = 4810;
+const WEB_PORT = 3800;
+const API = `http://127.0.0.1:${API_PORT}`;
+const WEB = `http://127.0.0.1:${WEB_PORT}`;
 const CUBE = process.env.NEARESIS_CUBE_URL ?? CUBE_URL_DEFAULT;
 const ADMIN_URL = process.env.DATABASE_URL ?? "postgres://nearesis:nearesis@127.0.0.1:55432/nearesis";
 const SNAPSHOT = "fx.snapshot.p02-baseline";
 
 const runId = new Date().toISOString().replace(/[:.]/g, "-").replace(/Z$/, "Z");
 const nonce = randomBytes(3).toString("hex");
+const TASK_QUEUE = `demo-milestone-${nonce}`;
 const rec = new Recorder(runId);
 const children: Child[] = [];
 let release: (() => Promise<void>) | undefined;
 let webUp = false;
-const worker: { child: Child | null; entry: string | null } = { child: null, entry: findWorkerEntry() };
+const worker: { child: Child | null; taskQueue: string } = { child: null, taskQueue: TASK_QUEUE };
 
 interface PgPool {
   query(
@@ -110,7 +112,7 @@ async function main(): Promise<number> {
   // 1 ------------------------------------------------------------------------------------------------------------
   await rec.step(
     1,
-    "Start local environment (compose base + analytics overlay, API :4100, web :3100, workers)",
+    "Start local environment (compose base + analytics overlay, API :4810, web :3800, worker)",
     "live",
     async () => {
       const ports: Record<string, number> = {
@@ -141,66 +143,62 @@ async function main(): Promise<number> {
         await adminPool.end();
       }
       await setupCheckpointer(ADMIN_URL);
-      // Always run this demo's own API from the current tree (a server already on :4100 may be stale code).
-      let apiMode = "started by demo on :4100";
-      let apiPort = 4100;
-      if (await portBusy(4100)) {
-        apiPort = 4191;
-        API = `http://127.0.0.1:${apiPort}`;
-        apiMode =
-          "port 4100 is held by another process (possibly stale code), so the demo started its own API on :4191";
-      }
+      // The demo runs its own API, web and worker on its own ports and a unique Temporal task queue; it never touches
+      // another agent's or the owner's running stack.
+      for (const [label, port] of [
+        ["API", API_PORT],
+        ["web", WEB_PORT],
+      ] as const)
+        if (await portBusy(port))
+          return { status: "FAIL", detail: `demo ${label} port ${port} is already in use` };
       children.push(
         spawnLogged(rec, "api", "pnpm", ["exec", "tsx", "apps/api/src/main.ts"], {
-          env: { NODE_ENV: "development", DATABASE_URL: ADMIN_URL, PORT: String(apiPort) },
+          env: {
+            NODE_ENV: "development",
+            DATABASE_URL: ADMIN_URL,
+            PORT: String(API_PORT),
+            TASK_QUEUE: TASK_QUEUE,
+          },
         }),
       );
       await waitFor("API /health", () => httpOk(`${API}/health`), 60_000);
+      const apiMode = `started by demo on :${API_PORT} (task queue ${TASK_QUEUE})`;
       let webMode = "skipped (--no-web)";
       webUp = false;
       if (!flags.has("--no-web")) {
-        if (await httpOk(`${WEB}/`).catch(() => false)) {
-          webMode = "reused existing web app on :3100";
-          webUp = apiPort === 4100;
-          if (!webUp) webMode += " (its BFF targets :4100, not this demo's API, so web steps are BLOCKED)";
-        } else if (await portBusy(3100)) {
-          webMode =
-            "port 3100 is held by a process that does not answer HTTP (not started by this demo); web steps 10 and 12 are BLOCKED";
-        } else {
-          const web = spawnLogged(
-            rec,
-            "web",
-            "pnpm",
-            ["exec", "next", "dev", "-p", "3100", "-H", "127.0.0.1"],
-            {
-              cwd: join(APP_ROOT, "apps", "web"),
-              env: { NEARESIS_API_URL: API, NEARESIS_TEST_HOOKS: "1" },
-            },
-          );
-          children.push(web);
-          try {
-            await waitFor(
-              "web app",
-              async () => {
-                if (web.proc.exitCode !== null) return true;
-                return httpOk(`${WEB}/`);
-              },
-              180_000,
-              1000,
-            );
-            if (web.proc.exitCode !== null) throw new Error("next dev exited");
-            webMode = "started by demo (next dev)";
-            webUp = true;
-          } catch {
-            webMode =
-              "next dev did not start (see logs/web.log, usually another next dev already holds apps/web/.next/dev/lock); web steps 10 and 12 are BLOCKED";
-          }
-        }
+        const web = spawnLogged(
+          rec,
+          "web",
+          "pnpm",
+          ["exec", "next", "dev", "-p", String(WEB_PORT), "-H", "127.0.0.1"],
+          {
+            cwd: join(APP_ROOT, "apps", "web"),
+            env: { NEARESIS_API_URL: API, NEARESIS_TEST_HOOKS: "1" },
+          },
+        );
+        children.push(web);
+        await waitFor(
+          "web app",
+          async () => web.proc.exitCode !== null || httpOk(`${WEB}/`),
+          180_000,
+          1000,
+        ).catch(() => undefined);
+        if (web.proc.exitCode === null && (await httpOk(`${WEB}/`).catch(() => false))) {
+          webMode = `started by demo (next dev) on :${WEB_PORT}`;
+          webUp = true;
+        } else webMode = "next dev did not become ready (see logs/web.log); web steps 10 and 12 are BLOCKED";
       }
-      let workerMode = "none: no production worker entry exists yet (A6); steps 8 and 16 are BLOCKED on it";
-      if (worker.entry) {
-        worker.child = startWorker(rec, "worker", worker.entry);
-        workerMode = `started ${worker.entry}`;
+      worker.child = startWorker(rec, "worker", TASK_QUEUE);
+      let workerMode = `started production worker (pnpm --filter @nearesis/workflow worker) on queue ${TASK_QUEUE}`;
+      try {
+        await waitFor(
+          "worker READY",
+          async () => /READY/.test(readFileSync(worker.child!.log, "utf8")),
+          90_000,
+          500,
+        );
+      } catch {
+        workerMode += "; READY line not seen (see logs/worker.log)";
       }
       return {
         status: "PASS",
@@ -280,9 +278,22 @@ async function main(): Promise<number> {
       token: ctx.token,
     });
     const idem = replay.body?.workspaceId === ctx.workspaceId;
+    // The research plugin must be enabled in the workspace for agent runs (same command the dev seed issues).
+    const enable = await api(API, "POST", `/v1/workspaces/${ctx.workspaceId}/commands`, {
+      token: ctx.token,
+      headers: { "if-match": String(ctx.workspaceVersion) },
+      body: {
+        apiVersion: "v1",
+        commandId: randomUUID(),
+        commandType: "plugin.enable",
+        payload: { pluginId: "near-thesis" },
+        expectedVersion: ctx.workspaceVersion,
+      },
+    });
+    const enabled = enable.status >= 200 && enable.status < 300;
     return {
-      status: got.status === 200 && idem ? "PASS" : "FAIL",
-      detail: `workspace ${ctx.workspaceId} at version ${ctx.workspaceVersion}; idempotent replay returns the same id: ${idem}; GET ${got.status}`,
+      status: got.status === 200 && idem && enabled ? "PASS" : "FAIL",
+      detail: `workspace ${ctx.workspaceId} at version ${ctx.workspaceVersion}; idempotent replay returns the same id: ${idem}; GET ${got.status}; near-thesis plugin.enable -> ${enable.status}${enabled ? "" : " " + JSON.stringify(enable.body).slice(0, 200)}`,
       facts: { workspaceId: ctx.workspaceId, version: ctx.workspaceVersion, idempotentReplay: idem },
     };
   });
@@ -439,55 +450,32 @@ async function main(): Promise<number> {
     "Run the milestone acceptance suites (G00 .. G05)",
     "fixture-backed + live",
     async () => {
+      // Per the lead: do not re-run the full suite; cite the committed final sequential run.
+      const tsv = join(BIBLE, "reports", "RUNS", "FINAL-RUN-d96cc1a.tsv");
+      const lines = readFileSync(tsv, "utf8").trim().split("\n");
+      const tests = lines.filter((l) => !l.startsWith("DONE")).map((l) => l.split("\t"));
       const index = JSON.parse(readFileSync(join(APP_ROOT, "tests", "TEST_INDEX.json"), "utf8")) as {
-        tests: Array<{ testId: string; gate: string; testFiles: string[]; required?: boolean }>;
+        tests: Array<{ testId: string; gate: string }>;
       };
-      const gates = ["G00", "G01", "G02", "G03", "G04", "G05"];
-      const summary: Record<string, Record<string, number>> = {};
+      const gateOf = new Map(index.tests.map((t) => [t.testId, t.gate]));
+      const summary: Record<string, { total: number; PASS: number }> = {};
       const nonPass: string[] = [];
-      for (const g of gates) {
-        const tests = index.tests.filter((t) => t.gate === g);
-        const s: Record<string, number> = {
-          total: tests.length,
-          PASS: 0,
-          FAIL: 0,
-          BLOCKED_DEPENDENCY: 0,
-          NOT_RUN: 0,
-        };
-        for (const t of tests) {
-          if (flags.has("--run-gates") && t.testFiles.length)
-            spawnSync("pnpm", ["accept", "--id", t.testId, "--session", "A11"], {
-              cwd: APP_ROOT,
-              encoding: "utf8",
-              maxBuffer: 64 << 20,
-            });
-          const dir = join(BIBLE, "reports", "TESTS", t.testId);
-          const files = existsSync(dir)
-            ? readdirSync(dir)
-                .filter(
-                  (f) =>
-                    /Z-[0-9a-f]+\.json$/.test(f) && !f.endsWith(".evidence.json") && !f.endsWith(".log.json"),
-                )
-                .sort()
-            : [];
-          const latest = files.length
-            ? (JSON.parse(readFileSync(join(dir, files.at(-1)!), "utf8")) as { verdict: string }).verdict
-            : "NOT_RUN";
-          s[latest] = (s[latest] ?? 0) + 1;
-          if (latest !== "PASS") nonPass.push(`${t.testId}=${latest}`);
-        }
-        summary[g] = s;
+      for (const [id, verdict] of tests) {
+        const g = gateOf.get(id!) ?? "other";
+        const e = (summary[g] ??= { total: 0, PASS: 0 });
+        e.total++;
+        if (verdict === "PASS") e.PASS++;
+        else nonPass.push(`${id}=${verdict}`);
       }
       rec.writeJson("step17-gates.json", {
-        source: flags.has("--run-gates")
-          ? "executed by this run"
-          : "latest recorded evidence in reports/TESTS (run with --run-gates to re-execute)",
+        source: `committed final sequential run reports/RUNS/FINAL-RUN-d96cc1a.tsv (${lines.at(-1)}); evidence per test in reports/TESTS/<ID>; not re-executed by this demo`,
         summary,
         nonPass,
       });
+      const gates = ["G00", "G01", "G02", "G03", "G04", "G05"];
       return {
-        status: nonPass.length === 0 ? "PASS" : "FAIL",
-        detail: `${flags.has("--run-gates") ? "executed" : "latest recorded evidence"}: ${gates.map((g) => `${g} ${summary[g]!.PASS}/${summary[g]!.total}`).join(", ")}${nonPass.length ? `; non-PASS: ${nonPass.join(" ")}` : ""}`,
+        status: nonPass.length === 0 && tests.length > 0 ? "PASS" : "FAIL",
+        detail: `cited, not re-run (final run d96cc1a): ${gates.map((g) => `${g} ${summary[g]?.PASS ?? 0}/${summary[g]?.total ?? 0}`).join(", ")}; ${tests.length} tests, ${nonPass.length} non-PASS`,
         evidence: ["step17-gates.json"],
         facts: { summary, nonPass },
       };

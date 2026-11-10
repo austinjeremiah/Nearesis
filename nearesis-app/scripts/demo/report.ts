@@ -32,12 +32,9 @@ export function writeReport(a: {
       nonPass: string[];
     };
     gates =
-      `Source: ${g.source}.\n\n| Gate | Total | PASS | FAIL | BLOCKED_DEPENDENCY | NOT_RUN |\n|---|---|---|---|---|---|\n` +
+      `Source: ${g.source}.\n\n| Gate | Total | PASS |\n|---|---|---|\n` +
       Object.entries(g.summary)
-        .map(
-          ([k, s]) =>
-            `| ${k} | ${s.total} | ${s.PASS} | ${s.FAIL} | ${s.BLOCKED_DEPENDENCY} | ${s.NOT_RUN} |`,
-        )
+        .map(([k, s]) => `| ${k} | ${s.total} | ${s.PASS} |`)
         .join("\n") +
       (g.nonPass.length ? `\n\nNon-PASS tests: ${g.nonPass.join(", ")}.` : "");
   } catch {
@@ -46,12 +43,12 @@ export function writeReport(a: {
   const md = `# Milestone demonstration (P00-P05), run ${a.runId}
 
 Result: **${count("PASS")} PASS, ${count("FAIL")} FAIL, ${count("BLOCKED")} BLOCKED** of ${rec.results.length} recorded steps.
-Command: \`pnpm demo:milestone\` (flags: \`--no-web\`, \`--keep\`, \`--run-gates\`). Started ${a.startedAt}, finished ${a.finished}.
+Command: \`pnpm demo:milestone\` (flags: \`--no-web\`, \`--keep\`). Started ${a.startedAt}, finished ${a.finished}.
 Commit: \`${a.commit}\` (working tree may contain other agents' uncommitted work; the demo only reads it).
 
 Per-run isolation: org \`${a.ctx.orgId ?? "n/a"}\`, workspace \`${a.ctx.workspaceId ?? "n/a"}\` are created fresh each run. Agent run ID: ${a.ctx.runIdAgent ?? "none (step 7 not delivered)"}. Semantic query hash: ${a.ctx.queryHash ?? "n/a"}.
 
-Mode labels: **fixture-backed** = data comes from the sealed \`fx.snapshot.p02-baseline\` replay (no network). **live** = real services (kernel API, Postgres, web app, and, once delivered, live OpenRouter inference under the shared USD 5 ledger). No step is simulated: a step whose dependency has not shipped is BLOCKED with its owner and a matching OPEN entry in \`coordination/INTEGRATION_QUEUE.md\`.
+Mode labels: **fixture-backed** = data comes from the sealed \`fx.snapshot.p02-baseline\` replay (no network). **live** = real services (kernel API, Postgres, web app, live NEAR data via cube-live for the agent run, and live OpenRouter inference under the shared USD 5 ledger). No step is simulated: a step whose dependency has not shipped is BLOCKED with its owner and a matching OPEN entry in \`coordination/INTEGRATION_QUEUE.md\`.
 
 ## Steps
 
@@ -67,13 +64,13 @@ ${gates}
 
 - Node ${process.version}, pnpm ${run("pnpm", ["-v"])}, ${process.platform}-${process.arch}
 - Docker services: ${run("docker", ["ps", "--format", "{{.Names}}={{.Status}}", "--filter", "name=nearesis"]).split("\n").join("; ")}
-- Inference provider configured: ${process.env.INFERENCE_PROVIDER ?? "unset"} (not exercised until step 7 is delivered)
+- Inference provider configured: ${process.env.INFERENCE_PROVIDER ?? "unset"} (live run in step 7 onward)
 
 ## Known limitations
 
-- Steps marked BLOCKED depend on the questions/runs API (A7), the production runtime worker and composer wiring (A6) and the composer/canvas UI (A9). Re-run \`pnpm demo:milestone\` when their integration-ready entries land; the harness probes the endpoint and reports honestly.
-- Step 1 starts no worker: no production worker entry exists yet (the workflow worker entry is a test harness). Worker start and the SIGKILL recovery belong to steps 8 and 16.
-- Step 17 summarises the latest recorded acceptance evidence by default; pass \`--run-gates\` to execute \`pnpm accept\` for every G00-G05 test (long, writes evidence into the shared reports tree).
+- Any BLOCKED or FAIL step is reported as measured; see its detail and the logs directory.
+- The demo runs its own API (:4810), web (:3800) and production worker on a unique Temporal task queue, and never touches other stacks.
+- Step 17 cites the committed final sequential acceptance run (\`reports/RUNS/FINAL-RUN-d96cc1a.tsv\`) rather than re-executing the suite.
 - Steps 5-6 load the shared ClickHouse \`nearesis\` database under the shared \`semantic:testlock\`, so other Cube-backed suites are serialized with the demo.
 
 ## Links

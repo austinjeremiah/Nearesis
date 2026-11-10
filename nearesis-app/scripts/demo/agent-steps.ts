@@ -4,18 +4,9 @@
  * owner; nothing is simulated. Inference mode is whatever the worker is configured with and is stated in the evidence.
  */
 import { randomUUID } from "node:crypto";
-import { existsSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  APP_ROOT,
-  Recorder,
-  api,
-  requireFrom,
-  spawnLogged,
-  waitFor,
-  type Child,
-  type StepOutcome,
-} from "./common.ts";
+import { Recorder, api, requireFrom, spawnLogged, waitFor, type Child, type StepOutcome } from "./common.ts";
 
 export interface PgPool {
   query(
@@ -54,35 +45,21 @@ interface RunView {
   failure?: unknown;
 }
 const TERMINAL = new Set(["COMPLETE", "PARTIAL", "BLOCKED", "CANCELLED"]);
-const QUESTION =
-  "Which certified NEAR Intents metrics changed most over the baseline window? Show completed swaps, total swaps, USD volume and route quote availability as four panels.";
+const BUDGET = { tokens: 32_000, toolCalls: 12, usd: 3 };
+const QUESTION = "How has NEAR network activity and the NEAR price moved over the last 90 days?";
 
-/** A production worker entry (A6). Looked up, never invented: DEMO_WORKER_ENTRY overrides. */
-export function findWorkerEntry(): string | null {
-  const cands = [
-    process.env.DEMO_WORKER_ENTRY,
-    "packages/workflow/src/worker-prod.ts",
-    "packages/workflow/src/worker-entry.ts",
-    "packages/workflow/src/main.ts",
-    "apps/worker/src/main.ts",
-  ].filter((x): x is string => !!x);
-  return cands.find((c) => existsSync(join(APP_ROOT, c))) ?? null;
-}
-
-export function startWorker(rec: Recorder, label: string, entry: string): Child {
-  return spawnLogged(rec, label, "pnpm", ["exec", "tsx", entry], {
+/** The production worker (A6): `pnpm --filter @nearesis/workflow worker`, on the demo's own Temporal task queue. */
+export function startWorker(rec: Recorder, label: string, taskQueue: string): Child {
+  return spawnLogged(rec, label, "pnpm", ["--filter", "@nearesis/workflow", "worker"], {
     env: {
-      NODE_ENV: "development",
-      DATABASE_URL: process.env.DATABASE_URL ?? "postgres://nearesis:nearesis@127.0.0.1:55432/nearesis",
-      WORKER_ID: label,
+      TASK_QUEUE: taskQueue,
+      WORKER_ID: `${label}-${taskQueue}`,
+      INFERENCE_PROVIDER: process.env.INFERENCE_PROVIDER ?? "openrouter",
     },
   });
 }
 
-export async function agentSteps(
-  d: Deps,
-  worker: { child: Child | null; entry: string | null },
-): Promise<void> {
+export async function agentSteps(d: Deps, worker: { child: Child | null; taskQueue: string }): Promise<void> {
   const { rec, API, WEB, ctx } = d;
   const token = ctx.token!;
   const ws = ctx.workspaceId!;
@@ -90,6 +67,23 @@ export async function agentSteps(
   const hdr = { token };
   const inference = `INFERENCE_PROVIDER=${process.env.INFERENCE_PROVIDER ?? "unset"}`;
   const getRun = async (id: string) => (await api<RunView>(API, "GET", `/v1/runs/${id}`, hdr)).body;
+  /** Approve every pending request with its exact action hash (owner decision through the API). */
+  const approveAll = async (runId: string): Promise<number> => {
+    const list = await api<
+      | Array<{ approvalId: number; actionHash: string }>
+      | { approvals: Array<{ approvalId: number; actionHash: string }> }
+    >(API, "GET", `/v1/runs/${runId}/approvals`, hdr);
+    const arr = Array.isArray(list.body) ? list.body : (list.body?.approvals ?? []);
+    let n = 0;
+    for (const a of arr) {
+      const ok = await api(API, "POST", `/v1/runs/${runId}/approvals/${a.approvalId}`, {
+        ...hdr,
+        body: { decision: "approve", actionHash: a.actionHash },
+      });
+      if (ok.status < 300) n++;
+    }
+    return n;
+  };
   const canvas = async () =>
     (
       await api<{
@@ -123,8 +117,9 @@ export async function agentSteps(
           headers: { "idempotency-key": `demo-q-${rec.runId}` },
           body: {
             question: QUESTION,
-            snapshotPolicy: "pinned",
-            budget: { tokens: 120000, toolCalls: 16, usd: 0.5 },
+            snapshotPolicy: "live",
+            source: "live",
+            budget: BUDGET,
           },
         },
       );
@@ -143,7 +138,7 @@ export async function agentSteps(
       ctx.runIdAgent = r.body.runId;
       return {
         status: "PASS",
-        detail: `accepted ${r.status}: runId ${r.body.runId}, workflowId ${r.body.workflowId}; question budget 120000 tokens / 16 tool calls / USD 0.5 (${inference})`,
+        detail: `accepted ${r.status}: runId ${r.body.runId}, workflowId ${r.body.workflowId}; source LIVE (real NEAR data via cube-live); budget cap ${BUDGET.tokens} tokens / ${BUDGET.toolCalls} tool calls / USD ${BUDGET.usd}; ${inference}`,
         facts: { runId: r.body.runId, workflowId: r.body.workflowId, inference },
       };
     },
@@ -166,7 +161,7 @@ export async function agentSteps(
           return {
             status: "BLOCKED",
             owner: "A6",
-            detail: `run ${runId} has not left REQUESTED (state ${v.state ?? "not yet visible"}) after 6 s: no worker polls the investigation task queue and no production worker entry exists (looked for packages/workflow/src/{worker-prod,worker-entry,main}.ts, apps/worker/src/main.ts, DEMO_WORKER_ENTRY)`,
+            detail: `run ${runId} has not left REQUESTED (state ${v.state ?? "not yet visible"}) after 6 s: the demo worker (see logs/worker.log) did not pick it up`,
             facts: { runId, state: v.state },
           };
         }
@@ -182,20 +177,7 @@ export async function agentSteps(
             last = v.state;
             states.push(v.state);
           }
-          if (v.state === "APPROVAL_NEEDED") {
-            const list = await api<
-              | Array<{ approvalId: number; actionHash: string }>
-              | { approvals: Array<{ approvalId: number; actionHash: string }> }
-            >(API, "GET", `/v1/runs/${runId}/approvals`, hdr);
-            const arr = Array.isArray(list.body) ? list.body : (list.body?.approvals ?? []);
-            for (const a of arr) {
-              const ok = await api(API, "POST", `/v1/runs/${runId}/approvals/${a.approvalId}`, {
-                ...hdr,
-                body: { decision: "approve", actionHash: a.actionHash },
-              });
-              if (ok.status < 300) approvals++;
-            }
-          }
+          if (v.state === "APPROVAL_NEEDED") approvals += await approveAll(runId);
           return TERMINAL.has(v.state);
         },
         Number(process.env.DEMO_RUN_TIMEOUT_MS ?? 240_000),
@@ -273,7 +255,9 @@ export async function agentSteps(
       const login = await c.request.post(`${WEB}/api/dev/login`, { data: { subject: ctx.subject } });
       if (login.status() !== 204) throw new Error(`web dev login ${login.status()}`);
       const page = await c.newPage();
-      await page.goto(`${WEB}/w/${ws}`, { waitUntil: "domcontentloaded" });
+      await page.goto(`${WEB}/w/${ws}?backend=kernel&data=semantic&source=live`, {
+        waitUntil: "domcontentloaded",
+      });
       await page.waitForSelector('[data-testid^="panel-"]', { timeout: 90_000 });
       await page.waitForFunction(
         'document.querySelectorAll(\'[data-panel-state="LOADING"],[data-panel-state="loading"]\').length===0',
@@ -421,7 +405,7 @@ export async function agentSteps(
           [hash],
         );
         const web = d.webUp
-          ? await fetch(`${WEB}/api/semantic/panel/${hash}?workspace=${ws}`, {
+          ? await fetch(`${WEB}/api/semantic/panel/${hash}?workspace=${ws}&source=live`, {
               headers: { cookie: `nearesis_session=${token}` },
             })
           : null;
@@ -504,20 +488,43 @@ export async function agentSteps(
     async () => {
       if (noWs || !ctx.runIdAgent)
         return { status: "BLOCKED", owner: "A11", detail: "no workspace or run to build on" };
-      if (!worker.child || !worker.entry)
+      if (!worker.child)
         return {
           status: "BLOCKED",
           owner: "A6",
-          detail:
-            "no production worker entry the demo can spawn and SIGKILL (looked for packages/workflow/src/{worker-prod,worker-entry,main}.ts, apps/worker/src/main.ts, DEMO_WORKER_ENTRY)",
+          detail: "demo worker not running",
         };
-      const q = await api<{ runId: string }>(API, "POST", `/v1/workspaces/${ws}/questions`, {
+      // A fresh workspace (same org): the first workspace already carries this demo's panels and edits.
+      const w2 = await api<{ workspaceId: string; version: number }>(API, "POST", "/v1/workspaces", {
+        ...hdr,
+        body: {
+          objective: "Milestone demo step 16: crash recovery run",
+          networkScope: "fixture-only",
+          idempotencyKey: `demo-ws16-${rec.runId}`,
+        },
+      });
+      const en = await api(API, "POST", `/v1/workspaces/${w2.body.workspaceId}/commands`, {
+        ...hdr,
+        headers: { "if-match": String(w2.body.version) },
+        body: {
+          apiVersion: "v1",
+          commandId: randomUUID(),
+          commandType: "plugin.enable",
+          payload: { pluginId: "near-thesis" },
+          expectedVersion: w2.body.version,
+        },
+      });
+      if (w2.status !== 201 || en.status >= 300)
+        return { status: "FAIL", detail: `step 16 workspace setup ${w2.status}/${en.status}` };
+      const ws16 = w2.body.workspaceId;
+      const q = await api<{ runId: string }>(API, "POST", `/v1/workspaces/${ws16}/questions`, {
         ...hdr,
         headers: { "idempotency-key": `demo-q16-${rec.runId}` },
         body: {
-          question: QUESTION + " Also compare against the prior week.",
-          snapshotPolicy: "pinned",
-          budget: { tokens: 120000, toolCalls: 16, usd: 0.5 },
+          question: QUESTION,
+          snapshotPolicy: "live",
+          source: "live",
+          budget: BUDGET,
         },
       });
       if (q.status !== 202 && q.status !== 201)
@@ -527,7 +534,7 @@ export async function agentSteps(
         "run mid-flight",
         async () => {
           const v = await getRun(runId);
-          return v.state !== "REQUESTED" && !TERMINAL.has(v.state);
+          return v.state === "EXECUTING";
         },
         120_000,
         250,
@@ -537,10 +544,14 @@ export async function agentSteps(
       await worker.child.stop("SIGKILL");
       const killedAt = new Date().toISOString();
       await new Promise((r) => setTimeout(r, 3000));
-      worker.child = startWorker(rec, "worker-restarted", worker.entry);
+      worker.child = startWorker(rec, "worker-restarted", worker.taskQueue);
       await waitFor(
         "recovered run terminal",
-        async () => TERMINAL.has((await getRun(runId)).state),
+        async () => {
+          const st = (await getRun(runId)).state;
+          if (st === "APPROVAL_NEEDED") await approveAll(runId);
+          return TERMINAL.has(st);
+        },
         300_000,
         1000,
       );
@@ -561,7 +572,7 @@ export async function agentSteps(
         );
         const patches = await admin.query(
           "SELECT count(*)::int AS n FROM workspace_events WHERE workspace_id=$1 AND event_type LIKE '%canvas%'",
-          [ws],
+          [ws16],
         );
         rec.writeJson("step16-crash-recovery.json", {
           runId,
@@ -575,14 +586,17 @@ export async function agentSteps(
           canvasEvents: patches.rows[0],
         });
         const ok =
-          (final.state === "COMPLETE" || final.state === "PARTIAL") && !dup.rowCount && !dupCalls.rowCount;
+          final.state === "COMPLETE" &&
+          !dup.rowCount &&
+          !dupCalls.rowCount &&
+          Number(patches.rows[0]?.n) === 1;
         writeFileSync(
           join(rec.logs, "step16-note.txt"),
           `worker pid ${pid} SIGKILLed at ${killedAt} while run ${runId} was ${midState}\n`,
         );
         return {
           status: ok ? "PASS" : "FAIL",
-          detail: `SIGKILL of worker pid ${pid} while run ${runId} was ${midState}; replacement worker finished it as ${final.state}; ${effects.rowCount} recorded side effects, ${dup.rowCount} duplicated effect keys, ${dupCalls.rowCount} duplicated tool calls`,
+          detail: `SIGKILL of worker pid ${pid} while run ${runId} was ${midState}; replacement worker finished it as ${final.state}; ${effects.rowCount} recorded side effects, ${dup.rowCount} duplicated effect keys, ${dupCalls.rowCount} duplicated tool calls; canvas patch events in the workspace: ${String(patches.rows[0]?.n)} (expected exactly 1)`,
           evidence: ["step16-crash-recovery.json", "logs/worker.log", "logs/worker-restarted.log"],
         };
       } finally {

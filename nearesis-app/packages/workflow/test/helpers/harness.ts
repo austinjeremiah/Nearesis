@@ -238,6 +238,8 @@ export const HISTORY_DIR = fileURLToPath(new URL("../fixtures/histories", import
 
 /** Exports the parent history and every child history of a run for the A13 replay test. */
 export async function exportHistories(env: Env, workflowId: string, prefix: string): Promise<string[]> {
+  // Only a deliberate export run (NEARESIS_EXPORT_HISTORIES=1) refreshes the committed fixtures; normal evidence runs leave the tree clean.
+  if (process.env.NEARESIS_EXPORT_HISTORIES !== "1") return [];
   mkdirSync(HISTORY_DIR, { recursive: true });
   const ids = [workflowId];
   for await (const wf2 of env.client.workflow.list({

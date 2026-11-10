@@ -13,6 +13,7 @@ import {
 } from "@nearesis/canvas-schema";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createBackend, KernelBackend } from "../lib/backend.ts";
+import { AskBox } from "./AskBox.tsx";
 import { RENDERER_VERSION } from "../lib/chart-option.ts";
 import { hooks } from "../lib/test-hooks.ts";
 import type { CanvasBackend, GraphProjection, PanelData } from "../lib/types.ts";
@@ -90,6 +91,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   docRef.current = doc;
   const dataRef = useRef(data);
   dataRef.current = data;
+  const loadedRef = useRef(new Set<string>());
 
   const setState = useCallback(
     (panelId: string, to: PanelState, payload: Parameters<typeof transition>[2] = {}) => {
@@ -131,6 +133,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   const loadPanel = useCallback(
     async (p: PanelSpec) => {
       const b = backendRef.current!;
+      loadedRef.current.add(p.panelId);
       setState(p.panelId, "VALIDATING");
       setState(p.panelId, "QUERYING");
       if (p.kind === "note") {
@@ -248,10 +251,13 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       } else if (e.type === "query.completed") {
         setDoc((cur) => (cur ? { ...cur, dataRevision: cur.dataRevision + 1 } : cur));
       } else if (e.type === "canvas.patched") {
-        void loadDoc();
+        // Panels added by another writer (e.g. a composer run) load their data when they first appear.
+        void loadDoc().then((nd) => {
+          for (const p of nd.panels) if (!loadedRef.current.has(p.panelId)) void loadPanel(p);
+        });
       }
     },
-    [loadDoc, setState, refresh],
+    [loadDoc, loadPanel, setState, refresh],
   );
 
   const apply = useCallback(
@@ -412,6 +418,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
             fixture mode · SYNTHETIC data
           </span>
         )}
+        {backendRef.current?.mode === "kernel" && <AskBox workspaceId={workspaceId} />}
         <span className="spacer" />
         <button onClick={() => void undo()} disabled={!undoStack.length} data-testid="undo">
           Undo

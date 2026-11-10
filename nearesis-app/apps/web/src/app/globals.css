@@ -307,3 +307,20 @@ table.data td {
 .spacer {
   flex: 1;
 }
+
+.ask {
+  display: flex;
+  flex: 1 1 420px;
+  gap: 8px;
+  align-items: center;
+}
+.ask input {
+  flex: 1;
+  min-width: 200px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}

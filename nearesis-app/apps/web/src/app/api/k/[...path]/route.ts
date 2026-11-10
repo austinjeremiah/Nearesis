@@ -14,6 +14,9 @@ const ALLOWED = [
   /^workspaces\/[0-9a-f-]{36}\/commands$/,
   /^workspaces\/[0-9a-f-]{36}\/events$/,
   /^workspaces\/[0-9a-f-]{36}\/graph$/,
+  /^workspaces\/[0-9a-f-]{36}\/questions$/,
+  /^runs\/[0-9a-f-]{36}$/,
+  /^runs\/[0-9a-f-]{36}\/approvals(\/[0-9a-f-]{36})?$/,
 ];
 
 async function forward(req: Request, path: string[]): Promise<Response> {

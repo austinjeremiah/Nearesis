@@ -74,7 +74,12 @@ test("S16 discovery and cache are partitioned by tenant, workspace and ACL class
   }
 
   // 5. cache keys
-  const keys = (await env.redis.keys("semantic:q:*")).sort();
+  // The dev Redis is shared with other agents' runtime tests, which write semantic:q:* keys under their own random
+  // tenant ids; check every key produced by this test's own scopes (tenants t1 and t2), not foreign writers' keys.
+  const keys = (await env.redis.keys("semantic:q:*"))
+    .filter((k) => ["t1", "t2"].includes(parseCacheKey(k).tenant ?? ""))
+    .sort();
+  expect(keys.length).toBeGreaterThanOrEqual(4);
   for (const k of keys) {
     const p = parseCacheKey(k);
     expect(p.semanticVersion).toBe(reg.semanticVersion);

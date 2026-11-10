@@ -169,6 +169,8 @@ export function buildChartOption(args: {
         }
       : undefined,
     toolbox: { show: false },
+    // Wheel zoom and drag pan on time axes; view changes never touch documentRevision or dataRevision.
+    dataZoom: isTime ? [{ type: "inside", xAxisIndex: 0, filterMode: "none", throttle: 50 }] : undefined,
   };
   return { option, downsampling: { method, originalPoints: original, renderedPoints: rendered } };
 }

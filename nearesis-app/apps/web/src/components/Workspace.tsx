@@ -88,6 +88,8 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   const [pendingSel, setPendingSel] = useState<Record<string, Selection>>({});
   const docRef = useRef(doc);
   docRef.current = doc;
+  const dataRef = useRef(data);
+  dataRef.current = data;
 
   const setState = useCallback(
     (panelId: string, to: PanelState, payload: Parameters<typeof transition>[2] = {}) => {
@@ -173,6 +175,49 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     // Mount once per workspace.
   }, [workspaceId]);
 
+  /**
+   * Data refresh of a set of panels (one source watermark advance = one data revision): each goes REFRESHING -> READY
+   * with new data, or ERROR with a structured code while its last good data stays rendered and labelled. The
+   * document's dataRevision increments once per refresh batch that produced new data; documentRevision never changes
+   * (C18b/c, C12d).
+   */
+  const refresh = useCallback(
+    async (panels: PanelSpec[]) => {
+      const b = backendRef.current;
+      if (!b || !panels.length) return;
+      for (const p of panels) setState(p.panelId, "REFRESHING");
+      const results = await Promise.all(
+        panels.map(async (p) => {
+          try {
+            const nd = await b.fetchData(p.queryRef.hash);
+            if (!nd)
+              throw Object.assign(new Error("query result not available"), { code: "QUERY_UNRESOLVED" });
+            nd.chart = { ...nd.chart, panelId: p.panelId };
+            setData((m) => ({ ...m, [p.queryRef.hash]: nd }));
+            setState(p.panelId, "READY", { data: nd.chart });
+            return true;
+          } catch (e) {
+            const code = (e as { code?: string }).code ?? "QUERY_FAILED";
+            setState(p.panelId, "ERROR", { error: { code, message: (e as Error).message } });
+            return false;
+          }
+        }),
+      );
+      if (results.some(Boolean))
+        setDoc((cur) => {
+          if (!cur) return cur;
+          const next = { ...cur, dataRevision: cur.dataRevision + 1 };
+          hooks().doc = { ...(hooks().doc as object), dataRevision: next.dataRevision };
+          return next;
+        });
+    },
+    [setState],
+  );
+  hooks().refreshPanel = (panelId: string) => {
+    const p = docRef.current?.panels.find((x) => x.panelId === panelId);
+    if (p) void refresh([p]);
+  };
+
   /** Watermark transitions (C14c) and data refresh (C12d / C18c): data revision only, document revision untouched. */
   const onEvent = useCallback(
     (e: DomainEvent) => {
@@ -188,24 +233,18 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
               next[h] = { ...pd, chart: { ...pd.chart, freshness: state } };
           return next;
         });
-        setData((m) => {
-          for (const p of d.panels) {
-            const pd = m[p.queryRef.hash];
-            if (!pd || !pd.provenance.sources.includes(provider)) continue;
-            if (state === "fresh") {
-              setState(p.panelId, "REFRESHING");
-              setState(p.panelId, "READY", { data: pd.chart });
-            } else setState(p.panelId, "STALE");
-          }
-          return m;
-        });
+        const affected = d.panels.filter((p) =>
+          dataRef.current[p.queryRef.hash]?.provenance.sources.includes(provider),
+        );
+        if (state === "fresh") void refresh(affected);
+        else for (const p of affected) setState(p.panelId, "STALE");
       } else if (e.type === "query.completed") {
         setDoc((cur) => (cur ? { ...cur, dataRevision: cur.dataRevision + 1 } : cur));
       } else if (e.type === "canvas.patched") {
         void loadDoc();
       }
     },
-    [loadDoc, setState],
+    [loadDoc, setState, refresh],
   );
 
   const apply = useCallback(

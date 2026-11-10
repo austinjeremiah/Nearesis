@@ -49,9 +49,27 @@ export class FixtureBackend implements CanvasBackend {
     return { ok: true, document: structuredClone(r.document), inverse: r.inverse };
   }
 
+  private failing = new Set<string>();
+  private refreshCount = 0;
+
   async fetchData(queryHash: string): Promise<PanelData | null> {
+    if (this.failing.has(queryHash))
+      throw Object.assign(new Error("query failed (injected)"), { code: "QUERY_FAILED" });
     const d = this.scenario.data[queryHash];
-    return d ? structuredClone(d) : null;
+    if (!d) return null;
+    const out = structuredClone(d);
+    // A refresh is a new data vintage: same query, revised data revision (fixture: watermark advances).
+    if (this.refreshCount) out.chart.dataRevision = d.chart.dataRevision + this.refreshCount;
+    return out;
+  }
+
+  /** Test hooks (fixture mode only): make a query fail, or advance the data vintage. */
+  failQuery(queryHash: string, fail: boolean): void {
+    if (fail) this.failing.add(queryHash);
+    else this.failing.delete(queryHash);
+  }
+  advanceVintage(): void {
+    this.refreshCount += 1;
   }
 
   async graph(): Promise<GraphProjection | null> {

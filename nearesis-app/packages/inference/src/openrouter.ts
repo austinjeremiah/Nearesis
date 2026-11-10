@@ -159,7 +159,7 @@ export class OpenRouterProvider implements InferenceProvider {
     this.fetchImpl = opts.fetch ?? globalThis.fetch;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.random = opts.random ?? Math.random;
-    this.polls = opts.generationPolls ?? 8;
+    this.polls = opts.generationPolls ?? 12;
     this.tokenCap = opts.tokenCap ?? RUN_TOKEN_CAP;
     this.spend =
       opts.ledger ??
@@ -324,7 +324,9 @@ export class OpenRouterProvider implements InferenceProvider {
       } catch {
         /* transient: poll again */
       }
-      await this.sleep(1000);
+      // Metadata can lag the completion by tens of seconds: capped exponential backoff
+      // (1, 2, 4, 8, 8, ... s; ~75 s total with the default 12 polls).
+      await this.sleep(Math.min(8000, 1000 * 2 ** i));
     }
     return null;
   }

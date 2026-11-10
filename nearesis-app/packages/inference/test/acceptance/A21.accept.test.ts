@@ -53,7 +53,7 @@ describe("A21 provider-neutral live structured inference (OpenRouter BYOK)", () 
           ...PROBE,
           schema,
           idempotencyKey: "A21-refuse",
-          maxTokens: 400,
+          maxTokens: 2000, // reasoning models spend hidden tokens before the answer; 400 yielded empty completions
         }),
       ).rejects.toMatchObject({
         code: "MODEL_UNSUPPORTED",
@@ -75,7 +75,7 @@ describe("A21 provider-neutral live structured inference (OpenRouter BYOK)", () 
         ...PROBE,
         schema,
         idempotencyKey: `A21-${label}`,
-        maxTokens: 400,
+        maxTokens: 2000, // reasoning models spend hidden tokens before the answer; 400 yielded empty completions
       });
       calls.push({ label, result, attempts: structuredClone(p.attempts) });
       return result;

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { PhaseChart } from "./PhaseChart.tsx";
 import type { AgentView, State, WaitingItem } from "./types.ts";
-import { GATE_NAMES, ageOf, gatePill, pct, relAge } from "./util.ts";
+import { GATE_NAMES, ageOf, collapseStarts, gatePill, pct, relAge } from "./util.ts";
 
 export interface OverviewProps {
   s: State;
   now: number;
-  openFile: (path: string) => void;
+  openFile: (path: string, line?: number) => void;
   go: (tab: string, sub?: string) => void;
 }
 
@@ -135,7 +135,7 @@ function WaitingCard({
 }: {
   items: WaitingItem[];
   now: number;
-  openFile: (p: string) => void;
+  openFile: (p: string, line?: number) => void;
 }) {
   return (
     <section className="card">
@@ -145,13 +145,22 @@ function WaitingCard({
       ) : (
         <ul className="rowlist">
           {items.map((w) => (
-            <li key={w.kind + w.id}>
-              <button className="rowbtn" onClick={() => w.path && openFile(w.path)}>
-                <span className={`kind kind-${w.kind}`}>{w.kind}</span>
-                <span className="mono">{w.id.replace("BLK-20261110-", "BLK-")}</span>
-                <span className="grow">{w.title}</span>
-                {w.severity && <span className="muted sev">{w.severity.split(/[ (]/)[0]}</span>}
-                <span className="muted">{ageOf(w.since, now)}</span>
+            <li key={w.kind + w.id + (w.line ?? "")}>
+              <button
+                className="rowbtn wait"
+                onClick={() => w.path && openFile(w.path, w.line)}
+                title="Open in the reports drawer"
+              >
+                <span className="waitmeta">
+                  <span className={`kind kind-${w.kind}`}>{w.kind}</span>
+                  <span className="mono">{w.id.replace("BLK-20261110-", "BLK-")}</span>
+                  {w.severity && <span className="muted sev">{w.severity.split(/[ (]/)[0]}</span>}
+                  <span className="grow" />
+                  <span className="muted">{ageOf(w.since, now)}</span>
+                </span>
+                <span className="clamp2" data-testid="wait-title">
+                  {w.title}
+                </span>
               </button>
             </li>
           ))}
@@ -273,9 +282,10 @@ const CHIPS: Record<string, (k: string) => boolean> = {
 
 function Activity({ s, now }: { s: State; now: number }) {
   const [chip, setChip] = useState("All");
-  const [limit, setLimit] = useState(50);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const PER_GROUP = 12;
   const match = CHIPS[chip] ?? CHIPS.All!;
-  const rows = [...s.events]
+  const rows = [...collapseStarts(s.events)]
     .reverse()
     .filter((e) => (chip === "All" ? e.kind !== "heartbeat" : match(e.kind)));
   const groups: [string, typeof rows][] = [
@@ -286,7 +296,6 @@ function Activity({ s, now }: { s: State; now: number }) {
     ],
     ["Earlier", rows.filter((e) => now - Date.parse(e.ts) > 3600_000)],
   ];
-  let budget = limit;
   return (
     <section className="card">
       <h2>Activity</h2>
@@ -304,8 +313,7 @@ function Activity({ s, now }: { s: State; now: number }) {
       </div>
       {rows.length === 0 && <p className="muted">No events.</p>}
       {groups.map(([title, list]) => {
-        const part = list.slice(0, Math.max(0, budget));
-        budget -= part.length;
+        const part = expanded[title] ? list : list.slice(0, PER_GROUP);
         return part.length === 0 ? null : (
           <div key={title}>
             <h3>{title}</h3>
@@ -327,14 +335,17 @@ function Activity({ s, now }: { s: State; now: number }) {
                 );
               })}
             </ul>
+            {list.length > PER_GROUP && (
+              <button
+                className="chip"
+                onClick={() => setExpanded({ ...expanded, [title]: !expanded[title] })}
+              >
+                {expanded[title] ? "show fewer" : `show more (${list.length - PER_GROUP})`}
+              </button>
+            )}
           </div>
         );
       })}
-      {rows.length > limit && (
-        <button className="chip" onClick={() => setLimit(limit + 50)}>
-          show more ({rows.length - limit})
-        </button>
-      )}
     </section>
   );
 }

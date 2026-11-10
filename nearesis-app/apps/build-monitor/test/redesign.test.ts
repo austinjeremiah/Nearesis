@@ -1,7 +1,14 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildSnapshot, isTestResultFile, parseBlocker, parseQueue } from "../server/snapshot.ts";
+import {
+  buildSnapshot,
+  firstSentence,
+  isTestResultFile,
+  parseBlocker,
+  parseQueue,
+} from "../server/snapshot.ts";
+import { collapseStarts } from "../web/src/util.ts";
 import { tempPaths, testResult, writeEvidence, writeIndex, writeJson } from "./fixtures.ts";
 
 const NOW = new Date("2026-11-10T12:00:00.000Z");
@@ -131,5 +138,62 @@ describe("gate bar shares and upstream lock", () => {
     for (const t of ["BOOT01", "K01", "D01", "S01"]) writeEvidence(p, testResult(t, "PASS", ago(1000)));
     s = buildSnapshot(p, NOW);
     expect(s.gates.find((g) => g.gate === "G04")?.lockedBy).toEqual([]);
+  });
+});
+
+describe("queue entry display", () => {
+  it("firstSentence takes the first sentence and caps at 140 chars", () => {
+    expect(firstSentence("First one here. Second sentence follows.")).toBe("First one here.");
+    const long = "x".repeat(400);
+    expect(firstSentence(long)).toHaveLength(140);
+    expect(firstSentence(long).endsWith("…")).toBe(true);
+  });
+  it("parseQueue splits timestamp from id, clamps title and records the line number", () => {
+    const text =
+      "intro\n- [OPEN] 2026-11-10T11:58Z ENGINE_B contract-change \u2014 Short reason. " +
+      "y".repeat(500) +
+      " \u2014 paths\n";
+    const q = parseQueue(text);
+    expect(q[0]).toMatchObject({
+      id: "ENGINE_B contract-change",
+      ts: "2026-11-10T11:58Z",
+      line: 2,
+      title: "Short reason.",
+    });
+  });
+});
+
+describe("collapseStarts", () => {
+  const e = (kind: string, subject: string, session = "s1", ts = "2026-11-10T12:00:00Z") => ({
+    ts,
+    session,
+    kind,
+    subject,
+  });
+  it("drops test.started directly followed by its result, keeps unmatched starts", () => {
+    const out = collapseStarts([
+      e("test.started", "K01"),
+      e("test.passed", "K01"),
+      e("test.started", "K02"),
+      e("test.started", "K03", "s2"),
+      e("test.failed", "K03", "s2"),
+      e("test.started", "K04"),
+      e("commit.created", "abc"),
+    ]);
+    expect(out.map((x) => `${x.kind}:${x.subject}`)).toEqual([
+      "test.passed:K01",
+      "test.started:K02",
+      "test.failed:K03",
+      "test.started:K04",
+      "commit.created:abc",
+    ]);
+  });
+  it("interleaved sessions do not hide the match", () => {
+    const out = collapseStarts([
+      e("test.started", "A01", "s1"),
+      e("heartbeat", "x", "s2"),
+      e("test.passed", "A01", "s1"),
+    ]);
+    expect(out.map((x) => x.kind)).toEqual(["heartbeat", "test.passed"]);
   });
 });

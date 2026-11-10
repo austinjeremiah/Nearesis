@@ -882,3 +882,25 @@ details > summary {
     flex-wrap: wrap;
   }
 }
+.rowbtn.wait {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+.waitmeta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+.clamp2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.drawer pre .hl {
+  background: var(--warn-bg);
+  display: inline;
+}

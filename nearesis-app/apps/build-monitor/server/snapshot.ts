@@ -157,6 +157,7 @@ export interface WaitingItem {
   status: string;
   path: string | null;
   since: string;
+  line?: number;
 }
 
 const STATUS_WORDS = /status\s*:\s*\**\s*([A-Za-z_]+)/gi;
@@ -189,15 +190,30 @@ const needsHuman = (w: { owner: string | null; severity: string | null }): boole
   /human|owner/i.test(w.owner ?? "") || /release_stop|phase_stop/i.test(w.severity ?? "");
 
 /** `[OPEN]` entries in INTEGRATION_QUEUE.md (format: `- [OPEN] ts engine type - summary - paths`). */
-export function parseQueue(text: string): { id: string; title: string }[] {
-  const out: { id: string; title: string }[] = [];
-  for (const line of text.split("\n")) {
+/** First sentence of `text`, hard-capped at `max` characters. */
+export function firstSentence(text: string, max = 140): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  const m = /^(.+?[.!?])(\s|$)/.exec(flat);
+  const one = m?.[1] && m[1].length >= 12 ? m[1] : flat;
+  return one.length > max ? `${one.slice(0, max - 1).trimEnd()}…` : one;
+}
+
+export function parseQueue(text: string): { id: string; title: string; line: number; ts: string | null }[] {
+  const out: { id: string; title: string; line: number; ts: string | null }[] = [];
+  text.split("\n").forEach((line, i) => {
     const m = /^\s*[-*]\s*\[OPEN\]\s*(.*)$/.exec(line);
-    if (!m) continue;
+    if (!m) return;
     const rest = m[1] ?? "";
     const parts = rest.split(/\s+[\u2014\u2013-]\s+/);
-    out.push({ id: (parts[0] ?? "").trim() || "queue", title: parts.slice(1).join(" - ").trim() || rest });
-  }
+    const head = (parts[0] ?? "").trim();
+    const tm = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z)\s+(.*)$/.exec(head);
+    out.push({
+      id: (tm ? tm[2] : head) || "queue",
+      title: firstSentence(parts.slice(1).join(" - ").trim() || rest),
+      line: i + 1,
+      ts: tm?.[1] ?? null,
+    });
+  });
   return out;
 }
 
@@ -706,7 +722,11 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
         owner: null,
         status: "OPEN",
         path: relative(paths.bibleDir, qPath),
-        since: new Date(statSync(qPath).mtimeMs).toISOString(),
+        since:
+          q.ts && !Number.isNaN(Date.parse(q.ts))
+            ? new Date(q.ts).toISOString()
+            : new Date(statSync(qPath).mtimeMs).toISOString(),
+        line: q.line,
       });
     }
   }

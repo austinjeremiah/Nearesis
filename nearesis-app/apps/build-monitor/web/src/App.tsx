@@ -9,7 +9,7 @@ import { useHashRoute, useMonitorState, useNow } from "./util.ts";
 
 const TABS = ["overview", "agents", "tests", "tasks", "reports"] as const;
 
-type DrawerState = { kind: "file"; path: string } | { kind: "test"; test: TestView } | null;
+type DrawerState = { kind: "file"; path: string; line?: number } | { kind: "test"; test: TestView } | null;
 
 async function fetchText(path: string): Promise<string> {
   try {
@@ -25,7 +25,7 @@ export function App() {
   const now = useNow();
   const [tab, sub, go] = useHashRoute();
   const [drawer, setDrawer] = useState<DrawerState>(null);
-  const openFile = useCallback((path: string) => setDrawer({ kind: "file", path }), []);
+  const openFile = useCallback((path: string, line?: number) => setDrawer({ kind: "file", path, line }), []);
 
   useEffect(() => {
     const h = (e: KeyboardEvent): void => {
@@ -131,7 +131,7 @@ function Drawer({
           </button>
         </div>
         {drawer.kind === "file" ? (
-          <FileBody path={drawer.path} />
+          <FileBody path={drawer.path} line={drawer.line} />
         ) : (
           <TestBody t={drawer.test} openFile={openFile} />
         )}
@@ -140,8 +140,9 @@ function Drawer({
   );
 }
 
-function FileBody({ path }: { path: string }) {
+function FileBody({ path, line }: { path: string; line?: number }) {
   const [text, setText] = useState("Loading…");
+  const target = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
     let live = true;
     void fetchText(path).then((t) => live && setText(t));
@@ -149,10 +150,28 @@ function FileBody({ path }: { path: string }) {
       live = false;
     };
   }, [path]);
-  return <pre data-testid="viewer-text">{text}</pre>;
+  useEffect(() => {
+    target.current?.scrollIntoView({ block: "center" });
+  }, [text, line]);
+  if (!line) return <pre data-testid="viewer-text">{text}</pre>;
+  return (
+    <pre data-testid="viewer-text">
+      {text.split("\n").map((l, i) => (
+        <span
+          key={i}
+          ref={i + 1 === line ? target : undefined}
+          className={i + 1 === line ? "hl" : undefined}
+          data-hl={i + 1 === line ? "1" : undefined}
+        >
+          {l}
+          {"\n"}
+        </span>
+      ))}
+    </pre>
+  );
 }
 
-function TestBody({ t, openFile }: { t: TestView; openFile: (p: string) => void }) {
+function TestBody({ t, openFile }: { t: TestView; openFile: (p: string, line?: number) => void }) {
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
   const latest = t.history[0];
   useEffect(() => {

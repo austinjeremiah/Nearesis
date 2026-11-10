@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import { spawn, type ChildProcess } from "node:child_process";
 import { join, resolve } from "node:path";
 import { expect, test } from "@playwright/test";
@@ -20,6 +21,23 @@ const file = join(paths.coordDir, "agents/A9.json");
 
 test.beforeAll(async () => {
   writeJson(file, agentRecord());
+  const t0 = Date.now();
+  const evs = Array.from({ length: 30 }, (_, i) =>
+    JSON.stringify({
+      ts: new Date(t0 - i * 1000).toISOString(),
+      session: "S",
+      engine: "ENGINE_A",
+      kind: "commit.created",
+      subject: `c${i}`,
+    }),
+  );
+  writeFileSync(join(paths.coordDir, "EVENTS.jsonl"), evs.join("\n") + "\n");
+  writeFileSync(
+    join(paths.coordDir, "INTEGRATION_QUEUE.md"),
+    "# Queue\n- [OPEN] 2026-11-10T11:58Z ENGINE_B contract-change \u2014 Needs a field. " +
+      "Long explanation. ".repeat(60) +
+      " \u2014 packages/x\n",
+  );
   writeIndex(paths, [
     { testId: "BOOT01", gate: "G00", status: "IMPLEMENTED" },
     { testId: "BOOT02", gate: "G00" },
@@ -132,4 +150,23 @@ test("test drawer opens from the matrix and closes with Escape", async ({ page }
   await expect(page.getByRole("dialog")).toContainText("Run history");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("waiting items are clamped and open the queue file at the entry; activity is capped at 12 per group", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await waitReady(page);
+  const title = page.getByTestId("wait-title").first();
+  await expect(title).toHaveText("Needs a field.");
+  const h = await title.evaluate((el) => el.getBoundingClientRect().height);
+  expect(h).toBeLessThan(50);
+  await expect(page.locator(".evrow")).toHaveCount(12);
+  await page
+    .getByRole("button", { name: /show more/ })
+    .first()
+    .click();
+  await expect(page.locator(".evrow")).toHaveCount(30);
+  await page.getByTestId("wait-title").first().click();
+  await expect(page.getByRole("dialog").locator('[data-hl="1"]')).toContainText("[OPEN]");
 });

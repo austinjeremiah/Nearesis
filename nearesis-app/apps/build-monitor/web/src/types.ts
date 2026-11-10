@@ -62,6 +62,7 @@ export interface WaitingItem {
   status: string;
   path: string | null;
   since: string;
+  line?: number;
 }
 export interface TestView {
   testId: string;

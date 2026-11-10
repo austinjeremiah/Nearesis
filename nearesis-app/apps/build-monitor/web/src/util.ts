@@ -102,3 +102,22 @@ export function useHashRoute(): [string, string | null, (tab: string, sub?: stri
   }, []);
   return [r[0], r[1], (tab, sub) => (window.location.hash = `#/${tab}${sub ? `/${sub}` : ""}`)];
 }
+
+interface Ev {
+  ts: string;
+  session: string;
+  kind: string;
+  subject: string;
+}
+/**
+ * Drop `test.started` events whose next event from the same session is the
+ * result (`test.passed|failed|blocked`) for the same subject. Input is chronological.
+ */
+export function collapseStarts<T extends Ev>(events: T[]): T[] {
+  const result = new Set(["test.passed", "test.failed", "test.blocked"]);
+  return events.filter((e, i) => {
+    if (e.kind !== "test.started") return true;
+    const next = events.slice(i + 1).find((x) => x.session === e.session);
+    return !(next && result.has(next.kind) && next.subject === e.subject);
+  });
+}

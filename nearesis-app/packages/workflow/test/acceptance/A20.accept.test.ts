@@ -59,6 +59,9 @@ it("A20: four-agent investigation survives a worker crash and restart with no re
     // ================= A20-P: all branches succeed; worker 1 SIGKILLed with >=2 children mid-activity =================
     const w1 = await spawnWorkerProcess(env, "w1", { policy, stepDelayMs: 1200 });
     procs.push(w1);
+    // w2 boots (slow on small CI runners) BEFORE the in-flight window is observed, so boot time cannot let the calls finish before the kill
+    const w2 = await spawnWorkerProcess(env, "w2", { policy, stepDelayMs: 1200 });
+    procs.push(w2);
     const P = await runViaApi(env, api, "A20-P");
     const inflight = await waitFor(async () => {
       const r = await q<{ effect_key: string }>(
@@ -69,8 +72,6 @@ it("A20: four-agent investigation survives a worker crash and restart with no re
       );
       return new Set(r.map((x) => x.effect_key.split(":decide:")[0])).size >= 2 ? r : null;
     });
-    const w2 = await spawnWorkerProcess(env, "w2", { policy, stepDelayMs: 1200 });
-    procs.push(w2);
     const killedAt = new Date().toISOString();
     await w1.kill();
     // authoritative set of calls inside their delivery window at the moment of the crash (rows stay 'started')

@@ -60,3 +60,5 @@ export function verifyFixture(id: string): { ok: boolean; errors: string[] } {
   }
   return { ok: errors.length === 0, errors };
 }
+
+export const readFixtureBytes = readFixtureFile;

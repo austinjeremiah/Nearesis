@@ -129,6 +129,8 @@ export function reconcileSwap(existing: StoredSwap | undefined, incoming: Stored
   )
     return "conflict";
   if (existing.createdAt !== incoming.createdAt) return "conflict";
-  const same = JSON.stringify(existing.record) === JSON.stringify(incoming.record);
+  const same =
+    existing.status === incoming.status &&
+    JSON.stringify(existing.record) === JSON.stringify(incoming.record);
   return same ? "noop" : "update";
 }

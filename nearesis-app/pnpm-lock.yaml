@@ -289,6 +289,12 @@ importers:
       '@nearesis/acceptance':
         specifier: workspace:*
         version: link:../../packages/acceptance
+      '@nearesis/api':
+        specifier: workspace:*
+        version: link:../api
+      '@nearesis/kernel':
+        specifier: workspace:*
+        version: link:../../packages/kernel
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
@@ -494,6 +500,9 @@ importers:
       '@nearesis/test-fixtures':
         specifier: workspace:*
         version: link:../../packages/test-fixtures
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
       ioredis:
         specifier: 6.0.0
         version: 6.0.0(supports-color@8.1.1)

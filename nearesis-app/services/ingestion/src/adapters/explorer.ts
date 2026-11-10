@@ -116,6 +116,8 @@ export class ExplorerCollector {
   readonly adapterVersion = EXPLORER_ADAPTER_VERSION;
   readonly breaker: AuthCircuitBreaker;
   readonly backoffLog: BackoffEvent[] = [];
+  /** Times (per injected clock) at which the global rate limiter granted a request slot. */
+  readonly grantLog: number[] = [];
   readonly streamKey: string;
   readonly baseUrl: string;
   readonly pageSize: number;
@@ -128,6 +130,10 @@ export class ExplorerCollector {
     this.baseUrl = d.baseUrl ?? "https://explorer.near-intents.org";
     this.pageSize = d.pageSize ?? 1000;
     this.credentialName = d.credentialName ?? "INTENTS_EXPLORER_JWT";
+  }
+
+  rateKey(): string {
+    return this.getBucket().key;
   }
 
   private getBucket(): RedisTokenBucket {
@@ -288,7 +294,7 @@ export class ExplorerCollector {
     const authStatuses: number[] = [];
     for (;;) {
       if (!this.breaker.allowRequest()) return { kind: "circuit_open" };
-      await bucket.acquire();
+      this.grantLog.push(await bucket.acquire());
       let res;
       try {
         res = await this.d.http.request({
@@ -391,7 +397,11 @@ export class ExplorerCollector {
       duplicatesSkipped: 0,
       cursor: null,
     };
-    const lease = new RedisLease(this.d.redis, `ingestion:lease:explorer:${this.streamKey}`, 10 * 60_000);
+    const lease = new RedisLease(
+      this.d.redis,
+      `${this.getBucket().key.replace("ingestion:rate:", "ingestion:lease:")}:${this.streamKey}`,
+      10 * 60_000,
+    );
     if (!(await lease.acquire())) return { ...result, status: "lease_held" };
     try {
       await this.loadBreaker();

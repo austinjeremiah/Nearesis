@@ -7,7 +7,19 @@ if (!values.snapshot) {
   process.exit(2);
 }
 const r = await replayDetailed(values.snapshot);
+let labelled = 0;
+let unlabelled = 0;
+for (const [t, rows] of Object.entries(r.output.tables)) {
+  for (const row of rows as Array<Record<string, unknown>>) {
+    if ("sourceLabel" in row) {
+      if (row.sourceLabel === "SYNTHETIC" || row.sourceLabel === "RECORDED") labelled++;
+      else unlabelled++;
+    } else if (!["asset_aliases", "watermarks", "contract_registry"].includes(t)) unlabelled++;
+  }
+}
 const summary = {
+  labelledRows: labelled,
+  unlabelledRows: unlabelled,
   snapshotId: r.snapshotId,
   digest: r.output.digest,
   expectedDigest: r.expectedDigest,

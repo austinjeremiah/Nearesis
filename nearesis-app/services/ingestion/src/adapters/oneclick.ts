@@ -353,3 +353,48 @@ export class OneClickQuoteSampler {
     return { slot: "unavailable", ...s };
   }
 }
+
+export interface GridSlot extends SlotSpec {
+  /** Slot the scheduler never got to run (outage, budget). Recorded as unavailable and never backfilled. */
+  skipped?: boolean;
+}
+
+/** Runs a fixed grid. Every slot gets exactly one row: an attempt class or `unavailable`. */
+export async function runQuoteGrid(
+  sampler: OneClickQuoteSampler,
+  db: import("../db.ts").Db,
+  slots: GridSlot[],
+): Promise<Array<{ slot: "observed" | "unavailable"; class: QuoteClass | null }>> {
+  const out: Array<{ slot: "observed" | "unavailable"; class: QuoteClass | null }> = [];
+  for (const s of slots) {
+    if (s.skipped) {
+      await db.query(
+        `INSERT INTO ingestion.quote_attempts(route_id, amount_base_units, privacy_mode, scheduled_bucket_utc, attempt_no, slot)
+         VALUES ($1,$2,$3,$4,$5,'unavailable') ON CONFLICT DO NOTHING`,
+        [s.routeId, s.amountBaseUnits, s.privacyMode, s.scheduledBucketUTC, s.attemptNo],
+      );
+      out.push({ slot: "unavailable", class: null });
+      continue;
+    }
+    const r = await sampler.attempt(s);
+    const a = r.attempt;
+    await db.query(
+      `INSERT INTO ingestion.quote_attempts(route_id, amount_base_units, privacy_mode, scheduled_bucket_utc, attempt_no, slot, class, amount_out_base_units, fetched_at, raw_object_hash, dry, reason)
+       VALUES ($1,$2,$3,$4,$5,'observed',$6,$7,$8,$9,true,$10) ON CONFLICT DO NOTHING`,
+      [
+        a.routeId,
+        a.amountBaseUnits,
+        a.privacyMode,
+        a.scheduledBucketUTC,
+        a.attemptNo,
+        a.class,
+        a.amountOutBaseUnits,
+        a.fetchedAtUTC,
+        a.rawObjectHash,
+        r.reason,
+      ],
+    );
+    out.push({ slot: "observed", class: a.class });
+  }
+  return out;
+}

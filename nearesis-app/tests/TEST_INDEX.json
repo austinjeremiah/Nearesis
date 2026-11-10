@@ -10,9 +10,11 @@
       "passCondition": "deterministic install, typecheck and lint exit 0",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "tests/boot/BOOT01.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "BOOT02",
@@ -22,9 +24,11 @@
       "passCondition": "secret scanner finds 0 committed credential values",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "tests/boot/BOOT02.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "BOOT03",
@@ -34,9 +38,11 @@
       "passCondition": "all production integration URLs have documented doc/source",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "tests/boot/BOOT03.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED"
+      "status": "IMPLEMENTED"
     },
     {
       "testId": "K01",

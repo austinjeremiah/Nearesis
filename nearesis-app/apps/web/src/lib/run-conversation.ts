@@ -21,6 +21,13 @@ type ApiRun = RunView & { budget?: RunBudgetUsage };
 const POLL_MS = 1000;
 // The runtime reserves 32,000 tokens, 12 calls and $3 for a composer run: a smaller cap leaves the run stuck at REQUESTED.
 const BUDGET = { tokens: 200000, toolCalls: 24, usd: 10 };
+/** Body of POST /questions: the top-bar Fixture/Live selection travels with the question (contracts 1.4.0 `source`). */
+export const questionBody = (question: string, source: "fixture" | "live") => ({
+  question,
+  snapshotPolicy: "live" as const,
+  source,
+  budget: BUDGET,
+});
 export const BUDGET_NOTE = "200k tokens · 24 calls · $10.00 cap per question";
 
 const isTerminal = (s: RunState) => TERMINAL_RUN_STATES.includes(s);
@@ -83,7 +90,11 @@ export interface RunConversation {
  * snapshot, fixed budget), 1 s poll of GET /runs/:id, approvals list when approval is needed, decisions with the exact
  * actionHash, cancel with the run version. The kernel API is only reached through the same-origin BFF (/api/k).
  */
-export function useRunConversation(workspaceId: string, enabled: boolean): RunConversation {
+export function useRunConversation(
+  workspaceId: string,
+  enabled: boolean,
+  source: "fixture" | "live" = "fixture",
+): RunConversation {
   const [thread, setThread] = useState<ThreadItem[]>([]);
   const [runs, setRuns] = useState<Record<string, RunCardModel>>({});
   const [error, setError] = useState<string | null>(null);
@@ -193,7 +204,7 @@ export function useRunConversation(workspaceId: string, enabled: boolean): RunCo
       const r = await fetch(`/api/k/workspaces/${workspaceId}/questions`, {
         method: "POST",
         headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
-        body: JSON.stringify({ question, snapshotPolicy: "live", budget: BUDGET }),
+        body: JSON.stringify(questionBody(question, source)),
       });
       if (!r.ok) {
         const b = (await r.json().catch(() => ({}))) as { message?: string; reasonCode?: string };
@@ -219,7 +230,7 @@ export function useRunConversation(workspaceId: string, enabled: boolean): RunCo
       follow(runId);
       void loadList();
     },
-    [workspaceId, follow, loadList],
+    [workspaceId, source, follow, loadList],
   );
 
   const cancel = useCallback(

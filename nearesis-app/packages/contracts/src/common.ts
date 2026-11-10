@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Contract family version. Breaking change => major bump + ADR (CONTRACT_REGISTRY.md). */
-export const CONTRACTS_VERSION = "1.3.0";
+export const CONTRACTS_VERSION = "1.4.0";
 
 export const Uuid = z.uuid();
 export const IsoDateTime = z.iso.datetime({ offset: true });

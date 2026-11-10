@@ -14,6 +14,7 @@ interface Started {
   snapshotRef: string;
   investigationId: string;
   questionId: string;
+  source?: string;
 }
 class FakeEngine implements InvestigationEngine {
   starts: Started[] = [];
@@ -86,7 +87,7 @@ afterAll(async () => f?.close());
 const q = {
   question: "Why did fees spike?",
   snapshotPolicy: "live",
-  budget: { tokens: 5000, toolCalls: 8, usd: 1 },
+  budget: { tokens: 200000, toolCalls: 12, usd: 10 },
 };
 const post = (tok: string | null, url: string, payload: unknown, headers: Record<string, string> = {}) =>
   f.app.inject({
@@ -181,12 +182,47 @@ describe("POST /v1/workspaces/:id/questions", () => {
     expect(s).toMatchObject({ workspaceId: wsA, tenantId: orgA, question: q.question });
     expect(s.snapshotRef).toMatch(/^live:/);
     const b = (await f.db.admin.query("SELECT * FROM runtime.budgets WHERE id=$1", [s.budgetId])).rows[0];
-    expect(b).toMatchObject({ tenant_id: orgA, workspace_id: wsA, tool_calls_total: 8 });
+    expect(b).toMatchObject({ tenant_id: orgA, workspace_id: wsA, tool_calls_total: 12 });
     const audit = await f.db.admin.query(
       "SELECT 1 FROM audit_events WHERE action='question.submitted' AND subject=$1",
       [body.runId],
     );
     expect(audit.rowCount).toBe(1);
+  });
+
+  it("stores the question source: fixture by default, live when asked, unknown values are 422", async () => {
+    const d = await post(ana, `/v1/workspaces/${wsA}/questions`, q);
+    const l = await post(ana, `/v1/workspaces/${wsA}/questions`, { ...q, source: "live" });
+    expect([d.statusCode, l.statusCode]).toEqual([202, 202]);
+    const src = (id: string) => engine.starts.find((x) => x.runId === id)!.source;
+    expect(src((d.json() as { runId: string }).runId)).toBe("fixture");
+    expect(src((l.json() as { runId: string }).runId)).toBe("live");
+    expect((await post(ana, `/v1/workspaces/${wsA}/questions`, { ...q, source: "prod" })).statusCode).toBe(
+      422,
+    );
+  });
+
+  it("refuses a budget below the runtime reservation with 422 BUDGET_BELOW_MINIMUM and starts nothing (FND-042)", async () => {
+    const before = engine.starts.length;
+    const budgetsBefore = (await f.db.admin.query("SELECT count(*)::int AS n FROM runtime.budgets")).rows[0]
+      .n;
+    for (const budget of [
+      { tokens: 60000, toolCalls: 16, usd: 1 }, // the original ask-box default: usd below the reservation
+      { tokens: 31999, toolCalls: 24, usd: 10 },
+      { tokens: 200000, toolCalls: 11, usd: 10 },
+    ]) {
+      const r = await post(ana, `/v1/workspaces/${wsA}/questions`, { ...q, budget });
+      expect(r.statusCode).toBe(422);
+      expect(r.json()).toMatchObject({ reasonCode: "BUDGET_BELOW_MINIMUM" });
+    }
+    const exact = await post(ana, `/v1/workspaces/${wsA}/questions`, {
+      ...q,
+      budget: { tokens: 32000, toolCalls: 12, usd: 3 },
+    });
+    expect(exact.statusCode).toBe(202);
+    expect(engine.starts.length).toBe(before + 1);
+    const budgetsAfter = (await f.db.admin.query("SELECT count(*)::int AS n FROM runtime.budgets")).rows[0].n;
+    expect(budgetsAfter).toBe(budgetsBefore + 1);
   });
 
   it("ignores a smuggled tenant: strict schema rejects extra fields with 422", async () => {

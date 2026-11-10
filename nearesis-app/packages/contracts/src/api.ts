@@ -36,9 +36,20 @@ export const CommandAccepted = z.strictObject({
   resultFingerprint: z.string(),
 });
 
+/** v1.4.0 (additive): which semantic layer the run's agents query. Absent means the SYNTHETIC fixture cubes. */
+export const QuestionSource = z.enum(["fixture", "live"]);
+export type QuestionSource = z.infer<typeof QuestionSource>;
+
+/**
+ * Smallest budget a question may carry: the director's reservation (20k tokens, 6 calls, USD 2) plus the composer's
+ * (12k, 6, USD 1). Below this the runtime cannot reserve for the plan and the run would stall (FND-20261110-042).
+ */
+export const MIN_QUESTION_BUDGET = { tokens: 32_000, toolCalls: 12, usd: 3 } as const;
+
 export const SubmitQuestionRequest = z.strictObject({
   question: z.string().min(1).max(4000),
   snapshotPolicy: z.enum(["live", "pinned"]),
+  source: QuestionSource.default("fixture"),
   budget: z.strictObject({
     tokens: z.number().int().positive(),
     toolCalls: z.number().int().positive().max(24),
@@ -46,3 +57,16 @@ export const SubmitQuestionRequest = z.strictObject({
   }),
 });
 export const SubmitQuestionResponse = z.strictObject({ runId: Uuid, workflowId: z.string() });
+
+/** v1.4.0 (additive, read-only): the workspaces the signed-in user can open, for the sidebar switcher. */
+export const WorkspaceListResponse = z.strictObject({
+  workspaces: z.array(
+    z.strictObject({
+      id: Uuid,
+      objective: z.string(),
+      networkScope: z.string(),
+      createdAt: z.string(),
+    }),
+  ),
+});
+export type WorkspaceListResponse = z.infer<typeof WorkspaceListResponse>;

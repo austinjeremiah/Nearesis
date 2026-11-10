@@ -18,13 +18,13 @@ export function buildManifest(
 ): PluginManifest {
   const m: Record<string, unknown> = {
     pluginId: "near-thesis",
-    version: opts.version ?? "1.0.0",
+    version: opts.version ?? "1.1.0",
     apiVersion: 1,
     publisher: opts.publisher,
     artifactSha256: createHash("sha256").update(readFileSync(ENTRY_FILE)).digest("hex"),
     capabilities: CAPABILITIES,
     permissions: ["semantic:read", "canvas:preview"],
-    networkHosts: ["127.0.0.1:4000", "127.0.0.1:58123", "127.0.0.1:56379"],
+    networkHosts: ["127.0.0.1:4000", "127.0.0.1:4001", "127.0.0.1:58123", "127.0.0.1:56379"],
     resourceLimits: { memoryMb: 256, cpuMs: 30_000, concurrency: 8 },
     configurationSchema: {},
     healthCheck: { capability: "semantic.discover@1", intervalMs: 60_000 },

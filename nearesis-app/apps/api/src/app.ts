@@ -136,6 +136,8 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     return reply.status(201).send(res);
   });
 
+  app.get("/v1/workspaces", async (req) => runs.listWorkspaces(await authenticate(req)));
+
   app.get<{ Params: { id: string } }>("/v1/workspaces/:id", async (req) => {
     const session = await authenticate(req);
     if (!Uuid.safeParse(req.params.id).success) throw workspaceNotFound();

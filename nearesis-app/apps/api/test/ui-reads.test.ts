@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { RunBudgetUsage, RunListResponse, SourceListResponse } from "@nearesis/contracts";
+import {
+  RunBudgetUsage,
+  RunListResponse,
+  SourceListResponse,
+  WorkspaceListResponse,
+} from "@nearesis/contracts";
 import { apiFixture, bearer, login, sansTrace, seedOrg } from "./helpers.ts";
 import type { ApiFixture } from "./helpers.ts";
 
@@ -79,6 +84,20 @@ beforeAll(async () => {
   wsB = await create(bob, "create-ui-b1");
 });
 afterAll(async () => f?.close());
+
+describe("GET /v1/workspaces", () => {
+  it("lists only the caller's org workspaces, newest first, for any member role", async () => {
+    const mine = WorkspaceListResponse.parse((await get(vic, "/v1/workspaces")).json()).workspaces;
+    expect(mine.map((w) => w.id).sort()).toEqual([wsA, wsEmpty].sort());
+    expect(mine.map((w) => w.id)).not.toContain(wsB);
+    expect(mine[0]).toMatchObject({ objective: "o", networkScope: "fixture-only" });
+    const theirs = WorkspaceListResponse.parse((await get(bob, "/v1/workspaces")).json()).workspaces;
+    expect(theirs.map((w) => w.id)).toEqual([wsB]);
+  });
+  it("requires authentication", async () => {
+    expect((await get(null, "/v1/workspaces")).statusCode).toBe(401);
+  });
+});
 
 describe("GET /v1/workspaces/:id/runs", () => {
   it("lists investigations newest first with question summary, state and start time", async () => {

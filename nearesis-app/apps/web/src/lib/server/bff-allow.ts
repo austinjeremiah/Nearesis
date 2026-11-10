@@ -4,7 +4,7 @@
  */
 const UUID = "[0-9a-f-]{36}";
 export const ALLOWED = [
-  /^workspaces$/,
+  /^workspaces$/, // GET lists the caller's workspaces (sidebar); POST creates one
   new RegExp(`^workspaces/${UUID}$`),
   new RegExp(`^workspaces/${UUID}/canvas$`),
   new RegExp(`^workspaces/${UUID}/commands$`),

@@ -12,6 +12,8 @@ export interface InvestigationInput {
   tenantId: string;
   runId: string;
   question?: string;
+  /** Semantic layer the run's agents query (contracts 1.4.0 `source`). Absent = fixture. */
+  source?: "fixture" | "live";
   scenario?: string;
   /** The human on whose behalf leases are issued and the approved canvas command is applied (server-resolved by the API). */
   requestedBy?: { userId: string; role: "owner" | "admin" | "analyst" | "viewer" };

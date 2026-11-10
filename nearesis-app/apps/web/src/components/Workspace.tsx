@@ -32,6 +32,13 @@ import {
   type SidebarData,
 } from "@nearesis/ui";
 import { BUDGET_NOTE, useRunConversation } from "../lib/run-conversation.ts";
+import {
+  devLoginAvailable,
+  kernelWorkspaceUrl,
+  listWorkspaces,
+  signInDev,
+  type WorkspaceRow,
+} from "../lib/dev-login.ts";
 
 const ACTOR = "00000000-0000-4000-8000-0000000000a1";
 
@@ -98,7 +105,10 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   const [entering, setEntering] = useState<Set<string>>(new Set());
   const [sources, setSources] = useState<SidebarData["sources"]>([]);
   const [user, setUser] = useState<{ name: string }>({ name: "Signed out" });
-  const conv = useRunConversation(workspaceId, mode === "kernel");
+  const [devLogin, setDevLogin] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [workspaces, setWorkspaces] = useState<WorkspaceRow[]>([]);
+  const conv = useRunConversation(workspaceId, mode === "kernel", source);
   const convRef = useRef(conv);
   convRef.current = conv;
   const docRef = useRef(doc);
@@ -180,6 +190,13 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
 
   useEffect(() => {
     let srcTimer: ReturnType<typeof setInterval> | null = null;
+    const search = new URLSearchParams(window.location.search);
+    void devLoginAvailable().then(setDevLogin);
+    // Signed-in users get the kernel-backed workspace on the semantic layer by default.
+    if (!search.has("backend") && /^[0-9a-f-]{36}$/.test(workspaceId))
+      void fetch("/api/session", { cache: "no-store" }).then((r) => {
+        if (r.ok) window.location.replace(kernelWorkspaceUrl(workspaceId));
+      });
     const b = createBackend(new URLSearchParams(window.location.search), workspaceId);
     backendRef.current = b;
     hooks().backend = b;
@@ -209,7 +226,11 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       void fetch("/api/session", { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .then((u: { subject?: string | null } | null) => {
-          if (u?.subject) setUser({ name: u.subject });
+          if (u?.subject) {
+            setUser({ name: u.subject });
+            setSignedIn(true);
+            void listWorkspaces().then(setWorkspaces);
+          }
         })
         .catch(() => undefined);
       if (b.dataMode !== "fixture") {
@@ -542,7 +563,9 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
 
   const kernel = mode === "kernel";
   const sidebar: SidebarData = {
-    workspaces: [{ id: workspaceId, name: kernel ? "Workspace" : "Fixture workspace" }],
+    workspaces: workspaces.length
+      ? workspaces.map((w) => ({ id: w.id, name: w.objective }))
+      : [{ id: workspaceId, name: kernel ? "Workspace" : "Fixture workspace" }],
     activeWorkspaceId: workspaceId,
     investigations: conv.investigations.map((r) => ({
       id: r.runId,
@@ -575,6 +598,14 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       group: "Navigate",
       run: () => document.getElementById("main")?.scrollTo({ top: 0 }),
     },
+    ...workspaces
+      .filter((w) => w.id !== workspaceId)
+      .map((w) => ({
+        id: `ws-${w.id}`,
+        label: `Open workspace: ${w.objective}`,
+        group: "Navigate",
+        run: () => window.location.assign(kernelWorkspaceUrl(w.id, source)),
+      })),
     ...(doc?.panels ?? []).map((p) => ({
       id: `panel-${p.panelId}`,
       label: p.title,
@@ -602,6 +633,20 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     u.searchParams.set("backend", "kernel");
     if (next === "fixture" && !u.searchParams.has("data")) u.searchParams.set("data", "semantic");
     window.location.assign(u.toString());
+  };
+  const devSignIn = async () => {
+    if (!(await signInDev())) {
+      setToast("Dev sign-in failed. Run pnpm dev:seed and check that the API is running.");
+      return;
+    }
+    const mine = await listWorkspaces();
+    if (!mine.length) {
+      setToast("Signed in, but there is no workspace yet. Run pnpm dev:seed.");
+      setSignedIn(true);
+      return;
+    }
+    const here = mine.find((w) => w.id === workspaceId) ?? mine[0]!;
+    window.location.assign(kernelWorkspaceUrl(here.id, source));
   };
   const run = conv.activeRun;
   const runIndicator =
@@ -636,6 +681,13 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
             active="canvas"
             collapsed={navCollapsed}
             onToggleCollapsed={() => setNavCollapsed((c) => !c)}
+            footerExtra={
+              devLogin && !signedIn ? (
+                <button type="button" className="nz-btn" data-testid="dev-signin" onClick={devSignIn}>
+                  Sign in (dev)
+                </button>
+              ) : null
+            }
             onNavigate={(key) => {
               setMobileNav(false);
               if (key.startsWith("inv:")) {
@@ -733,8 +785,8 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
         {source === "live" && (
           <HonestyBanner data-testid="live-banner">
             LIVE data: real provider data from the live layer. Gaps stay gaps, partial days are labelled, and
-            each panel shows its source watermark. The agent still queries through the worker's configured
-            gateway.
+            each panel shows its source watermark. Questions you ask here are answered from the same live
+            layer.
           </HonestyBanner>
         )}
         {mode === "fixture" && (

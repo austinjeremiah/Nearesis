@@ -1,4 +1,5 @@
 import { API_URL, SESSION_COOKIE, testHooksEnabled } from "../../../../lib/server/upstream.ts";
+import { devLoginEnabled } from "../../../../lib/server/dev-login.ts";
 
 /** Dev/test login: exchanges an OIDC subject for a kernel session token stored in an HttpOnly cookie. */
 export async function POST(req: Request) {
@@ -14,4 +15,9 @@ export async function POST(req: Request) {
   const res = new Response(null, { status: 204 });
   res.headers.append("set-cookie", `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict`);
   return res;
+}
+
+/** Whether the UI should offer "Sign in (dev)". Existing test-hook gating of POST is unchanged. */
+export async function GET() {
+  return Response.json({ enabled: devLoginEnabled() }, { headers: { "cache-control": "no-store" } });
 }

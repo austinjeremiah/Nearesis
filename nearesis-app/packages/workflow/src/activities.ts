@@ -113,6 +113,8 @@ export function toApplicationFailure(e: unknown): unknown {
 
 /** toolCalls is a reservation against the run budget; the 24-calls-per-hypothesis cap is enforced by the tool meter. */
 export const directorBudget = { tokens: 20000, toolCalls: 6, usd: 2 };
+/** The live composer child's reservation. `MIN_QUESTION_BUDGET` (contracts) must stay >= director + composer. */
+export const composerBudget = { tokens: 12000, toolCalls: 6, usd: 1 };
 
 export function createActivities(d: ActivityDeps) {
   const roles = loadRoles();
@@ -394,8 +396,8 @@ export function createActivities(d: ActivityDeps) {
       return guarded(async () => {
         await withTenant(d.pool, i.tenantId, (c) =>
           c.query(
-            `INSERT INTO runs (id, tenant_id, workspace_id, investigation_id, question_id, snapshot_ref, budget_id, workflow_id, scenario, state, requested_by, requested_role)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'REQUESTED',$10,$11) ON CONFLICT (id) DO NOTHING`,
+            `INSERT INTO runs (id, tenant_id, workspace_id, investigation_id, question_id, snapshot_ref, budget_id, workflow_id, scenario, state, requested_by, requested_role, source)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'REQUESTED',$10,$11,$12) ON CONFLICT (id) DO NOTHING`,
             [
               i.runId,
               i.tenantId,
@@ -408,6 +410,7 @@ export function createActivities(d: ActivityDeps) {
               i.scenario ?? null,
               i.requestedBy?.userId ?? null,
               i.requestedBy?.role ?? null,
+              i.source ?? "fixture",
             ],
           ),
         );
@@ -507,7 +510,7 @@ export function createActivities(d: ActivityDeps) {
                   objective: text.slice(0, 3900),
                   capabilities: ["canvas.preview@1"],
                   inputSnapshot: snapshotRef.slice(0, 500),
-                  budget: { tokens: 12000, toolCalls: 6, usd: 1 },
+                  budget: { ...composerBudget },
                   maxChildDepth: 0,
                 },
               ],

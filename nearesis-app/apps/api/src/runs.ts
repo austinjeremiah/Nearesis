@@ -1,6 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
-import { SubmitQuestionRequest } from "@nearesis/contracts";
-import type { RunBudgetUsage, RunListResponse, SourceListResponse } from "@nearesis/contracts";
+import { MIN_QUESTION_BUDGET, SubmitQuestionRequest } from "@nearesis/contracts";
+import type {
+  RunBudgetUsage,
+  RunListResponse,
+  SourceListResponse,
+  WorkspaceListResponse,
+} from "@nearesis/contracts";
 import { KernelError, canWrite, redact, writeAudit, zodDetails } from "@nearesis/kernel";
 import type { Kernel, Session, Tx } from "@nearesis/kernel";
 import { z } from "zod";
@@ -16,6 +21,7 @@ export interface InvestigationEngine {
     tenantId: string;
     runId: string;
     question: string;
+    source?: "fixture" | "live";
   }): Promise<{ runId: string; workflowId: string }>;
   /** Signal names are the workflow's: `approve`, `reject`, `cancel`. */
   signal(
@@ -139,6 +145,17 @@ export class RunsService {
     opts: { idempotencyKey?: string } = {},
   ): Promise<{ runId: string; workflowId: string }> {
     const body = parse(SubmitQuestionRequest, rawBody);
+    const min = MIN_QUESTION_BUDGET;
+    if (body.budget.tokens < min.tokens || body.budget.toolCalls < min.toolCalls || body.budget.usd < min.usd)
+      throw new KernelError(
+        "VALIDATION_FAILED",
+        "BUDGET_BELOW_MINIMUM",
+        `Budget is below the minimum the runtime must reserve (${min.tokens} tokens, ${min.toolCalls} tool calls, USD ${min.usd}).`,
+        {
+          details: [{ path: "budget", issue: "below minimum" }],
+          nextAction: "Raise the budget and resubmit.",
+        },
+      );
     const key = opts.idempotencyKey;
     if (key !== undefined && (key.length < 8 || key.length > 200))
       throw new KernelError(
@@ -185,7 +202,12 @@ export class RunsService {
         action: "question.submitted",
         subject: ids.runId,
         outcome: "ok",
-        detail: { runId: ids.runId, snapshotPolicy: body.snapshotPolicy, budget: body.budget },
+        detail: {
+          runId: ids.runId,
+          snapshotPolicy: body.snapshotPolicy,
+          source: body.source,
+          budget: body.budget,
+        },
       });
       return `${body.snapshotPolicy}:ws-v${ws.version}`;
     });
@@ -200,6 +222,7 @@ export class RunsService {
         tenantId: s.principal.orgId,
         runId: ids.runId,
         question: body.question,
+        source: body.source,
       });
     } catch (e) {
       if ((e as { name?: string } | null)?.name === "WorkflowExecutionAlreadyStartedError" && seed)
@@ -243,6 +266,23 @@ export class RunsService {
       spent: { tokens: n(l.st), toolCalls: n(l.sc), usd: n(l.su) },
       reserved: { tokens: n(l.rt), toolCalls: n(l.rc), usd: n(l.ru) },
     };
+  }
+
+  /** Non-archived workspaces of the caller's org, newest first (RLS scopes the rows to the org). Read-only. */
+  async listWorkspaces(s: Session): Promise<WorkspaceListResponse> {
+    return this.kernel.db.tx(this.ctx(s), async (tx) => {
+      const r = await tx.query<{ id: string; objective: string; network_scope: string; created_at: Date }>(
+        "SELECT id, objective, network_scope, created_at FROM workspaces WHERE archived_at IS NULL ORDER BY created_at DESC LIMIT 100",
+      );
+      return {
+        workspaces: r.rows.map((w) => ({
+          id: w.id,
+          objective: w.objective,
+          networkScope: w.network_scope,
+          createdAt: new Date(w.created_at).toISOString(),
+        })),
+      };
+    });
   }
 
   /** Investigations of a workspace, newest first (sidebar). A workspace the caller cannot see is a 404. */

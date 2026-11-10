@@ -59,7 +59,7 @@ describe("investigation API against live Temporal", () => {
       method: "POST",
       url: `/v1/workspaces/${ws}/questions`,
       headers: { ...bearer(tok), "idempotency-key": "live-question-1" },
-      payload: { question: "q?", snapshotPolicy: "live", budget: { tokens: 100, toolCalls: 2, usd: 0.1 } },
+      payload: { question: "q?", snapshotPolicy: "live", budget: { tokens: 200000, toolCalls: 24, usd: 10 } },
     });
     expect(r.statusCode).toBe(202);
     const body = r.json() as { runId: string; workflowId: string };
@@ -73,7 +73,7 @@ describe("investigation API against live Temporal", () => {
       method: "POST",
       url: `/v1/workspaces/${ws}/questions`,
       headers: { ...bearer(tok), "idempotency-key": "live-question-1" },
-      payload: { question: "q?", snapshotPolicy: "live", budget: { tokens: 100, toolCalls: 2, usd: 0.1 } },
+      payload: { question: "q?", snapshotPolicy: "live", budget: { tokens: 200000, toolCalls: 24, usd: 10 } },
     });
     expect(again.json()).toEqual(body);
     // the engine delivers a real signal (an approve for a hash nobody asked for is simply recorded by the workflow)

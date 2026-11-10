@@ -15,6 +15,10 @@ import {
   createPg,
   CUBE_URL_DEFAULT,
   defaultCubeSecret,
+  LIVE_CUBE_URL_DEFAULT,
+  LIVE_DATABASE,
+  liveCatalog,
+  loadLiveRegistry,
   loadRegistry,
   type Registry,
 } from "@nearesis/analytics";
@@ -23,7 +27,18 @@ import { definePlugin, type InvocationContext } from "@nearesis/plugin-sdk";
 import { PreviewInput } from "./capabilities.ts";
 
 type Gateway = ReturnType<typeof createGateway>;
-let gw: { gateway: Gateway; registry: Registry; redis: Redis; ch: ReturnType<typeof createCh> } | null = null;
+/** Which semantic layer a run's agents query: fixture cubes (:4000) or the LIVE real-data layer (cube-live, :4001). */
+export type SemanticSource = "fixture" | "live";
+interface Wired {
+  gateway: Gateway;
+  registry: Registry;
+  redis: Redis;
+  ch: ReturnType<typeof createCh>;
+}
+const wired: Partial<Record<SemanticSource, Wired>> = {};
+let sharedRedis: Redis | null = null;
+let pgPool: ReturnType<typeof createPg> | null = null;
+const pool = () => (pgPool ??= createPg());
 
 /** Fact table -> its UTC day column, for the data windows the catalog advertises to composers. */
 const DAY_COLUMN: Record<string, string> = {
@@ -57,37 +72,78 @@ export async function dataWindows(
   return out;
 }
 
-/** Lazily wires the gateway from server-side configuration (env), so importing the module has no side effects. */
-export function gateway(): {
-  gateway: Gateway;
-  registry: Registry;
-  ch: ReturnType<typeof createCh>;
-} {
-  if (!gw) {
-    const registry = loadRegistry();
-    const redis = new Redis(process.env.NEARESIS_REDIS_URL ?? "redis://127.0.0.1:56379", {
-      maxRetriesPerRequest: 2,
-      lazyConnect: false,
-    });
-    const ch = createCh();
-    gw = {
+/** Lazily wires one gateway per source from server-side configuration (env), so importing the module has no side effects. */
+export function gateway(source: SemanticSource = "fixture"): Wired {
+  const hit = wired[source];
+  if (hit) return hit;
+  const live = source === "live";
+  const registry = live ? loadLiveRegistry() : loadRegistry();
+  sharedRedis ??= new Redis(process.env.NEARESIS_REDIS_URL ?? "redis://127.0.0.1:56379", {
+    maxRetriesPerRequest: 2,
+    lazyConnect: false,
+  });
+  const ch = live ? createCh({ database: LIVE_DATABASE }) : createCh();
+  const w: Wired = {
+    registry,
+    redis: sharedRedis,
+    ch,
+    gateway: createGateway({
+      cubeUrl: live
+        ? (process.env.CUBE_LIVE_URL ?? LIVE_CUBE_URL_DEFAULT)
+        : (process.env.CUBE_URL ?? CUBE_URL_DEFAULT),
+      cubeSecret: defaultCubeSecret(),
+      redis: sharedRedis as never,
       registry,
-      redis,
+      policyResolver: () => ({ ...DEFAULT_POLICY }),
+      clock: () => new Date(),
+      // Every executed query is recorded content-addressed (hash -> AST) so panels can be re-executed (C14).
+      pg: pool(),
       ch,
-      gateway: createGateway({
-        cubeUrl: process.env.CUBE_URL ?? CUBE_URL_DEFAULT,
-        cubeSecret: defaultCubeSecret(),
-        redis: redis as never,
-        registry,
-        policyResolver: () => ({ ...DEFAULT_POLICY }),
-        clock: () => new Date(),
-        // Every executed query is recorded content-addressed (hash -> AST) so panels can be re-executed (C14).
-        pg: createPg(),
-        ch,
-      }),
-    };
+    }),
+  };
+  wired[source] = w;
+  return w;
+}
+
+const sourceCache = new Map<string, SemanticSource>();
+/**
+ * The source the run was submitted with (`runtime.runs.source`, set from the question's `source`). Agent principals carry
+ * the run id as `parentRunId`; anything without a run (health probes, humans) uses the fixture layer. A lookup failure
+ * also falls back to fixture, never to live: real data is only served when the run explicitly asked for it.
+ */
+export async function sourceOf(ctx: InvocationContext): Promise<SemanticSource> {
+  const runId = ctx.principal.parentRunId;
+  if (!runId) return "fixture";
+  const cached = sourceCache.get(runId);
+  if (cached) return cached;
+  try {
+    const r = await pool().query<{ source: string }>("SELECT source FROM runtime.runs WHERE id = $1", [
+      runId,
+    ]);
+    const s: SemanticSource = r.rows[0]?.source === "live" ? "live" : "fixture";
+    if (r.rows[0]) {
+      if (sourceCache.size > 1000) sourceCache.clear();
+      sourceCache.set(runId, s);
+    }
+    return s;
+  } catch {
+    return "fixture";
   }
-  return gw;
+}
+
+/** Observed data windows of the LIVE datasets, keyed by table like `dataWindows` (null = no rows). */
+export async function liveDataWindows(
+  ch: ReturnType<typeof createCh>,
+): Promise<Record<string, { from: string; to: string } | null>> {
+  const out: Record<string, { from: string; to: string } | null> = {};
+  try {
+    for (const d of await liveCatalog(ch))
+      out[d.table] =
+        d.dataWindow.from && d.dataWindow.to ? { from: d.dataWindow.from, to: d.dataWindow.to } : null;
+  } catch {
+    /* an unreadable catalog advertises no windows */
+  }
+  return out;
 }
 
 export function sessionOf(ctx: InvocationContext): Session {
@@ -129,12 +185,18 @@ export function completenessOf(env: DataFrameEnvelope): "complete" | "partial" |
 export default definePlugin({
   handlers: {
     "semantic.discover@1": async (_input, ctx) => {
-      const g = gateway();
+      const source = await sourceOf(ctx);
+      const g = gateway(source);
       const r = await g.gateway.discover(sessionOf(ctx));
-      return { ok: true, ...r, dataWindows: await dataWindows(g.ch) };
+      return {
+        ok: true,
+        ...r,
+        source,
+        dataWindows: source === "live" ? await liveDataWindows(g.ch) : await dataWindows(g.ch),
+      };
     },
     "semantic.query@1": async (input, ctx) => {
-      const r = await gateway().gateway.query(sessionOf(ctx), input);
+      const r = await gateway(await sourceOf(ctx)).gateway.query(sessionOf(ctx), input);
       return r.ok
         ? { ok: true, queryHash: r.queryHash, cache: r.cache, envelope: r.envelope }
         : { ok: false, status: r.status, error: r.error };
@@ -145,7 +207,7 @@ export default definePlugin({
      */
     "canvas.preview@1": async (input, ctx) => {
       const parsed = PreviewInput.parse(input);
-      const { gateway: g, registry } = gateway();
+      const { gateway: g, registry } = gateway(await sourceOf(ctx));
       const metrics = registry.metrics as unknown as MetricMetadata[];
       const issues: Array<{ index: number; code: string; path: string; message: string }> = [];
       const ops = [];

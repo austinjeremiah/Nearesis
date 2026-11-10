@@ -5,8 +5,8 @@ const uuid = "11111111-1111-4111-8111-111111111111";
 const now = "2026-11-10T12:00:00.000Z";
 
 describe("v1.3.0 additions (ui read models)", () => {
-  it("is version 1.3.0 and additive", () => {
-    expect(C.CONTRACTS_VERSION).toBe("1.3.0");
+  it("is additive (the 1.3.0 shapes are unchanged in 1.4.0)", () => {
+    expect(C.CONTRACTS_VERSION).toBe("1.4.0");
     expect(C.CommandType.safeParse("canvas.apply_patch").success).toBe(true);
   });
   it("RunListResponse accepts a run row and rejects unknown states and extra keys", () => {
@@ -41,5 +41,21 @@ describe("v1.3.0 additions (ui read models)", () => {
     expect(C.RunBudgetUsage.safeParse({ total: a, spent: { ...a, usd: -1 }, reserved: a }).success).toBe(
       false,
     );
+  });
+});
+
+describe("v1.4.0 additions (question source)", () => {
+  const base = {
+    question: "why",
+    snapshotPolicy: "pinned",
+    budget: { tokens: 200000, toolCalls: 24, usd: 10 },
+  };
+  it("defaults source to fixture and accepts live", () => {
+    expect(C.SubmitQuestionRequest.parse(base).source).toBe("fixture");
+    expect(C.SubmitQuestionRequest.parse({ ...base, source: "live" }).source).toBe("live");
+  });
+  it("rejects an unknown source and still rejects extra keys", () => {
+    expect(C.SubmitQuestionRequest.safeParse({ ...base, source: "prod" }).success).toBe(false);
+    expect(C.SubmitQuestionRequest.safeParse({ ...base, extra: 1 }).success).toBe(false);
   });
 });

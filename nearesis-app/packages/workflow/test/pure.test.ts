@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { canonicalJson as nodeCanon, sha256Hex as nodeSha } from "../../agent-runtime/src/canonical.ts";
 import { actionHash, canonicalJson, childWorkflowId, dedupHash, sha256Hex } from "../src/pure.ts";
 
@@ -32,4 +32,16 @@ it("child workflow id is a deterministic function of the 5-tuple only", () => {
 it("action hash changes with any parameter change", () => {
   expect(actionHash({ a: 1, b: 2 })).toBe(actionHash({ b: 2, a: 1 }));
   expect(actionHash({ a: 1 })).not.toBe(actionHash({ a: 2 }));
+});
+
+describe("question budget minimum (FND-20261110-042)", () => {
+  it("MIN_QUESTION_BUDGET covers the director and composer reservations", async () => {
+    const { MIN_QUESTION_BUDGET } = await import("@nearesis/contracts");
+    const { directorBudget, composerBudget } = await import("../src/activities.ts");
+    expect(MIN_QUESTION_BUDGET.tokens).toBeGreaterThanOrEqual(directorBudget.tokens + composerBudget.tokens);
+    expect(MIN_QUESTION_BUDGET.toolCalls).toBeGreaterThanOrEqual(
+      directorBudget.toolCalls + composerBudget.toolCalls,
+    );
+    expect(MIN_QUESTION_BUDGET.usd).toBeGreaterThanOrEqual(directorBudget.usd + composerBudget.usd);
+  });
 });

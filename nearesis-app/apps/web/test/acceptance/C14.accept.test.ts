@@ -13,6 +13,7 @@ import { type MetricMetadata, SemanticQuery } from "@nearesis/contracts";
 import { createCh, createPg, CUBE_URL_DEFAULT, defaultCubeSecret, loadRegistry } from "@nearesis/analytics";
 import { createGateway, DEFAULT_POLICY, type Session } from "@nearesis/semantic-gateway";
 import { compileVisualization, hashCanonical, type VizRequest } from "@nearesis/canvas-schema";
+import { fixtureHash } from "@nearesis/test-fixtures";
 import { Redis } from "ioredis";
 import { BASE, launch } from "./harness.ts";
 import { type KernelEnv, loggedIn, seedWorkspace, startKernelEnv } from "./kernel-harness.ts";
@@ -36,6 +37,8 @@ const SPECS = [
     mark: "line",
   },
 ] as const;
+// The ClickHouse facts are the synthetic P02 baseline snapshot; queries are pinned to it so provenance resolves.
+const SNAPSHOT = "fx.snapshot.p02-baseline";
 const AFFECTED_SOURCE = "intents-1click";
 
 let env: KernelEnv;
@@ -118,6 +121,7 @@ describe("C14 freshness and provenance", () => {
       const cube = s.measure.startsWith("near.") ? "near_usage" : s.measure.split(".")[0]!;
       const ast = SemanticQuery.parse({
         semanticVersion: registry.semanticVersion,
+        sourceSnapshotId: SNAPSHOT,
         measures: [s.measure],
         dimensions: [],
         time: { field: `${cube}.day`, ...W, grain: "day" },
@@ -215,6 +219,10 @@ describe("C14 freshness and provenance", () => {
       ])
         expect(insp, k).toHaveProperty(k);
       expect(insp.queryHash).toBe(p.queryRef.hash);
+      expect(insp.sourceSnapshotId).toBe(SNAPSHOT);
+      expect(insp.rawManifestHash).toBe(fixtureHash(SNAPSHOT));
+      expect(insp.rawManifestHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(insp.sourceLabel).toBe("SYNTHETIC");
       expect(insp.semanticVersion).toBe(registry.semanticVersion);
       expect(SemanticQuery.parse(insp.ast)).toEqual(asts[i]);
       expect(re.queryHash).toBe(p.queryRef.hash);
@@ -308,7 +316,7 @@ describe("C14 freshness and provenance", () => {
 
     observe({
       testId: "C14",
-      observed: `4/4 panels show units, source watermark, freshness and completeness; inspector carries queryHash/AST/semanticVersion/sourceSnapshotId/rawManifestHash and gateway re-execution reproduced all 4 result hashes; ${AFFECTED_SOURCE} fresh->late->unavailable->fresh turned exactly the ${affected.size} dependent panels STALE (last good chart kept, warning shown) in ${timeline.map((t) => `${t.label}:${t.t}ms`).join(", ")} while the other ${panels.length - affected.size} panels were unchanged; text alternatives carry units and freshness`,
+      observed: `4/4 panels show units, source watermark, freshness and completeness; inspector carries queryHash/AST/semanticVersion, sourceSnapshotId ${SNAPSHOT} and its raw manifest hash (${fixtureHash(SNAPSHOT).slice(0, 12)}...), and gateway re-execution reproduced all 4 result hashes; ${AFFECTED_SOURCE} fresh->late->unavailable->fresh turned exactly the ${affected.size} dependent panels STALE (last good chart kept, warning shown) in ${timeline.map((t) => `${t.label}:${t.t}ms`).join(", ")} while the other ${panels.length - affected.size} panels were unchanged; text alternatives carry units and freshness`,
       fixtureHash: hashCanonical(panels.map((p) => p.queryRef.hash)),
       evidence: { perPanel, timeline, affected: [...affected], before },
     });

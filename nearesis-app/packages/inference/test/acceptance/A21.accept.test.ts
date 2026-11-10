@@ -41,6 +41,8 @@ describe("A21 provider-neutral live structured inference (OpenRouter BYOK)", () 
       models: [opts.primaryModel, ...(opts.fallbackModels ?? [])],
     };
     const budgetBefore = await p.spend.remainingUsd();
+    // The ledger is cumulative across runs (the USD cap is global); per-call assertions cover only this run.
+    const priorIds = new Set((await p.spend.entries()).map((e) => e.id));
 
     // 1. discovery + validation (a)
     const discovery = await p.validateModels(policy.models);
@@ -127,9 +129,15 @@ describe("A21 provider-neutral live structured inference (OpenRouter BYOK)", () 
       );
     }
     // (e)
-    const entries = await p.spend.entries();
-    const settled = entries.filter((e) => e.status === "settled");
+    const entries = (await p.spend.entries()).filter((e) => !priorIds.has(e.id));
+    // Settled successful calls of this run (a settled call that failed, e.g. empty completion, carries an errorClass).
+    const settled = entries.filter((e) => e.status === "settled" && !e.info?.errorClass);
     expect(settled.length).toBeGreaterThanOrEqual(2);
+    // every call of this run (successful or not) is tracked with latency and either an upstream provider or an error class
+    for (const e of entries.filter((x) => x.status !== "reserved")) {
+      expect(typeof e.info?.latencyMs).toBe("number");
+      expect(Boolean(e.info?.upstreamProvider) || Boolean(e.info?.errorClass)).toBe(true);
+    }
     for (const e of settled) {
       expect(e.model).toBeTruthy();
       expect(e.inputTokens).toBeGreaterThan(0);

@@ -322,9 +322,6 @@ importers:
       '@nearesis/acceptance':
         specifier: workspace:*
         version: link:../acceptance
-      '@nearesis/workflow':
-        specifier: workspace:*
-        version: link:../workflow
       '@types/pg':
         specifier: 8.23.1
         version: 8.23.1
@@ -365,6 +362,9 @@ importers:
       '@nearesis/acceptance':
         specifier: workspace:*
         version: link:../acceptance
+      '@nearesis/canvas-schema':
+        specifier: workspace:*
+        version: link:../canvas-schema
       '@nearesis/contracts':
         specifier: workspace:*
         version: link:../contracts

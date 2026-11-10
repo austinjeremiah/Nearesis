@@ -1,0 +1,29 @@
+{
+  "name": "@nearesis/workflow",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --exclude 'test/acceptance/**'",
+    "replay": "tsx src/replay-cli.ts"
+  },
+  "dependencies": {
+    "@nearesis/agent-runtime": "workspace:*",
+    "@nearesis/contracts": "workspace:*",
+    "@temporalio/activity": "1.25.0",
+    "@temporalio/client": "1.25.0",
+    "@temporalio/common": "1.25.0",
+    "@temporalio/testing": "1.25.0",
+    "@temporalio/worker": "1.25.0",
+    "@temporalio/workflow": "1.25.0",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@nearesis/acceptance": "workspace:*",
+    "@types/pg": "8.23.1"
+  }
+}

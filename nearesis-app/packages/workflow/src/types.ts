@@ -1,0 +1,93 @@
+import type { DedupKey } from "./pure.ts";
+
+export const TASK_QUEUE = "nearesis-investigations";
+
+/** Workflow input (brief §4). `tenantId`/`runId` are server-resolved identifiers; `scenario` selects a test fixture only. */
+export interface InvestigationInput {
+  workspaceId: string;
+  investigationId: string;
+  questionId: string;
+  snapshotRef: string;
+  budgetId: string;
+  tenantId: string;
+  runId: string;
+  question?: string;
+  scenario?: string;
+}
+
+export interface BudgetAmount {
+  tokens: number;
+  toolCalls: number;
+  usd: number;
+}
+
+export interface ChildSpec {
+  task: string;
+  role: string;
+  objective: string;
+  capabilities: string[];
+  inputSnapshot: string;
+  budget: BudgetAmount;
+  maxChildDepth: number;
+}
+
+/** ResearchChildWorkflow input (brief §4) plus server-resolved context. */
+export interface ChildInput {
+  dedupKey: DedupKey;
+  role: string;
+  objective: string;
+  depth: number;
+  parentRunId: string;
+  tenantId: string;
+  workspaceId: string;
+  budgetId: string;
+  taskId: string;
+  hypothesisId: string;
+}
+
+export interface ChildOutcome {
+  taskId: string;
+  role: string;
+  task: string;
+  status: "finished" | "failed" | "cancelled" | "rejected";
+  reasonCode: string | null;
+  /** RoleResult JSON (kept loosely typed so workflow code needs no zod). */
+  result: Record<string, unknown> | null;
+  deduplicated?: boolean;
+}
+
+export interface PlanView {
+  stages: ChildSpec[][];
+  privilegedAction: {
+    kind: string;
+    params: Record<string, unknown>;
+    network: string;
+    costLimit: number;
+  } | null;
+  requiredMetrics: string[];
+  modelVersion: string;
+}
+
+export interface PolicyView {
+  stageTimeboxMs: number;
+  heartbeatTimeoutMs: number;
+  approvalTimeoutMs: number;
+}
+
+export interface RunFailureView {
+  reasonCode: string;
+  retryability: "retryable" | "not_retryable" | "human_action_needed";
+  humanActionNeeded: string | null;
+  lastCheckpoint: string | null;
+  replayCommand: string;
+}
+
+export interface InvestigationResult {
+  runId: string;
+  state: string;
+  failure: RunFailureView | null;
+  failedBranches: Array<{ task: string; role: string; reasonCode: string }>;
+  childTaskIds: string[];
+  spawnCount: number;
+  approvalActionHash: string | null;
+}

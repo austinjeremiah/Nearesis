@@ -74,15 +74,39 @@ export class EventStore {
     this.outbox = [];
   }
 
+  /** Coalesced aggregate frames (slow consumer) replace a run of events: the client reloads the projection. */
+  coalescedFrames = 0;
+
   handleFrame(f: SseFrame): void {
+    if (f.event === "coalesced") {
+      try {
+        const d = JSON.parse(f.data) as { toSeq: number; workspaceVersion?: number };
+        this.flush();
+        this.reset(d.toSeq);
+        this.coalescedFrames += 1;
+        this.opts.onReloadRequired({ currentRevision: d.workspaceVersion ?? null, reason: "coalesced" });
+      } catch {
+        /* ignore malformed */
+      }
+      return;
+    }
     if (f.event === "reload_required") {
       let info: { currentRevision: number | null; reason: string } = {
         currentRevision: null,
         reason: "retention_expired",
       };
       try {
-        const d = JSON.parse(f.data) as { currentRevision?: number; reason?: string };
-        info = { currentRevision: d.currentRevision ?? null, reason: d.reason ?? info.reason };
+        const d = JSON.parse(f.data) as {
+          currentRevision?: number;
+          workspaceVersion?: number;
+          reason?: string;
+          currentSeq?: number;
+        };
+        info = {
+          currentRevision: d.currentRevision ?? d.workspaceVersion ?? null,
+          reason: d.reason ?? info.reason,
+        };
+        if (typeof d.currentSeq === "number") this.reset(d.currentSeq);
       } catch {
         /* keep defaults */
       }

@@ -22,6 +22,8 @@
   },
   "devDependencies": {
     "@nearesis/acceptance": "workspace:*",
+    "@nearesis/api": "workspace:*",
+    "@nearesis/kernel": "workspace:*",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "playwright": "1.65.0"

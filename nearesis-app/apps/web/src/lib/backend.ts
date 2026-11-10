@@ -1,5 +1,6 @@
 import { CanvasDocument, type DomainEvent, type PatchOp } from "@nearesis/contracts";
-import { applyOps, hashCanonical } from "@nearesis/canvas-schema";
+import { applyCanvasPatch, applyOps, hashCanonical } from "@nearesis/canvas-schema";
+import { connectSse, EventStore } from "./event-store.ts";
 import { loadScenario, type Scenario } from "../fixtures/scenarios.ts";
 import type { ApplyOutcome, CanvasBackend, GraphProjection, PanelData } from "./types.ts";
 
@@ -120,7 +121,109 @@ export class FixtureBackend implements CanvasBackend {
   }
 }
 
-export function createBackend(search: URLSearchParams): CanvasBackend {
-  // The kernel backend is wired once Engine A's canvas.apply_patch / SSE endpoints are integration-ready.
+/**
+ * Kernel backend: persistence, commands and events go through the kernel API (Engine A) via the same-origin BFF
+ * proxy (/api/k). Panel data comes from /api/data (SYNTHETIC fixture results until the semantic route is wired).
+ */
+export class KernelBackend implements CanvasBackend {
+  readonly mode = "kernel" as const;
+  readonly sourceLabel = "SYNTHETIC" as const;
+  private lastDoc: CanvasDocument | null = null;
+  private positions: Record<string, { x: number; y: number }> = {};
+  readonly store: EventStore;
+  private listeners = new Set<(e: DomainEvent) => void>();
+  onReload: (() => void) | null = null;
+
+  constructor(readonly workspaceId: string) {
+    this.store = new EventStore({
+      onBatch: (evs) => evs.forEach((e) => this.listeners.forEach((l) => l(e))),
+      onReloadRequired: () => this.onReload?.(),
+    });
+  }
+
+  private api(path: string) {
+    return `/api/k/workspaces/${this.workspaceId}${path}`;
+  }
+
+  async load(): Promise<unknown> {
+    const r = await fetch(this.api("/canvas"), { cache: "no-store" });
+    if (!r.ok) throw new Error(`canvas load failed: ${r.status}`);
+    const raw = (await r.json()) as unknown;
+    const parsed = CanvasDocument.safeParse(raw);
+    this.lastDoc = parsed.success ? parsed.data : null;
+    return raw;
+  }
+
+  async apply(ops: PatchOp[], expectedRevision: number): Promise<ApplyOutcome> {
+    const ws = await fetch(this.api(""), { cache: "no-store" });
+    if (!ws.ok) return { ok: false, status: ws.status, report: null, message: "workspace not accessible" };
+    const { version } = (await ws.json()) as { version: number };
+    const patch = {
+      schemaVersion: 1,
+      type: "workspace.patch",
+      operationId: crypto.randomUUID(),
+      expectedRevision,
+      operations: ops,
+    };
+    // Inverse ops are computed with the same pure function the kernel runs inside its transaction.
+    const local = this.lastDoc
+      ? applyCanvasPatch(this.lastDoc, patch, { now: new Date().toISOString() })
+      : null;
+    const r = await fetch(this.api("/commands"), {
+      method: "POST",
+      headers: { "content-type": "application/json", "if-match": String(version) },
+      body: JSON.stringify({
+        apiVersion: "v1",
+        commandId: crypto.randomUUID(),
+        commandType: "canvas.apply_patch",
+        payload: patch,
+        expectedVersion: version,
+      }),
+    });
+    if (!r.ok) {
+      const body = (await r.json().catch(() => ({}))) as {
+        message?: string;
+        reasonCode?: string;
+        details?: Array<{ path: string; issue: string }>;
+      };
+      const report = local && !local.ok ? local : null;
+      return {
+        ok: false,
+        status: r.status,
+        report,
+        message: `${body.reasonCode ?? ""} ${body.message ?? ""}`.trim(),
+      };
+    }
+    const doc = await this.load();
+    return { ok: true, document: doc, inverse: local && local.ok ? local.inverse : [] };
+  }
+
+  async fetchData(queryHash: string): Promise<PanelData | null> {
+    const r = await fetch(`/api/data/${queryHash}`, { cache: "no-store" });
+    return r.ok ? ((await r.json()) as PanelData) : null;
+  }
+
+  async graph(): Promise<GraphProjection | null> {
+    return null; // evidence graph projection API not yet provided by the kernel (queued request)
+  }
+
+  async saveGraphLayout(positions: Record<string, { x: number; y: number }>): Promise<void> {
+    this.positions = { ...this.positions, ...positions };
+  }
+
+  subscribe(onEvent: (e: DomainEvent) => void): () => void {
+    this.listeners.add(onEvent);
+    if (this.listeners.size === 1 && this.lastDoc) this.store.reset(0);
+    const stop = connectSse(this.api("/events"), this.store);
+    return () => {
+      this.listeners.delete(onEvent);
+      stop();
+    };
+  }
+}
+
+export function createBackend(search: URLSearchParams, workspaceId: string): CanvasBackend {
+  if (search.get("backend") === "kernel" && /^[0-9a-f-]{36}$/.test(workspaceId))
+    return new KernelBackend(workspaceId);
   return new FixtureBackend(search.get("scenario") ?? "baseline");
 }

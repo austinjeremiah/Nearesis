@@ -12,7 +12,7 @@ import {
   validatePanelSpec,
 } from "@nearesis/canvas-schema";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createBackend } from "../lib/backend.ts";
+import { createBackend, KernelBackend } from "../lib/backend.ts";
 import { RENDERER_VERSION } from "../lib/chart-option.ts";
 import { hooks } from "../lib/test-hooks.ts";
 import type { CanvasBackend, GraphProjection, PanelData } from "../lib/types.ts";
@@ -118,6 +118,9 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       revision: d.revision,
       dataRevision: d.dataRevision,
       panels: d.panels.map((p) => p.panelId),
+      layouts: Object.fromEntries(
+        d.panels.map((p) => [p.panelId, { layout: p.layout, queryHash: p.queryRef.hash }]),
+      ),
       invalid: d.invalid.length,
       markers: d.markers,
       selections: d.selections,
@@ -159,10 +162,14 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   );
 
   useEffect(() => {
-    const b = createBackend(new URLSearchParams(window.location.search));
+    const b = createBackend(new URLSearchParams(window.location.search), workspaceId);
     backendRef.current = b;
     hooks().backend = b;
     hooks().mode = b.mode;
+    if (b instanceof KernelBackend) {
+      b.onReload = () => void loadDoc();
+      hooks().eventStore = b.store;
+    }
     setPalette(readPalette());
     let unsub = () => {};
     void (async () => {

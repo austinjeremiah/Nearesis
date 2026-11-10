@@ -30,7 +30,9 @@ function newestMtime(dir: string): number {
 }
 
 /** Builds if the build is missing or older than src, then starts the server unless one is already serving. */
-export async function startWeb(): Promise<{ reused: boolean; buildId: string }> {
+export async function startWeb(
+  extraEnv: Record<string, string> = {},
+): Promise<{ reused: boolean; buildId: string }> {
   const buildIdPath = join(WEB_DIR, ".next", "BUILD_ID");
   const stale = !existsSync(buildIdPath) || newestMtime(join(WEB_DIR, "src")) > 0;
   if (stale && (await up()))
@@ -44,10 +46,20 @@ export async function startWeb(): Promise<{ reused: boolean; buildId: string }> 
     if (b.status !== 0) throw new Error(`next build failed: ${b.stderr.slice(-2000)}`);
   }
   const buildId = readFileSync(buildIdPath, "utf8").trim();
-  if (await up()) return { reused: true, buildId };
+  if (await up()) {
+    if (Object.keys(extraEnv).length)
+      throw new Error("port 3100 busy; kernel-backed tests need their own web server");
+    return { reused: true, buildId };
+  }
   server = spawn("pnpm", ["exec", "next", "start", "-p", String(PORT), "-H", "127.0.0.1"], {
     cwd: WEB_DIR,
-    env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", NEARESIS_TEST_HOOKS: "1", NODE_ENV: "production" },
+    env: {
+      ...process.env,
+      NEXT_TELEMETRY_DISABLED: "1",
+      NEARESIS_TEST_HOOKS: "1",
+      NODE_ENV: "production",
+      ...extraEnv,
+    },
     stdio: "ignore",
     detached: true,
   });

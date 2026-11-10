@@ -1,5 +1,12 @@
 export type InferenceErrorCode =
-  "UPSTREAM_DEGRADED" | "SCHEMA_INVALID" | "BUDGET_EXCEEDED" | "PUBLICATION_REFUSED";
+  | "UPSTREAM_DEGRADED"
+  | "SCHEMA_INVALID"
+  | "BUDGET_EXCEEDED"
+  | "PUBLICATION_REFUSED"
+  | "MODEL_UNSUPPORTED"
+  | "NOT_BYOK_SHARED_CAPACITY"
+  | "UPSTREAM_AUTH"
+  | "UPSTREAM_BILLING";
 
 export class InferenceError extends Error {
   readonly code: InferenceErrorCode;

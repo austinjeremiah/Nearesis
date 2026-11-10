@@ -1168,9 +1168,11 @@
       "passCondition": "IDs and stored anchors unchanged; overlay maps to anchor within 1 data unit; refresh bumps dataRevision only",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C12.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -1209,9 +1211,11 @@
       "passCondition": "ordered exactly-once application; Last-Event-ID resume; reload_required on expiry; bounded buffers; final state equal",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/C15.accept.test.ts"
+      ],
       "live": false,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     },
     {
@@ -1265,9 +1269,11 @@
       "passCondition": "schema-valid primary + forced fallback; every response BYOK; usage/cost/latency/status logged; <=USD 5; outputs unattested and refused by publication gate; 0 key leaks",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [],
+      "testFiles": [
+        "packages/inference/test/acceptance/A21.accept.test.ts"
+      ],
       "live": true,
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true
     }
   ]

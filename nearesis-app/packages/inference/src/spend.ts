@@ -18,7 +18,7 @@ export function credentialKey(apiKey: string): string {
   return createHash("sha256").update(apiKey).digest("hex");
 }
 
-interface Entry {
+export interface Entry {
   id: string;
   at: string;
   model: string;
@@ -28,15 +28,17 @@ interface Entry {
   actualUsd: number | null;
   inputTokens: number | null;
   outputTokens: number | null;
+  /** Per-call tracking detail: provider, latencyMs, httpStatus, errorClass, byok, generationId, ... */
+  info?: Record<string, unknown>;
 }
 interface Store {
   credentials: Record<string, { entries: Entry[] }>;
 }
 
-export function defaultLedgerPath(): string {
+export function defaultLedgerPath(file = "near-ai.json"): string {
   // packages/inference/src -> nearesis-app
   const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-  return join(appRoot, ".data", "spend", "near-ai.json");
+  return join(appRoot, ".data", "spend", file);
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -101,6 +103,11 @@ export class SpendLedger {
     return this.withLock(() => SpendLedger.committed(this.read().credentials[this.keyHash]?.entries ?? []));
   }
 
+  /** All recorded entries for this credential (for evidence/tests). */
+  async entries(): Promise<Entry[]> {
+    return this.withLock(() => structuredClone(this.read().credentials[this.keyHash]?.entries ?? []));
+  }
+
   async remainingUsd(): Promise<number> {
     return Math.max(0, this.capUsd - (await this.spentUsd()));
   }
@@ -137,6 +144,7 @@ export class SpendLedger {
   async settle(
     id: string,
     actual: { usd: number; inputTokens: number; outputTokens: number; requestId: string | null },
+    info?: Record<string, unknown>,
   ): Promise<void> {
     await this.withLock(() => {
       const s = this.read();
@@ -147,17 +155,19 @@ export class SpendLedger {
       e.inputTokens = actual.inputTokens;
       e.outputTokens = actual.outputTokens;
       e.requestId = actual.requestId;
+      if (info) e.info = info;
       this.write(s);
     });
   }
 
   /** The request was rejected before incurring cost (e.g. HTTP 402/4xx, network failure). */
-  async release(id: string): Promise<void> {
+  async release(id: string, info?: Record<string, unknown>): Promise<void> {
     await this.withLock(() => {
       const s = this.read();
       const e = s.credentials[this.keyHash]?.entries.find((x) => x.id === id);
       if (!e) return;
       e.status = "released";
+      if (info) e.info = info;
       this.write(s);
     });
   }

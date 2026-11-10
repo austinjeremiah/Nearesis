@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import {
+  CommandType,
   MarkerAnchor,
-  WorkspaceCommand,
+  WorkspaceCommand as ContractWorkspaceCommand,
   CommandAccepted as CommandAcceptedSchema,
 } from "@nearesis/contracts";
 import type { DomainEventType } from "@nearesis/contracts";
@@ -13,6 +14,16 @@ import type { Db, Tx } from "./db/pool.ts";
 import { KernelError, isUniqueViolation } from "./errors.ts";
 import { EventJournal, writeAudit } from "./journal.ts";
 import { noWorkspaceAccess, zodDetails } from "./workspace.ts";
+
+/**
+ * Kernel command envelope: the contract envelope plus commands the kernel added ahead of the contract enum
+ * (`graph.save_layout`; see the contract-change entry in INTEGRATION_QUEUE.md).
+ */
+export const KERNEL_EXTRA_COMMANDS = ["graph.save_layout"] as const;
+const WorkspaceCommand = ContractWorkspaceCommand.extend({
+  commandType: z.enum([...CommandType.options, ...KERNEL_EXTRA_COMMANDS]),
+});
+type WorkspaceCommand = z.infer<typeof WorkspaceCommand>;
 
 export type CommandAccepted = z.infer<typeof CommandAcceptedSchema>;
 

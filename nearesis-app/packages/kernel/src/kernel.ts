@@ -4,6 +4,7 @@ import type { AuthProvider } from "./auth.ts";
 import { CanvasService } from "./canvas.ts";
 import type { SemanticValidator } from "./canvas.ts";
 import { CommandBus } from "./commands.ts";
+import { EvidenceGraphService } from "./graph.ts";
 import { KernelToolGateway } from "./gateway.ts";
 import { EventJournal } from "./journal.ts";
 import { LeaseService } from "./leases.ts";
@@ -39,6 +40,7 @@ export class Kernel {
   readonly outbox: OutboxPublisher;
   readonly canvas: CanvasService;
   readonly stream: EventStreamService;
+  readonly graph: EvidenceGraphService;
   readonly identity: IdentityPolicy;
   readonly devAuth: DevAuthProvider | undefined;
   readonly engine: { inspect: PluginManager["inspect"] };
@@ -55,6 +57,8 @@ export class Kernel {
     this.stream = new EventStreamService(cfg.db, this.journal, cfg.stream);
     this.canvas = new CanvasService(cfg.db, cfg.semanticValidator);
     this.commands.register("canvas.apply_patch", this.canvas.handler);
+    this.graph = new EvidenceGraphService(cfg.db);
+    this.commands.register("graph.save_layout", this.graph.saveLayoutHandler);
     const nodeEnv = cfg.nodeEnv ?? process.env.NODE_ENV;
     this.devAuth = cfg.authProvider ? undefined : new DevAuthProvider(cfg.db, cfg.sessionSecret, nodeEnv);
     this.identity = new IdentityPolicy(cfg.db, cfg.authProvider ?? this.devAuth!);

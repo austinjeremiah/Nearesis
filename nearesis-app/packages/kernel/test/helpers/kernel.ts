@@ -137,7 +137,8 @@ export function runCmd(
     | "marker.create"
     | "plugin.enable"
     | "plugin.disable"
-    | "canvas.apply_patch",
+    | "canvas.apply_patch"
+    | "graph.save_layout",
   payload: Record<string, unknown>,
   expectedVersion: number,
   commandId: string = randomUUID(),

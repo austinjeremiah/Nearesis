@@ -32,7 +32,8 @@ declare module "fastify" {
 export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   const { kernel } = opts;
   const nodeEnv = opts.nodeEnv ?? process.env.NODE_ENV;
-  const app = Fastify({ logger: false, bodyLimit: 1_000_000, genReqId: () => randomUUID() });
+  const BODY_LIMIT_BYTES = 1_000_000;
+  const app = Fastify({ logger: false, bodyLimit: BODY_LIMIT_BYTES, genReqId: () => randomUUID() });
 
   app.decorateRequest("traceId", "");
   app.addHook("onRequest", async (req, reply) => {
@@ -42,10 +43,18 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     void reply.header("x-trace-id", req.traceId);
   });
 
-  app.setErrorHandler((err, req, reply) => {
+  app.setErrorHandler(async (err, req, reply) => {
     const fe = err as { statusCode?: number; validation?: unknown; code?: string };
     let e: unknown = err;
-    if (
+    if (fe.code === "FST_ERR_CTP_BODY_TOO_LARGE") {
+      // Oversized bodies are a validation failure with an error path (C09), not a generic "malformed" error.
+      const rev = await lastStableRevision(req);
+      e = new KernelError("VALIDATION_FAILED", "PAYLOAD_TOO_LARGE", "Request body exceeds the size limit.", {
+        details: [{ path: "body", issue: `payload exceeds ${BODY_LIMIT_BYTES} bytes` }],
+        ...(rev !== undefined ? { lastStableRevision: rev } : {}),
+        nextAction: "Reduce the request body size and resubmit.",
+      });
+    } else if (
       !(err instanceof KernelError) &&
       typeof fe.statusCode === "number" &&
       fe.statusCode >= 400 &&
@@ -56,6 +65,19 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     const { status, body } = toErrorResponse(e, req.traceId);
     void reply.status(status).send(body);
   });
+  /** Best effort: the workspace version for /v1/workspaces/:id/* requests from an authenticated member. */
+  async function lastStableRevision(req: FastifyRequest): Promise<number | undefined> {
+    try {
+      const id = /^\/v1\/workspaces\/([0-9a-fA-F-]{36})(?:\/|$)/.exec(req.url)?.[1];
+      if (!id || !Uuid.safeParse(id).success) return undefined;
+      const h = req.headers.authorization;
+      const token = h?.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : undefined;
+      const session = await kernel.identity.resolveSession(token);
+      return (await kernel.workspaces.get(session, id)).version;
+    } catch {
+      return undefined;
+    }
+  }
   app.setNotFoundHandler((req, reply) => {
     const { status, body } = toErrorResponse(
       new KernelError("NOT_FOUND", "NOT_FOUND", "Not found."),
@@ -118,6 +140,18 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       return await kernel.canvas.get(session, req.params.id);
     } catch (e) {
       // Same outcome as GET /v1/workspaces/:id for inaccessible and unknown workspaces.
+      if (e instanceof KernelError && e.code === "FORBIDDEN") throw workspaceNotFound();
+      throw e;
+    }
+  });
+
+  /** Evidence graph projection (C16). Same existence-hiding as the canvas: outsiders get 404. */
+  app.get<{ Params: { id: string } }>("/v1/workspaces/:id/graph", async (req) => {
+    const session = await authenticate(req);
+    if (!Uuid.safeParse(req.params.id).success) throw workspaceNotFound();
+    try {
+      return await kernel.graph.get(session, req.params.id);
+    } catch (e) {
       if (e instanceof KernelError && e.code === "FORBIDDEN") throw workspaceNotFound();
       throw e;
     }

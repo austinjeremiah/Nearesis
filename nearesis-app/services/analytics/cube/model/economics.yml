@@ -4,8 +4,7 @@ cubes:
     sql: "SELECT * FROM economics_reports FINAL"
     public: false
     refresh_key:
-      sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM economics_reports"
-      every: 1 second
+      every: 5 second
     dimensions:
       - name: day
         sql: "report_day"
@@ -20,30 +19,7 @@ cubes:
         type: number
         sql: "toString(sum({CUBE}.revenue_usd))"
         description: "Revenue reported by an external party in USD (exact decimal string)"
-        meta:
-          {
-            "id": "economics.externally_reported_revenue_usd",
-            "displayName": "Externally reported revenue (USD)",
-            "kind": "flow",
-            "unit": "usd",
-            "grain": "day",
-            "aggregationLaw": "sum",
-            "denominator": "n/a: additive count or level with no denominator",
-            "zeroPolicy": "zero_requires_complete_coverage",
-            "sources": ["external-report:economics_reports"],
-            "transformations": ["Revenue figures reported by a named external party, unaudited"],
-            "expectedUpdateLag": "P7D",
-            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
-            "visibility": "restricted",
-            "segmentOverlap": "n/a",
-            "certifiedVersion": "1.0.0",
-            "certified": true,
-            "owner": "nearesis-analytics",
-            "docUri": "docs/metrics/METRICS.md#economicsexternally_reported_revenue_usd",
-            "testFixture": "fx.snapshot.p02-baseline",
-            "uncertainty": "Unaudited third-party claim; shown as reported.",
-            "cubeMember": "economics.externally_reported_revenue_usd",
-          }
+        meta: {"id":"economics.externally_reported_revenue_usd","displayName":"Externally reported revenue (USD)","kind":"flow","unit":"usd","grain":"day","aggregationLaw":"sum","denominator":"n/a: additive count or level with no denominator","zeroPolicy":"zero_requires_complete_coverage","sources":["external-report:economics_reports"],"transformations":["Revenue figures reported by a named external party, unaudited"],"expectedUpdateLag":"P7D","botProxyDefinition":"n/a: not a per-actor metric, bot traffic is not separated","visibility":"restricted","segmentOverlap":"n/a","certifiedVersion":"1.0.0","certified":true,"owner":"nearesis-analytics","docUri":"docs/metrics/METRICS.md#economicsexternally_reported_revenue_usd","testFixture":"fx.snapshot.p02-baseline","uncertainty":"Unaudited third-party claim; shown as reported.","cubeMember":"economics.externally_reported_revenue_usd"}
 
 views:
   - name: economics

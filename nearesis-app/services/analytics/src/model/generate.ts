@@ -2,6 +2,8 @@ import type { Registry } from "../registry/types.ts";
 import { CUBES, type CubeDef } from "./definition.ts";
 
 const q = (s: string) => JSON.stringify(s);
+/** Time-based refresh (Cube Core re-evaluates SQL refresh keys unreliably for ClickHouse rollups, see FND-20261110-501). */
+export const REFRESH_EVERY = "5 second";
 
 /** Renders one cube + its public view as Cube YAML. Metric metadata is copied from the registry into measure `meta` (S13: meta == registry). */
 export function renderCubeFile(c: CubeDef, registry: Registry): string {
@@ -16,8 +18,7 @@ export function renderCubeFile(c: CubeDef, registry: Registry): string {
   L.push(`    sql: ${q(select)}`);
   L.push("    public: false");
   L.push("    refresh_key:");
-  L.push(`      sql: ${q(`SELECT sum(cityHash64(toString(tuple(*)))) FROM ${c.table}`)}`);
-  L.push("      every: 1 second");
+  L.push(`      every: ${REFRESH_EVERY}`);
   L.push("    dimensions:");
   L.push("      - name: day");
   L.push(`        sql: ${q(c.timeColumn)}`);
@@ -54,11 +55,7 @@ export function renderCubeFile(c: CubeDef, registry: Registry): string {
         "          - name: idx_dims",
         `            columns: [${r.dimensions.join(", ")}]`,
       );
-      L.push(
-        "        refresh_key:",
-        `          sql: ${q(`SELECT sum(cityHash64(toString(tuple(*)))) FROM ${c.table}`)}`,
-        "          every: 1 second",
-      );
+      L.push("        refresh_key:", `          every: ${REFRESH_EVERY}`);
     }
   }
   const exposed = [

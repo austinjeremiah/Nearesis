@@ -4,8 +4,7 @@ cubes:
     sql: "SELECT * FROM near_signer_days FINAL"
     public: false
     refresh_key:
-      sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM near_signer_days"
-      every: 1 second
+      every: 5 second
     dimensions:
       - name: day
         sql: "block_date"
@@ -20,30 +19,7 @@ cubes:
         type: count_distinct
         sql: "signer_account_id"
         description: "Distinct signer accounts over the selected period (exact count over signer-day pairs; never a sum of daily uniques)"
-        meta:
-          {
-            "id": "near.period_unique_signers",
-            "displayName": "Period unique signers",
-            "kind": "count",
-            "unit": "signers",
-            "grain": "day",
-            "aggregationLaw": "count_distinct",
-            "denominator": "n/a: additive count or level with no denominator",
-            "zeroPolicy": "zero_requires_complete_coverage",
-            "sources": ["near-bigquery:near_signer_days"],
-            "transformations": ["Exact count(distinct signer) over signer-day pairs within the period"],
-            "expectedUpdateLag": "PT24H",
-            "botProxyDefinition": "Signer accounts are a proxy for activity, not unique humans",
-            "visibility": "public",
-            "segmentOverlap": "overlapping",
-            "certifiedVersion": "1.0.0",
-            "certified": true,
-            "owner": "nearesis-analytics",
-            "docUri": "docs/metrics/METRICS.md#nearperiod_unique_signers",
-            "testFixture": "fx.snapshot.p02-baseline",
-            "uncertainty": "Exact distinct count of signer accounts in the period; not unique humans.",
-            "cubeMember": "near_signers.period_unique_signers",
-          }
+        meta: {"id":"near.period_unique_signers","displayName":"Period unique signers","kind":"count","unit":"signers","grain":"day","aggregationLaw":"count_distinct","denominator":"n/a: additive count or level with no denominator","zeroPolicy":"zero_requires_complete_coverage","sources":["near-bigquery:near_signer_days"],"transformations":["Exact count(distinct signer) over signer-day pairs within the period"],"expectedUpdateLag":"PT24H","botProxyDefinition":"Signer accounts are a proxy for activity, not unique humans","visibility":"public","segmentOverlap":"overlapping","certifiedVersion":"1.0.0","certified":true,"owner":"nearesis-analytics","docUri":"docs/metrics/METRICS.md#nearperiod_unique_signers","testFixture":"fx.snapshot.p02-baseline","uncertainty":"Exact distinct count of signer accounts in the period; not unique humans.","cubeMember":"near_signers.period_unique_signers"}
 
 views:
   - name: near_signers

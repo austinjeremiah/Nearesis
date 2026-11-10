@@ -4,8 +4,7 @@ cubes:
     sql: "SELECT * FROM agent_market_jobs FINAL"
     public: false
     refresh_key:
-      sql: "SELECT sum(cityHash64(toString(tuple(*)))) FROM agent_market_jobs"
-      every: 1 second
+      every: 5 second
     dimensions:
       - name: day
         sql: "job_day"
@@ -22,30 +21,7 @@ cubes:
         filters:
           - sql: "{CUBE}.is_public = 1"
         description: "Completed jobs, only where the market publishes them"
-        meta:
-          {
-            "id": "agent_market.jobs_completed_if_public",
-            "displayName": "Completed agent-market jobs (public only)",
-            "kind": "flow",
-            "unit": "jobs",
-            "grain": "day",
-            "aggregationLaw": "sum",
-            "denominator": "n/a: additive count or level with no denominator",
-            "zeroPolicy": "zero_requires_complete_coverage",
-            "sources": ["external-report:agent_market_jobs"],
-            "transformations": ["Completed jobs for markets that publish them"],
-            "expectedUpdateLag": "P1D",
-            "botProxyDefinition": "n/a: not a per-actor metric, bot traffic is not separated",
-            "visibility": "aggregate_only",
-            "segmentOverlap": "n/a",
-            "certifiedVersion": "1.0.0",
-            "certified": true,
-            "owner": "nearesis-analytics",
-            "docUri": "docs/metrics/METRICS.md#agent_marketjobs_completed_if_public",
-            "testFixture": "fx.snapshot.p02-baseline",
-            "uncertainty": "Only markets that publish completions are counted.",
-            "cubeMember": "agent_market.jobs_completed_if_public",
-          }
+        meta: {"id":"agent_market.jobs_completed_if_public","displayName":"Completed agent-market jobs (public only)","kind":"flow","unit":"jobs","grain":"day","aggregationLaw":"sum","denominator":"n/a: additive count or level with no denominator","zeroPolicy":"zero_requires_complete_coverage","sources":["external-report:agent_market_jobs"],"transformations":["Completed jobs for markets that publish them"],"expectedUpdateLag":"P1D","botProxyDefinition":"n/a: not a per-actor metric, bot traffic is not separated","visibility":"aggregate_only","segmentOverlap":"n/a","certifiedVersion":"1.0.0","certified":true,"owner":"nearesis-analytics","docUri":"docs/metrics/METRICS.md#agent_marketjobs_completed_if_public","testFixture":"fx.snapshot.p02-baseline","uncertainty":"Only markets that publish completions are counted.","cubeMember":"agent_market.jobs_completed_if_public"}
 
 views:
   - name: agent_market

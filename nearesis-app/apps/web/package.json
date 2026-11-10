@@ -11,10 +11,14 @@
     "test": "vitest run test/unit"
   },
   "dependencies": {
+    "@nearesis/analytics": "workspace:*",
     "@nearesis/canvas-schema": "workspace:*",
     "@nearesis/contracts": "workspace:*",
+    "@nearesis/semantic-gateway": "workspace:*",
+    "@nearesis/test-fixtures": "workspace:*",
     "@xyflow/react": "12.12.1",
     "echarts": "6.1.0",
+    "ioredis": "6.0.0",
     "next": "16.4.5",
     "react": "19.3.1",
     "react-dom": "19.3.1",

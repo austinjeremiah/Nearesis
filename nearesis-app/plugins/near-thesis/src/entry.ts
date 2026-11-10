@@ -10,7 +10,13 @@ import {
   type QueryResultShape,
   type VizRequest,
 } from "@nearesis/canvas-schema";
-import { CUBE_URL_DEFAULT, defaultCubeSecret, loadRegistry, type Registry } from "@nearesis/analytics";
+import {
+  createPg,
+  CUBE_URL_DEFAULT,
+  defaultCubeSecret,
+  loadRegistry,
+  type Registry,
+} from "@nearesis/analytics";
 import { createGateway, DEFAULT_POLICY, type Session } from "@nearesis/semantic-gateway";
 import { definePlugin, type InvocationContext } from "@nearesis/plugin-sdk";
 import { PreviewInput } from "./capabilities.ts";
@@ -36,6 +42,8 @@ export function gateway(): { gateway: Gateway; registry: Registry } {
         registry,
         policyResolver: () => ({ ...DEFAULT_POLICY }),
         clock: () => new Date(),
+        // Every executed query is recorded content-addressed (hash -> AST) so panels can be re-executed (C14).
+        pg: createPg(),
       }),
     };
   }

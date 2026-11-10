@@ -134,7 +134,10 @@ export class KernelBackend implements CanvasBackend {
   private listeners = new Set<(e: DomainEvent) => void>();
   onReload: (() => void) | null = null;
 
-  constructor(readonly workspaceId: string) {
+  constructor(
+    readonly workspaceId: string,
+    readonly dataMode: "fixture" | "semantic" = "fixture",
+  ) {
     this.store = new EventStore({
       onBatch: (evs) => evs.forEach((e) => this.listeners.forEach((l) => l(e))),
       onReloadRequired: () => this.onReload?.(),
@@ -205,7 +208,11 @@ export class KernelBackend implements CanvasBackend {
   }
 
   async fetchData(queryHash: string): Promise<PanelData | null> {
-    const r = await fetch(`/api/data/${queryHash}?vintage=${this.vintage}`, { cache: "no-store" });
+    const url =
+      this.dataMode === "semantic"
+        ? `/api/semantic/panel/${queryHash}?workspace=${this.workspaceId}`
+        : `/api/data/${queryHash}?vintage=${this.vintage}`;
+    const r = await fetch(url, { cache: "no-store" });
     return r.ok ? ((await r.json()) as PanelData) : null;
   }
 
@@ -217,16 +224,49 @@ export class KernelBackend implements CanvasBackend {
     this.positions = { ...this.positions, ...positions };
   }
 
+  declare pollWatermarks: () => () => void;
+
+  /** Local (client-only) event for the source watermark feed; never sent to the kernel. */
+  emitLocal(type: DomainEvent["type"], data: Record<string, unknown>): void {
+    const ev = { eventId: crypto.randomUUID(), seq: 0, type, data } as unknown as DomainEvent;
+    this.listeners.forEach((l) => l(ev));
+  }
+
   subscribe(onEvent: (e: DomainEvent) => void): () => void {
     this.listeners.add(onEvent);
     if (this.listeners.size === 1 && this.lastDoc) this.store.reset(0);
     const stop = connectSse(this.api("/events"), this.store);
+    const stopWm = this.dataMode === "semantic" ? this.pollWatermarks() : () => undefined;
     return () => {
       this.listeners.delete(onEvent);
       stop();
+      stopWm();
     };
   }
 }
+
+/** Source watermark feed for KernelBackend (semantic data mode): polls and emits a local event on each change. */
+const WM_POLL_MS = 500;
+KernelBackend.prototype.pollWatermarks = function (this: KernelBackend): () => void {
+  let last: Record<string, string> = {};
+  let first = true;
+  const tick = async () => {
+    const r = await fetch(`/api/semantic/watermarks?workspace=${this.workspaceId}`, {
+      cache: "no-store",
+    }).catch(() => null);
+    if (!r?.ok) return;
+    const wm = (await r.json()) as Record<string, { state: string }>;
+    for (const [providerId, { state }] of Object.entries(wm)) {
+      if (!first && last[providerId] !== state)
+        this.emitLocal("snapshot.finalized", { kind: "watermark", providerId, state });
+      last = { ...last, [providerId]: state };
+    }
+    first = false;
+  };
+  const id = setInterval(() => void tick(), WM_POLL_MS);
+  void tick();
+  return () => clearInterval(id);
+};
 
 export function createBackend(search: URLSearchParams, workspaceId: string): CanvasBackend {
   if (search.get("backend") === "kernel" && /^[0-9a-f-]{36}$/.test(workspaceId))

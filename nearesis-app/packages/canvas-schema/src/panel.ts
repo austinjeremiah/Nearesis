@@ -258,7 +258,10 @@ export function panelSemanticIssues(p: PanelSpec, ctx: ValidationContext, prefix
 }
 
 export function isQuoteMetric(m: MetricMetadata): boolean {
-  return m.sources.includes("intents-1click") || m.id.startsWith("intents.route_quote");
+  // Sources are "provider" or "provider:dataset" (registry form).
+  return (
+    m.sources.some((x) => x.split(":")[0] === "intents-1click") || m.id.startsWith("intents.route_quote")
+  );
 }
 
 export function periodUniqueIssue(m: MetricMetadata, path: string): Issue {

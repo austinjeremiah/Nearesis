@@ -122,7 +122,7 @@ export const CUBES: CubeDef[] = [
     timeColumn: "block_date",
     dimensions: [
       dim(
-        "taxonomy",
+        "category",
         "taxonomy",
         "Taxonomy of the receiver contract (verified mappings only; otherwise uncategorized/unverified)",
       ),
@@ -164,7 +164,7 @@ export const CUBES: CubeDef[] = [
           "uncategorized_interaction_count",
           "verified_interaction_count",
         ],
-        dimensions: ["taxonomy", "segment_state"],
+        dimensions: ["category", "segment_state"],
       },
     ],
   },

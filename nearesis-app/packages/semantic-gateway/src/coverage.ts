@@ -25,13 +25,13 @@ export async function loadCoverage(
   const map: CoverageMap = new Map();
   for (const s of new Set(sources)) {
     const { provider, dataset } = splitSource(s);
-    const rows = await queryRows<{ day: string; state: CoverageState; reason: string | null }>(
+    const rows = await queryRows<{ d: string; state: CoverageState; reason: string | null }>(
       ch,
-      `SELECT toString(day) AS day, state, reason FROM source_coverage FINAL
+      `SELECT toString(day) AS d, state, reason FROM source_coverage FINAL
        WHERE provider_id = {p:String} AND dataset = {d:String} AND day >= {from:Date} AND day <= {to:Date}`,
       { p: provider, d: dataset, from: fromDay, to: toDay },
     );
-    map.set(s, new Map(rows.map((r) => [r.day, { state: r.state, reason: r.reason }])));
+    map.set(s, new Map(rows.map((r) => [r.d, { state: r.state, reason: r.reason }])));
   }
   return map;
 }
@@ -54,9 +54,9 @@ export async function loadQualityGaps(
   const out: QualityGap[] = [];
   for (const s of new Set(sources)) {
     const { provider, dataset } = splitSource(s);
-    const rows = await queryRows<{ from_utc: string; to_utc: string; state: string; reason_code: string }>(
+    const rows = await queryRows<{ fu: string; tu: string; state: string; reason_code: string }>(
       ch,
-      `SELECT formatDateTime(from_utc, '%Y-%m-%dT%H:%i:%S.000Z', 'UTC') AS from_utc, formatDateTime(to_utc, '%Y-%m-%dT%H:%i:%S.000Z', 'UTC') AS to_utc, state, reason_code
+      `SELECT formatDateTime(from_utc, '%Y-%m-%dT%H:%i:%S.000Z', 'UTC') AS fu, formatDateTime(to_utc, '%Y-%m-%dT%H:%i:%S.000Z', 'UTC') AS tu, state, reason_code
        FROM quality_gaps FINAL
        WHERE provider_id = {p:String} AND dataset = {d:String} AND to_utc > parseDateTime64BestEffort({f:String}, 3, 'UTC') AND from_utc < parseDateTime64BestEffort({t:String}, 3, 'UTC')`,
       { p: provider, d: dataset, f: fromIso, t: toIso },

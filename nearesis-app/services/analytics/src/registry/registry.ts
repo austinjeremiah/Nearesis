@@ -67,3 +67,8 @@ export function bumpMinor(v: string): string {
 export function metricById(r: Registry, id: string) {
   return r.metrics.find((m) => m.id === id);
 }
+
+/** Convenience for tests and scripts: the newest registry file in the repo. */
+export function loadLatestRegistryForTests(): Registry {
+  return loadRegistry();
+}

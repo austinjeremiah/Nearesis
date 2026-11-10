@@ -82,11 +82,11 @@ export async function cubeLoad(
   }
 }
 
-export async function cubeMeta(url: string, token: string): Promise<{ cubes: Array<Record<string, any>> }> {
+export async function cubeMeta(url: string, token: string): Promise<{ cubes: Array<Record<string, unknown>> }> {
   const res = await cubeFetch(url, token, "meta");
   if (!res.ok)
     throw new CubeError(`cube meta ${res.status}: ${(await res.text()).slice(0, 300)}`, res.status);
-  return (await res.json()) as { cubes: Array<Record<string, any>> };
+  return (await res.json()) as { cubes: Array<Record<string, unknown>> };
 }
 
 /** Pre-aggregation builds list (for S13 evidence). */
@@ -94,9 +94,9 @@ export async function cubeDryRun(
   url: string,
   token: string,
   query: Record<string, unknown>,
-): Promise<Record<string, any>> {
+): Promise<Record<string, unknown>> {
   const res = await cubeFetch(url, token, "dry-run", { method: "POST", body: JSON.stringify({ query }) });
-  return (await res.json()) as Record<string, any>;
+  return (await res.json()) as Record<string, unknown>;
 }
 
 export async function cubeReady(url: string): Promise<boolean> {

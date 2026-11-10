@@ -11,7 +11,7 @@ cubes:
         sql: "block_date"
         type: time
         description: "UTC day"
-      - name: taxonomy
+      - name: category
         sql: "taxonomy"
         type: string
         description: "Taxonomy of the receiver contract (verified mappings only; otherwise uncategorized/unverified)"
@@ -141,13 +141,13 @@ cubes:
       - name: daily_taxonomy_rollup
         measures:
           [contract_interactions_by_taxonomy, uncategorized_interaction_count, verified_interaction_count]
-        dimensions: [taxonomy, segment_state]
+        dimensions: [category, segment_state]
         time_dimension: day
         granularity: day
         external: false
         indexes:
           - name: idx_dims
-            columns: [taxonomy, segment_state]
+            columns: [category, segment_state]
         refresh_key:
           sql: "SELECT sum(cityHash64(*)) FROM contract_interactions"
           every: 1 second
@@ -159,7 +159,7 @@ views:
       - join_path: contract_interactions
         includes:
           - day
-          - taxonomy
+          - category
           - segment_state
           - contract_interactions_by_taxonomy
           - uncategorized_interaction_count

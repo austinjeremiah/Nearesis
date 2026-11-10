@@ -6,3 +6,5 @@ export * from "./registry/types.ts";
 export * from "./registry/registry.ts";
 export * from "./model/definition.ts";
 export * from "./model/generate.ts";
+export * from "./fixtures.ts";
+export * from "./testing.ts";

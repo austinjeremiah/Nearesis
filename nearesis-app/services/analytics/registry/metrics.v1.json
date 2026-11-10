@@ -620,9 +620,9 @@
       "visibility": "public"
     },
     {
-      "id": "taxonomy.taxonomy",
+      "id": "taxonomy.category",
       "view": "taxonomy",
-      "displayName": "taxonomy",
+      "displayName": "category",
       "kind": "dimension",
       "visibility": "public"
     },
@@ -1045,5 +1045,5 @@
     "prices.daily_volume_usd": 18,
     "economics.externally_reported_revenue_usd": 18
   },
-  "contentHash": "b13a8da616a03dda61585e45ef168d53bd478a4e709a45d9a4f51af43295ad4d"
+  "contentHash": "8578f82b4dc1a7bcb4a6256744f8bb2b57d2289f1b9ec2aff28e051c5e7c9d7d"
 }

@@ -11,3 +11,4 @@ export * from "./api.ts";
 export * from "./monitor.ts";
 export * from "./ports.ts";
 export * from "./graph.ts";
+export * from "./ui.ts";

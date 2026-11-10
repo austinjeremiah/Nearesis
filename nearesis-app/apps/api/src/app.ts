@@ -307,6 +307,18 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     return reply.status(202).send(res);
   });
 
+  app.get<{ Params: { id: string } }>("/v1/workspaces/:id/runs", async (req) => {
+    const session = await authenticate(req);
+    uuidOr404(req.params.id);
+    return runs.listRuns(session, req.params.id);
+  });
+
+  app.get<{ Params: { id: string } }>("/v1/workspaces/:id/sources", async (req) => {
+    const session = await authenticate(req);
+    uuidOr404(req.params.id);
+    return runs.listSources(session, req.params.id);
+  });
+
   app.get<{ Params: { id: string } }>("/v1/runs/:id", async (req) => {
     const session = await authenticate(req);
     uuidOr404(req.params.id);

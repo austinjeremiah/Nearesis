@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { SubmitQuestionRequest } from "@nearesis/contracts";
+import type { RunBudgetUsage, RunListResponse, SourceListResponse } from "@nearesis/contracts";
 import { KernelError, canWrite, redact, writeAudit, zodDetails } from "@nearesis/kernel";
 import type { Kernel, Session, Tx } from "@nearesis/kernel";
 import { z } from "zod";
@@ -56,6 +57,7 @@ interface RunRow {
   id: string;
   workspace_id: string;
   workflow_id: string;
+  budget_id?: string;
   state: string;
   failure: unknown;
   result: unknown;
@@ -215,6 +217,88 @@ export class RunsService {
     }
   }
 
+  /** Spent (charges) and open reservations (reserve minus release) against the run's budget row. Read-only. */
+  private async budgetUsage(tx: Tx, run: RunRow & { budget_id?: string }): Promise<RunBudgetUsage> {
+    const total = (
+      await tx.query<{ t: string; c: string; u: string }>(
+        "SELECT tokens_total::text AS t, tool_calls_total::text AS c, usd_total::text AS u FROM runtime.budgets WHERE id = $1",
+        [run.budget_id ?? null],
+      )
+    ).rows[0];
+    const l = (
+      await tx.query<{ st: string; sc: string; su: string; rt: string; rc: string; ru: string }>(
+        `SELECT COALESCE(SUM(tokens) FILTER (WHERE kind='charge'),0)::text AS st,
+                COALESCE(SUM(tool_calls) FILTER (WHERE kind='charge'),0)::text AS sc,
+                COALESCE(SUM(usd) FILTER (WHERE kind='charge'),0)::text AS su,
+                COALESCE(SUM(CASE kind WHEN 'reserve' THEN tokens WHEN 'release' THEN -tokens ELSE 0 END),0)::text AS rt,
+                COALESCE(SUM(CASE kind WHEN 'reserve' THEN tool_calls WHEN 'release' THEN -tool_calls ELSE 0 END),0)::text AS rc,
+                COALESCE(SUM(CASE kind WHEN 'reserve' THEN usd WHEN 'release' THEN -usd ELSE 0 END),0)::text AS ru
+           FROM runtime.budget_ledger WHERE run_id = $1`,
+        [run.id],
+      )
+    ).rows[0]!;
+    const n = (v: string | undefined) => Math.max(0, Number(v ?? 0));
+    return {
+      total: { tokens: n(total?.t), toolCalls: n(total?.c), usd: n(total?.u) },
+      spent: { tokens: n(l.st), toolCalls: n(l.sc), usd: n(l.su) },
+      reserved: { tokens: n(l.rt), toolCalls: n(l.rc), usd: n(l.ru) },
+    };
+  }
+
+  /** Investigations of a workspace, newest first (sidebar). A workspace the caller cannot see is a 404. */
+  async listRuns(s: Session, workspaceId: string): Promise<RunListResponse> {
+    return this.kernel.db.tx(this.ctx(s), async (tx) => {
+      const ws = await tx.query("SELECT 1 FROM workspaces WHERE id = $1", [workspaceId]);
+      if (!ws.rows[0]) throw notFound();
+      let rows: Array<{
+        id: string;
+        state: string;
+        created_at: Date;
+        updated_at: Date;
+        objective: string | null;
+        scenario: string | null;
+      }>;
+      try {
+        rows = (
+          await tx.query<(typeof rows)[number]>(
+            `SELECT r.id, r.state, r.created_at, r.updated_at, r.scenario,
+                    (SELECT t.objective FROM runtime.tasks t WHERE t.run_id = r.id AND t.objective IS NOT NULL
+                      ORDER BY t.depth, t.created_at, t.id LIMIT 1) AS objective
+               FROM runtime.runs r WHERE r.workspace_id = $1 ORDER BY r.created_at DESC, r.id LIMIT 100`,
+            [workspaceId],
+          )
+        ).rows;
+      } catch (e) {
+        runtimeUnavailable(e);
+      }
+      return {
+        workspaceId,
+        runs: rows.map((r) => ({
+          runId: r.id,
+          questionSummary: (r.objective ?? r.scenario ?? `Investigation ${r.id.slice(0, 8)}`)
+            .replace(/^\[scenario=[^\]]*\]\s*/, "")
+            .slice(0, 200),
+          state: r.state as RunListResponse["runs"][number]["state"],
+          terminal: TERMINAL_STATES.has(r.state),
+          startedAt: r.created_at.toISOString(),
+          updatedAt: r.updated_at.toISOString(),
+        })),
+      };
+    });
+  }
+
+  /**
+   * Per-source freshness. The kernel keeps no source watermark table and apps/api has no path to the semantic gateway
+   * (FND-20261110-041), so the list is empty; the web BFF serves watermarks from /api/semantic/watermarks.
+   */
+  async listSources(s: Session, workspaceId: string): Promise<SourceListResponse> {
+    return this.kernel.db.tx(this.ctx(s), async (tx) => {
+      const ws = await tx.query("SELECT 1 FROM workspaces WHERE id = $1", [workspaceId]);
+      if (!ws.rows[0]) throw notFound();
+      return { workspaceId, sources: [] };
+    });
+  }
+
   async getRun(s: Session, runId: string) {
     return this.kernel.db.tx(this.ctx(s), async (tx) => {
       const run = await this.load(tx, s, runId);
@@ -262,6 +346,7 @@ export class RunsService {
           .map((c) => ({ taskId: c.taskId, outputRef: c.outputRef })),
         createdAt: run.created_at.toISOString(),
         updatedAt: run.updated_at.toISOString(),
+        budget: await this.budgetUsage(tx, run),
       };
     });
   }

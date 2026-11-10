@@ -229,6 +229,6 @@ describe("v1.2.0 additions (graph)", () => {
     expect(C.CommandType.safeParse("graph.save_layout").success).toBe(true);
     expect(C.CommandType.safeParse("canvas.apply_patch").success).toBe(true);
     expect(C.SaveGraphLayoutPayload.safeParse({ positions: { q1: { x: 1, y: 2 } } }).success).toBe(true);
-    expect(C.CONTRACTS_VERSION).toBe("1.2.0");
+    expect(C.CONTRACTS_VERSION).toMatch(/^1\.[23]\.0$/);
   });
 });

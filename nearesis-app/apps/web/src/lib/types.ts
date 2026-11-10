@@ -45,6 +45,8 @@ export interface GraphEdge {
 export interface GraphProjection {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  /** Edges the server could not resolve to persisted nodes (omitted from `edges`); shown, never drawn. */
+  unresolved?: Array<{ id: string; reason: string; source?: string; target?: string; relation?: string }>;
 }
 
 /** Backend boundary: the kernel (HTTP, owned by Engine A) or the in-browser fixture backend. */

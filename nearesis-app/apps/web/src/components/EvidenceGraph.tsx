@@ -84,7 +84,14 @@ export function EvidenceGraph({
   projection: GraphProjection;
   onLayout: (positions: Record<string, { x: number; y: number }>) => void;
 }) {
-  const checked = useMemo(() => checkProjection(projection), [projection]);
+  const checked = useMemo(() => {
+    const c = checkProjection(projection);
+    // References the server already omitted from the projection are reported alongside the client's own findings.
+    const known = new Set(c.unresolved.map((u) => u.id));
+    for (const u of projection.unresolved ?? [])
+      if (!known.has(u.id)) c.unresolved.push({ id: u.id, reason: u.reason });
+    return c;
+  }, [projection]);
   const [nodes, setNodes] = useState<Node<GData>[]>([]);
   useEffect(() => {
     setNodes(

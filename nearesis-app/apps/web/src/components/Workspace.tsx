@@ -383,8 +383,12 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   );
 
   const saveLayout = useCallback(async (pos: Record<string, { x: number; y: number }>) => {
-    await backendRef.current?.saveGraphLayout(pos);
-    hooks().graphLayoutSaved = { ...((hooks().graphLayoutSaved as object) ?? {}), ...pos };
+    try {
+      await backendRef.current?.saveGraphLayout(pos);
+      hooks().graphLayoutSaved = { ...((hooks().graphLayoutSaved as object) ?? {}), ...pos };
+    } catch (e) {
+      setToast(`Layout not saved: ${(e as Error).message}`);
+    }
   }, []);
 
   const markersByPanel = useMemo(() => {

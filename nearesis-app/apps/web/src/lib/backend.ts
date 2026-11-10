@@ -217,11 +217,33 @@ export class KernelBackend implements CanvasBackend {
   }
 
   async graph(): Promise<GraphProjection | null> {
-    return null; // evidence graph projection API not yet provided by the kernel (queued request)
+    const r = await fetch(this.api("/graph"), { cache: "no-store" });
+    if (!r.ok) return null;
+    const g = (await r.json()) as GraphProjection;
+    // Persisted positions seed the accumulated layout: the kernel command replaces the whole position map.
+    this.positions = {};
+    for (const n of g.nodes) if (n.position) this.positions[n.id] = n.position;
+    return g;
   }
 
+  /** Persists node positions through the kernel `graph.save_layout` command (layout only; never evidence edges). */
   async saveGraphLayout(positions: Record<string, { x: number; y: number }>): Promise<void> {
     this.positions = { ...this.positions, ...positions };
+    const ws = await fetch(this.api(""), { cache: "no-store" });
+    if (!ws.ok) throw new Error(`layout save failed: workspace ${ws.status}`);
+    const { version } = (await ws.json()) as { version: number };
+    const r = await fetch(this.api("/commands"), {
+      method: "POST",
+      headers: { "content-type": "application/json", "if-match": String(version) },
+      body: JSON.stringify({
+        apiVersion: "v1",
+        commandId: crypto.randomUUID(),
+        commandType: "graph.save_layout",
+        payload: { positions: this.positions },
+        expectedVersion: version,
+      }),
+    });
+    if (!r.ok) throw new Error(`layout save failed: ${r.status}`);
   }
 
   declare pollWatermarks: () => () => void;

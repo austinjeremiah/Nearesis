@@ -10,12 +10,10 @@ import { hashCanonical } from "./hash.ts";
 import { type Issue, zodIssues } from "./issues.ts";
 import { findExecutableContent, panelSemanticIssues, type ValidationContext } from "./panel.ts";
 
-/**
- * Local inverse operations. The v1 contract PatchOp has no removeMarker/clearSelection, so the inverse of addMarker and
- * setSelection is expressed with these local ops (contract-change request filed in INTEGRATION_QUEUE.md).
- */
-export type LocalOp =
-  PatchOp | { op: "removeMarker"; markerId: string } | { op: "clearSelection"; panelId: string };
+/** Patch operations, including the inverse ops `removeMarker` / `clearSelection` (contracts 1.1.0). */
+type Op = PatchOp;
+/** @deprecated use the contract `PatchOp`; kept as an alias for existing imports. */
+export type LocalOp = PatchOp;
 
 export interface PatchReport {
   ok: boolean;
@@ -28,7 +26,7 @@ export interface ApplyResult {
   ok: true;
   document: CanvasDocument;
   /** Operations that undo this patch exactly, in application order (C06). */
-  inverse: LocalOp[];
+  inverse: Op[];
   previewHash: string;
 }
 
@@ -94,10 +92,10 @@ export function validateCanvasPatchSemantics(
 
 function simulate(
   doc: CanvasDocument,
-  ops: readonly LocalOp[],
+  ops: readonly Op[],
   ctx: ValidationContext,
   expectedRevision: number | null,
-): { report: PatchReport; doc: CanvasDocument; inverse: LocalOp[] } {
+): { report: PatchReport; doc: CanvasDocument; inverse: Op[] } {
   const issues: Issue[] = [];
   const opReports: PatchReport["operations"] = [];
   if (expectedRevision !== null && expectedRevision !== doc.documentRevision)
@@ -109,7 +107,7 @@ function simulate(
   const panels = new Map<string, PanelSpec>(doc.panels.map((p) => [p.panelId, p]));
   const markers = new Map<string, MarkerSpec>(doc.markers.map((m) => [m.markerId, m]));
   const selections = new Map<string, Selection>(doc.activeSelections.map((s) => [s.panelId, s]));
-  const inverse: LocalOp[] = [];
+  const inverse: Op[] = [];
 
   ops.forEach((op, index) => {
     const local: Issue[] = [];
@@ -248,7 +246,7 @@ export function applyCanvasPatch(
 /** Applies local ops (used for undo/redo of a recorded inverse). Same atomicity and revision rules. */
 export function applyOps(
   doc: CanvasDocument,
-  ops: readonly LocalOp[],
+  ops: readonly Op[],
   opts: { now: string; ctx?: ValidationContext; expectedRevision?: number },
 ): ApplyResult | (PatchReport & { ok: false }) {
   const exec = findExecutableContent(ops, "ops");
@@ -264,7 +262,7 @@ export function applyOps(
 }
 
 /** Stable hash of (base revision, operations, resulting content) — identical for repeated previews (C11a). */
-export function previewHash(doc: CanvasDocument, ops: readonly LocalOp[]): string {
+export function previewHash(doc: CanvasDocument, ops: readonly Op[]): string {
   return hashCanonical({ base: documentContentHash(doc), revision: doc.documentRevision, ops });
 }
 

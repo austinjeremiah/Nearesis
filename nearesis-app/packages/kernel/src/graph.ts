@@ -4,6 +4,7 @@ import type { Session } from "./auth.ts";
 import type { CommandHandler } from "./commands.ts";
 import type { Db, Tx } from "./db/pool.ts";
 import { KernelError } from "./errors.ts";
+import { isNumericClaim, missingProvenance, webEvidenceStatus } from "./history/claims.ts";
 import { noWorkspaceAccess, zodDetails } from "./workspace.ts";
 
 /** ch.26 typed research graph node kinds. */
@@ -35,6 +36,12 @@ export interface GraphNode {
   recheckRequired?: boolean;
   /** Explicit tombstone for a removed or unresolvable endpoint. */
   tombstone?: boolean;
+  /** Provenance elements a claim (or web evidence item) lacks; empty or absent when complete (W08). */
+  missing?: string[];
+  /** Web evidence only: `unverified` whenever an element is missing. */
+  confidenceTier?: string;
+  /** Retention deletion: payload gone, hash kept; claims relying on it are `evidence_unavailable` (W18). */
+  evidenceUnavailable?: boolean;
 }
 export interface GraphEdge {
   id: string;
@@ -164,14 +171,17 @@ export class EvidenceGraphService {
       "SELECT id, kind, label, data, tombstone FROM evidence_nodes WHERE workspace_id = $1 ORDER BY created_at, id",
       [workspaceId],
     );
-    for (const n of evNodes.rows)
+    for (const n of evNodes.rows) {
+      const web = webEvidenceStatus(n.data as Record<string, unknown>);
       put({
         id: n.id,
         type: n.kind,
         label: n.label,
         data: n.data as never,
         ...(n.tombstone ? { tombstone: true } : {}),
+        ...(web.isWeb ? { confidenceTier: web.confidenceTier!, missing: web.missing } : {}),
       });
+    }
     const tombstones = new Set(evNodes.rows.filter((n) => n.tombstone).map((n) => n.id));
     const flagged = new Set(
       (
@@ -271,13 +281,34 @@ export class EvidenceGraphService {
           const on = nodes.get(e.target);
           return !!on && SUPPORT_KINDS.has(on.type);
         }));
+    // Web evidence missing a required element cannot carry a claim (W08(c)).
+    const incompleteEvidence = (id: string): string[] => nodes.get(id)?.missing ?? [];
     for (const n of nodes.values()) {
       if (n.type !== "claim") continue;
-      n.support = supportOf(n.id, "supports")
+      const missingTuple = isNumericClaim(n.data) ? missingProvenance(n.data) : [];
+      const supporters = edges
+        .filter((e) => e.relation === "supports" && e.target === n.id)
+        .map((e) => e.source)
+        .filter((id) => !tombstones.has(id));
+      const weakWeb = supporters.flatMap((id) => incompleteEvidence(id).map((m) => `evidence:${id}:${m}`));
+      const unavailable = supporters.some((id) => nodes.get(id)?.evidenceUnavailable);
+      const base = supportOf(n.id, "supports")
         ? "supported"
         : supportOf(n.id, "contradicts")
           ? "contradicted"
           : "unsupported";
+      if (missingTuple.length) {
+        n.support = "unsupported";
+        n.missing = missingTuple;
+      } else if (
+        base === "supported" &&
+        weakWeb.length &&
+        supporters.every((id) => incompleteEvidence(id).length)
+      ) {
+        n.support = "unsupported";
+        n.missing = weakWeb;
+      } else n.support = base;
+      if (unavailable) n.evidenceUnavailable = true;
     }
 
     const lay = (

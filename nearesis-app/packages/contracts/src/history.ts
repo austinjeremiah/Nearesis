@@ -61,6 +61,8 @@ export const SemanticVersionChangeRequest = z.strictObject({
   ...CommandMeta,
   metricId: z.string().min(1).max(200),
   toVersion: z.string().min(1).max(64),
+  /** Revalidation tasks created immediately; the rest of the impacted set is queued with a visible count. */
+  revalidationCap: z.number().int().min(0).max(10_000).optional(),
 });
 export type SemanticVersionChangeRequest = z.infer<typeof SemanticVersionChangeRequest>;
 
@@ -69,6 +71,24 @@ export const ResolveRecheckRequest = z.strictObject({
   nodeId: Uuid,
   note: z.string().max(1000).optional(),
 });
+
+/** Shallow-merge `data` into a node's data (e.g. completing a claim's provenance tuple). Appends an event. */
+export const UpdateNodeDataRequest = z.strictObject({
+  ...CommandMeta,
+  nodeId: Uuid,
+  data: z.record(z.string(), z.unknown()),
+  reason: z.string().max(1000).optional(),
+});
+export type UpdateNodeDataRequest = z.infer<typeof UpdateNodeDataRequest>;
+
+/** Restrict a node (and what depends only on it) to explicit grantees. Owner/admin only. */
+export const SetNodeRestrictionRequest = z.strictObject({
+  ...CommandMeta,
+  nodeId: Uuid,
+  restricted: z.boolean(),
+  grantUserIds: z.array(Uuid).max(200).default([]),
+});
+export type SetNodeRestrictionRequest = z.infer<typeof SetNodeRestrictionRequest>;
 
 export const DataVintage = z.strictObject({
   capturedAt: IsoDateTime,

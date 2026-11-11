@@ -31,6 +31,12 @@ export const GraphNode = z.strictObject({
   recheckRequired: z.boolean().optional(),
   /** v1.5.0 (additive). Explicit tombstone for a removed/unresolvable endpoint. */
   tombstone: z.boolean().optional(),
+  /** Provenance elements a claim or web evidence item lacks (16b W08). Absent or empty when complete. */
+  missing: z.array(z.string()).optional(),
+  /** Web evidence: `unverified` whenever a required element is missing (16b W08). */
+  confidenceTier: z.string().optional(),
+  /** Retention deletion removed the payload behind this claim's evidence; hashes remain (16b W18). */
+  evidenceUnavailable: z.boolean().optional(),
 });
 export type GraphNode = z.infer<typeof GraphNode>;
 

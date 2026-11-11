@@ -3,11 +3,16 @@ import {
   AddEvidenceNodeRequest,
   ResolveRecheckRequest,
   SemanticVersionChangeRequest,
+  SetNodeRestrictionRequest,
+  UpdateNodeDataRequest,
 } from "@nearesis/contracts";
 import type { Tx } from "../db/pool.ts";
 import { KernelError } from "../errors.ts";
+import { DEFAULT_REVALIDATION_CAP, dependentIndex, traverseDependents } from "./impact.ts";
+import type { DepEdge } from "./impact.ts";
 import { HistoryRunner, idFor, parseBody } from "./runner.ts";
 import type { HistoryCtx } from "./runner.ts";
+import { canAdmin } from "../auth.ts";
 import type { Session } from "../auth.ts";
 
 export interface CommandOpts {
@@ -40,94 +45,95 @@ const orphan = (which: string[]): KernelError =>
     { details: which.map((w) => ({ path: w, issue: "endpoint does not resolve to a persisted node" })) },
   );
 
-/** Dependents of `id`: nodes that depend on it (derived_from/reproduces point from dependent to dependency). */
-function dependentsOf(
-  id: string,
-  edges: Array<{ from_node: string; to_node: string; relation: string }>,
-): string[] {
-  const out: string[] = [];
-  for (const e of edges) {
-    if ((e.relation === "derived_from" || e.relation === "reproduces") && e.to_node === id)
-      out.push(e.from_node);
-    if ((e.relation === "supports" || e.relation === "contradicts") && e.from_node === id)
-      out.push(e.to_node);
-  }
-  return out;
-}
-
 export interface ImpactResult {
   metricId: string;
   toVersion: string;
   changed: boolean;
   flaggedNodeIds: string[];
+  flaggedCount: number;
+  /** Revalidation tasks: at most `cap` created now, the rest queued with a visible count. */
+  revalidation: { created: number; queued: number; cap: number };
 }
 
 /**
  * Impact analysis for a semantic-version change: nodes pinned to another version of the metric are flagged, then every
- * transitive dependent (cycle-safe) is flagged too. Exported so merge acceptance can reuse it inside its transaction.
+ * transitive dependent (cycle-safe, iterative, set-based SQL) is flagged too and queued for bounded revalidation.
+ * Exported so merge acceptance can reuse it inside its transaction.
  */
 export async function applySemanticChange(
   ctx: HistoryCtx,
   metricId: string,
   toVersion: string,
+  cap: number = DEFAULT_REVALIDATION_CAP,
 ): Promise<ImpactResult> {
   const { tx, workspace, session } = ctx;
+  const none = (changed: boolean): ImpactResult => ({
+    metricId,
+    toVersion,
+    changed,
+    flaggedNodeIds: [],
+    flaggedCount: 0,
+    revalidation: { created: 0, queued: 0, cap },
+  });
   const cur = (
     await tx.query<{ version: string; seq: number }>(
       "SELECT version, seq FROM semantic_versions WHERE workspace_id = $1 AND metric_id = $2 ORDER BY seq DESC LIMIT 1",
       [workspace.id, metricId],
     )
   ).rows[0];
-  if (cur?.version === toVersion) return { metricId, toVersion, changed: false, flaggedNodeIds: [] };
+  if (cur?.version === toVersion) return none(false);
   await tx.query(
     "INSERT INTO semantic_versions(workspace_id, org_id, metric_id, seq, version, changed_by) VALUES ($1,$2,$3,$4,$5,$6)",
     [workspace.id, workspace.orgId, metricId, (cur?.seq ?? 0) + 1, toVersion, session.userId],
   );
-  const direct = (
-    await tx.query<{ id: string; v: string }>(
-      `SELECT id, semantic_pins ->> $2 AS v FROM evidence_nodes
-        WHERE workspace_id = $1 AND tombstone = false AND semantic_pins ? $2 AND semantic_pins ->> $2 <> $3`,
-      [workspace.id, metricId, toVersion],
+  const nodes = (
+    await tx.query<{ id: string; v: string | null; tombstone: boolean }>(
+      "SELECT id, semantic_pins ->> $2 AS v, tombstone FROM evidence_nodes WHERE workspace_id = $1",
+      [workspace.id, metricId],
     )
   ).rows;
+  const live = new Set(nodes.filter((n) => !n.tombstone).map((n) => n.id));
+  const pinnedFrom = new Map<string, string>();
+  for (const n of nodes) if (!n.tombstone && n.v !== null && n.v !== toVersion) pinnedFrom.set(n.id, n.v);
   const edges = (
-    await tx.query<{ from_node: string; to_node: string; relation: string }>(
+    await tx.query<DepEdge>(
       "SELECT from_node, to_node, relation FROM evidence_edges WHERE workspace_id = $1",
       [workspace.id],
     )
   ).rows;
-  const from = new Map<string, { via: "pinned" | "derived_from"; from: string | null }>();
-  const queue: string[] = [];
-  for (const d of direct) {
-    from.set(d.id, { via: "pinned", from: d.v });
-    queue.push(d.id);
-  }
-  while (queue.length) {
-    const id = queue.shift()!;
-    for (const dep of dependentsOf(id, edges)) {
-      if (from.has(dep)) continue;
-      from.set(dep, { via: "derived_from", from: cur?.version ?? null });
-      queue.push(dep);
-    }
-  }
-  const flagged: string[] = [];
-  for (const [nodeId, info] of from) {
-    // Only persisted evidence nodes are flagged (panels/markers have their own revision flows).
-    const isNode = (
-      await tx.query(
-        "SELECT 1 FROM evidence_nodes WHERE id = $1 AND workspace_id = $2 AND tombstone = false",
-        [nodeId, workspace.id],
-      )
-    ).rows.length;
-    if (!isNode) continue;
-    const r = await tx.query(
-      `INSERT INTO evidence_node_flags(node_id, org_id, workspace_id, metric_id, from_version, to_version, via, flagged_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING`,
-      [nodeId, workspace.orgId, workspace.id, metricId, info.from, toVersion, info.via, session.userId],
-    );
-    if (r.rowCount) flagged.push(nodeId);
-  }
-  return { metricId, toVersion, changed: true, flaggedNodeIds: flagged };
+  const t = traverseDependents([...pinnedFrom.keys()], dependentIndex(edges));
+  // Only persisted evidence nodes are flagged (panels/markers have their own revision flows).
+  const ids = t.affected.map((a) => a.nodeId).filter((id) => live.has(id));
+  if (!ids.length) return none(true);
+  const fromV = ids.map((id) => pinnedFrom.get(id) ?? cur?.version ?? null);
+  const via = ids.map((id) => (pinnedFrom.has(id) ? "pinned" : "derived_from"));
+  const ins = await tx.query<{ node_id: string }>(
+    `INSERT INTO evidence_node_flags(node_id, org_id, workspace_id, metric_id, from_version, to_version, via, flagged_by)
+     SELECT u.id, $1, $2, $3, u.fv, $4, u.via, $5
+       FROM unnest($6::uuid[], $7::text[], $8::text[]) AS u(id, fv, via)
+     ON CONFLICT DO NOTHING RETURNING node_id`,
+    [workspace.orgId, workspace.id, metricId, toVersion, session.userId, ids, fromV, via],
+  );
+  const flagged = new Set(ins.rows.map((r) => r.node_id));
+  const flaggedIds = ids.filter((id) => flagged.has(id));
+  const taskIds = flaggedIds.map((id) => idFor(ctx.commandId, `reval:${id}`));
+  const status = flaggedIds.map((_, i) => (i < cap ? "created" : "queued"));
+  await tx.query(
+    `INSERT INTO revalidation_tasks(id, org_id, workspace_id, node_id, metric_id, to_version, status)
+     SELECT u.id, $1, $2, u.node_id, $3, $4, u.status
+       FROM unnest($5::uuid[], $6::uuid[], $7::text[]) AS u(id, node_id, status)
+     ON CONFLICT DO NOTHING`,
+    [workspace.orgId, workspace.id, metricId, toVersion, taskIds, flaggedIds, status],
+  );
+  const created = Math.min(cap, flaggedIds.length);
+  return {
+    metricId,
+    toVersion,
+    changed: true,
+    flaggedNodeIds: flaggedIds.slice(0, 1000),
+    flaggedCount: flaggedIds.length,
+    revalidation: { created, queued: flaggedIds.length - created, cap },
+  };
 }
 
 export class GraphOps {
@@ -253,16 +259,90 @@ export class GraphOps {
       expectedVersion: p.expectedVersion,
       payload: p,
       handle: async (ctx) => {
-        const r = await applySemanticChange(ctx, p.metricId, p.toVersion);
+        const r = await applySemanticChange(ctx, p.metricId, p.toVersion, p.revalidationCap);
         return {
           eventType: "claim.updated",
           data: {
             change: "graph.semantic_version_changed",
             metricId: p.metricId,
             toVersion: p.toVersion,
-            flaggedCount: r.flaggedNodeIds.length,
+            flaggedCount: r.flaggedCount,
           },
           result: r,
+        };
+      },
+    });
+  }
+
+  async updateNodeData(session: Session, workspaceId: string, body: unknown, opts: CommandOpts = {}) {
+    const p = parseBody(UpdateNodeDataRequest, body);
+    return this.runner.run(session, workspaceId, {
+      commandType: "graph.update_node_data",
+      commandId: p.commandId,
+      idempotencyKey: opts.idempotencyKey,
+      expectedVersion: p.expectedVersion,
+      payload: p,
+      handle: async (ctx) => {
+        const cur = (
+          await ctx.tx.query<{ kind: string; tombstone: boolean; data: Record<string, unknown> }>(
+            "SELECT kind, tombstone, data FROM evidence_nodes WHERE id = $1 AND workspace_id = $2 FOR UPDATE",
+            [p.nodeId, ctx.workspace.id],
+          )
+        ).rows[0];
+        if (!cur) throw new KernelError("NOT_FOUND", "NODE_NOT_FOUND", "No such evidence node.");
+        if (cur.tombstone)
+          throw new KernelError("DOMAIN_INVARIANT", "NODE_TOMBSTONED", "A tombstone cannot be edited.");
+        const next = { ...cur.data, ...p.data };
+        await ctx.tx.query("UPDATE evidence_nodes SET data = $2 WHERE id = $1", [
+          p.nodeId,
+          JSON.stringify(next),
+        ]);
+        return {
+          eventType: cur.kind === "claim" ? "claim.updated" : "evidence.verified",
+          data: {
+            change: "graph.node_data_updated",
+            nodeId: p.nodeId,
+            keys: Object.keys(p.data),
+            reason: p.reason ?? null,
+          },
+          result: { nodeId: p.nodeId, keys: Object.keys(p.data) },
+        };
+      },
+    });
+  }
+
+  async setRestriction(session: Session, workspaceId: string, body: unknown, opts: CommandOpts = {}) {
+    const p = parseBody(SetNodeRestrictionRequest, body);
+    return this.runner.run(session, workspaceId, {
+      commandType: "graph.set_restriction",
+      commandId: p.commandId,
+      idempotencyKey: opts.idempotencyKey,
+      expectedVersion: p.expectedVersion,
+      payload: p,
+      handle: async (ctx) => {
+        if (!canAdmin(ctx.session.role))
+          throw new KernelError(
+            "FORBIDDEN",
+            "INSUFFICIENT_ROLE",
+            "Only an owner or admin may restrict a node.",
+          );
+        const r = await ctx.tx.query(
+          "UPDATE evidence_nodes SET restricted = $3 WHERE id = $1 AND workspace_id = $2",
+          [p.nodeId, ctx.workspace.id, p.restricted],
+        );
+        if (!r.rowCount) throw new KernelError("NOT_FOUND", "NODE_NOT_FOUND", "No such evidence node.");
+        await ctx.tx.query("DELETE FROM evidence_node_grants WHERE node_id = $1", [p.nodeId]);
+        if (p.restricted)
+          for (const u of new Set([...p.grantUserIds, ctx.session.userId]))
+            await ctx.tx.query(
+              `INSERT INTO evidence_node_grants(node_id, org_id, workspace_id, user_id, granted_by)
+               VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,
+              [p.nodeId, ctx.workspace.orgId, ctx.workspace.id, u, ctx.session.userId],
+            );
+        return {
+          eventType: "workspace.updated",
+          data: { change: "graph.node_restriction", nodeId: p.nodeId, restricted: p.restricted },
+          result: { nodeId: p.nodeId, restricted: p.restricted },
         };
       },
     });

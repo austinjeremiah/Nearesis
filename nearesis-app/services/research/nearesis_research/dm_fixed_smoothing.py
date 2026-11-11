@@ -257,3 +257,21 @@ def compare_paired(
     base["limitations"].append("amendment 002 is a post-hoc methodological correction; not pre_registered strength")
     base["significance_claim_allowed"] = bool(status == VALID and rej_p)
     return base
+
+
+def conclusion_state(inference: dict) -> dict:
+    """The four distinct conclusions the UI and the agents must keep apart. Observed lower error is never significance."""
+    md = inference.get("mean_diff")
+    observed = None if md is None else bool(md > 0)
+    st = inference.get("status")
+    if st == VALID and inference.get("significance_claim_allowed"):
+        state = "evidence_supports_difference"
+    elif st == VALID:
+        state = "insufficient_to_distinguish"
+    elif st in (INSUFFICIENT_DATA, DEGENERATE_VARIANCE):
+        state = "insufficient_to_distinguish"
+    elif st == METHOD_NOT_VALIDATED:
+        state = "comparison_method_not_validated"
+    else:
+        state = "comparison_invalid_input"
+    return {"state": state, "observed_candidate_lower_error": observed, "statistically_meaningful_difference": state == "evidence_supports_difference", "causal_claim": "excluded"}

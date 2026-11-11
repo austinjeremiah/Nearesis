@@ -11,6 +11,8 @@ import statsmodels.api as sm
 from . import METHOD_VERSION, SCHEMA_VERSION
 from .core import json_hash, rng
 from .dataset import Dataset, Inputs, Spec, build_dataset, LockboxError
+from . import dm_fixed_smoothing as fs
+from .amendment2 import calibration_summary
 from .inference import benjamini_hochberg, block_bootstrap_ci, diebold_mariano, placebo_shift_pvalue
 from .leakage import LeakageError, check_leakage
 from .models import MODEL_CLASSES, SIMPLE_BASELINES, losses, rolling_origin
@@ -40,7 +42,13 @@ def _compare(bt, cand: str, h: int, thr: dict, seed: int, label: str) -> dict:
     if n == 0:
         return {"candidate": cand, "horizon": h, "n_origins": 0, "status": "INSUFFICIENT_DATA"}
     d = eb - ec
-    dm = diebold_mariano(eb, ec, h)
+    dm = {**diebold_mariano(eb, ec, h), "status": "legacy_exploratory", "note": "HAC DM with maxlags=horizon and one-sided Student t; not calibrated, not a significance claim (amendment 002)"}
+    nested = fs.nested_policy("baseline", cand)
+    inference = fs.compare_paired(d, horizon=h, nested=nested, calibration=calibration_summary(), seed=seed)
+    inference["loss"] = "absolute_error_log1p"
+    if nested:
+        inference["clark_west_exploratory"] = fs.clark_west(bt.preds["baseline"] - bt.actual, bt.preds[cand] - bt.actual, bt.preds["baseline"], bt.preds[cand])
+    inference["conclusion"] = fs.conclusion_state(inference)
     bs = thr["bootstrap"]
     ci = block_bootstrap_ci(d, bs["block"], bs["n"], seed, label, bs["level"])
     mae0, mae1 = float(eb.mean()), float(ec.mean())
@@ -53,6 +61,7 @@ def _compare(bt, cand: str, h: int, thr: dict, seed: int, label: str) -> dict:
         "delta_mae": mae0 - mae1,
         "relative_improvement": (mae0 - mae1) / mae0 if mae0 > 0 else None,
         "dm": dm,
+        "inference": inference,
         "p_raw": dm["p_one_sided"],
         "delta_mae_ci": ci,
     }
@@ -297,6 +306,12 @@ def _artifacts(inputs, pre, source, results, bh, datasets, backtests, leak_repor
     ] + ds.incomplete_reasons
     if source.get("label") == "SYNTHETIC":
         limitations.append("SYNTHETIC fixture: results demonstrate method behaviour only and make no claim about real NEAR data.")
+    infs = {f"{h}:{c}": r["inference"] for h, res in results.items() for c, r in res.items() if "inference" in r}
+    not_valid = sorted(k for k, v in infs.items() if v["status"] != fs.VALID)
+    if not_valid:
+        limitations.append(
+            f"Statistical significance is not claimed for {len(not_valid)} of {len(infs)} comparisons: every candidate model contains the baseline (nested), so Diebold-Mariano inference is not valid under the null, and the fixed-m method's calibration status is attached to each comparison (amendment 002, post_hoc_methodological_correction)."
+        )
     hypothesis = {"text": pre["hypothesis"], "primaryOutcome": pre["primaryOutcome"], "primaryComparison": f"{pc} vs baseline", "primaryHorizon": ph, "causalClaim": "excluded"}
     snapshot = {
         "label": source.get("label"),
@@ -325,6 +340,13 @@ def _artifacts(inputs, pre, source, results, bh, datasets, backtests, leak_repor
         "primary": results[ph][pc],
         "byHorizonCandidate": {f"{h}:{c}": r for h, res in results.items() for c, r in res.items()},
         "fdr": {**bh, "family": pre["family"]},
+        "inferenceSummary": {
+            "methodVersion": fs.METHOD_VERSION,
+            "label": fs.LABEL,
+            "calibration": calibration_summary(),
+            "comparisons": {k: {"status": v["status"], "nested": v["nested"], "significanceClaimAllowed": v["significance_claim_allowed"], "conclusion": v["conclusion"]["state"]} for k, v in infs.items()},
+            "primaryStatisticalClaim": "supported" if infs.get(f"{ph}:{pc}", {}).get("significance_claim_allowed") else "not_supported",
+        },
         "losses": {"development": _full_losses(bt), "holdout": (holdout or {}).get("losses")},
         "descriptiveCoefficients": _hac_estimates(pre, ds),
         "holdout": holdout,

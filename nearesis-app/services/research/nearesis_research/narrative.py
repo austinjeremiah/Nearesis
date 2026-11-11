@@ -45,7 +45,9 @@ def render_narrative(artifact: dict) -> str:
             f"{f['n_origins']} origins, a relative change of {f['relative_improvement_pct']:.1f}%."
         )
     if "p_adjusted" in f:
-        s.append(f"The FDR-adjusted p-value is {f['p_adjusted']:.4f} within a family of {f['family_size']} tests at q {f['fdr_q']}.")
+        allowed = (artifact["estimates"].get("inferenceSummary") or {}).get("primaryStatisticalClaim") == "supported"
+        s.append(f"The FDR-adjusted p-value is {f['p_adjusted']:.4f} within a family of {f['family_size']} tests at q {f['fdr_q']}"
+                 + ("." if allowed else ", from an exploratory test whose calibration does not support a significance claim."))
     if "holdout_n" in f and "holdout_relative_improvement_pct" in f:
         s.append(f"The lockbox holdout covered {f['holdout_n']} origins with a relative change of {f['holdout_relative_improvement_pct']:.1f}%.")
     s.append(f"Verdict: {artifact['status']} ({artifact['evidenceStrength']}). This is a predictive result and not a causal claim.")

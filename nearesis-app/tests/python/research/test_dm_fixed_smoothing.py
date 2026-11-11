@@ -166,3 +166,27 @@ def test_seed_namespaces_are_disjoint():
 
     params, _ = amendment2.load_amendment()
     amendment2.assert_disjoint(params)
+
+
+def test_experiment_artifact_carries_inference_and_never_claims_significance():
+    from nearesis_research.cli import run_fixture
+    from nearesis_research.frozen import load_frozen
+    from nearesis_research.narrative import render_narrative
+    from nearesis_research.thesis import generate_thesis, validate_thesis
+
+    a = run_fixture("signal", 20261111)
+    prim = a["estimates"]["primary"]
+    inf = prim["inference"]
+    assert inf["nested"] is True and inf["status"] == "METHOD_NOT_VALIDATED" and inf["significance_claim_allowed"] is False
+    assert inf["method"]["label"] == "post_hoc_methodological_correction"
+    assert inf["conclusion"]["state"] == "comparison_method_not_validated" and inf["conclusion"]["causal_claim"] == "excluded"
+    assert inf["clark_west_exploratory"]["status"] == "exploratory_only"
+    assert a["estimates"]["inferenceSummary"]["primaryStatisticalClaim"] == "not_supported"
+    assert any("significance is not claimed" in x for x in a["limitations"])
+    assert "exploratory test" in render_narrative(a) or "p_adjusted" not in str(prim.get("p_adjusted"))
+    f = load_frozen()
+    md = generate_thesis(a, f)
+    assert "not a statistical-significance claim" in md
+    assert validate_thesis(md, a, f)["ok"]
+    bad = md.replace("Executive claim\n\n", "Executive claim\n\nThe gain is statistically significant. ", 1)
+    assert any(x["rule"] == "significance_claim_without_valid_inference" for x in validate_thesis(bad, a, f)["failures"])

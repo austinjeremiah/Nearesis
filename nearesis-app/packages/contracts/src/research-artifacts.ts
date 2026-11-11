@@ -40,6 +40,53 @@ export const ResearchDieboldMariano = z.looseObject({
   p_one_sided: Num,
 });
 
+/**
+ * Amendment 002 inference record attached to every comparison. `status` decides whether any significance claim may be
+ * made; `conclusion.state` keeps four conclusions apart: observed lower error is not evidence of a meaningful difference,
+ * insufficient evidence is not "no difference", and a method that failed calibration supports no claim at all.
+ */
+export const ResearchInferenceStatus = z.enum([
+  "VALID",
+  "INSUFFICIENT_DATA",
+  "METHOD_NOT_VALIDATED",
+  "DEGENERATE_VARIANCE",
+  "INVALID_INPUT",
+]);
+export const ResearchConclusionState = z.enum([
+  "evidence_supports_difference",
+  "insufficient_to_distinguish",
+  "comparison_method_not_validated",
+  "comparison_invalid_input",
+]);
+export const ResearchInferenceRecord = z.looseObject({
+  method: z.looseObject({ id: z.string(), version: z.string(), label: z.literal("post_hoc_methodological_correction"), role: z.literal("primary") }),
+  status: ResearchInferenceStatus,
+  nested: z.boolean(),
+  horizon: z.number().int().positive(),
+  n_origins: z.number().int().nonnegative(),
+  loss: z.string().optional(),
+  mean_diff: Num,
+  statistic: Num.optional(),
+  p_value: Num.optional(),
+  m: z.number().int().optional(),
+  df: z.number().int().optional(),
+  alpha: z.number(),
+  sided: z.literal("two"),
+  autocorrelation: z.record(z.string(), Num).optional(),
+  sensitivity_methods: z.array(z.looseObject({ id: z.string(), role: z.literal("sensitivity_only") })),
+  agreement: z.enum(["agree", "disagree", "not_available"]).optional(),
+  calibration_reference: z.looseObject({ qualified: z.boolean().nullable().optional(), resultHash: z.string().nullable().optional(), amendmentDocumentHash: z.string().nullable().optional() }).nullable(),
+  significance_claim_allowed: z.boolean(),
+  limitations: z.array(z.string()),
+  reason: z.string().optional(),
+  conclusion: z.looseObject({
+    state: ResearchConclusionState,
+    observed_candidate_lower_error: z.boolean().nullable(),
+    statistically_meaningful_difference: z.boolean(),
+    causal_claim: z.literal("excluded"),
+  }),
+}).refine((r) => !r.significance_claim_allowed || r.status === "VALID", { message: "significance claim requires VALID inference" });
+
 /** Candidate model versus the baseline at one horizon (delta_mae > 0 means the candidate is better). */
 export const ResearchComparison = z.looseObject({
   candidate: z.enum(["intents", "price", "combined"]),
@@ -50,6 +97,7 @@ export const ResearchComparison = z.looseObject({
   delta_mae: z.number().optional(),
   relative_improvement: z.number().nullable().optional(),
   dm: ResearchDieboldMariano.optional(),
+  inference: ResearchInferenceRecord.optional(),
   p_raw: Num.optional(),
   p_adjusted: z.number().optional(),
   fdr_reject: z.boolean().optional(),

@@ -87,6 +87,11 @@ def generate_thesis(artifact: dict, frozen: Frozen) -> str:
     else:
         execu = (f"Verdict {status} ({strength}): the preregistered comparison does not establish a forecasting gain from lagged Intents volume "
                  f"[{pid}.delta_mae = {_fmt(p.get('delta_mae'))}]. No improvement is claimed. This is a predictive analysis and not a causal claim.")
+    summary = artifact["estimates"].get("inferenceSummary") or {}
+    if summary and summary.get("primaryStatisticalClaim") != "supported":
+        pst = summary["comparisons"].get(f"{artifact['hypothesis']['primaryHorizon']}:{artifact['hypothesis']['primaryComparison'].split(' ')[0]}", {})
+        execu += (f" Observed lower forecast error is not a statistical-significance claim: the comparison inference status is {pst.get('status', 'unavailable')}"
+                  f" ({summary.get('label')}).")
     change = [
         f"- Lockbox relative improvement below {thr_['minRelativeImprovement']} [res.{eid}.holdout.relative_improvement]",
         f"- Placebo p-value above {thr_['placebo']['alpha']} [res.{eid}.placebo.p_value]",
@@ -182,4 +187,7 @@ def validate_thesis(md: str, artifact: dict, frozen: Frozen) -> dict:
             fails.append({"rule": "executive_claim_omits_verdict", "detail": artifact["status"]})
         if artifact["status"] != "SUPPORTED" and any(t in ex.lower() for t in q["bullishTerms"] + ["improved out-of-sample"]):
             fails.append({"rule": "unsupported_bullish_claim", "detail": ex[:120]})
+    summary = artifact["estimates"].get("inferenceSummary") or {}
+    if summary.get("primaryStatisticalClaim") != "supported" and re.search(r"(?<!not )(?<!no )statistically significant|\bsignificantly (better|improv\w+|different)", md, re.I):
+        fails.append({"rule": "significance_claim_without_valid_inference", "detail": "THESIS asserts significance but the comparison inference is not valid"})
     return {"ok": not fails, "failures": fails, "sections": names, "claimRows": len(parse_claim_table(d.get("Verdict per claim", "")))}

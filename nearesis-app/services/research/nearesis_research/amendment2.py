@@ -6,6 +6,7 @@ evaluation freeze refuses to run unless the primary method qualified."""
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import resource
@@ -296,6 +297,7 @@ def applicability() -> dict:
     return out
 
 
+@functools.lru_cache(maxsize=1)
 def calibration_summary() -> dict | None:
     """Machine-readable calibration reference attached to every comparison artifact. None if amendment 002 was not calibrated."""
     if not CALIBRATION.exists():

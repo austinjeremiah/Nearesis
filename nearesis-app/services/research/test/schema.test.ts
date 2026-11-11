@@ -24,3 +24,25 @@ it("rejects an artifact with an unknown status", () => {
   const a = JSON.parse(readFileSync(resolve(dir, "signal-bundle", "research_run.json"), "utf8"));
   expect(ResearchRunArtifact.safeParse({ ...a, status: "PROVEN" }).success).toBe(false);
 });
+
+it("inference record: a significance claim requires VALID status", async () => {
+  const { ResearchInferenceRecord } = await import("@nearesis/contracts");
+  const base = {
+    method: { id: "wpe_fixed_m_daniell", version: "fixed-smoothing-dm/1.0.0", label: "post_hoc_methodological_correction", role: "primary" },
+    status: "METHOD_NOT_VALIDATED",
+    nested: true,
+    horizon: 1,
+    n_origins: 80,
+    mean_diff: 0.1,
+    alpha: 0.05,
+    sided: "two",
+    sensitivity_methods: [],
+    calibration_reference: null,
+    significance_claim_allowed: false,
+    limitations: [],
+    conclusion: { state: "comparison_method_not_validated", observed_candidate_lower_error: true, statistically_meaningful_difference: false, causal_claim: "excluded" },
+  };
+  expect(ResearchInferenceRecord.safeParse(base).success).toBe(true);
+  expect(ResearchInferenceRecord.safeParse({ ...base, significance_claim_allowed: true }).success).toBe(false);
+  expect(ResearchInferenceRecord.safeParse({ ...base, status: "VALID", significance_claim_allowed: true }).success).toBe(true);
+});

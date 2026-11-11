@@ -463,6 +463,9 @@ importers:
       '@nearesis/acceptance':
         specifier: workspace:*
         version: link:../acceptance
+      '@nearesis/kernel':
+        specifier: workspace:*
+        version: link:../kernel
       playwright:
         specifier: 1.65.0
         version: 1.65.0

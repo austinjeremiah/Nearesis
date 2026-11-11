@@ -10,10 +10,24 @@ import type { InvestigationEngine } from "./runs.ts";
 import { historyRoutes } from "./history-routes.ts";
 import { monitoringRoutes } from "./monitoring-routes.ts";
 import { capsuleRoutes } from "./capsule-routes.ts";
+import { gatewayRoutes } from "./gateway-routes.ts";
+import type { GatewayCredentialConfig } from "./gateway-routes.ts";
 import { requestGuards } from "./request-guards.ts";
 import type { RequestGuardOptions } from "./request-guards.ts";
 
 const Uuid = z.uuid();
+
+/** `exp` (ms) from a JWT payload, for timing only: the signature is verified by the identity policy, never here. */
+function jwtExpiryMs(token: string): number | null {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8")) as {
+      exp?: unknown;
+    };
+    return typeof payload.exp === "number" ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
 
 export interface AppOptions {
   /** Start the monitor scheduler and marker-task dispatcher inside this API process. */
@@ -24,8 +38,12 @@ export interface AppOptions {
   nodeEnv?: string | undefined;
   /** SSE journal poll interval (ms). */
   ssePollMs?: number;
+  /** How often an open event stream re-validates its session token and membership (ms). Default 5000. */
+  sseAuthRecheckMs?: number;
   /** Cross-origin, content-type and rate-limit guards for mutating requests. */
   guards?: RequestGuardOptions;
+  /** Enables `GET /v1/gateway/runs/:id` for the MCP gateway's audience-constrained credential. Absent: route does not exist. */
+  gatewayCredential?: GatewayCredentialConfig;
 }
 
 declare module "fastify" {
@@ -215,6 +233,25 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       let cursor = Number.isNaN(parsedCursor) ? -1 : parsedCursor;
       let first = true;
       let lastBeat = Date.now();
+      // Token lifetime: the stream must not outlive the session (expiry) or the membership behind it (revocation).
+      const bearerToken = (req.headers.authorization ?? "").slice(7).trim();
+      const tokenExpMs = jwtExpiryMs(bearerToken);
+      const recheckMs = opts.sseAuthRecheckMs ?? 5000;
+      let lastAuthCheck = Date.now();
+      /** Returns the reason the session lapsed, or null while it is still valid. */
+      const sessionLapse = async (): Promise<"TOKEN_EXPIRED" | "SESSION_REVOKED" | null> => {
+        if (tokenExpMs !== null && Date.now() >= tokenExpMs) return "TOKEN_EXPIRED";
+        if (Date.now() - lastAuthCheck < recheckMs) return null;
+        lastAuthCheck = Date.now();
+        try {
+          await kernel.identity.resolveSession(bearerToken);
+          return null;
+        } catch (e) {
+          if (e instanceof KernelError && e.code === "UNAUTHENTICATED")
+            return e.reasonCode === "NO_MEMBERSHIP" ? "SESSION_REVOKED" : "TOKEN_EXPIRED";
+          return null; // transient infrastructure error: do not drop the stream on a blip
+        }
+      };
       try {
         if (cursor < 0) {
           const r = await kernel.stream.read(session, req.params.id, 0, true);
@@ -226,6 +263,15 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
           return res.end();
         }
         while (!closed) {
+          const lapse = await sessionLapse();
+          if (lapse) {
+            frame("session_expired", null, {
+              reason: lapse,
+              nextAction: "Re-authenticate and reconnect with Last-Event-ID set to the last applied seq.",
+              lastSeq: cursor,
+            });
+            break;
+          }
           const r = await kernel.stream.read(session, req.params.id, cursor, first);
           first = false;
           if (r.status === "reload_required") {
@@ -260,7 +306,19 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
             });
         }
       } catch {
-        /* connection torn down or auth lost: just end the stream */
+        // A read failing mid-stream is most often auth lost (membership revoked): say so instead of a silent close.
+        try {
+          lastAuthCheck = 0;
+          const lapse = await sessionLapse();
+          if (lapse && !closed)
+            frame("session_expired", null, {
+              reason: lapse,
+              nextAction: "Re-authenticate and reconnect with Last-Event-ID set to the last applied seq.",
+              lastSeq: cursor,
+            });
+        } catch {
+          /* connection torn down: just end the stream */
+        }
       }
       if (!res.writableEnded) res.end();
     },
@@ -366,6 +424,8 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
 
   await app.register(historyRoutes, { kernel });
   await app.register(capsuleRoutes, { kernel });
+  if (opts.gatewayCredential)
+    await app.register(gatewayRoutes, { kernel, credential: opts.gatewayCredential });
   await app.register(monitoringRoutes, { kernel, runs, authenticate, background: opts.monitorBackground });
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.

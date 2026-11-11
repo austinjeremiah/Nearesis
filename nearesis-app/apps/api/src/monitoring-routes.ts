@@ -117,8 +117,14 @@ export const monitoringRoutes: FastifyPluginAsync<MonitoringRoutesOptions> = asy
     ),
   }));
 
-  get("/monitors/evaluations", async (s, ws) => ({
-    evaluations: await kernel.monitoring.listEvaluations(s, ws),
+  get<{ ruleId?: string }>("/monitors/evaluations", async (s, ws, req) => {
+    const ruleId = req.query.ruleId;
+    if (ruleId !== undefined && !Uuid.safeParse(ruleId).success) throw workspaceNotFound();
+    return { evaluations: await kernel.monitoring.listEvaluations(s, ws, ruleId) };
+  });
+  /** Newest watermark per source the workspace's rules listen to (live and replay kept apart). */
+  get("/monitors/watermarks", async (s, ws) => ({
+    watermarks: await kernel.monitoring.listWatermarks(s, ws),
   }));
   get("/monitors/counters", async (s, ws) => kernel.monitoring.triggerCounters(s, ws));
   /** Trigger history export: replay rows are labelled REPLAY and the report text says so. */

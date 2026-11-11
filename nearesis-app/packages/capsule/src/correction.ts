@@ -1,4 +1,5 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { buildCapsule } from "./build.ts";
 import { canonicalJson, sha256Hex } from "./canonical.ts";
@@ -16,9 +17,59 @@ import { readManifest } from "./verify.ts";
  *   publication.json    frozen metric versions and published capsules
  *   events.jsonl        APPEND-ONLY, hash-chained. A correction is a compensating event; no event is ever edited or removed.
  *
- * Monitors are reached through this file-backed registry. Wiring `halt` to the kernel's `monitor.rule_disable` command is a
- * separate adapter (see INTEGRATION_QUEUE), so this module proves the workflow, not the kernel integration.
+ * Monitors are tracked in this registry; a monitor registered with a kernel `ruleId` is halted through a `MonitorHaltPort`
+ * (production: `kernelMonitorPort`, which issues the kernel's `monitor.rule_disable` command), so halted kernel rules
+ * record `skipped_disabled` and create no task. A port failure is never swallowed: that monitor stays `active` in the
+ * registry, a `monitor.halt_failed` event is appended and `declareIncorrect` throws after the rest of the correction.
  */
+export interface MonitorHaltPort {
+  disable(ruleId: string, reason: string): Promise<void>;
+}
+
+/** The slice of the kernel the adapter needs, kept structural so this package does not depend on the kernel. */
+export interface KernelMonitorHost<S> {
+  commands: {
+    execute(
+      session: S,
+      workspaceId: string,
+      command: {
+        apiVersion: "v1";
+        commandId: string;
+        commandType: "monitor.rule_disable";
+        payload: { ruleId: string };
+        expectedVersion: number;
+      },
+      opts?: { traceId?: string },
+    ): Promise<unknown>;
+  };
+  workspaces: { get(session: S, workspaceId: string): Promise<{ version: number }> };
+}
+
+/** Halts kernel monitor rules via the real `monitor.rule_disable` command on the command bus. */
+export function kernelMonitorPort<S>(
+  kernel: KernelMonitorHost<S>,
+  session: S,
+  workspaceId: string,
+): MonitorHaltPort {
+  return {
+    async disable(ruleId, reason) {
+      const w = await kernel.workspaces.get(session, workspaceId);
+      await kernel.commands.execute(
+        session,
+        workspaceId,
+        {
+          apiVersion: "v1",
+          commandId: randomUUID(),
+          commandType: "monitor.rule_disable",
+          payload: { ruleId },
+          expectedVersion: w.version,
+        },
+        { traceId: `correction-${reason.length}-${ruleId.slice(0, 8)}` },
+      );
+    },
+  };
+}
+
 export interface EventRecord {
   id: string;
   seq: number;
@@ -44,6 +95,8 @@ export interface MonitorState {
   version: string;
   state: "active" | "halted";
   haltReason: string | null;
+  /** The kernel monitor rule this monitor is, when it is kernel-backed. */
+  ruleId?: string | undefined;
 }
 export interface MetricVersion {
   metric: string;
@@ -72,6 +125,7 @@ export class CorrectionWorkflow {
   constructor(
     readonly dir: string,
     private readonly clock: () => Date = () => new Date(),
+    private readonly monitorPort?: MonitorHaltPort,
   ) {
     mkdirSync(dir, { recursive: true });
   }
@@ -156,12 +210,19 @@ export class CorrectionWorkflow {
     });
     return entry;
   }
-  registerMonitor(id: string, metric: string, version: string): void {
+  registerMonitor(id: string, metric: string, version: string, ruleId?: string): void {
     this.save("monitors.json", [
       ...this.monitors(),
-      { id, metric, version, state: "active", haltReason: null } satisfies MonitorState,
+      {
+        id,
+        metric,
+        version,
+        state: "active",
+        haltReason: null,
+        ...(ruleId ? { ruleId } : {}),
+      } satisfies MonitorState,
     ]);
-    this.append("monitor.registered", { id, metric, version });
+    this.append("monitor.registered", { id, metric, version, ...(ruleId ? { ruleId } : {}) });
   }
 
   // ---- publication gate ----
@@ -185,12 +246,17 @@ export class CorrectionWorkflow {
   }
 
   // ---- the correction ----
-  declareIncorrect(o: { metric: string; version: string; correctedVersion: string; reason: string }): {
+  async declareIncorrect(o: {
+    metric: string;
+    version: string;
+    correctedVersion: string;
+    reason: string;
+  }): Promise<{
     frozen: string;
     impactedCapsules: string[];
     haltedMonitors: string[];
     correctionEvent: EventRecord;
-  } {
+  }> {
     const key = `${o.metric}@${o.version}`;
     // 1. freeze publication (first, so nothing can slip through while the rest runs)
     const pub = this.read<{ frozen: string[]; published: string[] }>("publication.json", {
@@ -210,18 +276,27 @@ export class CorrectionWorkflow {
     const impacted = this.index()
       .filter((c) => c.metricVersions[o.metric] === o.version)
       .map((c) => c.capsuleId);
-    // 4. halt the monitors on that metric version, and only those
+    // 4. halt the monitors on that metric version, and only those (kernel-backed ones through the port)
     const halted: string[] = [];
-    this.save(
-      "monitors.json",
-      this.monitors().map((mo) => {
-        if (mo.metric === o.metric && mo.version === o.version && mo.state === "active") {
-          halted.push(mo.id);
-          return { ...mo, state: "halted" as const, haltReason: `metric ${key} corrected` };
+    const failed: Array<{ id: string; error: string }> = [];
+    const next: MonitorState[] = [];
+    for (const mo of this.monitors()) {
+      if (mo.metric === o.metric && mo.version === o.version && mo.state === "active") {
+        const reason = `metric ${key} corrected`;
+        if (mo.ruleId && this.monitorPort) {
+          try {
+            await this.monitorPort.disable(mo.ruleId, reason);
+          } catch (e) {
+            failed.push({ id: mo.id, error: e instanceof Error ? e.message : String(e) });
+            next.push(mo);
+            continue;
+          }
         }
-        return mo;
-      }),
-    );
+        halted.push(mo.id);
+        next.push({ ...mo, state: "halted" as const, haltReason: reason });
+      } else next.push(mo);
+    }
+    this.save("monitors.json", next);
     // 5. one compensating event, lineage to the original events about this metric and its capsules
     const lineage = this.events()
       .filter(
@@ -245,6 +320,12 @@ export class CorrectionWorkflow {
       },
       lineage,
     );
+    if (failed.length) {
+      this.append("monitor.halt_failed", { metric: o.metric, version: o.version, failed }, [
+        correctionEvent.id,
+      ]);
+      throw new Error(`could not halt monitors: ${failed.map((f) => f.id).join(", ")}`);
+    }
     return { frozen: key, impactedCapsules: impacted, haltedMonitors: halted, correctionEvent };
   }
 

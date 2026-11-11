@@ -265,6 +265,43 @@ export class MonitoringService {
     );
   }
 
+  /**
+   * Newest recorded watermark per (source, mode) for the sources this workspace's monitor rules listen to. The watermark
+   * table is platform-global public data; scoping to the workspace's own rules keeps other tenants' rule topology hidden.
+   */
+  listWatermarks(
+    s: Session,
+    workspaceId: string,
+  ): Promise<
+    Array<{
+      sourceId: string;
+      mode: "live" | "replay";
+      watermark: string;
+      maturity: "final" | "provisional";
+      recordedAt: string;
+      values: Record<string, number>;
+    }>
+  > {
+    return this.scoped(s, workspaceId, async (tx) =>
+      (
+        await tx.query(
+          `SELECT DISTINCT ON (e.source_id, e.mode) e.source_id, e.mode, e.watermark, e.maturity, e.recorded_at, e.values_json
+             FROM source_watermark_events e
+            WHERE e.source_id IN (SELECT source_id FROM monitor_rules WHERE workspace_id = $1)
+            ORDER BY e.source_id, e.mode, e.watermark DESC`,
+          [workspaceId],
+        )
+      ).rows.map((e) => ({
+        sourceId: e.source_id as string,
+        mode: e.mode as "live" | "replay",
+        watermark: iso(e.watermark),
+        maturity: e.maturity as "final" | "provisional",
+        recordedAt: iso(e.recorded_at),
+        values: (e.values_json ?? {}) as Record<string, number>,
+      })),
+    );
+  }
+
   /** "Live triggers today" style counters. Replay triggers are counted separately and never as live. */
   triggerCounters(s: Session, workspaceId: string, day = new Date().toISOString().slice(0, 10)) {
     return this.scoped(s, workspaceId, async (tx) => {

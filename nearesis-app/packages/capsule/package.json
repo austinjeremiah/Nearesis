@@ -20,6 +20,7 @@
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
     "@nearesis/acceptance": "workspace:*",
+    "@nearesis/kernel": "workspace:*",
     "playwright": "1.65.0",
     "vitest": "5.1.0"
   }

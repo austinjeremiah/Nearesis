@@ -51,3 +51,64 @@ def placebo_shift_pvalue(real_delta: float, placebo_deltas: list[float]) -> floa
     """Share of placebo (time-shifted predictor) improvements at least as large as the real one (+1 smoothing)."""
     k = sum(1 for v in placebo_deltas if v >= real_delta)
     return (k + 1) / (len(placebo_deltas) + 1)
+
+
+# ---- Q14: loss metrics and the two-sided paired comparison with a serial-correlation-robust variance ----
+
+def mae(e: np.ndarray) -> float:
+    return float(np.mean(np.abs(e)))
+
+
+def bias(e: np.ndarray) -> float:
+    """Mean signed error, forecast minus actual."""
+    return float(np.mean(e))
+
+
+def smape(actual: np.ndarray, forecast: np.ndarray) -> float:
+    """sMAPE = mean(2|f-a| / (|a|+|f|)). Zero rule (frozen): a term whose denominator is 0 contributes 0, never NaN."""
+    a, f = np.asarray(actual, float), np.asarray(forecast, float)
+    den = np.abs(a) + np.abs(f)
+    return float(np.mean(np.where(den == 0, 0.0, 2 * np.abs(f - a) / np.where(den == 0, 1.0, den))))
+
+
+def long_run_variance(d: np.ndarray, max_lags: int, kernel: str = "bartlett") -> float:
+    """Bartlett-weighted sum of autocovariances (population divisor n). max_lags=0 gives the i.i.d. variance."""
+    d = np.asarray(d, float)
+    n = len(d)
+    c = d - d.mean()
+    v = float(c @ c) / n
+    for k in range(1, max_lags + 1):
+        w = 1.0 - k / (max_lags + 1) if kernel == "bartlett" else 1.0
+        v += 2 * w * float(c[k:] @ c[:-k]) / n
+    return v
+
+
+def dm_paired(d: np.ndarray, max_lags: int, variance: str = "hac") -> dict:
+    """Two-sided Diebold-Mariano test on the loss differential d. Statistic = mean(d) / sqrt(V/n) with a Bartlett HAC
+    long-run variance V (variance='hac'); variance='iid' ignores serial correlation. Reference: Student t with n-1 df."""
+    d = np.asarray(d, float)
+    n = len(d)
+    v = long_run_variance(d, max_lags if variance == "hac" else 0)
+    if n < 3 or v <= 0:
+        return {"n": n, "statistic": None, "p_value": None, "variance": v}
+    t = float(d.mean() / np.sqrt(v / n))
+    return {"n": n, "statistic": t, "p_value": float(2 * stats.t.sf(abs(t), df=n - 1)), "variance": v}
+
+
+def paired_comparison(abs_e_base: np.ndarray, abs_e_cand: np.ndarray, frozen) -> dict:
+    """delta_MAE = MAE(base) - MAE(cand) with a frozen-method interval and a DM test; no p-value below the frozen minimum
+    number of origins (INSUFFICIENT_DATA)."""
+    q = frozen.get("q14")
+    d = np.asarray(abs_e_base, float) - np.asarray(abs_e_cand, float)
+    n = len(d)
+    iv = q["interval"]
+    out = {"n_origins": n, "delta_mae": float(d.mean()) if n else None, "interval": {"method": iv["method"], "level": iv["level"]}}
+    if n < q["minOriginsForPValue"]:
+        out.update(status="INSUFFICIENT_DATA", p_value=None, statistic=None, reason=f"{n} origins; frozen minimum is {q['minOriginsForPValue']}")
+        out["interval"].update(lo=None, hi=None)
+        return out
+    r = dm_paired(d, q["dm"]["maxLags"])
+    ci = block_bootstrap_ci(d, iv["block"], iv["nBoot"], iv["bootstrapSeed"], "q14", iv["level"])
+    out.update(status="OK", p_value=r["p_value"], statistic=r["statistic"])
+    out["interval"].update(lo=ci["lo"], hi=ci["hi"])
+    return out

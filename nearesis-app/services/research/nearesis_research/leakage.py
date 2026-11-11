@@ -71,7 +71,7 @@ def check_leakage(ds: Dataset) -> LeakageReport:
     if not ds.spec.exclude_intents and any(m["source"] == "x" for m in ds.manifest.values()):
         rep.findings.append({"code": "MECHANICAL_OVERLAP", "column": "target", "detail": "target includes Intents-generated actions"})
     # split order: development targets are revealed before the first lockbox origin
-    if ds.lockbox.n and len(ds.rows) and ds.rows["target_date"].max() > ds.lockbox._rows["origin"].min():
+    if ds.lockbox.n and len(ds.rows) and ds.rows["target_date"].max() > ds.lockbox.first_origin:
         rep.findings.append({"code": "SPLIT_OVERLAP", "column": "lockbox", "detail": "dev target revealed after lockbox start"})
     return rep
 

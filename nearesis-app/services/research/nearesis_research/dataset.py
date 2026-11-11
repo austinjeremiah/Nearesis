@@ -57,16 +57,36 @@ class LockboxError(RuntimeError):
     pass
 
 
+class HoldoutAccessError(LockboxError):
+    pass
+
+
 class Lockbox:
     """Frozen holdout. Sealed with a hash at construction; can be opened exactly once, only with the preregistration
-    hash it was sealed under. Development code never receives these rows."""
+    hash it was sealed under. Development code never receives these rows: they are held in a closure (no attribute holds a
+    frame) and any attempt to read them through an attribute is refused and audited. After the single opening, an audit
+    replay may re-read them only under the identical configuration (see lockbox_protocol)."""
+
+    _GUARDED = frozenset({"_rows", "rows", "data", "frame", "_frame", "values", "holdout"})
 
     def __init__(self, rows: pd.DataFrame, prereg_hash: str):
-        self._rows = rows.copy()
-        self.hash = frame_hash(self._rows[["origin", "target_date", "target"]])
-        self.n = len(rows)
+        held = rows.copy()
+        self.hash = frame_hash(held[["origin", "target_date", "target"]])
+        self.n = len(held)
+        self.first_origin = None if held.empty else pd.Timestamp(held["origin"].min())
+        self.origins = [] if held.empty else [pd.Timestamp(o) for o in held["origin"]]
         self._sealed_for = prereg_hash
         self.opens = 0
+        self.replays = 0
+        self.audit: list[dict] = []
+        self._read = lambda: held.copy()
+        self._digest = lambda: frame_hash(held[["origin", "target_date", "target"]])
+
+    def __getattr__(self, name: str):
+        if name in Lockbox._GUARDED:
+            self.__dict__.setdefault("audit", []).append({"interface": f"attribute:{name}", "outcome": "refused"})
+            raise HoldoutAccessError(f"direct access to holdout rows via '{name}' is refused")
+        raise AttributeError(name)
 
     def open(self, prereg_hash: str) -> pd.DataFrame:
         if prereg_hash != self._sealed_for:
@@ -74,7 +94,22 @@ class Lockbox:
         if self.opens >= 1:
             raise LockboxError("lockbox already opened; a second evaluation would be post-hoc")
         self.opens += 1
-        return self._rows.copy()
+        self.audit.append({"interface": "open", "outcome": "opened"})
+        return self._read()
+
+    def replay_rows(self, prereg_hash: str) -> pd.DataFrame:
+        """Re-reads the holdout for an audit replay. Allowed only after the single opening and under the same hash."""
+        if self.opens < 1:
+            raise LockboxError("audit replay requires a previous opening")
+        if prereg_hash != self._sealed_for:
+            raise LockboxError("lockbox sealed under a different preregistration hash")
+        self.replays += 1
+        self.audit.append({"interface": "audit_replay", "outcome": "read"})
+        return self._read()
+
+    def current_digest(self) -> str:
+        """Digest recomputed from the held rows (not the value cached at sealing)."""
+        return self._digest()
 
 
 @dataclass
@@ -239,7 +274,6 @@ def _assemble(inputs, spec, cal, raw, excluded, prereg_hash) -> Dataset:
         excluded_accounts=excluded,
         hash="sha256:" + h,
     )
-    ds._lockbox_hash = ds.lockbox.hash  # type: ignore[attr-defined]
     _apply_coverage(ds, inputs, cal)
     return ds
 

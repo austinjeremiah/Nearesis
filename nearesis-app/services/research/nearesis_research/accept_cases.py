@@ -217,8 +217,8 @@ def q07():
     daily.loc[daily["date"] == miss_day, "price_close"] = np.nan
     ds = build_dataset(Inputs(daily, fx.accounts), Spec(horizon=7), pre["hash"])
     ds_full = build_dataset(Inputs(fx.daily, fx.accounts), Spec(horizon=7), pre["hash"])
-    pre_origins = set(ds.rows["origin"]) | set(ds.lockbox._rows["origin"]) | set(ds.post_rows["origin"])
-    full_origins = set(ds_full.rows["origin"]) | set(ds_full.lockbox._rows["origin"]) | set(ds_full.post_rows["origin"])
+    pre_origins = set(ds.rows["origin"]) | set(ds.lockbox.origins) | set(ds.post_rows["origin"])
+    full_origins = set(ds_full.rows["origin"]) | set(ds_full.lockbox.origins) | set(ds_full.post_rows["origin"])
     removed = sorted(str(d.date()) for d in full_origins - pre_origins)
     ret = ds.raw["ret"]
     ydiff = ds.raw["y"].equals(ds_full.raw["y"])

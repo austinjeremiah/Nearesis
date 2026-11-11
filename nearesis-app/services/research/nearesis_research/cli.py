@@ -27,6 +27,33 @@ def run_fixture(kind: str, seed: int) -> dict:
     return run_experiment(Inputs(fx.daily, fx.accounts), pre, src)
 
 
+def g07_run(a) -> int:
+    """Q20 audit run: experiment, manifest, THESIS.md, chart vectors and environment record in one directory. With
+    --audit-replay-of the run is recorded as an audit replay and rejected if its configuration differs from the original."""
+    from .frozen import load_frozen
+    from .manifest import build_manifest, chart_vectors, config_hash, environment_record
+    from .thesis import generate_thesis
+
+    frozen = load_frozen()
+    fx = make_fixture(a.fixture, a.seed)
+    cfg = config_hash(frozen, a.fixture, a.seed, fx.hash)
+    if a.audit_replay_of is not None and a.audit_replay_of != cfg:
+        print(json.dumps({"rejected": True, "reason": "audit replay refused: configuration differs from the original", "configHash": cfg, "original": a.audit_replay_of}))
+        return 4
+    art = run_fixture(a.fixture, a.seed)
+    frozen.record_result(f"g07-run:{a.fixture}:{a.seed}", kind="audit_replay" if a.audit_replay_of else "evaluation", configHash=cfg)
+    out = Path(a.out)
+    write_bundle(art, out, newline=False)
+    (out / "manifest.json").write_text(json.dumps(build_manifest(art, frozen), sort_keys=True))
+    (out / "THESIS.md").write_text(generate_thesis(art, frozen))
+    (out / "chart_vectors.json").write_text(json.dumps(chart_vectors(art)))
+    rec = {"configHash": cfg, "seed": a.seed, "fixture": a.fixture, "audit_replay": a.audit_replay_of is not None, "countsAsIndependentEvaluation": a.audit_replay_of is None,
+           "environment": environment_record(), "registrationLabel": frozen.registration_label}
+    (out / "run_record.json").write_text(json.dumps(rec, sort_keys=True))
+    print(json.dumps({"ok": True, **rec}))
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="nearesis_research")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -36,6 +63,12 @@ def main(argv=None) -> int:
     r.add_argument("--out", required=True)
     rp = sub.add_parser("reproduce")
     rp.add_argument("--dir", required=True)
+    g = sub.add_parser("g07-run")
+    g.add_argument("--fixture", choices=["signal", "nosignal"], required=True)
+    g.add_argument("--seed", type=int, default=20261111)
+    g.add_argument("--out", required=True)
+    g.add_argument("--audit-replay-of", default=None)
+    g.add_argument("--tolerance", type=float, default=None)
     lv = sub.add_parser("live")
     lv.add_argument("--start", required=True)
     lv.add_argument("--end", required=True)
@@ -53,6 +86,8 @@ def main(argv=None) -> int:
         res = compare_runs(old, new)
         print(json.dumps(res))
         return 0 if res["reproducible"] else 3
+    if a.cmd == "g07-run":
+        return g07_run(a)
     if a.cmd == "live":
         from .live import load_live
 

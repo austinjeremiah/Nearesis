@@ -11,10 +11,10 @@ from .core import canonical_json, json_hash
 SECTION_KEYS = ["hypothesis", "preregistration", "inputSnapshot", "features", "models", "windows", "estimates", "uncertainty", "counterevidence", "limitations", "falsification", "reproduction"]
 
 
-def write_bundle(artifact: dict, out: Path) -> Path:
+def write_bundle(artifact: dict, out: Path, newline: bool = True) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     for k in SECTION_KEYS:
-        (out / f"{k}.json").write_text(canonical_json(artifact[k]) + "\n")
+        (out / f"{k}.json").write_text(canonical_json(artifact[k]) + ("\n" if newline else ""))
     (out / "research_run.json").write_text(canonical_json(artifact) + "\n")
     return out / "research_run.json"
 

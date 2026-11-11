@@ -35,11 +35,11 @@ def _ar1(r: np.random.Generator, n: int, phi: float, sigma: float) -> np.ndarray
     return out
 
 
-def make_fixture(kind: str, seed: int = 20261111, n_days: int = N_DAYS, n_accounts: int = 200) -> Fixture:
+def make_fixture(kind: str, seed: int = 20261111, n_days: int = N_DAYS, n_accounts: int = 200, start: str = START) -> Fixture:
     """kind: 'signal' (log intents volume leads log activity by KNOWN_LAG days) or 'nosignal' (independent)."""
     assert kind in ("signal", "nosignal")
     r = rng(seed, "fixture", kind)
-    dates = pd.date_range(START, periods=n_days, freq="D")
+    dates = pd.date_range(start, periods=n_days, freq="D")
     dow = dates.day_of_week.to_numpy()
     season = 0.15 * np.sin(2 * np.pi * dow / 7)
     lx = 10.0 + _ar1(rng(seed, "x", kind), n_days, 0.6, 0.5)  # log intents volume

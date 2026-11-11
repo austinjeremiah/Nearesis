@@ -5,7 +5,7 @@ All preprocessing (standardisation) is fit on training rows only, per origin. Lo
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
@@ -23,6 +23,19 @@ def ridge_fit_predict(Xtr: np.ndarray, ytr: np.ndarray, Xte: np.ndarray, alpha: 
     yb = ytr.mean()
     w = np.linalg.solve(Z.T @ Z + alpha * np.eye(Z.shape[1]), Z.T @ (ytr - yb))
     return yb + ((Xte - mu) / sd) @ w
+
+
+@dataclass
+class AccessRecorder:
+    """Instrumented data-access log: every fit call records the latest timestamp it touched (ch.16b Q11)."""
+
+    log: list = field(default_factory=list)
+
+    def record(self, origin, call: str, max_timestamp) -> None:
+        self.log.append({"origin": str(pd.Timestamp(origin).date()), "call": call, "maxTimestamp": str(pd.Timestamp(max_timestamp).date())})
+
+    def violations(self) -> list:
+        return [e for e in self.log if e["maxTimestamp"] > e["origin"]]
 
 
 @dataclass
@@ -46,6 +59,7 @@ def rolling_origin(
     window: int | None = None,
     models: tuple = MODEL_CLASSES,
     baselines: bool = True,
+    recorder: AccessRecorder | None = None,
 ) -> BacktestResult:
     """Expanding (or fixed `window`-day) rolling origin. For the origin o, training rows are exactly those whose target
     is already known at o (target_date <= o); no random splits are used. `eval_mask` marks origins that are scored."""
@@ -69,6 +83,10 @@ def rolling_origin(
             continue
         keep.append(i)
         ntr.append(len(tr))
+        if recorder is not None:
+            seen = max(tdates[tr].max(), origins[tr].max())
+            recorder.record(origins[i], "scaler_fit", seen)
+            recorder.record(origins[i], "ridge_fit", seen)
         for m in models:
             X = mats[m]
             out[m].append(float(ridge_fit_predict(X[tr], y[tr], X[i : i + 1])[0]))

@@ -9,7 +9,8 @@ import type {
   WatermarkEventInput,
 } from "@nearesis/contracts";
 import type { Db, Tx } from "../db/pool.ts";
-import type { EventJournal } from "../journal.ts";
+import type { AppendArgs, EventJournal } from "../journal.ts";
+import { appendBatch } from "./journal-batch.ts";
 import { KernelError } from "../errors.ts";
 import { zodDetails } from "../workspace.ts";
 import { conditionHasHistory, evaluateCondition } from "./condition.ts";
@@ -229,36 +230,96 @@ export class MonitorScheduler {
         for (;;) {
           const g = groups[next++];
           if (!g) return;
-          for (const { i, r } of g) out[i] = await this.processRule(r, ev);
+          const res = await this.processWorkspace(
+            g.map((x) => x.r),
+            ev,
+          );
+          g.forEach((x, k) => (out[x.i] = res[k]!));
         }
       }),
     );
     return out;
   }
 
-  private async processRule(r: RuleRef, ev: WatermarkEvent): Promise<ProcessResult> {
-    const wm = Date.parse(ev.watermark);
-    await this.onRuleSelected?.(r.rule_id);
-    return this.db.tx({ orgId: r.org_id, userId: r.created_by, actorKind: "service" }, async (tx) => {
+  /**
+   * Evaluates one event for every listening rule of one workspace in one transaction: the workspace row is locked once
+   * (not once per rule), rules, prior evaluations and duplicate checks are read with one statement each, and the journal
+   * and outbox rows of all fired rules are written in one batch at the end (PERF03). Rules keep their order, so seq
+   * numbers and results are identical to evaluating them one by one.
+   */
+  private async processWorkspace(rules: RuleRef[], ev: WatermarkEvent): Promise<ProcessResult[]> {
+    const first = rules[0]!;
+    // Test seam: after selection as enabled, before any lock is taken.
+    for (const r of rules) await this.onRuleSelected?.(r.rule_id);
+    return this.db.tx({ orgId: first.org_id, userId: first.created_by, actorKind: "service" }, async (tx) => {
       // Already evaluated for this (rule, watermark, mode)? Answer without taking any lock, so competing workers and
-      // redeliveries do not queue behind fresh evaluations on the workspace row (PERF03).
-      const seen = await tx.query(
-        "SELECT 1 FROM monitor_triggers WHERE rule_id = $1 AND watermark = $2 AND mode = $3",
-        [r.rule_id, ev.watermark, ev.mode],
+      // redeliveries do not queue behind fresh evaluations on the workspace row.
+      const seen = new Set(
+        (
+          await tx.query<{ rule_id: string }>(
+            "SELECT rule_id FROM monitor_triggers WHERE rule_id = ANY($1::uuid[]) AND watermark = $2 AND mode = $3",
+            [rules.map((r) => r.rule_id), ev.watermark, ev.mode],
+          )
+        ).rows.map((x) => x.rule_id),
       );
-      if (seen.rows.length > 0) return { ruleId: r.rule_id, outcome: "duplicate" as const };
-      // Lock order matches the command bus: workspace, then rule. Disable/enable commands hold the same locks, so a rule
-      // disabled before this point is seen as disabled here and never executes.
-      const ws = (
-        await tx.query<{ version: number }>("SELECT version FROM workspaces WHERE id = $1 FOR UPDATE", [
-          r.workspace_id,
-        ])
-      ).rows[0];
-      const rule = (
-        await tx.query<RuleRow>("SELECT * FROM monitor_rules WHERE id = $1 FOR UPDATE", [r.rule_id])
-      ).rows[0];
-      if (!ws || !rule) return { ruleId: r.rule_id, outcome: "disabled" as const };
+      const fresh = rules.filter((r) => !seen.has(r.rule_id));
+      const byRule = new Map<string, ProcessResult>();
+      for (const r of rules)
+        if (seen.has(r.rule_id)) byRule.set(r.rule_id, { ruleId: r.rule_id, outcome: "duplicate" });
+      if (fresh.length > 0) {
+        // Lock order matches the command bus: workspace, then rules. Disable/enable commands hold the same locks, so a
+        // rule disabled before this point is seen as disabled here and never executes.
+        const ws = (
+          await tx.query<{ version: number }>("SELECT version FROM workspaces WHERE id = $1 FOR UPDATE", [
+            first.workspace_id,
+          ])
+        ).rows[0];
+        const ids = fresh.map((r) => r.rule_id);
+        const ruleRows = new Map(
+          (
+            await tx.query<RuleRow>(
+              "SELECT * FROM monitor_rules WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE",
+              [ids],
+            )
+          ).rows.map((x) => [x.id, x]),
+        );
+        const priors = new Map(
+          (
+            await tx.query<{ rule_id: string; status: EvaluationStatus }>(
+              `SELECT DISTINCT ON (rule_id) rule_id, status FROM monitor_evaluations
+                WHERE rule_id = ANY($1::uuid[]) AND watermark = $2 AND mode = $3
+                ORDER BY rule_id, evaluated_at DESC`,
+              [ids, ev.watermark, ev.mode],
+            )
+          ).rows.map((x) => [x.rule_id, x.status]),
+        );
+        const pending: AppendArgs[] = [];
+        for (const r of fresh) {
+          const rule = ruleRows.get(r.rule_id);
+          byRule.set(
+            r.rule_id,
+            !ws || !rule
+              ? { ruleId: r.rule_id, outcome: "disabled" }
+              : await this.evaluateRule(tx, r, ev, ws, rule, priors.get(r.rule_id), pending),
+          );
+        }
+        await appendBatch(tx, pending);
+      }
+      return rules.map((r) => byRule.get(r.rule_id)!);
+    });
+  }
 
+  private async evaluateRule(
+    tx: Tx,
+    r: RuleRef,
+    ev: WatermarkEvent,
+    ws: { version: number },
+    rule: RuleRow,
+    priorStatus: EvaluationStatus | undefined,
+    pending: AppendArgs[],
+  ): Promise<ProcessResult> {
+    const wm = Date.parse(ev.watermark);
+    {
       const recordEval = async (
         status: EvaluationStatus,
         evaluatedValue: Record<string, unknown>,
@@ -291,12 +352,7 @@ export class MonitorScheduler {
           ],
         );
       };
-      const prior = (
-        await tx.query<{ status: EvaluationStatus }>(
-          "SELECT status FROM monitor_evaluations WHERE rule_id = $1 AND watermark = $2 AND mode = $3 ORDER BY evaluated_at DESC LIMIT 1",
-          [r.rule_id, ev.watermark, ev.mode],
-        )
-      ).rows[0];
+      const prior = priorStatus === undefined ? undefined : { status: priorStatus };
 
       if (!rule.enabled) {
         // Disabled: record the event as skipped (rule version in force + watermark). No state change, no task, no spend.
@@ -425,7 +481,7 @@ export class MonitorScheduler {
             if (t.rows[0]) {
               result.taskId = taskId;
               // One link event per task: the marker keeps its status; the task has its own lifecycle.
-              await this.journal.append(tx, {
+              pending.push({
                 orgId: r.org_id,
                 workspaceId: r.workspace_id,
                 type: "marker.assigned",
@@ -437,7 +493,7 @@ export class MonitorScheduler {
             }
           }
         }
-        await this.journal.append(tx, {
+        pending.push({
           orgId: r.org_id,
           workspaceId: r.workspace_id,
           type: "monitor.triggered",
@@ -452,7 +508,7 @@ export class MonitorScheduler {
           causationId: triggerId,
           sourceRevision: ws.version,
         });
-        await this.journal.append(tx, {
+        pending.push({
           orgId: r.org_id,
           workspaceId: r.workspace_id,
           type: "notification.created",
@@ -469,7 +525,7 @@ export class MonitorScheduler {
         result.taskId ?? null,
       );
       return result;
-    });
+    }
   }
 
   /** Finalized observations of the same rule and mode inside the window before the watermark (oldest first). */

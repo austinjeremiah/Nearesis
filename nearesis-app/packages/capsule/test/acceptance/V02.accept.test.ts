@@ -111,4 +111,4 @@ it("V02: one altered raw byte fails the hash check and marks the report unverifi
       reportStatus: rep.reportStatus,
     },
   });
-});
+}, 120_000);

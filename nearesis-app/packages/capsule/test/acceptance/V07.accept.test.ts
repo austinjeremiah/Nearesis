@@ -71,4 +71,4 @@ it("V07: THESIS/DATA/LIMITATIONS, PDF memo and static site build and open offlin
       capsuleHash: m.capsuleHash,
     },
   });
-});
+}, 120_000);

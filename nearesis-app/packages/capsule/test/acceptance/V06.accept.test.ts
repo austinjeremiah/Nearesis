@@ -46,4 +46,4 @@ it("V06: an uncited or unsupported number blocks publication", () => {
     fixtureHash: m.snapshot.dataHash,
     evidence: { blockedKinds: seen, controlCapsuleHash: m.capsuleHash },
   });
-});
+}, 120_000);

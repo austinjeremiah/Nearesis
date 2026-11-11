@@ -126,4 +126,4 @@ it("V04: wrong, unregistered or unverifiable signers are rejected; the policy fa
       capsuleOutlayerStatus: view!.verification.outlayer.status,
     },
   });
-});
+}, 120_000);

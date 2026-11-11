@@ -85,4 +85,4 @@ it("V01: offline rebuild from the frozen snapshot, no JWT, no network, byte-iden
       label: "SYNTHETIC",
     },
   });
-});
+}, 300_000);

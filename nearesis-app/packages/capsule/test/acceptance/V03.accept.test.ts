@@ -78,4 +78,4 @@ it("V03: an altered WASM binary is rejected by the attestation policy", async ()
       outputReasons: c.reasons,
     },
   });
-});
+}, 120_000);

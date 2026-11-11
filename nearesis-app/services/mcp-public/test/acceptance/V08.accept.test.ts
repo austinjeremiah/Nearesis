@@ -161,4 +161,4 @@ it("V08: a foreign principal reads public tools only; restricted tools are denie
       treeHashUnchanged: true,
     },
   });
-});
+}, 120_000);

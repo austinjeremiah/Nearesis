@@ -123,7 +123,13 @@ export function verifyTdxQuote(
     body = r.take(TDX_BODY_BYTES);
     headerBody = Buffer.concat([header, body]);
     const sigLen = r.u32();
-    if (sigLen !== r.rest) throw new Malformed("signature data length does not match the remaining bytes");
+    // A real quote buffer may carry all-zero padding after the signature data (observed on a live OutLayer testnet
+    // quote: 70 zero bytes). Padding is tolerated only when every extra byte is zero; any other trailing byte is malformed.
+    if (sigLen > r.rest) throw new Malformed("signature data length does not match the remaining bytes");
+    if (buf.subarray(r.pos + sigLen).some((x) => x !== 0))
+      throw new Malformed("non-zero bytes after the signature data");
+    buf = buf.subarray(0, r.pos + sigLen);
+    r = new Reader(buf, r.pos);
     sig = r.take(64);
     attKey = r.take(64);
     const certType = r.u16();

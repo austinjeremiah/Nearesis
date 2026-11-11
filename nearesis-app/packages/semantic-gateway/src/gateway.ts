@@ -43,14 +43,22 @@ const OPS: Record<string, string> = {
   lte: "lte",
 };
 
+const DOMAIN_MAX = 10_000;
+const DOMAIN_TTL_MS = 30_000;
+const domainMemo = new Map<string, { at: number; values: Set<string> | null }>();
+
 /**
  * Filter values outside the conservative charset (legitimate punctuation such as brackets or quotes in an asset label)
- * are passed on only if they exist verbatim in the dimension's stored domain. The membership check binds them as a
- * typed ClickHouse query parameter (data, never SQL text). Returns the path of the first unknown value, or undefined.
+ * are passed on only if they exist verbatim in the dimension's stored domain. The domain is read WITHOUT any caller
+ * value in the statement (ClickHouse logs bound parameters into its statement log, so even a typed parameter would put
+ * the caller's text in a database log) and membership is decided in process. A dimension with more than DOMAIN_MAX
+ * distinct values cannot be verified, so its punctuated values are refused (fail closed).
+ * Returns the path of the first unverifiable value, or undefined.
  */
 export async function verifyPunctuatedValues(
   ch: ReturnType<typeof createCh>,
   filters: { member: string; values: unknown[] }[],
+  now: () => number = Date.now,
 ): Promise<string | undefined> {
   for (const [i, f] of filters.entries()) {
     const odd = f.values.filter((x): x is string => typeof x === "string" && !SAFE_FILTER_VALUE.test(x));
@@ -59,15 +67,22 @@ export async function verifyPunctuatedValues(
     const cube = CUBES.find((c) => c.view === view);
     const dim = cube?.dimensions.find((d) => d.name === name);
     if (!cube || !dim) return `filters[${i}].member`;
-    const rows = await (
-      await ch.query({
-        query: `SELECT DISTINCT toString(${dim.sql}) AS v FROM ${cube.table} FINAL WHERE toString(${dim.sql}) IN {vals:Array(String)}`,
-        query_params: { vals: odd },
-        format: "JSONEachRow",
-      })
-    ).json<{ v: string }>();
-    const known = new Set(rows.map((r) => r.v));
-    const j = f.values.findIndex((x) => typeof x === "string" && !SAFE_FILTER_VALUE.test(x) && !known.has(x));
+    const memoKey = `${cube.table}.${dim.name}`;
+    let entry = domainMemo.get(memoKey);
+    if (!entry || now() - entry.at > DOMAIN_TTL_MS) {
+      const rows = await (
+        await ch.query({
+          query: `SELECT DISTINCT toString(${dim.sql}) AS v FROM ${cube.table} FINAL LIMIT ${DOMAIN_MAX + 1}`,
+          format: "JSONEachRow",
+        })
+      ).json<{ v: string }>();
+      entry = { at: now(), values: rows.length > DOMAIN_MAX ? null : new Set(rows.map((r) => r.v)) };
+      domainMemo.set(memoKey, entry);
+    }
+    const known = entry.values;
+    const j = f.values.findIndex(
+      (x) => typeof x === "string" && !SAFE_FILTER_VALUE.test(x) && !(known?.has(x) ?? false),
+    );
     if (j >= 0) return `filters[${i}].values[${j}]`;
   }
   return undefined;

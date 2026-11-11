@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { KernelError, toErrorResponse } from "@nearesis/kernel";
+import { parseStrictJson } from "@nearesis/strict-json";
 
 /**
  * Browser-to-API request guards (ch.12 trust matrix "Browser -> API", ch.11): cross-origin mutation refusal, JSON-only
@@ -17,6 +18,10 @@ export interface RequestGuardOptions {
   /** `POST /v1/dev/login` per window per IP. Default 20. */
   loginsPerWindow?: number;
   windowMs?: number;
+  /** Maximum JSON body size in bytes. Default 1,000,000 (the Fastify bodyLimit in app.ts is the same value). */
+  maxBodyBytes?: number;
+  /** TEST CONTROL ONLY: use Fastify's lenient default JSON parser, to prove the abuse suite detects its absence. */
+  lenientJsonParser?: boolean;
   /** TEST CONTROL ONLY: switch the cross-origin check off to prove the attack suite detects it. */
   disableOriginCheck?: boolean;
   now?: () => number;
@@ -29,6 +34,23 @@ export function requestGuards(app: FastifyInstance, opts: RequestGuardOptions = 
   const mutations = opts.mutationsPerWindow ?? 300;
   const logins = opts.loginsPerWindow ?? 20;
   const now = opts.now ?? Date.now;
+  const maxBody = opts.maxBodyBytes ?? 1_000_000;
+  if (!opts.lenientJsonParser) {
+    // One bounded, strict parser for every JSON body: UTF-8 validated, depth and node bounded, duplicate keys and
+    // prototype-pollution keys refused (packages/strict-json). Errors are structured 422s with a reason code.
+    app.removeContentTypeParser("application/json");
+    app.addContentTypeParser(
+      "application/json",
+      { parseAs: "buffer", bodyLimit: maxBody },
+      (_req, body, done) => {
+        const r = parseStrictJson(body as Buffer, { maxBytes: maxBody });
+        if (r.ok) return done(null, r.value);
+        const reason =
+          r.code === "TOO_LARGE" ? "PAYLOAD_TOO_LARGE" : r.code === "EMPTY" ? "EMPTY_BODY" : `BODY_${r.code}`;
+        done(new KernelError("VALIDATION_FAILED", reason, `Request body rejected: ${r.detail}.`) as never);
+      },
+    );
+  }
   const buckets = new Map<string, { start: number; n: number }>();
 
   const take = (key: string, limit: number): { ok: boolean; retryAfterS: number } => {
@@ -60,6 +82,18 @@ export function requestGuards(app: FastifyInstance, opts: RequestGuardOptions = 
   app.addHook("onRequest", async (req, reply) => {
     void reply.header("x-content-type-options", "nosniff");
     void reply.header("cache-control", "no-store");
+    // Bodies are never decompressed by this API, so a compressed body is refused instead of being expanded.
+    const enc = String(req.headers["content-encoding"] ?? "identity").toLowerCase();
+    if (enc !== "identity" && enc !== "")
+      return refuse(
+        req,
+        reply as never,
+        new KernelError(
+          "VALIDATION_FAILED",
+          "UNSUPPORTED_CONTENT_ENCODING",
+          "Compressed request bodies are not accepted.",
+        ),
+      );
     if (!MUTATING.has(req.method)) return;
     const origin = req.headers.origin;
     if (!opts.disableOriginCheck && typeof origin === "string") {

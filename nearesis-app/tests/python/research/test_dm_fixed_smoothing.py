@@ -190,3 +190,17 @@ def test_experiment_artifact_carries_inference_and_never_claims_significance():
     assert validate_thesis(md, a, f)["ok"]
     bad = md.replace("Executive claim\n\n", "Executive claim\n\nThe gain is statistically significant. ", 1)
     assert any(x["rule"] == "significance_claim_without_valid_inference" for x in validate_thesis(bad, a, f)["failures"])
+
+
+def test_one_shot_guard_refuses_second_run_unless_audit_replay(tmp_path, monkeypatch):
+    from nearesis_research import accept_cases_g07 as g
+
+    monkeypatch.setattr(g, "ONESHOT_DIR", tmp_path)
+    monkeypatch.delenv("NEARESIS_Q14_AUDIT_REPLAY", raising=False)
+    first = g._oneshot_guard("sha256:" + "ab" * 32)
+    assert first["kind"] == "evaluation" and first["executions"] == 1
+    with pytest.raises(RuntimeError):
+        g._oneshot_guard("sha256:" + "ab" * 32)
+    monkeypatch.setenv("NEARESIS_Q14_AUDIT_REPLAY", "1")
+    again = g._oneshot_guard("sha256:" + "ab" * 32)
+    assert again["kind"] == "audit_replay" and again["executions"] == 2

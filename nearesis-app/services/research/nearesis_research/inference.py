@@ -107,8 +107,11 @@ def paired_comparison(abs_e_base: np.ndarray, abs_e_cand: np.ndarray, frozen) ->
         out.update(status="INSUFFICIENT_DATA", p_value=None, statistic=None, reason=f"{n} origins; frozen minimum is {q['minOriginsForPValue']}")
         out["interval"].update(lo=None, hi=None)
         return out
-    r = dm_paired(d, q["dm"]["maxLags"])
+    from . import dm_fixed_smoothing as fs
+    from .amendment2 import calibration_summary
+
+    inf = fs.compare_paired(d, calibration=calibration_summary(), with_bootstrap=False)
     ci = block_bootstrap_ci(d, iv["block"], iv["nBoot"], iv["bootstrapSeed"], "q14", iv["level"])
-    out.update(status="OK", p_value=r["p_value"], statistic=r["statistic"])
+    out.update(status="OK" if inf["status"] == fs.VALID else inf["status"], p_value=inf.get("p_value"), statistic=inf.get("statistic"), inference=inf)
     out["interval"].update(lo=ci["lo"], hi=ci["hi"])
     return out

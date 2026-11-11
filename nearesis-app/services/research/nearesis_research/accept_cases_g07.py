@@ -5,6 +5,7 @@ ch.16b PASS conditions on what is measured here."""
 from __future__ import annotations
 
 import copy
+from datetime import datetime, timezone
 import json
 import os
 import shutil
@@ -205,6 +206,44 @@ def _ar1(seed: int, n: int, phi: float, mean: float, sigma: float) -> np.ndarray
     return mean + x[100:]
 
 
+def prior_all_seeds(params2: dict) -> set[int]:
+    from . import amendment2 as am2
+    from .amendment import prior_seeds
+
+    out = set(prior_seeds())
+    for v in am2.all_seed_sets(params2).values():
+        out |= v
+    p1, _ = am2.load_amendment1()
+    c1 = p1["calibration"]
+    out |= {c1["seedBase"] + c1["seedCellStride"] * c + r for c in range(12) for r in range(c1["seedsPerCell"])}
+    return out
+
+
+ONESHOT_DIR = APP_ROOT / ".data" / "r4"
+
+
+def _oneshot_guard(freeze_hash: str) -> dict:
+    """One-shot log keyed by the evaluation freeze hash. A second execution is refused unless it is an audit replay
+    (NEARESIS_Q14_AUDIT_REPLAY=1) at the identical commit; the replay is logged as such and never as a new evaluation."""
+    d = ONESHOT_DIR
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / f"q14-oneshot-{freeze_hash.split(':')[-1][:16]}.json"
+    commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=APP_ROOT, capture_output=True, text=True).stdout.strip()
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+    replay = os.environ.get("NEARESIS_Q14_AUDIT_REPLAY") == "1"
+    if path.exists():
+        log = json.loads(path.read_text())
+        if not replay:
+            raise RuntimeError(f"Q14 one-shot already executed at {log['executions'][0]['at']}; only an audit replay (NEARESIS_Q14_AUDIT_REPLAY=1) is allowed")
+        if log["executions"][0]["commit"] != commit:
+            raise RuntimeError("audit replay must use the identical commit")
+        log["executions"].append({"kind": "audit_replay", "at": now, "commit": commit})
+    else:
+        log = {"freezeHash": freeze_hash, "executions": [{"kind": "evaluation", "at": now, "commit": commit}]}
+    path.write_text(json.dumps(log, indent=1) + "\n")
+    return {"kind": log["executions"][-1]["kind"], "executions": len(log["executions"]), "commit": commit, "at": log["executions"][-1]["at"], "log": path.name}
+
+
 def q14():
     from reference_stats import bias_exact, dm_reference, mae_exact, smape_exact
 
@@ -220,19 +259,31 @@ def q14():
         "bias": {"got": bias(e), "handExact": float(Fraction(ex["bias"])), "referenceExact": float(bias_exact(a.tolist(), fc.tolist()))},
         "smape": {"got": smape(a, fc), "handExact": float(exp_smape), "referenceExact": float(smape_exact(a.tolist(), fc.tolist()))},
     }
-    # (b) AR(1) differential versus the reference DM, and the i.i.d. variance on the same input
+    # Amendment 002 (post_hoc_methodological_correction): the production method is the fixed-m weighted-periodogram test
+    from . import amendment2 as am2
+    from . import dm_fixed_smoothing as fs
+    import reference_dm_fixed_smoothing as oracle
+
+    params2, h2 = am2.load_amendment()
+    ev = json.loads(am2.EVAL_FREEZE.read_text())
+    cal2 = json.loads(am2.CALIBRATION.read_text())
+    ev_body = {k: v for k, v in ev.items() if k not in ("frozenAt", "freezeHash")}
+    guard = _oneshot_guard(ev["freezeHash"])
+    # (b) AR(1) differential versus the independent oracle (pure Python, shares no code), and the i.i.d. variance on the same input
     ar = q["ar1Differential"]
     d = _ar1(ar["seed"], ar["n"], ar["phi"], ar["mean"], ar["sigma"])
-    prod = dm_paired(d, q["dm"]["maxLags"])
-    ref = dm_reference(d.tolist(), q["dm"]["maxLags"])
+    prod = fs.wpe_test(d)
+    ref = oracle.wpe(d.tolist())
     iid = dm_paired(d, q["dm"]["maxLags"], variance="iid")
-    # (c) null rejection over the frozen seeds
+    # (c) null rejection over the 100 evaluation seeds frozen in the amendment 002 evaluation freeze (band from the original freeze)
     ns = q["nullSimulation"]
-    rejects = 0
-    for s in ns["seeds"]:
-        r = dm_paired(_ar1(s, ns["n"], ns["phi"], ns["mean"], ns["sigma"]), q["dm"]["maxLags"])
-        rejects += int(r["p_value"] < ns["alpha"])
-    iid_rejects = sum(int(dm_paired(_ar1(s, ns["n"], ns["phi"], ns["mean"], ns["sigma"]), q["dm"]["maxLags"], variance="iid")["p_value"] < ns["alpha"]) for s in ns["seeds"])
+    eval_seeds = ev["nullSeeds"]
+    Xe = np.stack([_ar1(s, ns["n"], ns["phi"], ns["mean"], ns["sigma"]) for s in eval_seeds])
+    pe = fs.wpe_batch(Xe)
+    rejects = int(np.where(pe["ok"], pe["p"] < ns["alpha"], False).sum())
+    iid_rejects = sum(int(dm_paired(x, q["dm"]["maxLags"], variance="iid")["p_value"] < ns["alpha"]) for x in Xe)
+    legacy_rejects = sum(int(dm_paired(x, q["dm"]["maxLags"])["p_value"] < ns["alpha"]) for x in Xe)
+    secondary = fs.bartlett_fixed_b_batch(Xe)
     # (d) five origins
     five = paired_comparison(np.array(fx["fiveOriginAbsErrors"]["baseline"]), np.array(fx["fiveOriginAbsErrors"]["candidate"]), f)
     # (e) interval coverage
@@ -256,8 +307,14 @@ def q14():
         "fixtureHash": json_hash({"fx": fx["name"], "ar": ar, "seeds": [ns["seeds"][0], ns["seeds"][-1]]}),
         "frozen": _frozen_meta(f),
         "metrics": metrics,
-        "dm": {"production": prod, "reference": ref, "iid": iid, "tolerance": q["dm"]["tolerance"], "maxLags": q["dm"]["maxLags"]},
-        "null": {"seeds": len(ns["seeds"]), "rejections": rejects, "band": ns["band"], "alpha": ns["alpha"], "iidVarianceRejections": iid_rejects},
+        "dm": {"production": prod, "reference": ref, "iid": iid, "tolerance": params2["tolerances"]["statistic"], "pTolerance": params2["tolerances"]["pValue"], "method": fs.METHOD_VERSION},
+        "null": {"seeds": len(eval_seeds), "rejections": rejects, "band": ns["band"], "alpha": ns["alpha"], "iidVarianceRejections": iid_rejects, "originalProcedureRejectionsOnSameSeeds": legacy_rejects, "secondarySensitivityRejections": int(secondary["reject"].sum()), "invalid": int((~pe["ok"]).sum())},
+        "amendment002": {
+            "label": fs.LABEL, "methodVersion": fs.METHOD_VERSION, "amendmentDocumentHash": h2, "calibrationResultHash": cal2["resultHash"], "calibrationQualified": cal2["qualified"],
+            "evaluationFreezeHash": ev["freezeHash"], "evaluationFrozenAt": ev["frozenAt"], "evaluationFreezeIntact": am2._json_hash(ev_body) == ev["freezeHash"] and ev["amendmentDocumentHash"] == h2 and ev["calibrationResultHash"] == cal2["resultHash"],
+            "evaluationSeedsDisjoint": not (set(eval_seeds) & (prior_all_seeds(params2))), "seedCount": len(eval_seeds), "oneShot": guard,
+            "structuredStates": {"constant": fs.compare_paired([0.25] * 60, calibration=am2.calibration_summary())["status"], "short": fs.compare_paired(d[:30], calibration=am2.calibration_summary(), with_bootstrap=False)["status"], "nonFinite": fs.compare_paired([0.1, float("nan")] + [0.2] * 30)["status"]},
+        },
         "fiveOrigin": five,
         "coverage": {"replicates": len(cv["seeds"]), "covered": hit, "rate": hit / len(cv["seeds"]), "band": cv["band"], "method": iv["method"], "level": iv["level"]},
         "reportedInterval": {k: reported[k] for k in ("delta_mae", "interval", "status")},
@@ -615,7 +672,8 @@ def q20():
     recA = json.loads((outA / "run_record.json").read_text())
     # clean checkout in a separate directory with a fresh virtualenv from uv.lock
     ck = work / "checkout"
-    for rel in ("pyproject.toml", "uv.lock", "docs/research/PREREGISTRATION.md", "docs/research/PREREGISTRATION.freeze.json"):
+    amend2 = [f"docs/research/{n}" for n in ("PREREGISTRATION-AMENDMENT-002.md", "PREREGISTRATION-AMENDMENT-002.freeze.json", "PREREGISTRATION-AMENDMENT-002.calibration.json", "PREREGISTRATION-AMENDMENT-002.applicability.json") if (APP_ROOT / "docs/research" / n).exists()]
+    for rel in ("pyproject.toml", "uv.lock", "docs/research/PREREGISTRATION.md", "docs/research/PREREGISTRATION.freeze.json", *amend2):
         (ck / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(APP_ROOT / rel, ck / rel)
     shutil.copytree(APP_ROOT / "services" / "research" / "nearesis_research", ck / "services" / "research" / "nearesis_research", ignore=shutil.ignore_patterns("__pycache__"))

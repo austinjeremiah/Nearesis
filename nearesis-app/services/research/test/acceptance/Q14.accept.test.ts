@@ -17,14 +17,27 @@ it("Q14 loss functions, uncertainty and paired forecast comparison", () => {
       expect(Math.abs(m.metrics[k].got - m.metrics[k].referenceExact)).toBeLessThanOrEqual(1e-9);
       expect(Number.isFinite(m.metrics[k].got)).toBe(true);
     }
-    // (b) DM statistic and p-value equal the independent reference; the i.i.d. variance gives a detectably different value
-    expect(Math.abs(m.dm.production.statistic - m.dm.reference.statistic)).toBeLessThanOrEqual(
-      q.dm.tolerance,
-    );
-    expect(Math.abs(m.dm.production.p_value - m.dm.reference.p_value)).toBeLessThanOrEqual(q.dm.tolerance);
-    expect(Math.abs(m.dm.iid.statistic - m.dm.reference.statistic)).toBeGreaterThan(q.dm.tolerance);
+    // Amendment 002 (post_hoc_methodological_correction): fixed-m weighted-periodogram method, calibrated on separate data,
+    // evaluated once on the seeds frozen in the evaluation freeze
+    const am = m.amendment002;
+    expect(am.label).toBe("post_hoc_methodological_correction");
+    expect(am.calibrationQualified).toBe(true);
+    expect(am.evaluationFreezeIntact).toBe(true);
+    expect(am.evaluationSeedsDisjoint).toBe(true);
+    expect(am.seedCount).toBe(100);
+    expect(am.oneShot.executions).toBe(1);
+    expect(am.evaluationFrozenAt < am.oneShot.at).toBe(true);
+    // (b) statistic and p-value equal the independent oracle; the i.i.d. variance gives a detectably different value
+    expect(Math.abs(m.dm.production.statistic - m.dm.reference.statistic)).toBeLessThanOrEqual(m.dm.tolerance);
+    expect(Math.abs(m.dm.production.p_value - m.dm.reference.p_value)).toBeLessThanOrEqual(m.dm.pTolerance);
+    expect(m.dm.production.m).toBe(m.dm.reference.m);
+    expect(Math.abs(m.dm.iid.statistic - m.dm.reference.statistic)).toBeGreaterThan(m.dm.tolerance);
+    expect(am.structuredStates.constant).toBe("DEGENERATE_VARIANCE");
+    expect(am.structuredStates.nonFinite).toBe("INVALID_INPUT");
+    expect(am.structuredStates.short).toBe("METHOD_NOT_VALIDATED");
     // (c) null rejection rate over the frozen seeds is inside the frozen band
-    expect(m.null.seeds).toBe(q.nullSimulation.seeds.length);
+    expect(m.null.seeds).toBe(100);
+    expect(m.null.invalid).toBe(0);
     expect(m.null.rejections).toBeGreaterThanOrEqual(q.nullSimulation.band[0]);
     expect(m.null.rejections).toBeLessThanOrEqual(q.nullSimulation.band[1]);
     // (d) the 5-origin case returns INSUFFICIENT_DATA, not a p-value
@@ -44,7 +57,7 @@ it("Q14 loss functions, uncertainty and paired forecast comparison", () => {
     observe({
       testId: "Q14",
       fixtureHash: m.fixtureHash,
-      observed: `metrics exact (MAE ${m.metrics.mae.got}, bias ${m.metrics.bias.got}, sMAPE ${m.metrics.smape.got}); DM t ${m.dm.production.statistic} vs reference ${m.dm.reference.statistic} (i.i.d. variance gives ${m.dm.iid.statistic}); null rejections ${m.null.rejections}/${m.null.seeds} vs frozen band [${m.null.band}] (i.i.d. variance control ${m.null.iidVarianceRejections}); 5 origins -> ${m.fiveOrigin.status}; interval coverage ${m.coverage.covered}/${m.coverage.replicates} = ${m.coverage.rate} vs band [${m.coverage.band}]`,
+      observed: `metrics exact (MAE ${m.metrics.mae.got}, bias ${m.metrics.bias.got}, sMAPE ${m.metrics.smape.got}); amendment 002 ${m.amendment002.evaluationFreezeHash}; WPE t ${m.dm.production.statistic} vs reference ${m.dm.reference.statistic} (i.i.d. variance gives ${m.dm.iid.statistic}); null rejections ${m.null.rejections}/${m.null.seeds} vs frozen band [${m.null.band}] (i.i.d. variance control ${m.null.iidVarianceRejections}); 5 origins -> ${m.fiveOrigin.status}; interval coverage ${m.coverage.covered}/${m.coverage.replicates} = ${m.coverage.rate} vs band [${m.coverage.band}]`,
       evidence: m,
     });
   }

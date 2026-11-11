@@ -130,3 +130,4 @@ export const IconSun = (p: P) => (
     <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M12.6 3.4l-1 1M4.4 11.6l-1 1" />
   </svg>
 );
+export const IconBell = mk("M4 11V7.5a4 4 0 0 1 8 0V11l1 1.5H3zM6.5 14h3");

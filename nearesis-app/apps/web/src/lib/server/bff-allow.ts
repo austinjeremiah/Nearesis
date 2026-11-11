@@ -13,6 +13,9 @@ export const ALLOWED = [
   new RegExp(`^workspaces/${UUID}/questions$`),
   new RegExp(`^workspaces/${UUID}/runs$`),
   new RegExp(`^workspaces/${UUID}/sources$`),
+  // P06 monitoring reads (commands go through /commands). Published by apps/api monitoring-routes.ts.
+  new RegExp(`^workspaces/${UUID}/(markers|lenses|monitors|monitors/triggers|notifications|marker-tasks)$`),
+  new RegExp(`^workspaces/${UUID}/lenses/${UUID}/resolution$`),
   new RegExp(`^runs/${UUID}$`),
   new RegExp(`^runs/${UUID}/cancel$`),
   new RegExp(`^runs/${UUID}/approvals(/\\d{1,18})?$`),

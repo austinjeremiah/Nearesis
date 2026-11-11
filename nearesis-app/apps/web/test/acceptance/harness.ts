@@ -36,7 +36,14 @@ export async function startWeb(
   extraEnv: Record<string, string> = {},
 ): Promise<{ reused: boolean; buildId: string }> {
   const buildIdPath = join(WEB_DIR, DIST, "BUILD_ID");
-  const stale = !existsSync(buildIdPath) || newestMtime(join(WEB_DIR, "src")) > 0;
+  const stale =
+    !existsSync(buildIdPath) ||
+    // The app bundles packages/ui and packages/canvas-schema (transpilePackages): changes there need a rebuild too.
+    [
+      join(WEB_DIR, "src"),
+      join(WEB_DIR, "../../packages/ui/src"),
+      join(WEB_DIR, "../../packages/canvas-schema/src"),
+    ].some((d) => newestMtime(d) > 0);
   if (stale && (await up()))
     throw new Error(`a stale server is running on :${PORT}; stop it before running acceptance tests`);
   if (stale) {

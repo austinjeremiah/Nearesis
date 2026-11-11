@@ -4,7 +4,7 @@
  * option with token colours. Large time series are reduced to min/max buckets here so the footer label and the
  * rendered point count stay identical to what is drawn (C18).
  */
-import type { ChartData, MarkerSpec, PanelSpec } from "@nearesis/contracts";
+import type { ChartData, Marker, MarkerSpec, PanelSpec } from "@nearesis/contracts";
 import { downsampleMinMax, type VizIR } from "@nearesis/canvas-schema";
 import type { ChartKind, ChartMarker, ChartSpec } from "@nearesis/ui";
 
@@ -49,12 +49,51 @@ function markerToSpec(m: MarkerSpec): ChartMarker {
   };
 }
 
+const STATUS_SHORT: Record<string, string> = {
+  DRAFT: "draft",
+  ACTIVE: "active",
+  INVESTIGATING: "investigating",
+  REVIEW_REQUIRED: "review",
+  RESOLVED: "resolved",
+  MONITORING: "monitoring",
+  DISMISSED: "dismissed",
+};
+
+/**
+ * Backend marker record -> chart marker. Every anchor is a data coordinate (UTC time or a metric value), so the marker
+ * stays on the same data through zoom, resize and refresh; the label carries the backend status.
+ */
+export function monitorMarkerToChart(m: Marker): ChartMarker {
+  const label = `marker (${STATUS_SHORT[m.status] ?? m.status})`;
+  const a = m.anchor;
+  if (a.kind === "time_range")
+    return { id: m.markerId, kind: "time_range", start: a.start, end: a.end, label };
+  if (a.kind === "threshold")
+    return {
+      id: m.markerId,
+      kind: "threshold",
+      value: a.value,
+      op: a.op,
+      label: `${a.op === "gt" ? ">" : "<"} ${a.value}`,
+    };
+  if (a.kind === "source_event")
+    return {
+      id: m.markerId,
+      kind: "time_point",
+      at: a.at,
+      label: `event ${a.sourceId} (${STATUS_SHORT[m.status]})`,
+    };
+  return { id: m.markerId, kind: "time_point", at: a.at, label };
+}
+
 export function toChartSpec(args: {
   panel: PanelSpec;
   viz: VizIR;
   data: ChartData;
   gaps: Array<{ from: string; to: string; reason: string }>;
   markers: MarkerSpec[];
+  /** Backend monitoring markers for this panel (P06). */
+  monitorMarkers?: Marker[];
 }): BuiltChart {
   const { panel, viz, data } = args;
   const col = (name: string | undefined) => (name ? data.columns.findIndex((c) => c.name === name) : -1);
@@ -126,7 +165,7 @@ export function toChartSpec(args: {
       : {}),
     scale: viz.scale,
     gaps: args.gaps,
-    markers: args.markers.map(markerToSpec),
+    markers: [...args.markers.map(markerToSpec), ...(args.monitorMarkers ?? []).map(monitorMarkerToChart)],
     downsampling: { method, originalPoints: original },
   };
   return {

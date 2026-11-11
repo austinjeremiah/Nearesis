@@ -1,5 +1,5 @@
 "use client";
-import type { MarkerSpec, PanelSpec } from "@nearesis/contracts";
+import type { Marker, MarkerSpec, PanelSpec } from "@nearesis/contracts";
 import { deriveVizIR, type PanelRuntime, type VizIR } from "@nearesis/canvas-schema";
 import { type PointerEvent, useMemo, useState } from "react";
 import {
@@ -97,7 +97,18 @@ export function InvalidPanel({
   );
 }
 
+/** Monitoring hooks for one panel (P06). Absent when the workspace has no monitoring backend. */
+export interface PanelMonitoring {
+  markers: Marker[];
+  onMarkPoint: (ms: number) => void;
+  onMonitorSelection: () => void;
+  onOpenMonitoring: () => void;
+  /** Lens window applied to this panel, or why the lens could not be applied. */
+  lens: { name: string; range: { start: string; end: string } | null; skipped: string | null } | null;
+}
+
 export function Panel(props: {
+  monitoring?: PanelMonitoring;
   panel: PanelSpec;
   runtime: PanelRuntime;
   data: PanelData | null;
@@ -116,14 +127,22 @@ export function Panel(props: {
   const { panel, runtime, data } = props;
   const [inspect, setInspect] = useState(false);
   const [brushing, setBrushing] = useState(false);
+  const [pointing, setPointing] = useState(false);
   const [threshold, setThreshold] = useState("100");
   const shown = runtime.state === "READY" ? data : runtime.lastGood ? data : null;
   const viz: VizIR = useMemo(() => deriveVizIR(panel, data?.shape), [panel, data]);
 
   const built = useMemo(() => {
     if (!shown || !CHART_KINDS.has(panel.kind) || !shown.chart.rows.length) return null;
-    return toChartSpec({ panel, viz, data: shown.chart, gaps: shown.gaps, markers: props.markers });
-  }, [shown, panel, viz, props.markers]);
+    return toChartSpec({
+      panel,
+      viz,
+      data: shown.chart,
+      gaps: shown.gaps,
+      markers: props.markers,
+      monitorMarkers: props.monitoring?.markers,
+    });
+  }, [shown, panel, viz, props.markers, props.monitoring?.markers]);
 
   if (
     CHART_KINDS.has(panel.kind) ||
@@ -185,6 +204,18 @@ export function Panel(props: {
     panel.kind !== "evidenceGraph";
 
   const isChart = CHART_KINDS.has(panel.kind) && panel.kind !== "heatmap" && viz.x?.type === "utc_time";
+  // A lens date range can only filter a time axis. The backend may call a panel compatible on metadata alone; the page
+  // never claims a filter it did not apply.
+  const lens = (() => {
+    const l = props.monitoring?.lens;
+    if (!l || l.skipped || !l.range || viz.x?.type === "utc_time" || !CHART_KINDS.has(panel.kind))
+      return l ?? null;
+    return {
+      ...l,
+      range: null,
+      skipped: "this panel's x axis is not a time axis, so a date range cannot filter it",
+    };
+  })();
   const fresh = freshness as "fresh" | "late" | "partial" | "stale" | "unavailable";
   return (
     <PanelCard
@@ -281,11 +312,50 @@ export function Panel(props: {
             >
               mark selection
             </Button>
+            {props.monitoring && (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => setPointing((v) => !v)}
+                  aria-pressed={pointing}
+                  data-testid="point-mode"
+                  title="Click a point on the chart, or focus the chart and press P at the cursor"
+                >
+                  {pointing ? "click a point" : "mark point"}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={props.monitoring.onMonitorSelection}
+                  disabled={!props.hasSelection}
+                  data-testid="monitor-selection"
+                >
+                  monitor selection
+                </Button>
+                {props.monitoring.markers.length > 0 && (
+                  <button
+                    type="button"
+                    className="nz-chip"
+                    data-testid="open-monitoring"
+                    onClick={props.monitoring.onOpenMonitoring}
+                  >
+                    {props.monitoring.markers.length} monitor marker
+                    {props.monitoring.markers.length === 1 ? "" : "s"}
+                  </button>
+                )}
+              </>
+            )}
           </>
         ) : undefined
       }
       notices={
         <>
+          {lens && (
+            <PanelNotice tone={lens.skipped ? "warn" : "honesty"} role="status" data-testid="lens-notice">
+              {lens.skipped
+                ? `Lens "${lens.name}" not applied: ${lens.skipped}`
+                : `Lens "${lens.name}" applied${lens.range ? ` (${lens.range.start.slice(0, 10)} to ${lens.range.end.slice(0, 10)})` : ""}.`}
+            </PanelNotice>
+          )}
           {runtime.state === "STALE" && (
             <PanelNotice tone="warn" role="status" data-testid="stale-notice">
               Source is {freshness}: showing last good data from {data?.chart.sourceWatermark ?? "unknown"}.
@@ -367,6 +437,16 @@ export function Panel(props: {
             spec={built.spec}
             testId={`chart-${panel.panelId}`}
             brushActive={brushing}
+            pointActive={pointing}
+            onPoint={
+              props.monitoring
+                ? (ms) => {
+                    setPointing(false);
+                    props.monitoring!.onMarkPoint(ms);
+                  }
+                : undefined
+            }
+            viewRange={lens?.skipped ? null : (lens?.range ?? null)}
             onBrush={props.onBrush}
             onKeyboardRange={props.onKeyboardRange}
             instanceRef={(c) => {

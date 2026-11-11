@@ -12,6 +12,17 @@ export interface ChartProps {
   brushActive?: boolean;
   /** Keyboard cursor: arrows move, Shift extends, Enter commits (C08/C13). Time axes only. */
   onKeyboardRange?: (startMs: number, endMs: number) => void;
+  /**
+   * Point selection: a click (when `pointActive`) or the P key at the keyboard cursor reports the nearest data row's UTC
+   * ms. Always a data coordinate, never a pixel.
+   */
+  onPoint?: (ms: number) => void;
+  pointActive?: boolean;
+  /**
+   * Visible window in data space (a lens). The chart zooms to it; null restores the full range. Markers keep their data
+   * coordinates, so they stay on the same points.
+   */
+  viewRange?: { start: string; end: string } | null;
   onFirstFrame?: (ms: number) => void;
   /** Exposes the live instance for tests and benchmarks; never used by app code. */
   instanceRef?: (c: ChartInstance | null) => void;
@@ -28,6 +39,9 @@ export function Chart({
   onBrush,
   brushActive = false,
   onKeyboardRange,
+  onPoint,
+  pointActive = false,
+  viewRange,
   onFirstFrame,
   instanceRef,
   testId,
@@ -62,6 +76,13 @@ export function Chart({
   );
   const optRef = useRef(built.option);
   optRef.current = built.option;
+  const pointCb = useRef(onPoint);
+  pointCb.current = onPoint;
+  const pointOn = useRef(pointActive);
+  pointOn.current = pointActive;
+  const specRef = useRef(spec);
+  specRef.current = spec;
+  const applyRangeRef = useRef<() => void>(() => undefined);
   const brushOn = useRef(brushActive);
   brushOn.current = brushActive;
 
@@ -91,8 +112,23 @@ export function Chart({
         const r = (p as { areas?: Array<{ coordRange?: [number, number] }> }).areas?.[0]?.coordRange;
         if (r) brushCb.current?.(Math.min(r[0], r[1]), Math.max(r[0], r[1]));
       });
+      c.getZr().on("click", (ev: { offsetX: number; offsetY: number }) => {
+        if (!pointOn.current || !pointCb.current) return;
+        const sp = specRef.current;
+        const xi = sp.columns.findIndex((col) => col.name === sp.x.field);
+        const at = (c.convertFromPixel({ seriesIndex: 0 }, [ev.offsetX, ev.offsetY]) as number[] | null)?.[0];
+        if (at === undefined || !Number.isFinite(at)) return;
+        let best: number | null = null;
+        for (const r of sp.rows) {
+          const v = r[xi];
+          const t = typeof v === "string" ? Date.parse(v) : typeof v === "number" ? v : NaN;
+          if (Number.isFinite(t) && (best === null || Math.abs(t - at) < Math.abs(best - at))) best = t;
+        }
+        if (best !== null) pointCb.current(best);
+      });
       c.setOption(optRef.current, { notMerge: true });
       applyBrush();
+      applyRangeRef.current();
       ro = new ResizeObserver(() => c.resize());
       ro.observe(host.current);
     });
@@ -116,6 +152,26 @@ export function Chart({
     applyBrush();
   }, [built]);
   useEffect(applyBrush, [brushActive]);
+  const vr = viewRange ? `${viewRange.start}|${viewRange.end}` : "";
+  const hadRange = useRef(false);
+  const applyRange = () => {
+    const c = chart.current;
+    if (!c || spec.x.type !== "time") return;
+    if (viewRange)
+      c.dispatchAction({
+        type: "dataZoom",
+        startValue: Date.parse(viewRange.start),
+        endValue: Date.parse(viewRange.end),
+      });
+    else if (hadRange.current) c.dispatchAction({ type: "dataZoom", start: 0, end: 100 });
+    hadRange.current = Boolean(viewRange);
+  };
+  applyRangeRef.current = applyRange;
+  // A new or cleared lens range re-zooms; a data refresh re-applies only an active lens, so a user's own zoom survives.
+  useEffect(applyRange, [vr]);
+  useEffect(() => {
+    if (viewRange) applyRange();
+  }, [built]);
 
   const timeIdx = spec.columns.findIndex((c) => c.name === spec.x.field);
   const timeAt = (i: number): number | null => {
@@ -138,6 +194,10 @@ export function Chart({
       const a = timeAt(cursor.anchor ?? cursor.i);
       const b = timeAt(cursor.i);
       if (a !== null && b !== null) onKeyboardRange?.(Math.min(a, b), Math.max(a, b));
+    } else if ((e.key === "p" || e.key === "P") && cursor && onPoint) {
+      e.preventDefault();
+      const t = timeAt(cursor.i);
+      if (t !== null) onPoint(t);
     } else if (e.key === "Escape") setCursor(null);
   };
   const yIdx = spec.columns.findIndex((c) => c.name === spec.y[0]?.field);
@@ -157,7 +217,7 @@ export function Chart({
       tabIndex={0}
       role="group"
       aria-roledescription="chart"
-      aria-label={`${spec.title}. Use arrow keys to move through points, Shift with arrows to extend a range, Enter to select it.`}
+      aria-label={`${spec.title}. Use arrow keys to move through points, Shift with arrows to extend a range, Enter to select it, P to mark the point.`}
       onKeyDown={onKey}
       data-testid="chart-keyboard"
     >

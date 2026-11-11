@@ -3,6 +3,7 @@ import { FreshnessBadge } from "../canvas/badges";
 import {
   IconCanvas,
   IconChevronDown,
+  IconBell,
   IconInvestigation,
   IconReport,
   IconSettings,
@@ -62,6 +63,8 @@ export interface SidebarProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onNavigate: (key: string) => void;
+  /** When set, a Monitoring entry is shown; `unread` is the notification count. */
+  monitoring?: { unread: number };
   /** Called with the chosen workspace id from the switcher menu. The current workspace is a no-op. */
   onSwitchWorkspace?: (workspaceId: string) => void;
   /** Rendered in the footer next to the user (theme switch and so on). */
@@ -118,6 +121,7 @@ export function Sidebar({
   onToggleCollapsed,
   onNavigate,
   onSwitchWorkspace,
+  monitoring,
   footerExtra,
 }: SidebarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -219,6 +223,26 @@ export function Sidebar({
             Canvas
           </Item>
         </div>
+        {monitoring && (
+          <div className="nz-sb-group">
+            <Item
+              icon={<IconBell />}
+              label={`Monitoring${monitoring.unread ? `, ${monitoring.unread} unread` : ""}`}
+              collapsed={collapsed}
+              current={active === "monitoring"}
+              onClick={() => onNavigate("monitoring")}
+              meta={
+                monitoring.unread ? (
+                  <span className="nz-count" data-testid="sidebar-unread">
+                    {monitoring.unread}
+                  </span>
+                ) : undefined
+              }
+            >
+              Monitoring
+            </Item>
+          </div>
+        )}
         <div className="nz-sb-group">
           <div className="nz-sb-label nz-hide-collapsed">Investigations</div>
           {data.investigations.map((i) => {

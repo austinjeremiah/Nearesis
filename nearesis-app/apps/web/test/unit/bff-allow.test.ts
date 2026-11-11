@@ -28,4 +28,11 @@ describe("BFF allowlist", () => {
     ])
       expect(isAllowed(p)).toBe(true);
   });
+  it("admits the monitoring reads and refuses anything beside them", () => {
+    for (const k of ["markers", "lenses", "monitors", "monitors/triggers", "notifications", "marker-tasks"])
+      expect(isAllowed(`workspaces/${ws}/${k}`)).toBe(true);
+    expect(isAllowed(`workspaces/${ws}/lenses/${run}/resolution`)).toBe(true);
+    expect(isAllowed(`workspaces/${ws}/markers/extra`)).toBe(false);
+    expect(isAllowed(`workspaces/${ws}/monitors/../commands`)).toBe(false);
+  });
 });

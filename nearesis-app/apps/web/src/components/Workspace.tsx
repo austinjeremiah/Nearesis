@@ -1,6 +1,14 @@
 "use client";
 import "../lib/zod-config.ts";
-import type { DomainEvent, GridLayout, MarkerSpec, PanelSpec, PatchOp, Selection } from "@nearesis/contracts";
+import type {
+  DomainEvent,
+  GridLayout,
+  Marker,
+  MarkerSpec,
+  PanelSpec,
+  PatchOp,
+  Selection,
+} from "@nearesis/contracts";
 import {
   buildSelection,
   CANVAS_SCHEMA_VERSION,
@@ -16,7 +24,11 @@ import { createBackend, KernelBackend } from "../lib/backend.ts";
 import { RENDERER_VERSION } from "../lib/chart-option.ts";
 import { hooks } from "../lib/test-hooks.ts";
 import type { CanvasBackend, GraphProjection, PanelData } from "../lib/types.ts";
-import { InvalidPanel, Panel } from "./Panel.tsx";
+import { InvalidPanel, Panel, type PanelMonitoring } from "./Panel.tsx";
+import type { LensApplication } from "./monitoring/LensesTab.tsx";
+import { MonitoringView, useMonitorUi } from "./monitoring/MonitoringView.tsx";
+import { MONITORING_EVENTS } from "../lib/monitoring/api.ts";
+import { useMonitoring } from "../lib/monitoring/use-monitoring.ts";
 import { ReportView } from "./ReportView.tsx";
 import { SettingsView } from "./SettingsView.tsx";
 import {
@@ -111,6 +123,11 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   const [signedIn, setSignedIn] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceRow[]>([]);
   const [view, setView] = useState<string>("canvas");
+  const mon = useMonitoring(workspaceId, mode, mode !== null);
+  const monRef = useRef(mon);
+  monRef.current = mon;
+  const [monUi, setMonUi] = useMonitorUi(workspaceId);
+  const [lens, setLens] = useState<LensApplication | null>(null);
   const conv = useRunConversation(workspaceId, mode === "kernel", source);
   const convRef = useRef(conv);
   convRef.current = conv;
@@ -198,7 +215,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     const readHash = () => {
       const h = window.location.hash.replace(/^#/, "");
       setView(
-        h === "settings" || /^report\/[0-9a-f-]{36}$/.test(h)
+        h === "settings" || h === "monitoring" || /^report\/[0-9a-f-]{36}$/.test(h)
           ? h.startsWith("report/")
             ? `rep:${h.slice(7)}`
             : h
@@ -345,6 +362,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   const onEvent = useCallback(
     (e: DomainEvent) => {
       convRef.current.ingestEvent(e);
+      if (MONITORING_EVENTS.has(e.type)) void monRef.current.refresh();
       const d = docRef.current;
       if (!d) return;
       if (e.type === "snapshot.finalized" && e.data.kind === "watermark") {
@@ -469,7 +487,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
         markerId: crypto.randomUUID(),
         panelId: p.panelId,
         anchor: { kind: "threshold", metricId, op: "gt", value },
-        status: "ACTIVE",
+        status: "DRAFT", // the kernel accepts only DRAFT for a new marker (state machine)
         createdBy: ACTOR,
         createdAt: new Date().toISOString(),
       };
@@ -505,7 +523,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
         markerId: crypto.randomUUID(),
         panelId: p.panelId,
         anchor: { kind: "time_range", start: s.interval.start, end: s.interval.end },
-        status: "ACTIVE",
+        status: "DRAFT", // the kernel accepts only DRAFT for a new marker (state machine)
         createdBy: ACTOR,
         createdAt: new Date().toISOString(),
       };
@@ -543,6 +561,12 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+  // Toasts report an action once; they do not linger over the canvas.
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 8000);
+    return () => clearTimeout(id);
+  }, [toast]);
   useCommandPaletteShortcut(setPaletteOpen);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -578,7 +602,14 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   );
 
   const navigateView = useCallback((key: string) => {
-    const h = key === "settings" ? "#settings" : key.startsWith("rep:") ? `#report/${key.slice(4)}` : "";
+    const h =
+      key === "settings"
+        ? "#settings"
+        : key === "monitoring"
+          ? "#monitoring"
+          : key.startsWith("rep:")
+            ? `#report/${key.slice(4)}`
+            : "";
     const u = new URL(window.location.href);
     u.hash = h;
     window.history.pushState(null, "", u.toString());
@@ -592,6 +623,102 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
         convRef.current.investigations.find((r) => r.runId === reportRunId)?.questionSummary,
       );
   }, [reportRunId, mode]);
+
+  const latestSelection: Selection | null = useMemo(() => {
+    const all = [...(doc?.selections ?? []), ...Object.values(pendingSel)];
+    return all.length ? all[all.length - 1]! : null;
+  }, [doc, pendingSel]);
+
+  /** Marker creation from a gesture: typed anchor plus the data context of the panel; never assigns an agent. */
+  const createMonitorMarker = useCallback(
+    async (p: PanelSpec, anchor: Marker["anchor"], interval: { start: string; end: string }) => {
+      const pd = dataRef.current[p.queryRef.hash];
+      const r = await monRef.current.act((api) =>
+        api.createMarker({
+          panelId: p.panelId,
+          anchor,
+          ...(pd
+            ? {
+                selection: {
+                  queryHash: pd.provenance.queryHash,
+                  semanticVersion: p.queryRef.semanticVersion,
+                  interval,
+                  seriesIds: p.encoding.y ?? [],
+                  axisUnits: p.dataBinding.units,
+                  sourceWatermark: pd.chart.sourceWatermark ?? null,
+                },
+              }
+            : {}),
+        }),
+      );
+      setToast(
+        r.ok
+          ? "Marker created. Open Monitoring to assign an agent or add a rule."
+          : `${r.reasonCode}: ${r.message}`,
+      );
+    },
+    [],
+  );
+  const applyLens = useCallback(
+    async (lensId: string | null) => {
+      setMonUi({ lensId });
+      if (!lensId) return setLens(null);
+      const r = await monRef.current.api?.resolveLens(lensId);
+      if (r?.ok) setLens({ lensId, resolution: r.value });
+      else {
+        setLens(null);
+        setToast(r ? `${r.reasonCode}: ${r.message}` : "Lens could not be resolved.");
+      }
+    },
+    [setMonUi],
+  );
+  // After reload: re-resolve the persisted lens against the backend (never trust a stored resolution).
+  useEffect(() => {
+    if (
+      mon.status === "ready" &&
+      monUi.lensId &&
+      !lens &&
+      mon.data.lenses.some((l) => l.lensId === monUi.lensId)
+    )
+      void applyLens(monUi.lensId);
+  }, [mon.status, mon.data.lenses, monUi.lensId, lens, applyLens]);
+  const panelMonitoring = (p: PanelSpec): PanelMonitoring | undefined => {
+    if (!mon.api) return undefined;
+    const l = lens ? mon.data.lenses.find((x) => x.lensId === lens.lensId) : null;
+    const res = lens?.resolution.panels.find((x) => x.panelId === p.panelId);
+    return {
+      markers: mon.data.markers.filter((m) => m.sourcePanelId === p.panelId),
+      onMarkPoint: (ms) => {
+        const at = new Date(ms).toISOString();
+        void createMonitorMarker(p, { kind: "time_point", at }, { start: at, end: at });
+      },
+      onMonitorSelection: () => {
+        const s = pendingSel[p.panelId] ?? doc?.selections.find((x) => x.panelId === p.panelId);
+        if (s)
+          void createMonitorMarker(
+            p,
+            { kind: "time_range", start: s.interval.start, end: s.interval.end },
+            s.interval,
+          );
+      },
+      onOpenMonitoring: () => {
+        setMonUi({ tab: "markers" });
+        navigateView("monitoring");
+      },
+      lens:
+        l && res
+          ? {
+              name: l.name,
+              range: res.compatible ? (res.appliedFilter?.timeRange ?? null) : null,
+              skipped: !res.compatible
+                ? (res.reason ?? "incompatible")
+                : res.appliedFilter?.timeRange
+                  ? null
+                  : "the lens has no date range; segment filters are not applied on the canvas yet",
+            }
+          : null,
+    };
+  };
 
   const kernel = mode === "kernel";
   const sidebar: SidebarData = {
@@ -635,6 +762,17 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
         document.getElementById("main")?.scrollTo({ top: 0 });
       },
     },
+    ...(mon.api
+      ? [
+          {
+            id: "monitoring",
+            label: "Open monitoring",
+            group: "Navigate",
+            keywords: ["markers", "rules", "lens", "notifications", "triggers"],
+            run: () => navigateView("monitoring"),
+          },
+        ]
+      : []),
     { id: "settings", label: "Open settings", group: "Navigate", run: () => navigateView("settings") },
     ...workspaces
       .filter((w) => w.id !== workspaceId)
@@ -717,6 +855,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
           <Sidebar
             data={sidebar}
             active={view}
+            monitoring={mon.api ? { unread: mon.unread } : undefined}
             onSwitchWorkspace={(id) => window.location.assign(kernelWorkspaceUrl(id, source))}
             collapsed={navCollapsed}
             onToggleCollapsed={() => setNavCollapsed((c) => !c)}
@@ -733,7 +872,13 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
                 const id = key.slice(4);
                 setChatOpen(true);
                 conv.openRun(id, conv.investigations.find((r) => r.runId === id)?.questionSummary);
-              } else if (key === "settings" || key === "canvas" || key.startsWith("rep:")) navigateView(key);
+              } else if (
+                key === "settings" ||
+                key === "monitoring" ||
+                key === "canvas" ||
+                key.startsWith("rep:")
+              )
+                navigateView(key);
             }}
           />
         }
@@ -741,7 +886,16 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
           <TopBar
             crumbs={[
               { label: kernel ? "Workspace" : "Fixture workspace" },
-              { label: view === "settings" ? "Settings" : reportRunId ? "Report" : "Canvas" },
+              {
+                label:
+                  view === "settings"
+                    ? "Settings"
+                    : view === "monitoring"
+                      ? "Monitoring"
+                      : reportRunId
+                        ? "Report"
+                        : "Canvas",
+              },
             ]}
             connection={connection}
             run={runIndicator}
@@ -780,6 +934,20 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
                       Live (LIVE)
                     </Button>
                   </div>
+                )}
+                {mon.api && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    data-testid="notifications-bell"
+                    aria-label={`Notifications, ${mon.unread} unread`}
+                    onClick={() => {
+                      setMonUi({ tab: "notifications" });
+                      navigateView("monitoring");
+                    }}
+                  >
+                    Alerts{mon.unread ? ` (${mon.unread})` : ""}
+                  </Button>
                 )}
                 <span className="nz-sb-meta nz-tabular" data-testid="document-revision">
                   doc rev {doc?.revision ?? "…"}
@@ -848,6 +1016,31 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
             onBack={() => navigateView("canvas")}
           />
         )}
+        {view === "monitoring" && (
+          <MonitoringView
+            store={mon}
+            ui={monUi}
+            setUi={setMonUi}
+            panels={(doc?.panels ?? []).map((p) => ({ panelId: p.panelId, title: p.title }))}
+            sources={sources.map((s) => ({ id: s.id, freshness: s.freshness }))}
+            metrics={Array.from(new Set((doc?.panels ?? []).flatMap((p) => p.encoding.y ?? [])))}
+            selectionInterval={latestSelection?.interval ?? null}
+            lens={lens}
+            onApplyLens={applyLens}
+            onFocusPanel={(id) => {
+              navigateView("canvas");
+              setTimeout(() => focusPanel(id), 80);
+            }}
+            onOpenEvidence={(id) => {
+              navigateView("canvas");
+              setToast(
+                `Evidence ${id.slice(0, 8)} is linked to this marker; open the evidence graph panel to follow it.`,
+              );
+            }}
+            onNotice={setToast}
+            onBack={() => navigateView("canvas")}
+          />
+        )}
         {reportRunId && (
           <ReportView
             runId={reportRunId}
@@ -877,6 +1070,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
                 runtime={runtimes[p.panelId] ?? initialRuntime()}
                 data={data[p.queryRef.hash] ?? null}
                 markers={markersByPanel[p.panelId] ?? []}
+                monitoring={panelMonitoring(p)}
                 graph={p.kind === "evidenceGraph" ? graph : null}
                 entering={entering.has(p.panelId)}
                 onMove={(dx, dy) => move(p, dx, dy)}

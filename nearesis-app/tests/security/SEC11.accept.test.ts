@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { afterAll, expect, it } from "vitest";
 import { observe } from "@nearesis/acceptance";
 
@@ -83,11 +83,61 @@ export function checkPyproject(file: string, text: string): Finding[] {
   return out;
 }
 
+/** Production container checks: the final stage runs as a numeric non-root user, no secret is baked in, rootfs read-only. */
+export function checkProdDockerfile(file: string, text: string, ignoreText: string | null): Finding[] {
+  const out: Finding[] = [];
+  const lines = text.split("\n").map((l) => l.replace(/^\s+|\s+$/g, ""));
+  const finalFrom = lines.map((l, i) => (/^FROM\s/i.test(l) ? i : -1)).filter((i) => i >= 0);
+  const finalStage = lines.slice(finalFrom.at(-1) ?? 0);
+  const users = finalStage.filter((l) => /^USER\s/i.test(l));
+  const user = users.at(-1)?.replace(/^USER\s+/i, "") ?? "";
+  if (!/^[1-9]\d*(:[1-9]\d*)?$/.test(user))
+    out.push({
+      file,
+      line: 0,
+      problem: `final stage user is "${user || "unset (root)"}", not a numeric non-root uid`,
+    });
+  lines.forEach((l, i) => {
+    if (
+      /^(ENV|ARG)\s+\S*(SECRET|TOKEN|PASSWORD|PRIVATE_KEY|API_KEY|JWT)\S*\s*=?\s*\S+/i.test(l) &&
+      !/^ARG\s+\S+\s*$/i.test(l)
+    )
+      out.push({ file, line: i + 1, problem: "secret-looking ENV/ARG with a value baked into the image" });
+    if (/^(COPY|ADD)\s.*(\.env\b|\.pem\b|id_rsa|\.key\b)/i.test(l))
+      out.push({ file, line: i + 1, problem: "copies a secret-bearing file into the image" });
+  });
+  if (!ignoreText || !/^\.env\s*$/m.test(ignoreText))
+    out.push({ file, line: 0, problem: "no .dockerignore excluding .env" });
+  return out;
+}
+
+export function checkProdCompose(file: string, text: string): Finding[] {
+  const out: Finding[] = [];
+  const svcBlocks = text.split(/^ {2}(?=[a-z][\w-]*:\s*$)/m).slice(1);
+  for (const b of svcBlocks) {
+    const name = b.split(":")[0];
+    if (!/^\s*read_only:\s*true/m.test(b))
+      out.push({ file, line: 0, problem: `${name}: rootfs not read-only` });
+    const u = /^\s*user:\s*["']?([^"'\s]+)/m.exec(b)?.[1];
+    if (!u || /^(0|root)(:|$)/.test(u))
+      out.push({ file, line: 0, problem: `${name}: user is "${u ?? "unset"}" (root)` });
+    if (!/cap_drop:\s*\[?\s*ALL/.test(b))
+      out.push({ file, line: 0, problem: `${name}: capabilities not dropped` });
+    if (/privileged:\s*true/.test(b)) out.push({ file, line: 0, problem: `${name}: privileged` });
+    if (/^\s*(?:\w*(SECRET|TOKEN|PASSWORD|KEY)\w*):\s*["']?[^$"'\s][^\s]{7,}/im.test(b))
+      out.push({ file, line: 0, problem: `${name}: literal secret in environment` });
+  }
+  return out;
+}
+
 const run = (cmd: string, args: string[]) =>
   spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8", timeout: 240_000 });
 
 it("SEC11: locked, pinned inputs with an SBOM; the negative-control branch is rejected", () => {
-  const composeFiles = walk(ROOT, (n) => /^(docker-)?compose.*\.ya?ml$/.test(n) || /^Dockerfile/.test(n));
+  const composeFiles = walk(
+    ROOT,
+    (n) => /^(docker-)?compose.*\.ya?ml$/.test(n) || /^Dockerfile(\.[a-z]+)?$/.test(n),
+  );
   const manifests = walk(ROOT, (n) => n === "package.json");
   const pyprojects = walk(ROOT, (n) => n === "pyproject.toml");
   const findings: Finding[] = [];
@@ -167,10 +217,39 @@ it("SEC11: locked, pinned inputs with an SBOM; the negative-control branch is re
     bad.some((f) => /latest/.test(f.problem)) &&
     bad.some((f) => /\^1\.0\.0/.test(f.problem));
 
-  // (d) production containers declare a non-root user: no production container definition exists in the repository
-  const dockerfiles = composeFiles.filter((f) => /Dockerfile/.test(f));
+  // (d) production containers: non-root, read-only rootfs, pinned digests (checked above), no secrets in images
+  const deployDir = join(ROOT, "infrastructure", "deploy");
+  const prodDockerfiles = composeFiles.filter((f) => /Dockerfile/.test(f) && f.startsWith(deployDir));
+  const prodComposes = composeFiles.filter((f) => /compose/.test(f) && f.startsWith(deployDir));
+  const containerFindings: Finding[] = [];
+  for (const f of prodDockerfiles) {
+    const ign = join(dirname(f), `${basename(f)}.dockerignore`);
+    containerFindings.push(
+      ...checkProdDockerfile(
+        relative(ROOT, f),
+        readFileSync(f, "utf8"),
+        existsSync(ign) ? readFileSync(ign, "utf8") : null,
+      ),
+    );
+  }
+  for (const f of prodComposes)
+    containerFindings.push(...checkProdCompose(relative(ROOT, f), readFileSync(f, "utf8")));
+  const badContainers = [
+    ...checkProdDockerfile(
+      "neg/Dockerfile",
+      "FROM node@sha256:" + "a".repeat(64) + "\nUSER root\nENV API_KEY=abcdef123\n",
+      null,
+    ),
+    ...checkProdCompose("neg/compose.yml", 'services:\n  x:\n    image: a\n    user: "0:0"\n'),
+  ];
+  const containerNegRejected =
+    badContainers.some((f) => /not a numeric non-root/.test(f.problem)) &&
+    badContainers.some((f) => /secret-looking/.test(f.problem)) &&
+    badContainers.some((f) => /not read-only/.test(f.problem)) &&
+    badContainers.some((f) => /root/.test(f.problem));
+  const dockerfiles = prodDockerfiles;
   const rootUsers = composeFiles
-    .filter((f) => /compose/.test(f))
+    .filter((f) => /compose/.test(f) && !f.startsWith(deployDir))
     .flatMap((f) =>
       readFileSync(f, "utf8")
         .split("\n")
@@ -178,6 +257,9 @@ it("SEC11: locked, pinned inputs with an SBOM; the negative-control branch is re
         .map(() => relative(ROOT, f)),
     );
 
+  expect(dockerfiles.length).toBeGreaterThanOrEqual(3);
+  expect(containerFindings).toEqual([]);
+  expect(containerNegRejected).toBe(true);
   expect(findings).toEqual([]);
   expect(pnpmCheck.status, pnpmCheck.stderr.slice(0, 300)).toBe(0);
   expect(uvCheck.status, uvCheck.stderr.slice(0, 300)).toBe(0);
@@ -194,18 +276,9 @@ it("SEC11: locked, pinned inputs with an SBOM; the negative-control branch is re
     pyPackages: lockedPy.length,
     sbomComponents: sbomPackages.size,
     manifestsChecked: manifests.length + pyprojects.length,
-    productionContainerDefinitions: dockerfiles.length,
+    productionContainerDefinitions: dockerfiles.map((f) => relative(ROOT, f)),
     devComposeRootUsers: rootUsers,
   };
-  const observed = `${imageRefs.length} image references in ${composeFiles.length} compose/Dockerfile(s), all with sha256 digests; ${manifests.length} package.json and ${pyprojects.length} pyproject files with exact pins only (0 findings); pnpm install --frozen-lockfile --lockfile-only exit ${pnpmCheck.status}, uv lock --check exit ${uvCheck.status}; SBOM (syft ${"v1.56.0"}) lists ${lockedJs.length} locked JS and ${lockedPy.length} locked Python packages (0 missing) plus ${new Set(imageRefs).size} images, sbomSha256 ${sbomSha256.slice(0, 16)}; negative-control branch (latest tag, unpinned FROM, ^ and latest npm specs, unpinned python) rejected with ${bad.length} findings; production container definitions in the repository: ${dockerfiles.length} (criterion (d) cannot be exercised; dev compose has root user entries in: ${rootUsers.join(", ") || "none"})`;
-  if (dockerfiles.length === 0)
-    observe({
-      testId: "SEC11",
-      observed,
-      fixtureHash: sbomSha256,
-      evidence,
-      blocked:
-        "criterion (d) needs production container definitions (ch.17 release packaging); none exist yet, only the dev compose stack. Criteria (a), (b), (c) and (e) were executed and held.",
-    });
-  else observe({ testId: "SEC11", observed, fixtureHash: sbomSha256, evidence });
+  const observed = `${imageRefs.length} image references in ${composeFiles.length} compose/Dockerfile(s), all with sha256 digests; ${manifests.length} package.json and ${pyprojects.length} pyproject files with exact pins only (0 findings); pnpm install --frozen-lockfile --lockfile-only exit ${pnpmCheck.status}, uv lock --check exit ${uvCheck.status}; SBOM (syft ${"v1.56.0"}) lists ${lockedJs.length} locked JS and ${lockedPy.length} locked Python packages (0 missing) plus ${new Set(imageRefs).size} images, sbomSha256 ${sbomSha256.slice(0, 16)}; negative-control branch (latest tag, unpinned FROM, ^ and latest npm specs, unpinned python) rejected with ${bad.length} findings; production container definitions (infrastructure/deploy): ${dockerfiles.length} Dockerfiles and ${prodComposes.length} compose file, all final stages numeric non-root, read-only rootfs, cap_drop ALL, no secret in image or compose (0 findings), container negative control (root user, baked secret, writable rootfs) rejected with ${badContainers.length} findings; images are not built or deployed by this test; the dev compose root user entries (infrastructure/compose, not production) are in: ${rootUsers.join(", ") || "none"}`;
+  observe({ testId: "SEC11", observed, fixtureHash: sbomSha256, evidence });
 }, 600_000);

@@ -1,0 +1,35 @@
+# Production container definitions. Images are built from the Dockerfiles beside this file; the release pipeline pins the
+# resulting digests in the release manifest. Nothing here is deployed by the repository's tests. No secret is present:
+# every credential arrives as an environment variable supplied by the platform at run time.
+services:
+  api:
+    build: { context: ../.., dockerfile: infrastructure/deploy/Dockerfile.api }
+    user: "10001:10001"
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?supplied by the platform at run time}
+    ports: ["127.0.0.1:4100:4100"]
+  web:
+    build: { context: ../.., dockerfile: infrastructure/deploy/Dockerfile.web }
+    user: "10001:10001"
+    read_only: true
+    tmpfs: ["/tmp", "/app/apps/web/.next/cache"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      NODE_ENV: production
+    ports: ["127.0.0.1:3100:3100"]
+  ingestion:
+    build: { context: ../.., dockerfile: infrastructure/deploy/Dockerfile.ingestion }
+    user: "10001:10001"
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?supplied by the platform at run time}

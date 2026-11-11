@@ -1,0 +1,13 @@
+.env
+.env.*
+**/.env
+**/.env.*
+.git
+.data
+.toolchain
+.venv
+**/node_modules/.cache
+**/.next
+test-results
+**/*.pem
+**/*.key

@@ -15,6 +15,7 @@
     "@clickhouse/client": "1.25.0",
     "@nearesis/acceptance": "workspace:*",
     "@nearesis/analytics": "workspace:*",
+    "@nearesis/capsule": "workspace:*",
     "@nearesis/contracts": "workspace:*",
     "@nearesis/kernel": "workspace:*",
     "@nearesis/plugin-sdk": "workspace:*",

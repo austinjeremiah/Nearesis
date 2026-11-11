@@ -3,13 +3,12 @@ import { join } from "node:path";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { KernelError } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
-// Relative on purpose: apps/api's package.json is not owned by the capsule backend. See INTEGRATION_QUEUE (V1).
 import {
   APP_ROOT,
   loadCapsuleView,
   readManifest,
   verifyCapsule,
-} from "../../../packages/capsule/src/index.ts";
+} from "@nearesis/capsule";
 
 export interface CapsuleRoutesOptions {
   kernel: Kernel;

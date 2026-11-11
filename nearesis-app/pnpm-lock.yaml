@@ -215,6 +215,9 @@ importers:
       '@nearesis/analytics':
         specifier: workspace:*
         version: link:../../services/analytics
+      '@nearesis/capsule':
+        specifier: workspace:*
+        version: link:../../packages/capsule
       '@nearesis/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

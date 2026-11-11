@@ -109,8 +109,11 @@ for (const t of selected) {
   ].map((d) => `nearesis-app/${d}`);
   const dirty = git("status", "--porcelain", "--", ...pkgDirs);
   if (verdict === "PASS" && dirty) {
-    verdict = "FAIL";
-    failureReason = `uncommitted changes in ${pkgDirs.join(", ")}; commit before recording evidence`;
+    // Evidence must bind to an exact commit. Record nothing rather than a spurious FAIL that hides the last real verdict.
+    console.error(
+      `${t.testId}: passed but NOT recorded: uncommitted changes in ${pkgDirs.join(", ")}; commit and re-run`,
+    );
+    process.exit(3);
   }
   const result = TestResult.parse({
     testId: t.testId,

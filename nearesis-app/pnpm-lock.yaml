@@ -679,6 +679,15 @@ importers:
         specifier: 8.23.1
         version: 8.23.1
 
+  plugins/chain-commit:
+    dependencies:
+      '@nearesis/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@nearesis/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+
   plugins/near-thesis:
     dependencies:
       '@nearesis/analytics':

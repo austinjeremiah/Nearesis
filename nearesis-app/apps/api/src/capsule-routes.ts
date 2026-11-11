@@ -3,12 +3,7 @@ import { join } from "node:path";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { KernelError } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
-import {
-  APP_ROOT,
-  loadCapsuleView,
-  readManifest,
-  verifyCapsule,
-} from "@nearesis/capsule";
+import { APP_ROOT, loadCapsuleView, readManifest, verifyCapsule } from "@nearesis/capsule";
 
 export interface CapsuleRoutesOptions {
   kernel: Kernel;

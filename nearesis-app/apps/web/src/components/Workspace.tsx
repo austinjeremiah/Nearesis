@@ -57,6 +57,10 @@ import {
 
 const ACTOR = "00000000-0000-4000-8000-0000000000a1";
 
+/** Client undo/redo depth: older inverse operations are dropped so a long session does not grow without bound. */
+const MAX_HISTORY = 50;
+const NO_MARKERS: MarkerSpec[] = [];
+
 interface LoadedDoc {
   revision: number;
   dataRevision: number;
@@ -68,17 +72,30 @@ interface LoadedDoc {
 }
 
 /** Splits an untrusted stored document into valid panels and isolated invalid ones (C09b). */
-function readDocument(raw: unknown): LoadedDoc {
+function readDocument(raw: unknown, cache: Map<string, PanelSpec>): LoadedDoc {
   const d = (raw ?? {}) as Record<string, unknown>;
   const panelsRaw = Array.isArray(d.panels) ? (d.panels as unknown[]) : [];
   const panels: PanelSpec[] = [];
   const invalid: LoadedDoc["invalid"] = [];
   const seen = new Set<string>();
+  const used = new Set<string>();
   panelsRaw.forEach((p, index) => {
+    // A panel whose stored JSON did not change keeps its validated object (same identity), so memoised panels do not
+    // re-render when another panel moves. Validation still runs for anything new or changed.
+    const key = JSON.stringify(p);
+    const hit = cache.get(key);
+    if (hit && !seen.has(hit.panelId)) {
+      seen.add(hit.panelId);
+      panels.push(hit);
+      used.add(key);
+      return;
+    }
     const r = validatePanelSpec(p, {}, `panels[${index}]`);
     if (r.ok && !seen.has(r.value.panelId)) {
       seen.add(r.value.panelId);
       panels.push(r.value);
+      cache.set(key, r.value);
+      used.add(key);
     } else
       invalid.push({
         index,
@@ -88,6 +105,7 @@ function readDocument(raw: unknown): LoadedDoc {
           : r.issues,
       });
   });
+  for (const k of [...cache.keys()]) if (!used.has(k)) cache.delete(k);
   return {
     revision: typeof d.documentRevision === "number" ? d.documentRevision : 0,
     dataRevision: typeof d.dataRevision === "number" ? d.dataRevision : 0,
@@ -141,6 +159,9 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   const dataRef = useRef(data);
   dataRef.current = data;
   const loadedRef = useRef(new Set<string>());
+  const panelCacheRef = useRef(new Map<string, PanelSpec>());
+  const pendingSelRef = useRef(pendingSel);
+  pendingSelRef.current = pendingSel;
 
   const setState = useCallback(
     (panelId: string, to: PanelState, payload: Parameters<typeof transition>[2] = {}) => {
@@ -162,8 +183,13 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
 
   const loadDoc = useCallback(async () => {
     const b = backendRef.current!;
-    const d = readDocument(await b.load());
+    const d = readDocument(await b.load(), panelCacheRef.current);
     d.sourceLabel = b.sourceLabel;
+    // Unchanged markers/selections keep their identity too (derived per-panel marker lists stay stable).
+    const prev = docRef.current;
+    if (prev && JSON.stringify(prev.markers) === JSON.stringify(d.markers)) d.markers = prev.markers;
+    if (prev && JSON.stringify(prev.selections) === JSON.stringify(d.selections))
+      d.selections = prev.selections;
     setDoc(d);
     hooks().doc = {
       revision: d.revision,
@@ -481,10 +507,10 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       }
       setToast(null);
       if (kind === "patch") {
-        setUndo((u) => [...u, r.inverse]);
+        setUndo((u) => [...u, r.inverse].slice(-MAX_HISTORY));
         setRedo([]);
-      } else if (kind === "undo") setRedo((s) => [...s, r.inverse]);
-      else setUndo((u) => [...u, r.inverse]);
+      } else if (kind === "undo") setRedo((s) => [...s, r.inverse].slice(-MAX_HISTORY));
+      else setUndo((u) => [...u, r.inverse].slice(-MAX_HISTORY));
       await loadDoc();
       return true;
     },
@@ -561,7 +587,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   /** Selection from a brush or the keyboard: typed data context, persisted, and never spawns an agent (C13d). */
   const select = useCallback(
     (p: PanelSpec, startMs: number, endMs: number) => {
-      const pd = data[p.queryRef.hash];
+      const pd = dataRef.current[p.queryRef.hash];
       if (!pd) return;
       const s = buildSelection({
         panel: p,
@@ -574,12 +600,13 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       hooks().lastSelection = s;
       void apply([{ op: "setSelection", selection: s }], "patch");
     },
-    [data, apply],
+    [apply],
   );
 
   const markRange = useCallback(
     (p: PanelSpec) => {
-      const s = pendingSel[p.panelId] ?? docRef.current?.selections.find((x) => x.panelId === p.panelId);
+      const s =
+        pendingSelRef.current[p.panelId] ?? docRef.current?.selections.find((x) => x.panelId === p.panelId);
       if (!s) return;
       const marker: MarkerSpec = {
         markerId: crypto.randomUUID(),
@@ -591,7 +618,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       };
       void apply([{ op: "addMarker", marker }], "patch");
     },
-    [pendingSel, apply],
+    [apply],
   );
 
   const saveLayout = useCallback(async (pos: Record<string, { x: number; y: number }>) => {
@@ -607,7 +634,17 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     const m: Record<string, MarkerSpec[]> = {};
     for (const mk of doc?.markers ?? []) (m[mk.panelId] ??= []).push(mk);
     return m;
-  }, [doc]);
+  }, [doc?.markers]);
+  // A marker the monitoring store already draws (same id) is not drawn a second time from the canvas document: the
+  // kernel returns the same marker through both reads after a reload. Computed once per change, not per render.
+  const canvasMarkers = useMemo(() => {
+    if (!mon.api) return markersByPanel;
+    const drawn = new Set(mon.data.markers.map((x) => x.markerId));
+    const out: Record<string, MarkerSpec[]> = {};
+    for (const [id, list] of Object.entries(markersByPanel))
+      out[id] = list.filter((m) => !drawn.has(m.markerId));
+    return out;
+  }, [markersByPanel, mon.api, mon.data.markers]);
 
   const toggleTheme = useCallback(() => {
     setTheme((t) => {
@@ -749,43 +786,67 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     ...(f.segment ? [`segment ${f.segment.dimension} in ${f.segment.values.join(", ")}`] : []),
     ...(f.route ? [`route ${f.route}`] : []),
   ];
+  const onMarkPoint = useCallback(
+    (p: PanelSpec, ms: number) => {
+      const at = new Date(ms).toISOString();
+      void createMonitorMarker(p, { kind: "time_point", at }, { start: at, end: at });
+    },
+    [createMonitorMarker],
+  );
+  const onMonitorSelection = useCallback(
+    (p: PanelSpec) => {
+      const s =
+        pendingSelRef.current[p.panelId] ?? docRef.current?.selections.find((x) => x.panelId === p.panelId);
+      if (s)
+        void createMonitorMarker(
+          p,
+          { kind: "time_range", start: s.interval.start, end: s.interval.end },
+          s.interval,
+        );
+    },
+    [createMonitorMarker],
+  );
+  const onOpenMonitoring = useCallback(() => {
+    setMonUi({ tab: "markers" });
+    navigateView("monitoring");
+  }, [setMonUi, navigateView]);
+  /** Per-panel monitoring props, cached so an unchanged panel receives the same object (memoised panels stay put). */
+  const monCache = useRef(new Map<string, PanelMonitoring>());
   const panelMonitoring = (p: PanelSpec): PanelMonitoring | undefined => {
     if (!mon.api) return undefined;
     const l = lens ? mon.data.lenses.find((x) => x.lensId === lens.lensId) : null;
     const res = lens?.resolution.panels.find((x) => x.panelId === p.panelId);
-    return {
-      markers: mon.data.markers.filter((m) => m.sourcePanelId === p.panelId),
-      onMarkPoint: (ms) => {
-        const at = new Date(ms).toISOString();
-        void createMonitorMarker(p, { kind: "time_point", at }, { start: at, end: at });
-      },
-      onMonitorSelection: () => {
-        const s = pendingSel[p.panelId] ?? doc?.selections.find((x) => x.panelId === p.panelId);
-        if (s)
-          void createMonitorMarker(
-            p,
-            { kind: "time_range", start: s.interval.start, end: s.interval.end },
-            s.interval,
-          );
-      },
-      onOpenMonitoring: () => {
-        setMonUi({ tab: "markers" });
-        navigateView("monitoring");
-      },
-      lens:
-        l && res
-          ? {
-              name: l.name,
-              range: res.compatible ? (res.appliedFilter?.timeRange ?? null) : null,
-              skipped: !res.compatible
-                ? (res.reason ?? "incompatible")
-                : res.appliedFilter?.timeRange
-                  ? null
-                  : "the lens has no date range",
-              unapplied: res.compatible ? unappliedFilters(res.appliedFilter ?? l.filter) : [],
-            }
-          : null,
+    const markers = mon.data.markers.filter((m) => m.sourcePanelId === p.panelId);
+    const lensProps: PanelMonitoring["lens"] =
+      l && res
+        ? {
+            name: l.name,
+            range: res.compatible ? (res.appliedFilter?.timeRange ?? null) : null,
+            skipped: !res.compatible
+              ? (res.reason ?? "incompatible")
+              : res.appliedFilter?.timeRange
+                ? null
+                : "the lens has no date range",
+            unapplied: res.compatible ? unappliedFilters(res.appliedFilter ?? l.filter) : [],
+          }
+        : null;
+    const prev = monCache.current.get(p.panelId);
+    if (
+      prev &&
+      prev.markers.length === markers.length &&
+      prev.markers.every((m, i) => m === markers[i]) &&
+      JSON.stringify(prev.lens) === JSON.stringify(lensProps)
+    )
+      return prev;
+    const next: PanelMonitoring = {
+      markers,
+      onMarkPoint,
+      onMonitorSelection,
+      onOpenMonitoring,
+      lens: lensProps,
     };
+    monCache.current.set(p.panelId, next);
+    return next;
   };
 
   const kernel = mode === "kernel";
@@ -1184,25 +1245,18 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
                 panel={p}
                 runtime={runtimes[p.panelId] ?? initialRuntime()}
                 data={data[p.queryRef.hash] ?? null}
-                markers={
-                  // A marker the monitoring store already draws (same id) is not drawn a second time from the canvas
-                  // document: the kernel returns the same marker through both reads after a reload.
-                  mon.api
-                    ? (markersByPanel[p.panelId] ?? []).filter(
-                        (m) => !mon.data.markers.some((x) => x.markerId === m.markerId),
-                      )
-                    : (markersByPanel[p.panelId] ?? [])
-                }
+                markers={canvasMarkers[p.panelId] ?? NO_MARKERS}
                 monitoring={panelMonitoring(p)}
                 graph={p.kind === "evidenceGraph" ? graph : null}
                 entering={entering.has(p.panelId)}
-                onMove={(dx, dy) => move(p, dx, dy)}
-                onBrush={(a, b) => select(p, a, b)}
-                onKeyboardRange={(a, b) => select(p, a, b)}
-                onMarkRange={() => markRange(p)}
-                onResize={(dw, dh) => resize(p, dw, dh)}
-                onThreshold={(v) => addThreshold(p, v)}
+                onMove={move}
+                onBrush={select}
+                onKeyboardRange={select}
+                onMarkRange={markRange}
+                onResize={resize}
+                onThreshold={addThreshold}
                 onGraphLayout={saveLayout}
+                staggerMount={doc.panels.length > 12}
                 hasSelection={Boolean(
                   pendingSel[p.panelId] ?? doc.selections.find((s) => s.panelId === p.panelId),
                 )}

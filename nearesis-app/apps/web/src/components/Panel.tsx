@@ -1,7 +1,7 @@
 "use client";
 import type { Marker, MarkerSpec, PanelSpec } from "@nearesis/contracts";
 import { deriveVizIR, type PanelRuntime, type VizIR } from "@nearesis/canvas-schema";
-import { type PointerEvent, useMemo, useState } from "react";
+import { memo, type PointerEvent, useEffect, useMemo, useState } from "react";
 import {
   Button,
   Chart,
@@ -61,6 +61,40 @@ function textAlternative(panel: PanelSpec, data: PanelData | null): string {
   return parts.join(" ");
 }
 
+/**
+ * Large canvases mount their charts a few per frame instead of all in one commit, so first load does not block the main
+ * thread (a 50-panel canvas used to produce one task of several hundred ms). The panel itself, its title, state and
+ * data are present at once; only the chart canvas waits its turn. Small canvases mount synchronously.
+ */
+const MOUNT_PER_FRAME = 3;
+const mountQueue: Array<() => void> = [];
+let mountScheduled = false;
+function pumpMounts() {
+  mountScheduled = false;
+  for (let i = 0; i < MOUNT_PER_FRAME; i++) mountQueue.shift()?.();
+  if (mountQueue.length && !mountScheduled) {
+    mountScheduled = true;
+    requestAnimationFrame(pumpMounts);
+  }
+}
+function useMountSlot(staggered: boolean): boolean {
+  const [ready, setReady] = useState(!staggered);
+  useEffect(() => {
+    if (ready) return;
+    const go = () => setReady(true);
+    mountQueue.push(go);
+    if (!mountScheduled) {
+      mountScheduled = true;
+      requestAnimationFrame(pumpMounts);
+    }
+    return () => {
+      const i = mountQueue.indexOf(go);
+      if (i >= 0) mountQueue.splice(i, 1);
+    };
+  }, [ready]);
+  return ready;
+}
+
 /** Error panel for a stored spec that fails validation: isolated, labelled, never instantiates a component (C09b). */
 export function InvalidPanel({
   index,
@@ -100,8 +134,9 @@ export function InvalidPanel({
 /** Monitoring hooks for one panel (P06). Absent when the workspace has no monitoring backend. */
 export interface PanelMonitoring {
   markers: Marker[];
-  onMarkPoint: (ms: number) => void;
-  onMonitorSelection: () => void;
+  /** Stable callbacks taking the panel, so one function serves every panel and memoised panels stay unchanged. */
+  onMarkPoint: (p: PanelSpec, ms: number) => void;
+  onMonitorSelection: (p: PanelSpec) => void;
   onOpenMonitoring: () => void;
   /** Lens window applied to this panel, or why the lens could not be applied. */
   lens: {
@@ -113,28 +148,31 @@ export interface PanelMonitoring {
   } | null;
 }
 
-export function Panel(props: {
+export const Panel = memo(function Panel(props: {
   monitoring?: PanelMonitoring;
   panel: PanelSpec;
   runtime: PanelRuntime;
   data: PanelData | null;
   markers: MarkerSpec[];
   graph: GraphProjection | null;
-  onMove: (dx: number, dy: number) => void;
-  onBrush: (startMs: number, endMs: number) => void;
-  onKeyboardRange: (startMs: number, endMs: number) => void;
+  onMove: (p: PanelSpec, dx: number, dy: number) => void;
+  onBrush: (p: PanelSpec, startMs: number, endMs: number) => void;
+  onKeyboardRange: (p: PanelSpec, startMs: number, endMs: number) => void;
   entering?: boolean;
-  onMarkRange: () => void;
-  onResize: (dw: number, dh: number) => void;
-  onThreshold: (value: number) => void;
+  onMarkRange: (p: PanelSpec) => void;
+  onResize: (p: PanelSpec, dw: number, dh: number) => void;
+  onThreshold: (p: PanelSpec, value: number) => void;
   onGraphLayout: (p: Record<string, { x: number; y: number }>) => void;
   hasSelection: boolean;
+  /** Mount the chart in a later frame (large canvases). */
+  staggerMount?: boolean;
 }) {
   const { panel, runtime, data } = props;
   const [inspect, setInspect] = useState(false);
   const [brushing, setBrushing] = useState(false);
   const [pointing, setPointing] = useState(false);
   const [threshold, setThreshold] = useState("100");
+  const chartSlot = useMountSlot(props.staggerMount ?? false);
   const shown = runtime.state === "READY" ? data : runtime.lastGood ? data : null;
   const viz: VizIR = useMemo(() => deriveVizIR(panel, data?.shape), [panel, data]);
 
@@ -172,7 +210,7 @@ export function Panel(props: {
     const colW = grid ? grid.clientWidth / 12 : 80;
     const dx = Math.round((e.clientX - drag.x) / colW);
     const dy = Math.round((e.clientY - drag.y) / 60);
-    if (dx || dy) props.onMove(dx, dy);
+    if (dx || dy) props.onMove(panel, dx, dy);
   };
 
   const units = Object.entries(panel.dataBinding.units);
@@ -243,7 +281,7 @@ export function Panel(props: {
           const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[
             e.key
           ] as [number, number];
-          props.onResize(d[0], d[1]);
+          props.onResize(panel, d[0], d[1]);
           return;
         }
         if (e.altKey && e.key.startsWith("Arrow") && e.target === e.currentTarget) {
@@ -251,7 +289,7 @@ export function Panel(props: {
           const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[
             e.key
           ] as [number, number];
-          props.onMove(d[0], d[1]);
+          props.onMove(panel, d[0], d[1]);
         }
       }}
       meta={
@@ -305,14 +343,14 @@ export function Panel(props: {
               data-testid="add-threshold"
               onClick={() => {
                 const v = Number(threshold);
-                if (Number.isFinite(v)) props.onThreshold(v);
+                if (Number.isFinite(v)) props.onThreshold(panel, v);
               }}
             >
               add threshold marker
             </Button>
             <Button
               size="sm"
-              onClick={props.onMarkRange}
+              onClick={() => props.onMarkRange(panel)}
               disabled={!props.hasSelection}
               data-testid="mark-range"
             >
@@ -331,7 +369,7 @@ export function Panel(props: {
                 </Button>
                 <Button
                   size="sm"
-                  onClick={props.monitoring.onMonitorSelection}
+                  onClick={() => props.monitoring!.onMonitorSelection(panel)}
                   disabled={!props.hasSelection}
                   data-testid="monitor-selection"
                 >
@@ -443,7 +481,7 @@ export function Panel(props: {
         <Instantiated kind="evidenceGraph">
           <EvidenceGraph projection={props.graph} onLayout={props.onGraphLayout} />
         </Instantiated>
-      ) : built ? (
+      ) : built && chartSlot ? (
         <Instantiated kind={panel.kind}>
           <Chart
             spec={built.spec}
@@ -454,13 +492,13 @@ export function Panel(props: {
               props.monitoring
                 ? (ms) => {
                     setPointing(false);
-                    props.monitoring!.onMarkPoint(ms);
+                    props.monitoring!.onMarkPoint(panel, ms);
                   }
                 : undefined
             }
             viewRange={lens?.skipped ? null : (lens?.range ?? null)}
-            onBrush={props.onBrush}
-            onKeyboardRange={props.onKeyboardRange}
+            onBrush={(a, b) => props.onBrush(panel, a, b)}
+            onKeyboardRange={(a, b) => props.onKeyboardRange(panel, a, b)}
             instanceRef={(c) => {
               if (c) hooks().charts[panel.panelId] = c;
               else delete hooks().charts[panel.panelId];
@@ -470,14 +508,14 @@ export function Panel(props: {
             }}
           />
         </Instantiated>
-      ) : runtime.state === "ERROR" ? (
+      ) : runtime.state === "ERROR" && !built ? (
         <EmptyState title="No data available." art={false} />
       ) : (
         <ChartSkeleton />
       )}
     </PanelCard>
   );
-}
+});
 
 /** Records every registry instantiation (C09c) and renders the registered component. */
 function Instantiated({ kind, children }: { kind: string; children: React.ReactNode }) {

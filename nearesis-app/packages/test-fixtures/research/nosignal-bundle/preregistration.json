@@ -1,0 +1,55 @@
+{
+  "accountExclusionRule": {
+    "intentsGeneratedAccounts": [
+      "intents.near",
+      "bridge.verifier.near",
+      "omft.near",
+      "v1.omni.hot.tg",
+      "hot.tg"
+    ],
+    "ruleSetFromDevelopmentWindowOnly": true,
+    "sensitivityTopPct": [1, 5]
+  },
+  "causalClaim": "excluded",
+  "experimentId": "experiment.near.intents_predictive_power@1",
+  "family": [
+    { "candidate": "intents", "horizon": 1, "versus": "baseline" },
+    { "candidate": "price", "horizon": 1, "versus": "baseline" },
+    { "candidate": "combined", "horizon": 1, "versus": "baseline" },
+    { "candidate": "intents", "horizon": 7, "versus": "baseline" },
+    { "candidate": "price", "horizon": 7, "versus": "baseline" },
+    { "candidate": "combined", "horizon": 7, "versus": "baseline" },
+    { "candidate": "intents", "horizon": 14, "versus": "baseline" },
+    { "candidate": "price", "horizon": 14, "versus": "baseline" },
+    { "candidate": "combined", "horizon": 14, "versus": "baseline" }
+  ],
+  "fdr": { "method": "benjamini_hochberg", "q": 0.05 },
+  "featureSpec": { "lagGrid": [0, 1, 2, 3, 4, 5, 7], "priceLags": [1, 2, 3], "yLags": [0, 1, 2, 6] },
+  "hash": "sha256:c1671ce22c5182ea2c50746060aee2af1d972b9d1b2ef56b48146d6714b67620",
+  "horizons": [1, 7, 14],
+  "hypothesis": "Lagged completed 1Click/Intents volume improves out-of-sample forecasts of organic NEAR-native daily activity beyond usage and calendar history. Predictive claim only; causality is excluded.",
+  "loss": "mae_log",
+  "methodVersion": "near.intents_pred_v1@1.0.0",
+  "nullPolicy": "complete_case_no_fill_no_zero",
+  "primaryCandidate": "intents",
+  "primaryHorizon": 1,
+  "primaryOutcome": "organic daily successful actions (Intents-generated accounts excluded), log1p scale",
+  "randomSeed": 20261111,
+  "secondaryLosses": ["rmse_log", "bias_log", "mae_raw", "smape_raw"],
+  "split": {
+    "lockboxDays": 30,
+    "method": "rolling_origin_expanding",
+    "minTrain": 60,
+    "randomCrossValidation": false,
+    "regimeSplit": "2026-10-27"
+  },
+  "thresholds": {
+    "bootstrap": { "block": 7, "level": 0.95, "n": 500 },
+    "holdoutAlpha": 0.05,
+    "minDevOrigins": 60,
+    "minHoldoutOrigins": 14,
+    "minRelativeImprovement": 0.02,
+    "placebo": { "alpha": 0.05, "n": 40 },
+    "robustnessAgreeShare": 0.8
+  }
+}

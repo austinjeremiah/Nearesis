@@ -1,0 +1,16 @@
+{
+  "name": "@nearesis/research",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --no-file-parallelism",
+    "py:test": "cd ../.. && uv run pytest tests/python/research -q",
+    "research:run": "cd ../.. && PYTHONPATH=services/research uv run python -m nearesis_research.cli"
+  },
+  "dependencies": {
+    "@nearesis/acceptance": "workspace:*",
+    "@nearesis/contracts": "workspace:*"
+  }
+}

@@ -5,7 +5,12 @@ description = "Nearesis Python components: offline replay and quantitative metho
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "duckdb==2.0.0",
+  "numpy==2.5.3",
+  "pandas==3.1.0",
   "pyarrow==26.0.1",
+  "scikit-learn==1.9.1",
+  "scipy==1.18.1",
+  "statsmodels==0.15.0",
 ]
 
 [dependency-groups]
@@ -16,6 +21,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests/python"]
+pythonpath = ["services/research"]
 
 [tool.uv]
 package = false

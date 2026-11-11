@@ -723,6 +723,9 @@ importers:
       '@nearesis/acceptance':
         specifier: workspace:*
         version: link:../../packages/acceptance
+      '@nearesis/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
 
 packages:
 

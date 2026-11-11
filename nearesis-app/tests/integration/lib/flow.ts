@@ -100,7 +100,7 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
   );
 
   // 2. Preregister (owner approval is the kernel-resolved role of the approving session)
-  const preregHash = await tr.step(
+  const prereg = await tr.step(
     "preregister",
     { component: { id: "research.preregistration", version: "1" }, mode: "fixture", input: { question } },
     async () => {
@@ -116,6 +116,8 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
       return { output: { preregistrationHash: h }, evidence: [{ kind: "preregistration", ref: h }] };
     },
   );
+
+  const preregHash = prereg?.preregistrationHash;
 
   // 3. Acquire: the Explorer collector against the fixture server, plus the frozen raw snapshot
   let snapshotId = "";

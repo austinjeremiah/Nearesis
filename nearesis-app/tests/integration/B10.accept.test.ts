@@ -3,16 +3,19 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { observe } from "@nearesis/acceptance";
-import { FIXTURE_BADGE, LIVE_BADGE } from "../../packages/capsule/src/index.ts";
+import { FIXTURE_BADGE, LIVE_BADGE, scanFixtureClaims } from "../../packages/capsule/src/index.ts";
 import { PublicationBlocked, scanForbidden } from "../../plugins/near-thesis/src/index.ts";
 import { runFlow, type FlowResult } from "./lib/flow.ts";
-import { openStack, stopIfBlocked, type Stack } from "./lib/stack.ts";
+import { closeExtra, extraStack, openStack, stopIfBlocked, type Stack } from "./lib/stack.ts";
 
 let s: Stack;
 beforeAll(async () => {
   s = await openStack();
 }, 180_000);
-afterAll(async () => s?.close(), 120_000);
+afterAll(async () => {
+  await closeExtra();
+  await s?.close();
+}, 120_000);
 
 /** Wording that would claim an attested or on-chain verification the run does not have. */
 const CLAIM =
@@ -40,10 +43,12 @@ it("B10: unavailable proof is shown blocked, never faked, and the rest of the fl
   expect(audit.status).toBe("completed"); // local recomputation still reproduced
   // (b) no attested badge or verification wording in any output
   const offOut = outputs(off);
-  const hits = Object.entries(offOut).filter(
-    ([, t]) => CLAIM.test(t) || t.includes(FIXTURE_BADGE) || t.includes(`\n${LIVE_BADGE}\n`),
-  );
-  expect(hits.map(([k]) => k)).toEqual([]);
+  const hits = Object.entries(offOut).flatMap(([k, t]) => [
+    ...scanFixtureClaims([t]).violations.map((v) => `${k}: ${v.pattern}`),
+    ...(/verified on-chain/i.test(t) ? [`${k}: verified on-chain`] : []),
+    ...(t.includes(FIXTURE_BADGE) || t.includes(`\n${LIVE_BADGE}\n`) ? [`${k}: badge`] : []),
+  ]);
+  expect(hits).toEqual([]);
   const manifest = JSON.parse(readFileSync(join(off.capsuleDir!, "manifest.json"), "utf8")) as {
     attestation?: { status: string };
   };
@@ -51,7 +56,7 @@ it("B10: unavailable proof is shown blocked, never faked, and the rest of the fl
   // (c) the gate record lists the proof as blocked and requires human review
   expect(off.proof!.gate).toMatchObject({ gate: "proof", status: "BLOCKED", humanReview: true });
   // (d) with a valid recorded proof: the badge is the fixture badge, never the unqualified one
-  const on = await runFlow(s, { proof: "recorded" });
+  const on = await runFlow(await extraStack(), { proof: "recorded" });
   expect(on.proof!.status).toBe("recorded");
   expect(on.proof!.result!.badge).toBe(FIXTURE_BADGE);
   expect(on.proof!.result!.evidenceSource).toBe("fixture");
@@ -64,7 +69,7 @@ it("B10: unavailable proof is shown blocked, never faked, and the rest of the fl
   // negative control: injecting "TEE-verified" into the memo template is caught by the scan and the publication gate
   const planted = "The result is TEE-verified.";
   expect(CLAIM.test(planted)).toBe(true);
-  const injected = await runFlow(s, { proof: "unavailable", extraNotes: [planted] });
+  const injected = await runFlow(await extraStack(), { proof: "unavailable", extraNotes: [planted] });
   expect(injected.publication?.blockedReason).toBe("FORBIDDEN_CLAIM");
   expect(injected.trace.steps.find((x) => x.name === "publish")!.status).toBe("failed");
   expect(scanForbidden(planted)[0]?.cls).toBe("tee_implies_truth");

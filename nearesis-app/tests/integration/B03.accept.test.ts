@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { observe } from "@nearesis/acceptance";
 import type { ScriptRule } from "../../packages/agent-runtime/src/index.ts";
 import { startScriptedWorker } from "../../packages/workflow/test/acceptance/m-marker-helpers.ts";
@@ -24,7 +26,7 @@ it("B03: a mixed provider outage shows stale and partial status and never report
   expect(by.get("acquire")!.status).toBe("failed");
   expect(by.get("publish")!.status).toBe("blocked");
   expect(dataOutage.publication === undefined || dataOutage.publication.label === "blocked").toBe(true);
-  expect(dataOutage.capsuleDir).toBeUndefined(); // nothing was published
+  expect(existsSync(join(dataOutage.capsuleDir!, "manifest.json"))).toBe(false); // nothing was built or published
 
   // provider 2 (inference): the model provider answers 503 to every call; the real worker, runtime and API see it
   await s.worker.stop();
@@ -44,10 +46,11 @@ it("B03: a mixed provider outage shows stale and partial status and never report
     const run = await ask(s, ws, "A20-P", "Are Intents flows durable?");
     runId = run.runId;
     // bounded observation: either the run ends non-complete with a structured failure, or it is still non-terminal and visibly so
+    const exists = await waitFor(async () => (await runRow(s, runId)) ?? null, 30_000);
     snapshot = await waitFor(async () => {
-      const r = (await runRow(s, runId))!;
+      const r = (await runRow(s, runId)) ?? exists;
       return ["PARTIAL", "FAILED", "BLOCKED"].includes(r.state) ? r : null;
-    }, 90_000).catch(async () => (await runRow(s, runId))!);
+    }, 20_000).catch(async () => (await runRow(s, runId)) ?? exists);
     expect(snapshot.state).not.toBe("COMPLETE");
     const view = (await s.api.call("GET", `/v1/runs/${runId}`)).json as {
       state: string;

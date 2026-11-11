@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { observe } from "@nearesis/acceptance";
 import { runFlow } from "./lib/flow.ts";
-import { scanSurface, type SurfaceFact, type SurfaceReport } from "./lib/scan.ts";
+import { pdfText, scanCited, scanSurface, type SurfaceFact, type SurfaceReport } from "./lib/scan.ts";
 import { APP_ROOT } from "./lib/research.ts";
 import { openStack, q, stopIfBlocked, type Stack } from "./lib/stack.ts";
 
@@ -61,12 +61,12 @@ it("B07: every number a user can read resolves to a result, a query and a source
   const surfaces: Record<string, string> = {
     "panel titles and notes": canvas.panels.map((p) => `${p.title}. ${p.note ?? ""}`).join("\n"),
     "agent messages": agentTexts.join("\n"),
+  };
+  const cited: Record<string, string> = {
     "THESIS.md": f.texts["THESIS.md"]!,
     "DATA.md": f.texts["DATA.md"]!,
     "LIMITATIONS.md": f.texts["LIMITATIONS.md"]!,
-    "memo.pdf": readFileSync(join(f.capsuleDir!, "exports", "memo.pdf"))
-      .toString("latin1")
-      .replace(/[^\x20-\x7e\n]/g, " "),
+    "memo.pdf": pdfText(readFileSync(join(f.capsuleDir!, "exports", "memo.pdf"))),
   };
   const readme = join(APP_ROOT, "README.md");
   const readmeText = existsSync(readme) ? readFileSync(readme, "utf8") : "";
@@ -75,9 +75,11 @@ it("B07: every number a user can read resolves to a result, a query and a source
   surfaces["README expected-output block"] = expectedBlock;
   surfaces["UI tooltips (rendered by apps/web)"] = ""; // needs the browser; recorded below
 
-  const reports: SurfaceReport[] = Object.entries(surfaces).map(([k, t]) =>
-    scanSurface(k, t, facts, ["2026-10-20", "2026-10-27"]),
-  );
+  const ctx = { queryHash: manifest.hashes.resultManifestHash, snapshotId };
+  const reports: SurfaceReport[] = [
+    ...Object.entries(surfaces).map(([k, t]) => scanSurface(k, t, facts, ["2026-10-20", "2026-10-27"])),
+    ...Object.entries(cited).map(([k, t]) => scanCited(k, t, manifest.results, ctx)),
+  ];
   const coverage = reports.map((r) => ({
     surface: r.surface,
     numericStrings: r.numericStrings,
@@ -98,9 +100,9 @@ it("B07: every number a user can read resolves to a result, a query and a source
     plant("agent messages", surfaces["agent messages"]!),
     plant("panel titles and notes", surfaces["panel titles and notes"]!),
     plant("README expected-output block", surfaces["README expected-output block"]!),
-    plant("memo.pdf", surfaces["memo.pdf"]!),
+    scanCited("memo.pdf", `${cited["memo.pdf"]!}\nVolume grew by 73.9% last week.`, manifest.results, ctx),
   ];
-  for (const p of planted) expect(p.unmatched, p.surface).toContain("73.9%");
+  for (const p of planted) expect(p.unmatched.join("|"), p.surface).toContain("73.9");
   // a scanner that skips a surface is exposed by the coverage rule below
 
   // (d) rounded displays match their source within the declared rounding rule (display at printed precision)

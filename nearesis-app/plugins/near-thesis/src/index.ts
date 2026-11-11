@@ -9,3 +9,4 @@ export * from "./lifecycle/claims.ts";
 export * from "./lifecycle/consistency.ts";
 export * from "./descriptor.ts";
 export * from "./lifecycle/degradation.ts";
+export * from "./lifecycle/agreement.ts";

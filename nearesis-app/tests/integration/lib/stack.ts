@@ -152,3 +152,18 @@ export async function stopIfBlocked(s: Stack, testId: string, what: string): Pro
   });
   return true;
 }
+
+/**
+ * The scripted composer proposes a panel with a fixed id, and panel ids are unique across an organisation, so a second
+ * full flow needs its own organisation. `extraStack` opens one (a fresh database, kernel, worker and API) and registers
+ * it for cleanup with `closeExtra`.
+ */
+const extras: Stack[] = [];
+export async function extraStack(): Promise<Stack> {
+  const st = await openStack();
+  extras.push(st);
+  return st;
+}
+export async function closeExtra(): Promise<void> {
+  while (extras.length) await extras.pop()!.close();
+}

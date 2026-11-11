@@ -10,13 +10,16 @@ import {
   type LifecycleEventKind,
 } from "../../plugins/near-thesis/src/index.ts";
 import { runFlow, type FlowResult } from "./lib/flow.ts";
-import { openStack, stopIfBlocked, type Stack } from "./lib/stack.ts";
+import { closeExtra, extraStack, openStack, stopIfBlocked, type Stack } from "./lib/stack.ts";
 
 let s: Stack;
 beforeAll(async () => {
   s = await openStack();
 }, 180_000);
-afterAll(async () => s?.close(), 120_000);
+afterAll(async () => {
+  await closeExtra();
+  await s?.close();
+}, 120_000);
 
 const kinds = (f: FlowResult): LifecycleEventKind[] => f.events.map((e) => e.kind);
 const idx = (f: FlowResult, k: LifecycleEventKind) => kinds(f).indexOf(k);
@@ -42,7 +45,7 @@ it("B08: freeze, then lockbox evaluation, then publication, with any deviation l
   expect(capOf(good)).toBe("pre_registered");
 
   // (b) late evaluation: publication succeeds only with the post-hoc label everywhere it must show
-  const late = await runFlow(s, { order: "late_eval" });
+  const late = await runFlow(await extraStack(), { order: "late_eval" });
   expect(idx(late, "lockbox.opened")).toBeLessThan(idx(late, "preregistration.frozen"));
   expect(late.publication?.label).toBe(LABEL);
   expect(late.texts["THESIS.md"]).toContain(LABEL);

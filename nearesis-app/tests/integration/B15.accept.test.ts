@@ -33,14 +33,20 @@ function concentration(): { full: VerifierInput; excl: VerifierInput } {
   const rest = dates.map((_d, i) => 6_000_000n - BigInt(i) * 12_000n + noise());
   const signers = dates.map((_d, i) => 50_000n + BigInt(i) * 120n + noise());
   const pts = (v: bigint[]): Array<[string, string]> => v.map((x, i) => [dates[i]!, x.toString()]);
-  const mk = (x: bigint[]): VerifierInput =>
-    ({
-      series: {
-        x: { name: "intents_volume_proxy", unit: "usd_cents", points: pts(x) },
-        y: { name: "active_signers_proxy", unit: "accounts", points: pts(signers) },
-      },
-      metrics: ["pearson"],
-    }) as unknown as VerifierInput;
+  const mk = (x: bigint[]): VerifierInput => ({
+    schema_version: "nearesis.verifier.input.v1",
+    claim_id: "syn:concentration",
+    source: {
+      dataset: "SYNTHETIC concentration structure",
+      snapshot_id: "synthetic-concentration",
+      synthetic: true,
+    },
+    series: {
+      x: { name: "intents_volume_proxy", unit: "usd_cents", points: pts(x) },
+      y: { name: "active_signers_proxy", unit: "accounts", points: pts(signers) },
+    },
+    metrics: ["pearson"],
+  });
   return { full: mk(dates.map((_d, i) => whale[i]! + rest[i]!)), excl: mk(rest) };
 }
 const sign = (ppm: string | null): number => (ppm === null ? 0 : Math.sign(Number(ppm)));
@@ -99,7 +105,7 @@ it("B15: a branch tests a sensitivity, the comparison shows both values, counter
       },
       {
         op: "set",
-        objectId: `edge:${resultId}->${g.claim}:contradicts`,
+        objectId: `edge:${resultId}|${g.claim}|contradicts`,
         value: { source: resultId, target: g.claim, relation: "contradicts" },
       },
     ],

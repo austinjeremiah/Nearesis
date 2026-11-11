@@ -12,7 +12,7 @@ APP="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$APP"
 NEARESIS_APP_ROOT="$APP"; export NEARESIS_APP_ROOT
 
-STEPS="toolchain install-js install-py playwright services-up db-roles migrate typecheck lint format test e2e pytest security boot accept-fixture"
+STEPS="toolchain install-js install-py playwright services-up db-roles migrate typecheck lint format test e2e pytest security boot deps accept-fixture"
 
 compose() {
   set -- -f infrastructure/compose/docker-compose.yml -f infrastructure/compose/analytics.yml \
@@ -60,6 +60,8 @@ case "$step" in
   pytest) env_on; uv run pytest ;;
   security) env_on; pnpm security:all ;;
   boot) env_on; pnpm exec vitest run tests/boot/secret-scan.test.ts ;;
+  # Test-dependency graph: acyclic, known IDs, gate order (reads tests/TEST_INDEX.json only), plus its unit test.
+  deps) env_on; pnpm test:deps && pnpm exec vitest run scripts/tests/validate-deps.test.ts ;;
   accept-fixture)
     env_on
     # On GitHub, $RUNNER_TEMP/ci-reports is what the upload-artifact step collects (job-level env cannot use runner.*).

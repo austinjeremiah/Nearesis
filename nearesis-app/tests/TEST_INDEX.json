@@ -10,9 +10,7 @@
       "passCondition": "deterministic install, typecheck and lint exit 0",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "tests/boot/BOOT01.accept.test.ts"
-      ],
+      "testFiles": ["tests/boot/BOOT01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -25,9 +23,7 @@
       "passCondition": "secret scanner finds 0 committed credential values",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "tests/boot/BOOT02.accept.test.ts"
-      ],
+      "testFiles": ["tests/boot/BOOT02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -40,9 +36,7 @@
       "passCondition": "all production integration URLs have documented doc/source",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "tests/boot/BOOT03.accept.test.ts"
-      ],
+      "testFiles": ["tests/boot/BOOT03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -55,9 +49,7 @@
       "passCondition": "member can read workspace; outsider gets 403/empty",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "apps/api/test/acceptance/K01.accept.test.ts"
-      ],
+      "testFiles": ["apps/api/test/acceptance/K01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -70,9 +62,7 @@
       "passCondition": "returns 409; no second state mutation",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/K02.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/K02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -85,9 +75,7 @@
       "passCondition": "one event, one object and same result fingerprint",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/K03.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/K03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -100,9 +88,7 @@
       "passCondition": "403 with no leaked object existence",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "apps/api/test/acceptance/K04.accept.test.ts"
-      ],
+      "testFiles": ["apps/api/test/acceptance/K04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -115,9 +101,7 @@
       "passCondition": "installation rejected before worker spawn",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/K05.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/K05.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -130,9 +114,7 @@
       "passCondition": "unsupported ABI blocked with upgrade reason",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/K06.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/K06.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -145,9 +127,7 @@
       "passCondition": "deny; audit event persisted",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/K07.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/K07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -160,9 +140,7 @@
       "passCondition": "bounded timeout, degraded state, no hidden success",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/K08.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/K08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -175,9 +153,7 @@
       "passCondition": "consumer emits one logical effect",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/K09.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/K09.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -190,9 +166,7 @@
       "passCondition": "child capability subset of parent only",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/K10.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/K10.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -205,9 +179,7 @@
       "passCondition": "all unique stable IDs imported exactly once",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D01.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -220,9 +192,7 @@
       "passCondition": "rate backoff respects partner limit, no dropped cursor",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D02.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -235,9 +205,7 @@
       "passCondition": "resume matches clean import checksum",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D03.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -250,9 +218,7 @@
       "passCondition": "global 1 request / 5 seconds enforced",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D04.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -265,9 +231,7 @@
       "passCondition": "gap flagged unknown, not zero swap",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D05.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D05.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -280,9 +244,7 @@
       "passCondition": "quarantine and trace event, no fact promotion",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D06.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D06.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -295,9 +257,7 @@
       "passCondition": "`dry=true`, no real deposit/transaction side effect",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D07.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -310,9 +270,7 @@
       "passCondition": "effective-dated lookup returns correct historical ID",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D08.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -325,9 +283,7 @@
       "passCondition": "non-public swap hash not fabricated or counted exact",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D09.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D09.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -340,9 +296,7 @@
       "passCondition": "reject without `block_date` and estimated cost cap",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D10.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D10.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -355,9 +309,7 @@
       "passCondition": "exact arithmetic, no float rounding corruption",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D11.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D11.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -370,9 +322,7 @@
       "passCondition": "same normalized output digest on two identical runs",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D12.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D12.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -385,9 +335,7 @@
       "passCondition": "result matches independent SQL golden fixture",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S01.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -400,9 +348,7 @@
       "passCondition": "disallow incorrect period-unique aggregation",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S02.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -415,9 +361,7 @@
       "passCondition": "reject 422, no raw SQL fallback",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S03.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -430,9 +374,7 @@
       "passCondition": "deny and do not reveal member metadata",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S04.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -445,9 +387,7 @@
       "passCondition": "refuse/require explicit indexed transform",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S05.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S05.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -460,9 +400,7 @@
       "passCondition": "query cost cap enforced before DB load",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S06.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S06.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -475,9 +413,7 @@
       "passCondition": "stale result not returned under new semantic hash",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S07.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -490,9 +426,7 @@
       "passCondition": "result metadata says partial, not fresh/complete",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S08.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -505,9 +439,7 @@
       "passCondition": "equality within documented numeric tolerance",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "services/analytics/test/acceptance/S09.accept.test.ts"
-      ],
+      "testFiles": ["services/analytics/test/acceptance/S09.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -520,9 +452,7 @@
       "passCondition": "all traceable to parent and workspace ID",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/workflow/test/acceptance/A01.accept.test.ts"
-      ],
+      "testFiles": ["packages/workflow/test/acceptance/A01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -535,9 +465,7 @@
       "passCondition": "resumed exactly once for external side effects",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/workflow/test/acceptance/A02.accept.test.ts"
-      ],
+      "testFiles": ["packages/workflow/test/acceptance/A02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -550,9 +478,7 @@
       "passCondition": "next tool request denied despite cached prompt",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/agent-runtime/test/acceptance/A03.accept.test.ts"
-      ],
+      "testFiles": ["packages/agent-runtime/test/acceptance/A03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -565,9 +491,7 @@
       "passCondition": "schema/policy rejection, no execution",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/agent-runtime/test/acceptance/A04.accept.test.ts"
-      ],
+      "testFiles": ["packages/agent-runtime/test/acceptance/A04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -580,9 +504,7 @@
       "passCondition": "blocked with cost and audit record",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/workflow/test/acceptance/A05.accept.test.ts"
-      ],
+      "testFiles": ["packages/workflow/test/acceptance/A05.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -595,9 +517,7 @@
       "passCondition": "no privileged action before approved action hash",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/workflow/test/acceptance/A06.accept.test.ts"
-      ],
+      "testFiles": ["packages/workflow/test/acceptance/A06.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -610,9 +530,7 @@
       "passCondition": "old approval invalid and action blocked",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/workflow/test/acceptance/A07.accept.test.ts"
-      ],
+      "testFiles": ["packages/workflow/test/acceptance/A07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -625,9 +543,7 @@
       "passCondition": "`verified=false` and fail-closed publication gate",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/inference/test/acceptance/A08.accept.test.ts"
-      ],
+      "testFiles": ["packages/inference/test/acceptance/A08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -640,9 +556,7 @@
       "passCondition": "tool does not export secrets or change grants",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/agent-runtime/test/acceptance/A09.accept.test.ts"
-      ],
+      "testFiles": ["packages/agent-runtime/test/acceptance/A09.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -655,9 +569,7 @@
       "passCondition": "children cancelled/reconciled, stable parent status",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/workflow/test/acceptance/A10.accept.test.ts"
-      ],
+      "testFiles": ["packages/workflow/test/acceptance/A10.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -670,9 +582,7 @@
       "passCondition": "four typed valid panels with query provenance",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "apps/web/test/acceptance/C01.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -685,9 +595,7 @@
       "passCondition": "schema validator rejects, no code execution",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "packages/canvas-schema/test/acceptance/C02.accept.test.ts"
-      ],
+      "testFiles": ["packages/canvas-schema/test/acceptance/C02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -700,9 +608,7 @@
       "passCondition": "compiler labels/indexes or refuses",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "packages/canvas-schema/test/acceptance/C03.accept.test.ts"
-      ],
+      "testFiles": ["packages/canvas-schema/test/acceptance/C03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -715,9 +621,7 @@
       "passCondition": "layout/queries/markers same persisted revision",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "apps/web/test/acceptance/C04.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -730,9 +634,7 @@
       "passCondition": "one consistent version; conflict surfaced",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "apps/web/test/acceptance/C05.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C05.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -745,9 +647,7 @@
       "passCondition": "reversible patch and event history preserved",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "apps/web/test/acceptance/C06.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C06.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -760,9 +660,7 @@
       "passCondition": "empty-state panel and limitations, no fake points",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "apps/web/test/acceptance/C07.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -775,9 +673,7 @@
       "passCondition": "chart/marker/panel can be navigated without mouse",
       "owner": "ENGINE_B",
       "definition": "ch16",
-      "testFiles": [
-        "apps/web/test/acceptance/C08.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -790,9 +686,7 @@
       "passCondition": "in-flight call completes on its starting version; rollback restores prior version; breaking ABI upgrade blocked without migration; one audit event per change",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/kernel/test/acceptance/K11.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/K11.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -805,9 +699,7 @@
       "passCondition": "inspect equals DB state exactly; disabled/quarantined plugins listed but never execute; discovery scoped by workspace",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/kernel/test/acceptance/K12.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/K12.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -820,9 +712,7 @@
       "passCondition": "provenance on every candle; missing day is a gap with no fill; both vintages kept; conversion on gap returns PRICE_UNAVAILABLE",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D13.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D13.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -835,9 +725,7 @@
       "passCondition": "keys equal SHA-256 of bytes; overwrite rejected; 100% envelopes schema-valid with timestamps; 0 canary/Authorization hits",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D14.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D14.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -850,9 +738,7 @@
       "passCondition": "exit 0; 0 egress attempts; 0 credential reads; output digest equals snapshot manifest",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D15.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D15.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -865,9 +751,7 @@
       "passCondition": "each provider schema-valid and fingerprint-matched; BigQuery identity/project/location discovered and recorded (not hardcoded); within frozen probe budget; dry=true and only allowlisted 1Click endpoints; documented unauthenticated endpoints allowed; missing required key = BLOCKED_DEPENDENCY",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D16.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D16.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
       "required": true
@@ -880,9 +764,7 @@
       "passCondition": "date-correct lookups; conflicts quarantined as ambiguous; unverified contracts never counted in named segments",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D17.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D17.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -895,9 +777,7 @@
       "passCondition": "bounded retries and open circuit; source degraded/unavailable; no facts or zeros for gap; blocker artifact; clean resume from cursor",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "services/ingestion/test/acceptance/D18.accept.test.ts"
-      ],
+      "testFiles": ["services/ingestion/test/acceptance/D18.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -910,9 +790,7 @@
       "passCondition": "per-key counts and metrics unchanged except declared status update; result independent of merge timing",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S10.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S10.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -925,9 +803,7 @@
       "passCondition": "0 vs null vs partial with coverage flags; incomplete-window total refused or flagged partial",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S11.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S11.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -940,9 +816,7 @@
       "passCondition": "inactive until approved; diff has required fields; version and hash bump; experimental promotion refused; METRICS.md in sync",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "services/analytics/test/acceptance/S12.accept.test.ts"
-      ],
+      "testFiles": ["services/analytics/test/acceptance/S12.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -955,9 +829,7 @@
       "passCondition": ">=20 fully specified metrics; >=6 views; compile 0 errors; meta equals registry; >=3 rollups built and used",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "services/analytics/test/acceptance/S13.accept.test.ts"
-      ],
+      "testFiles": ["services/analytics/test/acceptance/S13.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -970,9 +842,7 @@
       "passCondition": "every out-of-contract AST 422 with 0 executions; client tenant/security context never honoured",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S14.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S14.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -985,9 +855,7 @@
       "passCondition": "stored and aggregated values equal independent exact results digit for digit; no float path or unsafe JSON numbers",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S15.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S15.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1000,9 +868,7 @@
       "passCondition": "restricted members hidden; cache keys carry scope/ACL/version/vintage; no restricted result served cross-scope",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/semantic-gateway/test/acceptance/S16.accept.test.ts"
-      ],
+      "testFiles": ["packages/semantic-gateway/test/acceptance/S16.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1015,9 +881,7 @@
       "passCondition": "10 roles valid per ch.05; allowed calls permitted; all out-of-role calls denied with audit and 0 side effects",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/agent-runtime/test/acceptance/A11.accept.test.ts"
-      ],
+      "testFiles": ["packages/agent-runtime/test/acceptance/A11.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1030,9 +894,7 @@
       "passCondition": "<=6 concurrent children; depth<=3; 25th tool call rejected; stage timeout enforced; limits from server policy",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/workflow/test/acceptance/A12.accept.test.ts"
-      ],
+      "testFiles": ["packages/workflow/test/acceptance/A12.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1045,9 +907,7 @@
       "passCondition": "0 nondeterminism errors on production histories; 0 activities executed; negative control fails",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/workflow/test/acceptance/A13.accept.test.ts"
-      ],
+      "testFiles": ["packages/workflow/test/acceptance/A13.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1060,9 +920,7 @@
       "passCondition": "checkpoint persisted; state equal after resume; completed tool calls not repeated; plan valid",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/agent-runtime/test/acceptance/A14.accept.test.ts"
-      ],
+      "testFiles": ["packages/agent-runtime/test/acceptance/A14.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1075,9 +933,7 @@
       "passCondition": "byte-identical outputs; labelled unattested_dev; verified=false; gate refuses verified status",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/inference/test/acceptance/A15.accept.test.ts"
-      ],
+      "testFiles": ["packages/inference/test/acceptance/A15.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1090,9 +946,7 @@
       "passCondition": "schema-valid output AND genuine attestation verification of this response passes every policy check; tampered response fails; unattested output never counts (unsupported verification recorded separately = BLOCKED_DEPENDENCY); no key leak; cost recorded",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/inference/test/acceptance/A16.accept.test.ts"
-      ],
+      "testFiles": ["packages/inference/test/acceptance/A16.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
       "required": false,
@@ -1107,9 +961,7 @@
       "passCondition": "0 foreign items with no existence leak; role scope enforced; unresolved evidence flagged; RLS present",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/agent-runtime/test/acceptance/A17.accept.test.ts"
-      ],
+      "testFiles": ["packages/agent-runtime/test/acceptance/A17.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1122,9 +974,7 @@
       "passCondition": "one child per 5-tuple identity; side effects once; distinct snapshot yields distinct child",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/workflow/test/acceptance/A18.accept.test.ts"
-      ],
+      "testFiles": ["packages/workflow/test/acceptance/A18.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1137,9 +987,7 @@
       "passCondition": "cannot compute artifact; no further spawning; PARTIAL/BLOCKED with 5 structured fields; 0 unsupported numbers in conclusions per frozen grammar excluding dates/IDs/versions (scanner corpus passes)",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/workflow/test/acceptance/A19.accept.test.ts"
-      ],
+      "testFiles": ["packages/workflow/test/acceptance/A19.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1152,9 +1000,7 @@
       "passCondition": "positive scenario reaches COMPLETE; 4 agents traceable; internal and idempotent external effects exactly once; non-idempotent inference = exactly-once acceptance with duplicates disclosed; scope expansion denied; privileged step only after approval; budget respected; negative variants reach specified PARTIAL/BLOCKED",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/workflow/test/acceptance/A20.accept.test.ts"
-      ],
+      "testFiles": ["packages/workflow/test/acceptance/A20.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1167,9 +1013,7 @@
       "passCondition": "all rejected 422 with revision unchanged; corrupted stored panel isolated as error panel; no unregistered component",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "apps/web/test/acceptance/C09.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C09.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1182,9 +1026,7 @@
       "passCondition": "0 script execution; 0 content CSP violations; text inert; spec formatter functions rejected",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "apps/web/test/acceptance/C10.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C10.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1197,9 +1039,7 @@
       "passCondition": "nothing applied on invalid op; preview pure and stable; valid patch one revision atomically",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "apps/web/test/acceptance/C11.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C11.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1212,9 +1052,7 @@
       "passCondition": "IDs and stored anchors unchanged; overlay maps to anchor within 1 data unit; refresh bumps dataRevision only",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "apps/web/test/acceptance/C12.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C12.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1227,9 +1065,7 @@
       "passCondition": "selection has query hash/version/interval/series/points/units/watermark/renderer; persists; 0 agent spawns",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "apps/web/test/acceptance/C13.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C13.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1242,9 +1078,7 @@
       "passCondition": "all panels show units/freshness/provenance; AST re-execution reproduces hash; stale shown with last good data",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "apps/web/test/acceptance/C14.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C14.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1257,9 +1091,7 @@
       "passCondition": "ordered exactly-once application; Last-Event-ID resume; reload_required on expiry; bounded buffers; final state equal",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "apps/web/test/acceptance/C15.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C15.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1272,9 +1104,7 @@
       "passCondition": "rendered graph equals valid projection; invalid edges reported; layout persists; keyboard reachable; drag creates no edges",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "apps/web/test/acceptance/C16.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C16.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1287,9 +1117,7 @@
       "passCondition": "each violation refused or explicitly labelled transform; daily-distinct weekly sum refused; gaps not interpolated",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "apps/web/test/acceptance/C17.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C17.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1302,9 +1130,7 @@
       "passCondition": "legal transitions only; ERROR keeps last good data; revisions independent; declared downsampling preserves spikes; frozen thresholds (DOM<=5000/panel, heap<=150MB, first frame<=3000ms, no task>250ms) in pre-committed reference environment",
       "owner": "ENGINE_B",
       "definition": "ch16a",
-      "testFiles": [
-        "apps/web/test/acceptance/C18.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/C18.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
       "required": true
@@ -1317,9 +1143,7 @@
       "passCondition": "schema-valid primary + forced fallback; every response BYOK; usage/cost/latency/status logged; <=USD 5; outputs unattested and refused by publication gate; 0 key leaks",
       "owner": "ENGINE_A",
       "definition": "ch16a",
-      "testFiles": [
-        "packages/inference/test/acceptance/A21.accept.test.ts"
-      ],
+      "testFiles": ["packages/inference/test/acceptance/A21.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
       "required": true
@@ -1332,12 +1156,11 @@
       "passCondition": "marker stores selected query/date/series/units",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/M01.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/M01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "M02",
@@ -1347,12 +1170,11 @@
       "passCondition": "scoped child output links to marker evidence",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/workflow/test/acceptance/M02.accept.test.ts"
-      ],
+      "testFiles": ["packages/workflow/test/acceptance/M02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "M03",
@@ -1362,12 +1184,11 @@
       "passCondition": "monitor triggered once per rule/watermark",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/M03.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/M03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "M04",
@@ -1377,12 +1198,11 @@
       "passCondition": "future source update causes 0 agent runs",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "apps/api/test/acceptance/M04.accept.test.ts"
-      ],
+      "testFiles": ["apps/api/test/acceptance/M04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "M05",
@@ -1392,12 +1212,11 @@
       "passCondition": "repetitive anomaly yields one notification window",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/M05.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/M05.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "M06",
@@ -1413,7 +1232,8 @@
       ],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "M07",
@@ -1423,12 +1243,11 @@
       "passCondition": "compatible date range filters all linked panels",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "apps/web/test/acceptance/M07.accept.test.ts"
-      ],
+      "testFiles": ["apps/web/test/acceptance/M07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "Q01",
@@ -1438,12 +1257,11 @@
       "passCondition": "signal model wins vs baseline under declared fixture",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "services/research/test/acceptance/Q01.accept.test.ts"
-      ],
+      "testFiles": ["services/research/test/acceptance/Q01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "Q02",
@@ -1453,12 +1271,11 @@
       "passCondition": "no forced positive verdict and valid error metrics",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "services/research/test/acceptance/Q02.accept.test.ts"
-      ],
+      "testFiles": ["services/research/test/acceptance/Q02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "Q03",
@@ -1468,12 +1285,11 @@
       "passCondition": "leakage detector blocks publication",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "services/research/test/acceptance/Q03.accept.test.ts"
-      ],
+      "testFiles": ["services/research/test/acceptance/Q03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "Q04",
@@ -1483,12 +1299,11 @@
       "passCondition": "values equal within pinned numeric tolerance",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "services/research/test/acceptance/Q04.accept.test.ts"
-      ],
+      "testFiles": ["services/research/test/acceptance/Q04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "Q05",
@@ -1498,12 +1313,11 @@
       "passCondition": "metrics/time windows not mixed without labeling",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "services/research/test/acceptance/Q05.accept.test.ts"
-      ],
+      "testFiles": ["services/research/test/acceptance/Q05.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "Q06",
@@ -1513,12 +1327,11 @@
       "passCondition": "declared filter applied consistently all splits",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "services/research/test/acceptance/Q06.accept.test.ts"
-      ],
+      "testFiles": ["services/research/test/acceptance/Q06.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "Q07",
@@ -1528,12 +1341,11 @@
       "passCondition": "correct missingness protocol; no hidden fill",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "services/research/test/acceptance/Q07.accept.test.ts"
-      ],
+      "testFiles": ["services/research/test/acceptance/Q07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "Q08",
@@ -1543,12 +1355,11 @@
       "passCondition": "preregistered test family with FDR policy",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "services/research/test/acceptance/Q08.accept.test.ts"
-      ],
+      "testFiles": ["services/research/test/acceptance/Q08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "Q09",
@@ -1558,12 +1369,11 @@
       "passCondition": "INSUFFICIENT_DATA, not SUPPORTED",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "services/research/test/acceptance/Q09.accept.test.ts"
-      ],
+      "testFiles": ["services/research/test/acceptance/Q09.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "Q10",
@@ -1573,12 +1383,11 @@
       "passCondition": "every narrative numeric claim matches actual result",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "services/research/test/acceptance/Q10.accept.test.ts"
-      ],
+      "testFiles": ["services/research/test/acceptance/Q10.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "W01",
@@ -1588,12 +1397,11 @@
       "passCondition": "parent unchanged; branch diff available",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/W01.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/W01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "W02",
@@ -1603,12 +1411,11 @@
       "passCondition": "dependent evidence flagged revalidation required",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/W02.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/W02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "W03",
@@ -1618,12 +1425,11 @@
       "passCondition": "rejected or explicit tombstone contract used",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/W03.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/W03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "W04",
@@ -1633,12 +1439,11 @@
       "passCondition": "no cross-tenant edits/presence disclosure",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/W04.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/W04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "W05",
@@ -1648,12 +1453,11 @@
       "passCondition": "exact prior canvas version and data-vintage indicator",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/W05.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/W05.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "W06",
@@ -1663,12 +1467,11 @@
       "passCondition": "conflict review required; no silent overwrite",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "packages/kernel/test/acceptance/W06.accept.test.ts"
-      ],
+      "testFiles": ["packages/kernel/test/acceptance/W06.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false
+      "required": false,
+      "dependsOn": []
     },
     {
       "testId": "SEC01",
@@ -1678,12 +1481,11 @@
       "passCondition": "0 secret disclosure/tool escalation",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [
-        "tests/security/SEC01.accept.test.ts"
-      ],
+      "testFiles": ["tests/security/SEC01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": true
+      "required": true,
+      "dependsOn": []
     },
     {
       "testId": "SEC02",
@@ -1696,7 +1498,8 @@
       "testFiles": [],
       "live": false,
       "status": "UNIMPLEMENTED",
-      "required": true
+      "required": true,
+      "dependsOn": []
     },
     {
       "testId": "SEC03",
@@ -1709,7 +1512,8 @@
       "testFiles": [],
       "live": false,
       "status": "UNIMPLEMENTED",
-      "required": true
+      "required": true,
+      "dependsOn": []
     },
     {
       "testId": "SEC04",
@@ -1722,7 +1526,8 @@
       "testFiles": [],
       "live": false,
       "status": "UNIMPLEMENTED",
-      "required": true
+      "required": true,
+      "dependsOn": []
     },
     {
       "testId": "SEC05",
@@ -1735,7 +1540,8 @@
       "testFiles": [],
       "live": false,
       "status": "UNIMPLEMENTED",
-      "required": true
+      "required": true,
+      "dependsOn": []
     },
     {
       "testId": "SEC06",
@@ -1748,7 +1554,8 @@
       "testFiles": [],
       "live": false,
       "status": "UNIMPLEMENTED",
-      "required": true
+      "required": true,
+      "dependsOn": []
     },
     {
       "testId": "PERF01",
@@ -1761,7 +1568,8 @@
       "testFiles": [],
       "live": false,
       "status": "UNIMPLEMENTED",
-      "required": true
+      "required": true,
+      "dependsOn": []
     },
     {
       "testId": "PERF02",
@@ -1774,7 +1582,8 @@
       "testFiles": [],
       "live": false,
       "status": "UNIMPLEMENTED",
-      "required": true
+      "required": true,
+      "dependsOn": []
     },
     {
       "testId": "PERF03",
@@ -1787,7 +1596,8 @@
       "testFiles": [],
       "live": false,
       "status": "UNIMPLEMENTED",
-      "required": true
+      "required": true,
+      "dependsOn": []
     },
     {
       "testId": "PERF04",
@@ -1800,7 +1610,1458 @@
       "testFiles": [],
       "live": false,
       "status": "UNIMPLEMENTED",
-      "required": true
+      "required": true,
+      "dependsOn": []
+    },
+    {
+      "testId": "V01",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Rebuild offline no JWT",
+      "passCondition": "report/chart/model outputs reproduced from frozen data",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "V02",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Alter raw source byte",
+      "passCondition": "hash check fails and report marked unverified",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "V03",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Alter WASM binary",
+      "passCondition": "attestation binary hash mismatch and rejection",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "V04",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Wrong TEE signer",
+      "passCondition": "fail-closed proof policy",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "V05",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Pre-registration testnet tx",
+      "passCondition": "hash readback equals canonical doc hash",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": true,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "V06",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Missing citation",
+      "passCondition": "publication check blocks unsupported number",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "V07",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Export memo/static site",
+      "passCondition": "builds, opens offline, queries/limitations visible",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "V08",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "MCP foreign principal",
+      "passCondition": "public tools read only, restricted tools denied",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "B01",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "New workspace end-to-end",
+      "passCondition": "question -> panels -> marker -> subagent -> evidence -> thesis",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "B02",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "Real data source vs fixture",
+      "passCondition": "visible provenance and source mode on every output",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "B03",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "Mixed provider outage",
+      "passCondition": "stale/partial status shown; no false success",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "B04",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "All plugins connected",
+      "passCondition": "task provenance references plugin versions",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "N01",
+      "gate": "G12",
+      "phase": "P12",
+      "name": "Testnet commitment readback",
+      "passCondition": "final tx status and hash match after finality",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": true,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "N02",
+      "gate": "G12",
+      "phase": "P12",
+      "name": "Unauthorized mainnet dry run",
+      "passCondition": "denied absent approval",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "N03",
+      "gate": "G12",
+      "phase": "P12",
+      "name": "Minimal NEAR mainnet commitment",
+      "passCondition": "single authorized hash-only write matches manifest",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": true,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "N04",
+      "gate": "G12",
+      "phase": "P12",
+      "name": "Repeat release command",
+      "passCondition": "no duplicate paid transaction on retry",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "N05",
+      "gate": "G12",
+      "phase": "P12",
+      "name": "Base adapter chain ID",
+      "passCondition": "only chain ID 8453 read-only query if enabled",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": true,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "M08",
+      "gate": "G06",
+      "phase": "P06",
+      "name": "Marker state machine: only the specified transitions",
+      "passCondition": "all PASS criteria (a)-(f) of ch16b M08, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["K02", "K03", "K09", "M03"]
+    },
+    {
+      "testId": "M09",
+      "gate": "G06",
+      "phase": "P06",
+      "name": "Marker model completeness and anchor validation",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b M09, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["K01", "K04", "C12"]
+    },
+    {
+      "testId": "M10",
+      "gate": "G06",
+      "phase": "P06",
+      "name": "Unsaved selections and draft markers never spawn agents",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b M10, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["C13", "A01", "M09", "K10"]
+    },
+    {
+      "testId": "M11",
+      "gate": "G06",
+      "phase": "P06",
+      "name": "Selected interval to marker to subagent to validated evidence",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b M11, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["M02", "C13", "A01", "A19"]
+    },
+    {
+      "testId": "M12",
+      "gate": "G06",
+      "phase": "P06",
+      "name": "Scoped child delegation under lease and budget rules",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b M12, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["K10", "A03", "A05", "A12", "M10"]
+    },
+    {
+      "testId": "M13",
+      "gate": "G06",
+      "phase": "P06",
+      "name": "Competing workers process an identical rule event once",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b M13, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["M03", "K09", "A02"]
+    },
+    {
+      "testId": "M14",
+      "gate": "G06",
+      "phase": "P06",
+      "name": "A disabled monitor never executes, including in-flight races",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b M14, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["M04", "M13"]
+    },
+    {
+      "testId": "M15",
+      "gate": "G06",
+      "phase": "P06",
+      "name": "Rule conditions are deterministic ASTs evaluated before any AI",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b M15, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["M03", "M05", "S14", "A04"]
+    },
+    {
+      "testId": "M16",
+      "gate": "G06",
+      "phase": "P06",
+      "name": "Marked simulated replay end to end",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b M16, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["M03", "M06", "M13"]
+    },
+    {
+      "testId": "Q11",
+      "gate": "G07",
+      "phase": "P07",
+      "name": "Rolling-origin evaluation fits transforms on training data only",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b Q11, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["Q03", "Q04", "Q09"]
+    },
+    {
+      "testId": "Q12",
+      "gate": "G07",
+      "phase": "P07",
+      "name": "Targets at 1-, 7- and 14-day horizons, organic and unadjusted, reported separately",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b Q12, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["Q01"]
+    },
+    {
+      "testId": "Q13",
+      "gate": "G07",
+      "phase": "P07",
+      "name": "Mechanical overlap between predictor and target blocks the claim",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b Q13, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["Q03", "Q12"]
+    },
+    {
+      "testId": "Q14",
+      "gate": "G07",
+      "phase": "P07",
+      "name": "Loss functions, uncertainty and paired forecast comparison",
+      "passCondition": "all PASS criteria (a)-(f) of ch16b Q14, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["Q01", "Q02", "Q11"]
+    },
+    {
+      "testId": "Q15",
+      "gate": "G07",
+      "phase": "P07",
+      "name": "Verdict engine: thresholds frozen, two axes, no override",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b Q15, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["Q01", "Q02", "Q09", "Q16"]
+    },
+    {
+      "testId": "Q16",
+      "gate": "G07",
+      "phase": "P07",
+      "name": "Preregistration is canonical, hashed and freezes the analysis",
+      "passCondition": "all PASS criteria (a)-(f) of ch16b Q16, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": []
+    },
+    {
+      "testId": "Q17",
+      "gate": "G07",
+      "phase": "P07",
+      "name": "The holdout lockbox opens once, after the freeze",
+      "passCondition": "all PASS criteria (a)-(f) of ch16b Q17, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["Q03", "Q09", "Q16"]
+    },
+    {
+      "testId": "Q18",
+      "gate": "G07",
+      "phase": "P07",
+      "name": "Robustness matrix completeness",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b Q18, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["Q05", "Q06", "Q15"]
+    },
+    {
+      "testId": "Q19",
+      "gate": "G07",
+      "phase": "P07",
+      "name": "Bull/bear adversarial protocol and deterministic adjudication",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b Q19, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["Q10", "Q15", "A04"]
+    },
+    {
+      "testId": "Q20",
+      "gate": "G07",
+      "phase": "P07",
+      "name": "Experiment manifest completeness and independent audit rerun",
+      "passCondition": "all PASS criteria (a)-(f) of ch16b Q20, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["Q04", "Q16"]
+    },
+    {
+      "testId": "Q21",
+      "gate": "G07",
+      "phase": "P07",
+      "name": "Quant process isolation and no agent-supplied Python",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b Q21, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["A04"]
+    },
+    {
+      "testId": "Q22",
+      "gate": "G07",
+      "phase": "P07",
+      "name": "THESIS.md claim table, counterevidence and falsification",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b Q22, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["Q02", "Q10", "Q15"]
+    },
+    {
+      "testId": "W07",
+      "gate": "G08",
+      "phase": "P08",
+      "name": "Typed nodes and the closed relation enum",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b W07, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W03", "K02"]
+    },
+    {
+      "testId": "W08",
+      "gate": "G08",
+      "phase": "P08",
+      "name": "Unsupported claims are distinguishable; numeric claims need complete provenance",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b W08, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W03", "Q10"]
+    },
+    {
+      "testId": "W09",
+      "gate": "G08",
+      "phase": "P08",
+      "name": "Impact analysis traversal is complete, cycle-safe and ACL-aware",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b W09, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W02", "W03", "S12"]
+    },
+    {
+      "testId": "W10",
+      "gate": "G08",
+      "phase": "P08",
+      "name": "Snapshots pin data and semantic versions",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b W10, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W05", "S07", "C04"]
+    },
+    {
+      "testId": "W11",
+      "gate": "G08",
+      "phase": "P08",
+      "name": "Historical reconstruction from the append-only event log",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b W11, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W05", "W10", "C06"]
+    },
+    {
+      "testId": "W12",
+      "gate": "G08",
+      "phase": "P08",
+      "name": "Revision timeline, attribution, reviewer comments and snapshot comparison",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b W12, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W05", "W10", "K01"]
+    },
+    {
+      "testId": "W13",
+      "gate": "G08",
+      "phase": "P08",
+      "name": "Branch creation: exact snapshot, lineage and frozen input map",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b W13, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W01", "W10", "A17"]
+    },
+    {
+      "testId": "W14",
+      "gate": "G08",
+      "phase": "P08",
+      "name": "Merge proposal content and policy-gated append",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b W14, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W01", "W06", "K10"]
+    },
+    {
+      "testId": "W15",
+      "gate": "G08",
+      "phase": "P08",
+      "name": "Yjs authority boundary: CRDT cannot bypass server commands",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b W15, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W04", "K01"]
+    },
+    {
+      "testId": "W16",
+      "gate": "G08",
+      "phase": "P08",
+      "name": "Concurrent layout edits converge with no cross-tenant leak",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b W16, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W04", "W15", "C05"]
+    },
+    {
+      "testId": "W17",
+      "gate": "G08",
+      "phase": "P08",
+      "name": "Agent memory and summaries stay subordinate to evidence",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b W17, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["A17", "W08", "Q15"]
+    },
+    {
+      "testId": "W18",
+      "gate": "G08",
+      "phase": "P08",
+      "name": "Retention deletion with tombstones, and ACL on dereference",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b W18, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W03", "W08"]
+    },
+    {
+      "testId": "V09",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Attestation policy matrix fails closed",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b V09, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["V03", "V04", "A15"]
+    },
+    {
+      "testId": "V10",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Attested result versus reproducible local recomputation",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b V10, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": true,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["V09", "V01"]
+    },
+    {
+      "testId": "V11",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Proof record completeness and deterministic WASI computation",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b V11, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["V03", "V09"]
+    },
+    {
+      "testId": "V12",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Capsule export, verification and deterministic rebuild",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b V12, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["V01", "V02", "Q20"]
+    },
+    {
+      "testId": "V13",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Preregistration commitment: ordering, replay defence, readback",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b V13, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": true,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["V05", "Q16", "Q17"]
+    },
+    {
+      "testId": "V14",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Unable-to-compute and missingness are published, undocumented gaps block",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b V14, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["D05", "D09", "Q07", "V06"]
+    },
+    {
+      "testId": "V15",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Accessible static dashboard",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b V15, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["V07", "C08"]
+    },
+    {
+      "testId": "V16",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Publication bundle completeness and one-page memo",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b V16, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["V06", "V07", "Q10", "Q22"]
+    },
+    {
+      "testId": "V17",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "MCP gateway security properties",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b V17, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["V08"]
+    },
+    {
+      "testId": "V18",
+      "gate": "G09",
+      "phase": "P09",
+      "name": "Metric correction invalidates dependent capsules",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b V18, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W02", "W09", "S12", "M14"]
+    },
+    {
+      "testId": "B05",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "Machine-readable golden trace of the full lifecycle",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b B05, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["B01", "B02", "M11", "Q22", "V12"]
+    },
+    {
+      "testId": "B06",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "Live canvas and offline rebuild agree",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b B06, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["V01", "C14", "V12", "B02"]
+    },
+    {
+      "testId": "B07",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "Every displayed number resolves to a result",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b B07, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["Q10", "A19", "V06", "B05"]
+    },
+    {
+      "testId": "B08",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "Preregistration, evaluation and publication in the required order",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b B08, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["Q16", "Q17", "V13"]
+    },
+    {
+      "testId": "B09",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "Explorer credential failure propagates honestly through the slice",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b B09, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["B03", "D18", "A19", "V14"]
+    },
+    {
+      "testId": "B10",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "Unavailable proof is shown as blocked, never faked, and the rest still works",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b B10, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["V09", "V10", "B05"]
+    },
+    {
+      "testId": "B11",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "Plugin registration points and dependency graph",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b B11, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["K05", "K06", "K12", "B04"]
+    },
+    {
+      "testId": "B12",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "One question, identical inputs, consistent numbers across agents",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b B12, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["B05", "B07", "A01"]
+    },
+    {
+      "testId": "B13",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "Claims stay within the data's limits",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b B13, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["B02", "B07", "D07", "D09"]
+    },
+    {
+      "testId": "B14",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "Reviewer journey from a fresh clone",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b B14, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["BOOT01", "BOOT02", "V01", "B06"]
+    },
+    {
+      "testId": "B15",
+      "gate": "G10",
+      "phase": "P10",
+      "name": "Counterevidence, branch comparison and lineage in the user flow",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b B15, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["W01", "W13", "Q18", "B05"]
+    },
+    {
+      "testId": "SEC07",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Injection through every channel: direct, indirect, tool-response, RAG memory",
+      "passCondition": "all PASS criteria (a)-(c) of ch16b SEC07, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["SEC01", "A04", "A09", "A17"]
+    },
+    {
+      "testId": "SEC08",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Browser-to-API adversarial request suite",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b SEC08, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["K01", "K02", "SEC03"]
+    },
+    {
+      "testId": "SEC09",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Query and semantic-layer injection fuzz",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b SEC09, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["S03", "S14", "D10"]
+    },
+    {
+      "testId": "SEC10",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Secret canary leak scan across every sink",
+      "passCondition": "all PASS criteria (a)-(c) of ch16b SEC10, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["SEC05", "SEC01"]
+    },
+    {
+      "testId": "SEC11",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Supply chain: lockfile, SBOM, pinned digests, no floating versions",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b SEC11, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["BOOT01", "SEC05"]
+    },
+    {
+      "testId": "SEC12",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Plugin egress, sandbox limits and default-deny third-party MCP",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b SEC12, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["K05", "K07", "K08", "SEC18"]
+    },
+    {
+      "testId": "SEC13",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Integrity chain: tampering is detected at every layer",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b SEC13, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["D06", "V02", "K05"]
+    },
+    {
+      "testId": "SEC14",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Verification state cannot be forged; unsupported proof is never \"verified\"",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b SEC14, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["V09", "A08", "A15", "SEC13"]
+    },
+    {
+      "testId": "SEC15",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Chain-write authorisation: approval binding, allowlist, ceilings, no agent keys",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b SEC15, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": true,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["SEC04", "A06", "A07"]
+    },
+    {
+      "testId": "SEC16",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Payload and parser abuse bounds",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b SEC16, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["C09", "D06", "SEC08"]
+    },
+    {
+      "testId": "SEC17",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Agent spawn and budget bypass attempts under adversarial control",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b SEC17, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["A05", "A12", "A18", "K10"]
+    },
+    {
+      "testId": "SEC18",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "SSRF breadth: encodings, redirects, rebinding, IPv6",
+      "passCondition": "all PASS criteria (a)-(c) of ch16b SEC18, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["SEC02", "V17"]
+    },
+    {
+      "testId": "SEC19",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Tenant isolation on every non-SQL surface, and the service-role exceptions",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b SEC19, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["SEC03", "S16", "W04", "A17"]
+    },
+    {
+      "testId": "SEC20",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Revocation and credential lifecycle",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b SEC20, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["A03", "D18", "B09"]
+    },
+    {
+      "testId": "SEC21",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Data classification and egress to telemetry and models",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b SEC21, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["SEC10", "V08", "A17"]
+    },
+    {
+      "testId": "SEC22",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Security release gate: blockers, waivers and drills",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b SEC22, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": [
+        "SEC01",
+        "SEC02",
+        "SEC03",
+        "SEC04",
+        "SEC05",
+        "SEC06",
+        "SEC07",
+        "SEC08",
+        "SEC09",
+        "SEC10",
+        "SEC11",
+        "SEC12",
+        "SEC13",
+        "SEC14",
+        "SEC15",
+        "SEC16",
+        "SEC17",
+        "SEC18",
+        "SEC19",
+        "SEC20",
+        "SEC21"
+      ]
+    },
+    {
+      "testId": "PERF05",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Workspace load and mutation feedback",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b PERF05, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["PERF01", "PERF02", "C06"]
+    },
+    {
+      "testId": "PERF06",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Freshly generated four-panel canvas",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b PERF06, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["C01", "C14", "PERF05"]
+    },
+    {
+      "testId": "PERF07",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Monitor trigger and event propagation latency",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b PERF07, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["M13", "C15", "PERF03"]
+    },
+    {
+      "testId": "PERF08",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Source rate ceilings and quote-sampler honesty",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b PERF08, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["D02", "D04", "D07", "D05"]
+    },
+    {
+      "testId": "PERF09",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Backpressure and graceful degradation",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b PERF09, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["C15", "C18", "B09", "SEC17"]
+    },
+    {
+      "testId": "PERF10",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Benchmark suite at 1M and 10M rows, cold versus warm",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b PERF10, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["S09", "S13", "PERF01"]
+    },
+    {
+      "testId": "PERF11",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Chaos: component failure under load with idempotent recovery",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b PERF11, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["A02", "A20", "K09", "PERF04"]
+    },
+    {
+      "testId": "PERF12",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Cost accounting and budget-burn stop",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b PERF12, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["A05", "D10", "S06", "M05"]
+    },
+    {
+      "testId": "N06",
+      "gate": "G12",
+      "phase": "P12",
+      "name": "Release manifest completeness and rollback manifest",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b N06, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": true,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["SEC11", "SEC10", "V12", "N01"]
+    },
+    {
+      "testId": "N07",
+      "gate": "G12",
+      "phase": "P12",
+      "name": "Release preconditions: every gate PASS, nothing blocked",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b N07, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["N06", "N01", "SEC22"]
+    },
+    {
+      "testId": "N08",
+      "gate": "G12",
+      "phase": "P12",
+      "name": "Mainnet approval record: exact scope, single use, expiry",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b N08, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["N02", "SEC15", "A07"]
+    },
+    {
+      "testId": "N09",
+      "gate": "G12",
+      "phase": "P12",
+      "name": "Pre-write verification: chain ID, balance ceiling, allowlist",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b N09, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": true,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["N06", "N08", "N01"]
+    },
+    {
+      "testId": "N10",
+      "gate": "G12",
+      "phase": "P12",
+      "name": "Uncertain write outcome: query before retry, no rebroadcast",
+      "passCondition": "all PASS criteria (a)-(d) of ch16b N10, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": false,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["N04", "K03", "A02"]
+    },
+    {
+      "testId": "N11",
+      "gate": "G12",
+      "phase": "P12",
+      "name": "Post-write verification, receipt and no additional writes",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b N11, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": true,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["N01", "N03", "N08", "N10"]
+    },
+    {
+      "testId": "N12",
+      "gate": "G12",
+      "phase": "P12",
+      "name": "Base read-only adapter: isolation and truthful scope",
+      "passCondition": "all PASS criteria (a)-(e) of ch16b N12, with its negative control detected",
+      "owner": "ENGINE_A",
+      "definition": "ch16b",
+      "testFiles": [],
+      "live": true,
+      "status": "DEFINED",
+      "required": false,
+      "dependsOn": ["N05", "K10", "SEC12", "SEC15"]
     }
   ]
 }

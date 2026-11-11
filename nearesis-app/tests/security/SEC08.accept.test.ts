@@ -26,6 +26,22 @@ const ORIGIN_OK = "https://app.nearesis.test";
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "apps", "api", "src");
 const WINDOW_MS = 1500;
 
+const BFF_API_PORT = 4792;
+
+/** The attribute policy of ch.12: HttpOnly, Secure, SameSite=Strict, host-wide path, bounded lifetime (<= 8 h). */
+function cookieAttributeProblems(setCookie: string): string[] {
+  const parts = setCookie.split(";").map((x) => x.trim());
+  const attrs = new Map(parts.slice(1).map((a) => [a.split("=")[0]!.toLowerCase(), a.split("=")[1] ?? ""]));
+  const out: string[] = [];
+  if (!attrs.has("httponly")) out.push("missing HttpOnly");
+  if (!attrs.has("secure")) out.push("missing Secure");
+  if (attrs.get("samesite")?.toLowerCase() !== "strict") out.push("SameSite is not Strict");
+  if (attrs.get("path") !== "/") out.push("Path is not /");
+  const maxAge = Number(attrs.get("max-age"));
+  if (!Number.isFinite(maxAge) || maxAge <= 0 || maxAge > 8 * 3600) out.push("Max-Age missing or unbounded");
+  return out;
+}
+
 let db: TestDb;
 let app: FastifyInstance;
 let flood: FastifyInstance;
@@ -206,6 +222,46 @@ it("SEC08: session, CSRF, origin, rate-limit and cookie controls resist the atta
   expect(cookies).toEqual([]);
   expect(loginCookie).toEqual([]);
 
+  // cookies at the BFF: the web app's login route is the only place a session cookie is issued. Run the real route
+  // handler against a real listening API (disposable DB) and check every attribute.
+  const bffApi = await buildApp({
+    kernel: testKernel(db),
+    nodeEnv: "test",
+    guards: { mutationsPerWindow: 100_000, loginsPerWindow: 100_000 },
+  });
+  await bffApi.listen({ host: "127.0.0.1", port: BFF_API_PORT });
+  process.env.NEARESIS_API_URL = `http://127.0.0.1:${BFF_API_PORT}`;
+  const bffLogin = (await import(
+    pathToFileURL(join(process.cwd(), "apps/web/src/app/api/dev/login/route.ts")).href
+  )) as { POST(req: Request): Promise<Response> };
+  const bffRes = await bffLogin.POST(
+    new Request("http://127.0.0.1/api/dev/login", {
+      method: "POST",
+      body: JSON.stringify({ subject: org.users.alice!.subject }),
+    }),
+  );
+  const bffBad = await bffLogin.POST(
+    new Request("http://127.0.0.1/api/dev/login", {
+      method: "POST",
+      body: JSON.stringify({ subject: "nobody" }),
+    }),
+  );
+  await bffApi.close();
+  const bffCookies = bffRes.headers.getSetCookie();
+  expect(bffRes.status).toBe(204);
+  expect(bffCookies).toHaveLength(1);
+  const cookieProblems = cookieAttributeProblems(bffCookies[0]!);
+  expect(cookieProblems).toEqual([]);
+  expect(bffBad.headers.getSetCookie()).toEqual([]); // a failed login sets no cookie
+  expect(await bffRes.text()).toBe(""); // the token never appears in a body
+  // negative control: the pre-fix cookie (no Secure, no Max-Age) and a script-readable one are caught
+  const weakCookies = [
+    "nearesis_session=abc; Path=/; HttpOnly; SameSite=Strict",
+    "nearesis_session=abc; Path=/; Secure; SameSite=Lax; Max-Age=60",
+    "nearesis_session=abc; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=99999999",
+  ];
+  expect(weakCookies.map((c) => cookieAttributeProblems(c).length > 0)).toEqual([true, true, true]);
+
   // positive control: a legitimate same-origin / allowlisted-origin mutation still works
   const okOrigin = await app.inject({
     method: "POST",
@@ -271,11 +327,12 @@ it("SEC08: session, CSRF, origin, rate-limit and cookie controls resist the atta
   await weak.close();
   expect(forged.statusCode).toBe(201);
 
+  const bffMaxAge = /Max-Age=(\d+)/i.exec(bffCookies[0]!)?.[1];
   const byAttack: Record<string, Record<number, number>> = {};
   for (const l of log) (byAttack[l.attack] ??= {})[l.status] = (byAttack[l.attack]![l.status] ?? 0) + 1;
   observe({
     testId: "SEC08",
-    observed: `${routes.length} mutating routes discovered from source, ${log.length} attack requests (no credential, malformed/expired/wrong-audience/wrong-issuer/alg-none tokens, cross-origin and null-origin, text/plain body, 1.5 MB body, viewer role-escalation fields, missing idempotency key): all refused with a specified status and a traceId, no stack or token in any body, database row counts unchanged; every login minted a distinct token and a pre-supplied token was not adopted; the API issued 0 cookies (bearer-header credential, no ambient credential; HttpOnly/Secure/SameSite attributes are therefore vacuous, see FND note); login flood: first 5 allowed, then 429 with Retry-After, recovered after the window; mutation flood: 429 after 20; control build with the origin check off accepted the forged cross-origin mutation (201)`,
+    observed: `${routes.length} mutating routes discovered from source, ${log.length} attack requests (no credential, malformed/expired/wrong-audience/wrong-issuer/alg-none tokens, cross-origin and null-origin, text/plain body, 1.5 MB body, viewer role-escalation fields, missing idempotency key): all refused with a specified status and a traceId, no stack or token in any body, database row counts unchanged; every login minted a distinct token and a pre-supplied token was not adopted; the API issued 0 cookies (bearer-header credential); the web BFF login route (real handler against a real listening API) issued exactly one cookie with HttpOnly, Secure, SameSite=Strict, Path=/ and Max-Age ${bffMaxAge} s (<= 8 h), none on a failed login, no token in the body, and the pre-fix cookie (no Secure/Max-Age), a SameSite=Lax cookie and an unbounded Max-Age were each flagged by the same checker; login flood: first 5 allowed, then 429 with Retry-After, recovered after the window; mutation flood: 429 after 20; control build with the origin check off accepted the forged cross-origin mutation (201)`,
     fixtureHash: createHash("sha256").update(routes.join("|")).digest("hex"),
     evidence: {
       routes,
@@ -284,6 +341,7 @@ it("SEC08: session, CSRF, origin, rate-limit and cookie controls resist the atta
       floodStatuses: statuses,
       mutationFlood: muts.slice(18, 24),
       cookiesIssued: 0,
+      bffCookieAttributes: bffCookies[0]!.replace(/=[^;]*/, "=<redacted>"),
     },
   });
 }, 300_000);

@@ -128,6 +128,12 @@ export function RulesTab(p: {
                     >
                       <b>{r.name}</b>
                       <span className="nz-sb-meta"> {describeCondition(r.condition)}</span>
+                      <span className="nz-sb-meta" data-testid={`rule-meta-${r.ruleId}`}>
+                        {" "}
+                        · {r.dataMaturity === "any" ? "any maturity" : "finalized only"}
+                        {r.maxRunsPerDay !== null ? ` · max ${r.maxRunsPerDay} runs/day` : ""}
+                        {r.semanticVersion ? ` · semantic ${r.semanticVersion}` : ""}
+                      </span>
                     </button>
                     {fr && fr !== "fresh" && (
                       <span className="nz-sb-meta" data-testid={`rule-degraded-${r.ruleId}`}>
@@ -200,16 +206,22 @@ function RuleEditor(p: {
   onNotice: (m: string) => void;
 }) {
   const r = p.rule;
-  const simple: Extract<Condition, { kind: "compare" }> | null = r
-    ? r.condition.kind === "compare"
+  const simple: Extract<Condition, { kind: "compare" | "zscore" }> | null = r
+    ? r.condition.kind === "compare" || r.condition.kind === "zscore"
       ? r.condition
       : null
     : { kind: "compare", metricId: "", op: "gt", value: 0 };
+  const [kind, setKind] = useState<"compare" | "zscore">(simple?.kind ?? "compare");
+  const [windowDays, setWindowDays] = useState(String(simple?.kind === "zscore" ? simple.windowDays : 30));
+  const [absGt, setAbsGt] = useState(String(simple?.kind === "zscore" ? simple.absoluteGt : 3));
+  const [maturity, setMaturity] = useState<"finalized_only" | "any">(r?.dataMaturity ?? "finalized_only");
+  const [maxRuns, setMaxRuns] = useState(r?.maxRunsPerDay != null ? String(r.maxRunsPerDay) : "");
+  const [semVer, setSemVer] = useState(r?.semanticVersion ?? "");
   const [name, setName] = useState(r?.name ?? "");
   const [sourceId, setSourceId] = useState(r?.sourceId ?? p.sources[0]?.id ?? "");
   const [metric, setMetric] = useState(simple?.metricId ?? "");
-  const [op, setOp] = useState<string>(simple?.op ?? "gt");
-  const [value, setValue] = useState(String(simple?.value ?? 0));
+  const [op, setOp] = useState<string>(simple?.kind === "compare" ? simple.op : "gt");
+  const [value, setValue] = useState(String(simple?.kind === "compare" ? simple.value : 0));
   const [freq, setFreq] = useState(r?.frequency.minIntervalSeconds ?? 3600);
   const [debounce, setDebounce] = useState(r?.debounceSeconds ?? 0);
   const [cooldown, setCooldown] = useState(r?.cooldownSeconds ?? 3600);
@@ -221,12 +233,24 @@ function RuleEditor(p: {
     const v = Number(value);
     if (!name.trim()) return setErr("Name is required.");
     if (!sourceId.trim()) return setErr("Choose the source whose watermark drives this rule.");
-    if (simple && (!metric.trim() || !Number.isFinite(v)))
+    const wd = Number(windowDays);
+    const ag = Number(absGt);
+    if (simple && kind === "compare" && (!metric.trim() || !Number.isFinite(v)))
       return setErr("Metric and a numeric threshold are required.");
+    if (simple && kind === "zscore") {
+      if (!metric.trim()) return setErr("Metric is required.");
+      if (!Number.isInteger(wd) || wd < 2 || wd > 365) return setErr("History window must be 2 to 365 days.");
+      if (!Number.isFinite(ag) || ag <= 0) return setErr("The z-score threshold must be above 0.");
+    }
+    const runs = maxRuns.trim() === "" ? null : Number(maxRuns);
+    if (runs !== null && (!Number.isInteger(runs) || runs < 1 || runs > 1000))
+      return setErr("Max agent runs per day must be a whole number from 1 to 1000, or empty for no cap.");
     setErr(null);
     setBusy(true);
     const condition: Condition = simple
-      ? { kind: "compare", metricId: metric.trim(), op: CompareOp.parse(op), value: v }
+      ? kind === "zscore"
+        ? { kind: "zscore", metricId: metric.trim(), windowDays: wd, absoluteGt: ag }
+        : { kind: "compare", metricId: metric.trim(), op: CompareOp.parse(op), value: v }
       : r!.condition;
     const res = await p.store.act((api) =>
       r
@@ -238,6 +262,8 @@ function RuleEditor(p: {
             debounceSeconds: debounce,
             cooldownSeconds: cooldown,
             action,
+            dataMaturity: maturity,
+            maxRunsPerDay: runs,
           })
         : api.createRule({
             name: name.trim(),
@@ -247,6 +273,9 @@ function RuleEditor(p: {
             debounceSeconds: debounce,
             cooldownSeconds: cooldown,
             action,
+            dataMaturity: maturity,
+            ...(runs !== null ? { maxRunsPerDay: runs } : {}),
+            ...(semVer.trim() ? { semanticVersion: semVer.trim() } : {}),
             enabled: false,
           }),
     );
@@ -304,6 +333,18 @@ function RuleEditor(p: {
       {simple ? (
         <fieldset className="nz-fieldset">
           <legend>Condition</legend>
+          <label className="nz-field-block">
+            Kind
+            <select
+              className="nz-input"
+              data-testid="rule-kind"
+              value={kind}
+              onChange={(e) => setKind(e.target.value as "compare" | "zscore")}
+            >
+              <option value="compare">Compare to a value</option>
+              <option value="zscore">Unusual versus recent history (z-score)</option>
+            </select>
+          </label>
           <div className="nz-row">
             <input
               className="nz-input nz-wide"
@@ -318,27 +359,54 @@ function RuleEditor(p: {
                 <option key={m} value={m} />
               ))}
             </datalist>
-            <select
-              className="nz-input"
-              aria-label="Comparison"
-              data-testid="rule-op"
-              value={op}
-              onChange={(e) => setOp(e.target.value)}
-            >
-              {Object.entries(OPS).map(([k, l]) => (
-                <option key={k} value={k}>
-                  {l}
-                </option>
-              ))}
-            </select>
-            <input
-              className="nz-input"
-              aria-label="Value"
-              inputMode="decimal"
-              data-testid="rule-value"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-            />
+            {kind === "compare" ? (
+              <>
+                <select
+                  className="nz-input"
+                  aria-label="Comparison"
+                  data-testid="rule-op"
+                  value={op}
+                  onChange={(e) => setOp(e.target.value)}
+                >
+                  {Object.entries(OPS).map(([k, l]) => (
+                    <option key={k} value={k}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="nz-input"
+                  aria-label="Value"
+                  inputMode="decimal"
+                  data-testid="rule-value"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                />
+              </>
+            ) : (
+              <>
+                <label className="nz-field-inline">
+                  |z| above
+                  <input
+                    className="nz-input"
+                    inputMode="decimal"
+                    data-testid="rule-zscore-threshold"
+                    value={absGt}
+                    onChange={(e) => setAbsGt(e.target.value)}
+                  />
+                </label>
+                <label className="nz-field-inline">
+                  over previous days
+                  <input
+                    className="nz-input"
+                    inputMode="numeric"
+                    data-testid="rule-zscore-window"
+                    value={windowDays}
+                    onChange={(e) => setWindowDays(e.target.value)}
+                  />
+                </label>
+              </>
+            )}
           </div>
         </fieldset>
       ) : (
@@ -373,6 +441,39 @@ function RuleEditor(p: {
         Evaluated at most every {fmtSeconds(freq)}; debounce {fmtSeconds(debounce)}; cooldown{" "}
         {fmtSeconds(cooldown)}.
       </p>
+      <label className="nz-field-block">
+        Data maturity
+        <select
+          className="nz-input"
+          data-testid="rule-maturity"
+          value={maturity}
+          onChange={(e) => setMaturity(e.target.value as "finalized_only" | "any")}
+        >
+          <option value="finalized_only">Finalized data only (provisional watermarks are skipped)</option>
+          <option value="any">Any data, including provisional</option>
+        </select>
+      </label>
+      <label className="nz-field-block">
+        Max agent runs per UTC day (empty for no cap)
+        <input
+          className="nz-input"
+          inputMode="numeric"
+          data-testid="rule-max-runs"
+          value={maxRuns}
+          onChange={(e) => setMaxRuns(e.target.value)}
+        />
+      </label>
+      <label className="nz-field-block">
+        Semantic version the rule was written against
+        <input
+          className="nz-input"
+          data-testid="rule-semver"
+          value={semVer}
+          disabled={r !== null}
+          placeholder="for example 1.2.0"
+          onChange={(e) => setSemVer(e.target.value)}
+        />
+      </label>
       <label className="nz-field-block">
         When it fires
         <select

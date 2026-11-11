@@ -7,9 +7,17 @@ import {
   type MarkerTask,
 } from "@nearesis/contracts";
 import { Button } from "@nearesis/ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { Delegation } from "../../lib/monitoring/api.ts";
 import type { MonitoringStore } from "../../lib/monitoring/use-monitoring.ts";
-import { describeAnchor, fmtTime, MarkerStatusBadge, ModeBadge, STATUS_LABEL } from "./shared.tsx";
+import {
+  describeAnchor,
+  explainReason,
+  fmtTime,
+  MarkerStatusBadge,
+  ModeBadge,
+  STATUS_LABEL,
+} from "./shared.tsx";
 
 const ROLES = AgentRole.options.filter((r) => r !== "director");
 
@@ -50,6 +58,7 @@ export function MarkersTab(p: {
                   onClick={() => p.onSelect(m.markerId)}
                 >
                   <span className="nz-grow">{describeAnchor(m.anchor)}</span>
+                  {m.mode === "replay" && <ModeBadge mode="replay" />}
                   <MarkerStatusBadge status={m.status} />
                 </button>
               </li>
@@ -90,20 +99,66 @@ function Inspector(p: {
   const [agents, setAgents] = useState<string[]>(["quant"]);
   const [resolution, setResolution] = useState("");
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<{ code: string; text: string } | null>(null);
+  const [delegations, setDelegations] = useState<Delegation[] | null>(null);
+  const [delegationsError, setDelegationsError] = useState<string | null>(null);
   const run = async (fn: Parameters<MonitoringStore["act"]>[0]) => {
     setBusy(true);
+    setActionError(null);
     const r = await p.store.act(fn);
     setBusy(false);
-    if (!r.ok) p.onNotice(`${r.reasonCode}: ${r.message}`);
+    if (!r.ok) {
+      const text = `${r.reasonCode}: ${explainReason(r.reasonCode) ?? r.message}`;
+      setActionError({ code: r.reasonCode, text });
+      p.onNotice(text);
+    }
     return r;
   };
+  // The delegation chain is read from the server whenever the marker or its tasks change.
+  const taskKey = p.tasks.map((t) => `${t.taskId}:${t.status}`).join(",");
+  const api = p.store.api;
+  useEffect(() => {
+    let live = true;
+    void api?.listDelegations(m.markerId).then((r) => {
+      if (!live) return;
+      if (r.ok) {
+        setDelegations(r.value);
+        setDelegationsError(null);
+      } else setDelegationsError(`${r.reasonCode}: ${r.message}`);
+    });
+    return () => {
+      live = false;
+    };
+  }, [api, m.markerId, m.version, taskKey]);
+  const failedTask = p.tasks.find((t) => t.status === "FAILED");
+  const reason = m.reasonCode ?? failedTask?.reasonCode ?? null;
+  const showReason =
+    (m.status === "ACTIVE" || m.status === "INVESTIGATING") && (m.reasonCode !== null || failedTask);
+  const pending = m.status === "ACTIVE" ? p.tasks.find((t) => t.status === "PENDING") : undefined;
   const next = MARKER_TRANSITIONS[m.status];
   const needsResolution = (to: MarkerStatus) => to === "RESOLVED" || to === "DISMISSED";
   return (
     <section aria-label="Marker inspector" data-testid="marker-inspector" data-marker-id={m.markerId}>
       <h3 className="nz-h3">
-        Marker <MarkerStatusBadge status={m.status} />
+        Marker <MarkerStatusBadge status={m.status} /> {m.mode === "replay" && <ModeBadge mode="replay" />}
       </h3>
+      {showReason && (
+        <p
+          role="alert"
+          className="nz-error"
+          data-testid="marker-reason"
+          data-reason={reason ?? "TASK_FAILED"}
+        >
+          Investigation did not succeed: <b>{reason ?? "TASK_FAILED"}</b>
+          {explainReason(reason) ? ` — ${explainReason(reason)}` : ""}
+        </p>
+      )}
+      {pending && (
+        <p className="nz-sb-meta" role="status" data-testid="marker-pending">
+          Assignment queued. The marker stays Active until the dispatcher has durably started the
+          investigation; it then becomes Investigating.
+        </p>
+      )}
       <dl className="nz-kv">
         <dt>Anchor</dt>
         <dd data-testid="marker-anchor">{describeAnchor(m.anchor)}</dd>
@@ -157,9 +212,36 @@ function Inspector(p: {
               · {t.agents.join(", ")} · {t.origin === "rule" ? "started by rule" : "assigned"}{" "}
               <ModeBadge mode={t.mode} />
               {t.runId && <span className="nz-sb-meta"> · run {t.runId.slice(0, 8)}</span>}
+              {t.reasonCode && (
+                <span className="nz-error" data-testid="task-reason">
+                  {" "}
+                  · {t.reasonCode}
+                </span>
+              )}
             </li>
           ))}
         </ul>
+      )}
+
+      <h4 className="nz-h4">Delegation chain</h4>
+      {delegationsError ? (
+        <p role="alert" className="nz-error" data-testid="delegations-error">
+          {delegationsError}
+        </p>
+      ) : delegations && delegations.length > 0 ? (
+        <ol className="nz-plain-list" data-testid="marker-delegations">
+          {delegations.map((d) => (
+            <li key={d.delegationId} data-testid={`delegation-${d.delegationId}`} data-depth={d.depth}>
+              depth {d.depth} · user {d.userId ? d.userId.slice(0, 8) : "system"} → agents{" "}
+              {d.agents.join(", ")} · grants {d.grants.length ? d.grants.join(", ") : "none"}
+              {d.parentDelegationId ? ` · parent ${d.parentDelegationId.slice(0, 8)}` : ""}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="nz-sb-meta" data-testid="delegations-empty">
+          No delegation recorded (nothing has been assigned).
+        </p>
       )}
 
       <h4 className="nz-h4">Evidence ({m.linkedEvidenceIds.length})</h4>
@@ -208,6 +290,11 @@ function Inspector(p: {
         </fieldset>
       )}
 
+      {actionError && (
+        <p role="alert" className="nz-error" data-testid="action-error" data-reason={actionError.code}>
+          {actionError.text}
+        </p>
+      )}
       {next.length > 0 && (
         <fieldset className="nz-fieldset" data-testid="transition-form">
           <legend>Move to</legend>

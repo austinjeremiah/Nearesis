@@ -5,7 +5,7 @@ import { buildApp } from "@nearesis/api";
 import { createTestDb, createWs, loginSession, runCmd, seedOrg, testKernel } from "@nearesis/kernel/testing";
 import type { PanelSpec } from "@nearesis/contracts";
 import { chromium } from "playwright";
-import { BASE, PORT, WEB_DIR } from "./harness.ts";
+import { BASE, PORT, startWeb, stopWeb, WEB_DIR } from "./harness.ts";
 import type { KernelEnv } from "./kernel-harness.ts";
 
 /** Bearer-token client for the kernel API (`apps/api` buildApp) used to arrange backend state the UI then shows. */
@@ -85,27 +85,33 @@ export async function startRealEnv(panels: PanelSpec[]) {
     },
     ws.version,
   );
-  const server: ChildProcess = spawn("pnpm", ["exec", "next", "dev", "-p", String(PORT), "-H", "127.0.0.1"], {
-    cwd: WEB_DIR,
-    env: {
-      ...process.env,
-      NEXT_TELEMETRY_DISABLED: "1",
-      NEARESIS_WEB_DIST: process.env.NEARESIS_WEB_DIST ?? ".next-b3",
-      NEARESIS_API_URL: `http://127.0.0.1:${apiPort}`,
-      NEARESIS_TEST_HOOKS: "1",
-    },
-    stdio: "ignore",
-    detached: true,
-  });
-  const end = Date.now() + 120_000;
-  for (;;) {
-    try {
-      if ((await fetch(`${BASE}/`, { signal: AbortSignal.timeout(3000) })).ok) break;
-    } catch {
-      /* not up yet */
+  // Production build by default (`next build` + `next start` on the B3 port); NEARESIS_B3_DEV=1 uses `next dev`.
+  let server: ChildProcess | null = null;
+  if (process.env.NEARESIS_B3_DEV === "1") {
+    server = spawn("pnpm", ["exec", "next", "dev", "-p", String(PORT), "-H", "127.0.0.1"], {
+      cwd: WEB_DIR,
+      env: {
+        ...process.env,
+        NEXT_TELEMETRY_DISABLED: "1",
+        NEARESIS_WEB_DIST: process.env.NEARESIS_WEB_DIST ?? ".next-b3",
+        NEARESIS_API_URL: `http://127.0.0.1:${apiPort}`,
+        NEARESIS_TEST_HOOKS: "1",
+      },
+      stdio: "ignore",
+      detached: true,
+    });
+    const end = Date.now() + 120_000;
+    for (;;) {
+      try {
+        if ((await fetch(`${BASE}/`, { signal: AbortSignal.timeout(3000) })).ok) break;
+      } catch {
+        /* not up yet */
+      }
+      if (Date.now() > end) throw new Error("web dev server did not start");
+      await new Promise((r) => setTimeout(r, 500));
     }
-    if (Date.now() > end) throw new Error("web dev server did not start");
-    await new Promise((r) => setTimeout(r, 500));
+  } else {
+    await startWeb({ NEARESIS_API_URL: `http://127.0.0.1:${apiPort}` });
   }
   const browser = await chromium.launch({ headless: true });
   return {
@@ -126,10 +132,11 @@ export async function startRealEnv(panels: PanelSpec[]) {
     async close() {
       await browser.close();
       try {
-        if (server.pid) process.kill(-server.pid, "SIGTERM");
+        if (server?.pid) process.kill(-server.pid, "SIGTERM");
       } catch {
         /* gone */
       }
+      await stopWeb();
       await app.close();
       kernel.outbox.stop?.();
       await db.drop();

@@ -10,6 +10,7 @@ import {
   type Notification,
 } from "@nearesis/contracts";
 import type { CommandResult, Input, MonitoringApi, MonitoringSnapshot } from "./api.ts";
+import type { DelegationScopeInput } from "./api.ts";
 import type {
   LensCreatePayload,
   LensUpdatePayload,
@@ -63,6 +64,12 @@ export class TestMonitoringAdapter implements MonitoringApi {
       triggers: this.triggers,
       notifications: this.notifications,
       tasks: this.tasks,
+      evaluations: [],
+      counters: {
+        day: new Date().toISOString().slice(0, 10),
+        live: this.triggers.filter((t) => t.mode === "live" && t.outcome === "fired").length,
+        replay: this.triggers.filter((t) => t.mode === "replay" && t.outcome === "fired").length,
+      },
     });
     return { ok: true as const, snapshot };
   }
@@ -226,6 +233,26 @@ export class TestMonitoringAdapter implements MonitoringApi {
     const n = this.notifications.find((x) => x.notificationId === id);
     if (!n) return fail(404, "NOT_FOUND", "notification not found");
     n.readAt = new Date().toISOString();
+    return ok();
+  }
+
+  async exportTriggers() {
+    const rows = this.triggers.map((t) => ({
+      triggerId: t.triggerId,
+      ruleId: t.ruleId,
+      sourceId: t.sourceId,
+      watermark: t.watermark,
+      mode: t.mode,
+      outcome: t.outcome,
+      label: t.mode === "replay" ? ("REPLAY" as const) : ("LIVE" as const),
+      evaluatedAt: t.evaluatedAt,
+    }));
+    return { ok: true as const, value: { rows, report: `TEST ADAPTER export: ${rows.length} rows` } };
+  }
+  async listDelegations() {
+    return { ok: true as const, value: [] };
+  }
+  async setDelegationScope(_scope: DelegationScopeInput) {
     return ok();
   }
 

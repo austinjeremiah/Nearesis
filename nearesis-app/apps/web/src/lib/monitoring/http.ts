@@ -3,12 +3,21 @@ import {
   LensResolution,
   Marker,
   MarkerTask,
+  MonitorEvaluation,
   MonitorRule,
   MonitorTrigger,
   Notification,
 } from "@nearesis/contracts";
 import { z } from "zod";
-import type { CommandResult, MonitoringApi, MonitoringSnapshot } from "./api.ts";
+import type {
+  CommandResult,
+  Delegation,
+  DelegationScopeInput,
+  MonitoringApi,
+  MonitoringSnapshot,
+  TriggerCounters,
+  TriggerExportRow,
+} from "./api.ts";
 
 /**
  * Kernel-backed implementation. Writes go through the generic `POST /v1/workspaces/:id/commands` envelope (the same one
@@ -31,15 +40,29 @@ export class HttpMonitoringApi implements MonitoringApi {
 
   async load() {
     try {
-      const [markers, lenses, rules, triggers, notifications, tasks] = await Promise.all([
-        this.list("/markers", "markers", Marker),
-        this.list("/lenses", "lenses", Lens),
-        this.list("/monitors", "rules", MonitorRule),
-        this.list("/monitors/triggers", "triggers", MonitorTrigger),
-        this.list("/notifications", "notifications", Notification),
-        this.list("/marker-tasks", "tasks", MarkerTask),
-      ]);
-      const snapshot: MonitoringSnapshot = { markers, lenses, rules, triggers, notifications, tasks };
+      const [[markers, lenses, rules, triggers, notifications, tasks, evaluations], counters] =
+        await Promise.all([
+          Promise.all([
+            this.list("/markers", "markers", Marker),
+            this.list("/lenses", "lenses", Lens),
+            this.list("/monitors", "rules", MonitorRule),
+            this.list("/monitors/triggers", "triggers", MonitorTrigger),
+            this.list("/notifications", "notifications", Notification),
+            this.list("/marker-tasks", "tasks", MarkerTask),
+            this.list("/monitors/evaluations", "evaluations", MonitorEvaluation),
+          ]),
+          this.counters(),
+        ]);
+      const snapshot: MonitoringSnapshot = {
+        markers,
+        lenses,
+        rules,
+        triggers,
+        notifications,
+        tasks,
+        evaluations,
+        counters,
+      };
       return { ok: true as const, snapshot };
     } catch (e) {
       return {
@@ -55,6 +78,60 @@ export class HttpMonitoringApi implements MonitoringApi {
    * can advance the workspace version between our read and write: STALE_VERSION is retried with a fresh version and the
    * same commandId (idempotent), at most 3 times. Every other rejection is returned as is.
    */
+  private async counters(): Promise<TriggerCounters> {
+    const r = await fetch(this.url("/monitors/counters"), { cache: "no-store" });
+    if (!r.ok) throw Object.assign(new Error(`/monitors/counters ${r.status}`), { status: r.status });
+    return z
+      .strictObject({ day: z.string(), live: z.number().int(), replay: z.number().int() })
+      .parse(await r.json());
+  }
+
+  /** GET/PUT helper for the read-on-demand routes; failures carry the kernel's reasonCode. */
+  private async call<T>(
+    method: "GET" | "PUT",
+    path: string,
+    parse: (body: unknown) => T,
+    body?: unknown,
+  ): Promise<CommandResult<T>> {
+    const r = await fetch(this.url(path), {
+      method,
+      cache: "no-store",
+      ...(body === undefined
+        ? {}
+        : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
+    }).catch(() => null);
+    if (!r) return { ok: false, status: 0, reasonCode: "NETWORK", message: "network error" };
+    const text = await r.text();
+    const json = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+    if (!r.ok)
+      return {
+        ok: false,
+        status: r.status,
+        reasonCode: typeof json.reasonCode === "string" ? json.reasonCode : "REJECTED",
+        message: typeof json.message === "string" ? json.message : `HTTP ${r.status}`,
+      };
+    try {
+      return { ok: true, value: parse(json) };
+    } catch {
+      return { ok: false, status: 502, reasonCode: "BAD_RESPONSE", message: "response failed validation" };
+    }
+  }
+
+  exportTriggers = () =>
+    this.call("GET", "/monitors/export", (b) => {
+      const o = b as { rows: TriggerExportRow[]; report: string };
+      if (!Array.isArray(o.rows) || typeof o.report !== "string") throw new Error("shape");
+      return o;
+    });
+  listDelegations = (markerId: string) =>
+    this.call("GET", `/markers/${markerId}/delegations`, (b) => {
+      const o = b as { delegations: Delegation[] };
+      if (!Array.isArray(o.delegations)) throw new Error("shape");
+      return o.delegations;
+    });
+  setDelegationScope = (scope: DelegationScopeInput) =>
+    this.call("PUT", "/delegation-scopes", () => null, scope);
+
   private async command(commandType: string, payload: unknown): Promise<CommandResult> {
     const commandId = crypto.randomUUID();
     let last: CommandResult = { ok: false, status: 0, reasonCode: "NETWORK", message: "network error" };

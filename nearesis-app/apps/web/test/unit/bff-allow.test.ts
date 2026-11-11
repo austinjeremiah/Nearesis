@@ -32,6 +32,11 @@ describe("BFF allowlist", () => {
     for (const k of ["markers", "lenses", "monitors", "monitors/triggers", "notifications", "marker-tasks"])
       expect(isAllowed(`workspaces/${ws}/${k}`)).toBe(true);
     expect(isAllowed(`workspaces/${ws}/lenses/${run}/resolution`)).toBe(true);
+    for (const k of ["monitors/evaluations", "monitors/counters", "monitors/export", "monitors/watermarks"])
+      expect(isAllowed(`workspaces/${ws}/${k}`)).toBe(true);
+    expect(isAllowed(`workspaces/${ws}/markers/${run}/delegations`)).toBe(true);
+    expect(isAllowed(`workspaces/${ws}/delegation-scopes`)).toBe(true);
+    expect(isAllowed(`workspaces/${ws}/monitors/evaluations/x`)).toBe(false);
     expect(isAllowed(`workspaces/${ws}/markers/extra`)).toBe(false);
     expect(isAllowed(`workspaces/${ws}/monitors/../commands`)).toBe(false);
   });

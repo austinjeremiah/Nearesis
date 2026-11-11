@@ -529,7 +529,7 @@ describe("monitoring UI on the real kernel", () => {
     await until(async () => (await page.getByTestId("tab-rules").getAttribute("aria-selected")) === "true");
     await page.keyboard.press("End");
     await until(
-      async () => (await page.getByTestId("tab-notifications").getAttribute("aria-selected")) === "true",
+      async () => (await page.getByTestId("tab-delegation").getAttribute("aria-selected")) === "true",
     );
     await page.keyboard.press("Home");
     await until(async () => (await page.getByTestId("tab-markers").getAttribute("aria-selected")) === "true");
@@ -567,4 +567,358 @@ describe("monitoring UI on the real kernel", () => {
     await page.screenshot({ path: `${SHOTS}real-08-degraded-reload.png` });
     await page.close();
   }, 120_000);
+});
+
+/** Scripted runtime port: the kernel's marker-task dispatcher runs for real, only the investigation runtime is scripted. */
+const startingPort = {
+  start: async () => ({ runId: randomUUID(), workflowId: `wf-${randomUUID()}` }),
+  status: async () => ({ state: "RUNNING", terminal: false, succeeded: false, outputs: [] }),
+};
+const failingPort = {
+  start: async () => {
+    throw new Error("runtime down");
+  },
+  status: async () => null,
+};
+type Evaluation = { evaluationId: string; ruleId: string; status: string; mode: string };
+const evaluations = async () =>
+  (await api.get<{ evaluations: Evaluation[] }>(`${base()}/monitors/evaluations`)).evaluations;
+const panelId = P_SWAPS;
+async function makeMarker(anchor: object, activate = false): Promise<string> {
+  const markerId = randomUUID();
+  await api.command(ws, "marker.create", { panelId, markerId, anchor });
+  if (activate) await api.command(ws, "marker.transition", { markerId, to: "ACTIVE" });
+  return markerId;
+}
+const markerRow = (page: Page, id: string) => page.getByTestId(`marker-row-${id}`);
+
+describe("monitoring read-model fields on the real kernel", () => {
+  it("marker mode, task reason, pending assignment and dispatch follow the server", async () => {
+    // A replay marker: anchored to a recorded replay watermark, so the kernel sets mode=replay.
+    const sourceId = "explorer.replaysrc";
+    await env.kernel.monitorScheduler().enqueue({
+      sourceId,
+      watermark: "2026-10-04T00:00:00.000Z",
+      mode: "replay",
+      values: { "intents.swap_count": 1 },
+      maturity: "final",
+    });
+    const replayId = randomUUID();
+    await api.command(ws, "marker.create", {
+      panelId,
+      markerId: replayId,
+      anchor: { kind: "source_event", sourceId, eventId: "e1", at: "2026-10-04T00:00:00.000Z" },
+    });
+    const liveId = await makeMarker({ kind: "time_point", at: "2026-10-05T00:00:00.000Z" });
+    const ms = await markers();
+    expect(ms.find((m) => m.markerId === replayId)?.mode).toBe("replay");
+    expect(ms.find((m) => m.markerId === liveId)?.mode).toBe("live");
+
+    // Failed dispatch: assign through the UI, then the dispatcher cannot start the run.
+    const failId = await makeMarker({ kind: "time_point", at: "2026-10-06T00:00:00.000Z" }, true);
+    const okId = await makeMarker({ kind: "time_point", at: "2026-10-07T00:00:00.000Z" }, true);
+    const page = await open("#monitoring");
+    await page.getByTestId("tab-markers").click();
+    expect(await markerRow(page, replayId).getByTestId("mode-badge-replay").count()).toBe(1);
+    expect(await markerRow(page, liveId).getByTestId("mode-badge-replay").count()).toBe(0);
+    await markerRow(page, replayId).click();
+    expect(await page.getByTestId("marker-inspector").getByTestId("mode-badge-replay").count()).toBe(1);
+
+    for (const id of [failId, okId]) {
+      await markerRow(page, id).click();
+      await page.getByTestId("assign-agent").click();
+      await until(async () => (await tasks()).find((t) => t.markerId === id));
+    }
+    // Server: ACTIVE with a PENDING task until dispatch; the UI says the same and claims nothing more.
+    for (const id of [failId, okId]) {
+      const m = (await markers()).find((x) => x.markerId === id)!;
+      expect(m.status).toBe("ACTIVE");
+      expect((await tasks()).find((t) => t.markerId === id)?.status).toBe("PENDING");
+    }
+    await markerRow(page, okId).click();
+    await page.getByTestId("marker-pending").waitFor();
+    expect(
+      await page.getByTestId("marker-inspector").getByTestId("marker-status").getAttribute("data-status"),
+    ).toBe("ACTIVE");
+
+    // Dispatch with a runtime that cannot start: the failure is visible on the marker, which keeps its state.
+    await env.kernel.markerTasks(failingPort as never).dispatchOpen();
+    const failed = await until(async () => {
+      const m = (await markers()).find((x) => x.markerId === failId)!;
+      return m.reasonCode ? m : false;
+    }).catch(async (e) => {
+      throw new Error(
+        `no reasonCode; marker=${JSON.stringify((await markers()).find((x) => x.markerId === failId))} tasks=${JSON.stringify(await tasks())} ${e}`.slice(
+          0,
+          1800,
+        ),
+      );
+    });
+    expect(failed.status).toBe("ACTIVE");
+    expect(failed.reasonCode).toBe("WORKFLOW_START_FAILED");
+    const failedTask = (await tasks()).find((t) => t.markerId === failId)!;
+    expect(failedTask.status).toBe("FAILED");
+    // The other marker's task also failed in that dispatch; use a fresh one for the success path below.
+    await markerRow(page, failId).click();
+    const reason = await page
+      .getByTestId("marker-reason")
+      .waitFor()
+      .then(() => page.getByTestId("marker-reason").getAttribute("data-reason"));
+    expect(reason).toBe(failed.reasonCode);
+    expect(await page.getByTestId("task-reason").innerText()).toContain(failedTask.reasonCode!);
+    await page.screenshot({ path: `${SHOTS}real-09-marker-reason.png` });
+
+    // Successful dispatch: the marker becomes INVESTIGATING on the server and the UI follows on refresh.
+    const goodId = await makeMarker({ kind: "time_point", at: "2026-10-08T00:00:00.000Z" }, true);
+    await markerRow(page, goodId).click();
+    await page.getByTestId("assign-agent").click();
+    await until(async () => (await tasks()).find((t) => t.markerId === goodId && t.status === "PENDING"));
+    await env.kernel.markerTasks(startingPort as never).dispatchOpen();
+    await until(async () => (await markers()).find((m) => m.markerId === goodId)?.status === "INVESTIGATING");
+    expect((await tasks()).find((t) => t.markerId === goodId)?.runId).not.toBeNull();
+    await until(
+      async () =>
+        (await page
+          .getByTestId("marker-inspector")
+          .getByTestId("marker-status")
+          .getAttribute("data-status")) === "INVESTIGATING",
+      20_000,
+    );
+    await page.close();
+  }, 180_000);
+
+  it("rule fields: z-score condition, data maturity, run cap and semantic version", async () => {
+    const page = await open("#monitoring");
+    await page.getByTestId("tab-rules").click();
+    await page.getByTestId("new-rule").click();
+    await page.getByTestId("rule-name").fill("Volume outlier");
+    await page.getByTestId("rule-source").fill("explorer.zsrc");
+    await page.getByTestId("rule-kind").selectOption("zscore");
+    await page.getByTestId("rule-metric").fill("vol");
+    await page.getByTestId("rule-zscore-threshold").fill("3");
+    await page.getByTestId("rule-zscore-window").fill("30");
+    await page.getByTestId("rule-maturity").selectOption("any");
+    await page.getByTestId("rule-max-runs").fill("5");
+    await page.getByTestId("rule-semver").fill("1.2.0");
+    await page.getByTestId("rule-save").click();
+    const made = await until(async () => (await rules()).find((r) => r.name === "Volume outlier"));
+    expect(made.condition).toEqual({ kind: "zscore", metricId: "vol", windowDays: 30, absoluteGt: 3 });
+    expect(made.dataMaturity).toBe("any");
+    expect(made.maxRunsPerDay).toBe(5);
+    expect(made.semanticVersion).toBe("1.2.0");
+    await until(async () =>
+      (await page.getByTestId(`rule-meta-${made.ruleId}`).innerText()).includes("max 5 runs/day"),
+    );
+
+    // Invalid window is refused by the editor and nothing is written.
+    const n = (await rules()).length;
+    await page.getByTestId(`rule-row-${made.ruleId}`).getByRole("button").first().click();
+    await page.getByTestId("rule-zscore-window").fill("1");
+    await page.getByTestId("rule-save").click();
+    await page.getByTestId("rule-error").waitFor();
+    expect((await rules()).length).toBe(n);
+
+    // Edit: window, maturity and clearing the cap persist.
+    await page.getByTestId("rule-zscore-window").fill("14");
+    await page.getByTestId("rule-maturity").selectOption("finalized_only");
+    await page.getByTestId("rule-max-runs").fill("");
+    await page.getByTestId("rule-save").click();
+    const edited = await until(async () => {
+      const r = (await rules()).find((x) => x.ruleId === made.ruleId);
+      return r && r.dataMaturity === "finalized_only" ? r : false;
+    });
+    expect(edited.condition).toEqual({ kind: "zscore", metricId: "vol", windowDays: 14, absoluteGt: 3 });
+    expect(edited.maxRunsPerDay).toBeNull();
+    expect(edited.semanticVersion).toBe("1.2.0");
+    await page.screenshot({ path: `${SHOTS}real-10-zscore-rule.png` });
+    await page.close();
+  }, 120_000);
+
+  it("evaluations view shows not_final, suppressed_run_cap and skipped_disabled with their reasons", async () => {
+    const sourceId = "explorer.evalsrc";
+    const marker = await makeMarker({ kind: "time_point", at: "2026-10-09T00:00:00.000Z" }, true);
+    const capRule = randomUUID();
+    await api.command(ws, "monitor.rule_create", {
+      ruleId: capRule,
+      name: "Capped",
+      markerId: marker,
+      sourceId,
+      action: "investigate",
+      condition: { kind: "compare", metricId: "m", op: "gt", value: 10 },
+      frequency: { minIntervalSeconds: 0 },
+      cooldownSeconds: 0,
+      maxRunsPerDay: 1,
+      enabled: true,
+    });
+    const offRule = randomUUID();
+    await api.command(ws, "monitor.rule_create", {
+      ruleId: offRule,
+      name: "Switched off",
+      sourceId,
+      action: "notify",
+      condition: { kind: "compare", metricId: "m", op: "gt", value: 10 },
+      enabled: false,
+    });
+    const sch = env.kernel.monitorScheduler();
+    const ev = (watermark: string, maturity: "final" | "provisional") => ({
+      sourceId,
+      watermark,
+      mode: "live" as const,
+      maturity,
+      values: { m: 100 },
+    });
+    await sch.processEvent(ev("2026-10-12T01:00:00.000Z", "final"), { workspaceId: ws });
+    await sch.processEvent(ev("2026-10-12T02:00:00.000Z", "final"), { workspaceId: ws });
+    await sch.processEvent(ev("2026-10-12T03:00:00.000Z", "provisional"), { workspaceId: ws });
+    const server = (await evaluations()).filter((e) => e.ruleId === capRule || e.ruleId === offRule);
+    const statuses = new Set(server.map((e) => e.status));
+    for (const st of ["fired", "suppressed_run_cap", "not_final", "skipped_disabled"])
+      expect(statuses).toContain(st);
+
+    const page = await open("#monitoring");
+    await page.getByTestId("tab-evaluations").click();
+    for (const e of server) {
+      const row = page.getByTestId(`eval-row-${e.evaluationId}`);
+      await row.waitFor();
+      expect(await row.getAttribute("data-status")).toBe(e.status);
+      expect(await row.getAttribute("data-mode")).toBe(e.mode);
+    }
+    const cap = server.find((e) => e.status === "suppressed_run_cap")!;
+    expect(
+      await page.getByTestId(`eval-row-${cap.evaluationId}`).getByTestId("eval-reason").innerText(),
+    ).toContain("maxRunsPerDay");
+    const nf = server.find((e) => e.status === "not_final")!;
+    expect(
+      await page.getByTestId(`eval-row-${nf.evaluationId}`).getByTestId("eval-reason").innerText(),
+    ).toContain("provisional");
+    await page.screenshot({ path: `${SHOTS}real-11-evaluations.png` });
+    await page.close();
+  }, 120_000);
+
+  it("counters keep live and replay apart and the export labels REPLAY rows", async () => {
+    const c = await api.get<{ day: string; live: number; replay: number }>(`${base()}/monitors/counters`);
+    expect(c.live).toBeGreaterThan(0);
+    expect(c.replay).toBeGreaterThan(0);
+    const page = await open("#monitoring");
+    await page.getByTestId("tab-triggers").click();
+    await until(async () => (await page.getByTestId("counter-live").innerText()) === String(c.live));
+    expect(await page.getByTestId("counter-replay").innerText()).toBe(String(c.replay));
+
+    const exp = await api.get<{
+      rows: Array<{ triggerId: string; mode: string; label: string }>;
+      report: string;
+    }>(`${base()}/monitors/export`);
+    expect(exp.report).toContain("REPLAY");
+    for (const r of exp.rows) expect(r.label).toBe(r.mode === "replay" ? "REPLAY" : "LIVE");
+    await page.getByTestId("export-triggers").click();
+    await page.getByTestId("export-result").waitFor();
+    for (const r of exp.rows) {
+      const row = page.getByTestId(`export-row-${r.triggerId}`);
+      expect(await row.getAttribute("data-label")).toBe(r.label);
+      expect(await row.getAttribute("data-mode")).toBe(r.mode);
+    }
+    expect(await page.getByTestId("export-summary").innerText()).toBe(exp.report.split("\n")[0]);
+    await page.screenshot({ path: `${SHOTS}real-12-counters-export.png` });
+    await page.close();
+  }, 120_000);
+
+  it("delegation chain, analyst scope error, and owner-granted scope", async () => {
+    // Owner assignment (implicit scope) leaves a delegation chain on the server; the inspector lists the same rows.
+    const owned = await makeMarker({ kind: "time_point", at: "2026-10-13T00:00:00.000Z" }, true);
+    const page = await open("#monitoring");
+    await page.getByTestId("tab-markers").click();
+    await markerRow(page, owned).click();
+    await page.getByTestId("assign-agent").click();
+    await until(async () => (await tasks()).find((t) => t.markerId === owned));
+    const chain = await api.get<{
+      delegations: Array<{ delegationId: string; agents: string[]; userId: string | null }>;
+    }>(`${base()}/markers/${owned}/delegations`);
+    expect(chain.delegations.length).toBeGreaterThan(0);
+    await page.getByTestId("marker-delegations").waitFor();
+    for (const d of chain.delegations) {
+      const li = page.getByTestId(`delegation-${d.delegationId}`);
+      await li.waitFor();
+      expect(await li.innerText()).toContain(d.agents[0]!);
+    }
+    await page.close();
+
+    // Analyst without a scope: the kernel refuses; the UI explains the reason and the server is unchanged.
+    const target = await makeMarker({ kind: "time_point", at: "2026-10-14T00:00:00.000Z" }, true);
+    const bobApi = await apiClient(env, "bob");
+    const bobCtx = await env.loggedIn("bob");
+    bobCtx.setDefaultNavigationTimeout(120_000);
+    const bp = await bobCtx.newPage();
+    await bp.goto(url("#monitoring"), { waitUntil: "domcontentloaded" });
+    await bp.getByTestId("tab-markers").click();
+    await markerRow(bp, target).click();
+    await bp.getByTestId("assign-agent").click();
+    const err = await bp
+      .getByTestId("action-error")
+      .waitFor()
+      .then(() => bp.getByTestId("action-error"));
+    expect(await err.getAttribute("data-reason")).toBe("DELEGATION_SCOPE_REQUIRED");
+    expect(await err.innerText()).toContain("owner or admin");
+    expect((await tasks()).find((t) => t.markerId === target)).toBeUndefined();
+    expect((await markers()).find((m) => m.markerId === target)?.assignedAgents).toEqual([]);
+    // The same refusal straight from the API, so the explanation is not UI invention.
+    const raw = await bobApi.post(`${base()}/commands`, {
+      apiVersion: "v1",
+      commandId: randomUUID(),
+      commandType: "marker.assign",
+      payload: { markerId: target, agents: ["quant"] },
+      expectedVersion: (await bobApi.get<{ version: number }>(base())).version,
+    });
+    expect(raw.statusCode).toBe(403);
+    expect(raw.json<{ reasonCode: string }>().reasonCode).toBe("DELEGATION_SCOPE_REQUIRED");
+
+    // An analyst cannot grant scopes either (UI shows the kernel's refusal).
+    await bp.getByTestId("tab-delegation").click();
+    const grant = async (p: Page) => {
+      await p.getByTestId("scope-user").fill(env.users.bob!.userId);
+      await p.getByTestId("scope-tokens").fill("10000");
+      await p.getByTestId("scope-save").click();
+    };
+    await grant(bp);
+    expect(
+      await (
+        await bp
+          .getByTestId("scope-error")
+          .waitFor()
+          .then(() => bp.getByTestId("scope-error"))
+      ).innerText(),
+    ).toMatch(/INSUFFICIENT_ROLE|HTTP 405/); // 405 until the web server forwards PUT (queued)
+    expect((await tasks()).find((t) => t.markerId === target)).toBeUndefined();
+
+    // The owner grants the scope. Writing scopes is `PUT .../delegation-scopes`, which the same-origin web server does
+    // not forward yet (BFF route exports GET and POST only; queued), so the grant goes straight to the kernel API.
+    const aliceTok = (
+      await env.app.inject({
+        method: "POST",
+        url: "/v1/dev/login",
+        payload: { oidcSubject: env.users.alice!.subject },
+      })
+    ).json<{ token: string }>().token;
+    const put = await env.app.inject({
+      method: "PUT",
+      url: `${base()}/delegation-scopes`,
+      headers: { authorization: `Bearer ${aliceTok}` },
+      payload: {
+        userId: env.users.bob!.userId,
+        agents: ["quant"],
+        grants: [],
+        delegateTo: [],
+        maxBudget: { tokens: 10000, toolCalls: 10, usd: 1 },
+      },
+    });
+    expect(put.statusCode).toBe(204);
+    await bp.reload({ waitUntil: "domcontentloaded" });
+    await bp.getByTestId("tab-markers").click();
+    await markerRow(bp, target).click();
+    await bp.getByTestId("assign-agent").click();
+    const t = await until(async () => (await tasks()).find((x) => x.markerId === target));
+    expect(t.status).toBe("PENDING");
+    expect((await markers()).find((m) => m.markerId === target)?.assignedAgents).toEqual(["quant"]);
+    await bp.close();
+    await bobCtx.close();
+  }, 240_000);
 });

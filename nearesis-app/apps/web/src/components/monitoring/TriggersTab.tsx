@@ -1,5 +1,8 @@
 "use client";
 import type { MonitorTrigger } from "@nearesis/contracts";
+import { Button } from "@nearesis/ui";
+import { useState } from "react";
+import type { TriggerExportRow } from "../../lib/monitoring/api.ts";
 import type { MonitoringStore } from "../../lib/monitoring/use-monitoring.ts";
 import { fmtTime, ModeBadge } from "./shared.tsx";
 
@@ -13,7 +16,88 @@ const OUTCOME: Record<MonitorTrigger["outcome"], string> = {
   disabled: "Skipped (rule disabled)",
 };
 
+/** Fired counts for today (UTC), live and replay kept apart so a replay can never inflate the live figure. */
+function Counters({ store }: { store: MonitoringStore }) {
+  const c = store.data.counters;
+  return (
+    <p className="nz-sb-meta" data-testid="trigger-counters">
+      Fired today{c.day ? ` (${c.day} UTC)` : ""}: <b data-testid="counter-live">{c.live}</b> LIVE ·{" "}
+      <b data-testid="counter-replay">{c.replay}</b> REPLAY
+    </p>
+  );
+}
+
+function ExportPanel({ store }: { store: MonitoringStore }) {
+  const [out, setOut] = useState<{ rows: TriggerExportRow[]; report: string } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <section aria-label="Export trigger history">
+      <Button
+        size="sm"
+        data-testid="export-triggers"
+        onClick={async () => {
+          const r = await store.api?.exportTriggers();
+          if (r?.ok) {
+            setOut(r.value);
+            setErr(null);
+          } else setErr(r ? `${r.reasonCode}: ${r.message}` : "monitoring unavailable");
+        }}
+      >
+        Export trigger history
+      </Button>
+      {err && (
+        <p role="alert" className="nz-error" data-testid="export-error">
+          {err}
+        </p>
+      )}
+      {out && (
+        <div data-testid="export-result">
+          <p className="nz-sb-meta" data-testid="export-summary">
+            {out.report.split("\n")[0]}
+          </p>
+          <table className="nz-table">
+            <caption className="nz-sr-only">Exported rows</caption>
+            <tbody>
+              {out.rows.map((r) => (
+                <tr
+                  key={r.triggerId}
+                  data-testid={`export-row-${r.triggerId}`}
+                  data-mode={r.mode}
+                  data-label={r.label}
+                >
+                  <td>{r.label}</td>
+                  <td>{r.sourceId}</td>
+                  <td>{r.watermark}</td>
+                  <td>{r.outcome}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <a
+            className="nz-chip"
+            data-testid="export-download"
+            download="trigger-history.csv"
+            href={`data:text/plain;charset=utf-8,${encodeURIComponent(out.report)}`}
+          >
+            Download report
+          </a>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function TriggersTab({ store }: { store: MonitoringStore }) {
+  return (
+    <div>
+      <Counters store={store} />
+      <TriggerTable store={store} />
+      <ExportPanel store={store} />
+    </div>
+  );
+}
+
+function TriggerTable({ store }: { store: MonitoringStore }) {
   const rules = new Map(store.data.rules.map((r) => [r.ruleId, r.name]));
   const rows = [...store.data.triggers].sort((a, b) => b.evaluatedAt.localeCompare(a.evaluatedAt));
   if (!rows.length)

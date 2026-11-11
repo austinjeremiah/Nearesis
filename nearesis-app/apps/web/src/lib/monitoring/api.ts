@@ -9,6 +9,7 @@ import type {
   LensResolution,
   Marker,
   MarkerTask,
+  MonitorEvaluation,
   MonitorRule,
   MonitorTrigger,
   Notification,
@@ -34,6 +35,47 @@ export interface MonitoringSnapshot {
   triggers: MonitorTrigger[];
   notifications: Notification[];
   tasks: MarkerTask[];
+  /** One record per rule evaluation, including skipped_disabled, not_final and suppressed_run_cap. */
+  evaluations: MonitorEvaluation[];
+  /** Fired triggers today, live and replay counted separately. */
+  counters: TriggerCounters;
+}
+
+export interface TriggerCounters {
+  day: string;
+  live: number;
+  replay: number;
+}
+
+export interface TriggerExportRow {
+  triggerId: string;
+  ruleId: string;
+  sourceId: string;
+  watermark: string;
+  mode: "live" | "replay";
+  outcome: string;
+  label: "LIVE" | "REPLAY";
+  evaluatedAt: string;
+}
+
+/** One link of a marker's delegation chain (user, marker, agents, grants). */
+export interface Delegation {
+  delegationId: string;
+  markerId: string;
+  taskId: string;
+  userId: string | null;
+  agents: string[];
+  grants: string[];
+  parentDelegationId: string | null;
+  depth: number;
+}
+
+export interface DelegationScopeInput {
+  userId: string;
+  agents: string[];
+  grants: string[];
+  delegateTo: string[];
+  maxBudget: { tokens: number; toolCalls: number; usd: number };
 }
 
 export type CommandResult<T = unknown> =
@@ -58,6 +100,11 @@ export interface MonitoringApi {
   updateRule(p: Input<typeof MonitorRuleUpdatePayload>): Promise<CommandResult>;
   setRuleEnabled(ruleId: string, enabled: boolean): Promise<CommandResult>;
   markNotificationRead(notificationId: string): Promise<CommandResult>;
+  /** Trigger history export: rows carry their mode and a LIVE/REPLAY label; the report text says REPLAY. */
+  exportTriggers(): Promise<CommandResult<{ rows: TriggerExportRow[]; report: string }>>;
+  listDelegations(markerId: string): Promise<CommandResult<Delegation[]>>;
+  /** Owner/admin only; others get 403 INSUFFICIENT_ROLE from the kernel. */
+  setDelegationScope(scope: DelegationScopeInput): Promise<CommandResult>;
 }
 
 /** Event types after which the monitoring lists are refetched (contracts events.ts). */

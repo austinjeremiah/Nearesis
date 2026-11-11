@@ -13,6 +13,8 @@ export const EMPTY: MonitoringSnapshot = {
   triggers: [],
   notifications: [],
   tasks: [],
+  evaluations: [],
+  counters: { day: "", live: 0, replay: 0 },
 };
 
 /**

@@ -17,6 +17,10 @@ export const ALLOWED = [
   // P06 monitoring reads (commands go through /commands). Published by apps/api monitoring-routes.ts.
   new RegExp(`^workspaces/${UUID}/(markers|lenses|monitors|monitors/triggers|notifications|marker-tasks)$`),
   new RegExp(`^workspaces/${UUID}/lenses/${UUID}/resolution$`),
+  // Monitoring read model additions: evaluations, counters, export, watermarks, delegation chain; PUT delegation scope.
+  new RegExp(`^workspaces/${UUID}/monitors/(evaluations|counters|export|watermarks)$`),
+  new RegExp(`^workspaces/${UUID}/markers/${UUID}/delegations$`),
+  new RegExp(`^workspaces/${UUID}/delegation-scopes$`),
   // Evidence graph and time machine (apps/api history-routes.ts).
   new RegExp(`^workspaces/${UUID}/graph/rechecks(/resolve)?$`),
   new RegExp(`^workspaces/${UUID}/snapshots(/compare)?$`),

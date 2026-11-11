@@ -4,18 +4,23 @@ import { type KeyboardEvent, useCallback, useEffect, useState } from "react";
 import type { MonitoringStore } from "../../lib/monitoring/use-monitoring.ts";
 import { type LensApplication, LensesTab } from "./LensesTab.tsx";
 import { type PanelRef, MarkersTab } from "./MarkersTab.tsx";
+import { DelegationTab } from "./DelegationTab.tsx";
+import { EvaluationsTab } from "./EvaluationsTab.tsx";
 import { NotificationsTab } from "./NotificationsTab.tsx";
 import { type SourceRef, RulesTab } from "./RulesTab.tsx";
 import { fmtTime } from "./shared.tsx";
 import { TriggersTab } from "./TriggersTab.tsx";
 
-export type MonitorTab = "markers" | "rules" | "triggers" | "lenses" | "notifications";
+export type MonitorTab =
+  "markers" | "rules" | "triggers" | "evaluations" | "lenses" | "notifications" | "delegation";
 const TABS: Array<{ id: MonitorTab; label: string }> = [
   { id: "markers", label: "Markers" },
   { id: "rules", label: "Rules" },
   { id: "triggers", label: "Trigger history" },
+  { id: "evaluations", label: "Evaluations" },
   { id: "lenses", label: "Lenses" },
   { id: "notifications", label: "Notifications" },
+  { id: "delegation", label: "Delegation" },
 ];
 
 export interface MonitorUi {
@@ -180,6 +185,8 @@ export function MonitoringView(p: {
               />
             )}
             {ui.tab === "triggers" && <TriggersTab store={store} />}
+            {ui.tab === "evaluations" && <EvaluationsTab store={store} />}
+            {ui.tab === "delegation" && <DelegationTab store={store} />}
             {ui.tab === "lenses" && (
               <LensesTab
                 store={store}

@@ -1733,9 +1733,11 @@
       "passCondition": "no foreign workspace result",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "tests/security/SEC03.accept.test.ts"
+      ],
       "live": false,
-      "status": "UNIMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true,
       "dependsOn": []
     },

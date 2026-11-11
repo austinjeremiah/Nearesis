@@ -206,7 +206,6 @@ it("SEC02: metadata and internal addresses are refused before any connection", a
 
   // positive control: the guard is not simply denying everything
   redirectTarget = `http://${PUBLIC_HOST}/final`;
-  let controlStatus = 0;
   const ctl = http.createServer((_q, res) => {
     res.end("ok");
   });
@@ -216,7 +215,7 @@ it("SEC02: metadata and internal addresses are refused before any connection", a
     ...deps,
     dialOverride: () => ({ ip: "127.0.0.1", port: ctlPort }),
   });
-  controlStatus = ok.status;
+  const controlStatus = ok.status;
   await new Promise((r) => ctl.close(r));
   expect(controlStatus).toBe(200);
 

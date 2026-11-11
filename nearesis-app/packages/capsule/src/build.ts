@@ -22,6 +22,12 @@ import { computeResults, inputDigest, resultsDigest } from "./verifier-ref.ts";
 
 export const APP_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 export const DEFAULT_WASM = join(APP_ROOT, "services", "outlayer-verifier", "out", "nearesis-verifier.wasm");
+/** Mirrors services/research `recorded_method_revision`: a002 runs carry Amendment 002 inference records. */
+export function recordedMethodRevision(run: Record<string, unknown>): string {
+  const est = run.estimates as Record<string, unknown> | undefined;
+  return est && "inferenceSummary" in est ? "a002" : "a001";
+}
+
 export const REBUILD_COMMAND_PREFIX = "pnpm --filter @nearesis/capsule research:rebuild --snapshot";
 
 export class PublicationBlockedError extends Error {
@@ -324,6 +330,8 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
         : null,
       preregistrationHash:
         (get(research, "preregistration", "hash") as `sha256:${string}` | undefined) ?? null,
+      ...(typeof research.methodVersion === "string" ? { methodVersion: research.methodVersion } : {}),
+      methodRevision: recordedMethodRevision(research),
     };
   }
 

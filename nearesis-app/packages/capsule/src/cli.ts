@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { APP_ROOT, PublicationBlockedError, buildCapsule } from "./build.ts";
+import { writeCapsuleOwnership } from "./ownership.ts";
 import { SnapshotError } from "./snapshot.ts";
 import { verifyCapsule } from "./verify.ts";
 
@@ -22,6 +23,8 @@ const { values: a } = parseArgs({
     capsule: { type: "string" },
     "research-bundle": { type: "string" },
     expect: { type: "string" },
+    org: { type: "string" },
+    workspace: { type: "string" },
     "no-research": { type: "boolean" },
     "no-wasm": { type: "boolean" },
   },
@@ -32,7 +35,7 @@ async function main(): Promise<number> {
   if (cmd === "build" || cmd === "rebuild") {
     if (!a.snapshot) {
       console.error(
-        "usage: rebuild --snapshot <dir> [--out <dir>] [--research-bundle <dir>] [--expect <manifest.json>]",
+        "usage: rebuild --snapshot <dir> [--out <dir>] [--research-bundle <dir>] [--expect <manifest.json>] [--org <uuid> --workspace <uuid>]",
       );
       return 2;
     }
@@ -61,6 +64,8 @@ async function main(): Promise<number> {
       }
       throw e;
     }
+    // Tenant ownership (beside the capsule, outside its hash): without it the API treats the capsule as nonexistent.
+    if (a.org && a.workspace) writeCapsuleOwnership(out, { orgId: a.org, workspaceId: a.workspace });
     const rep = await verifyCapsule(out, {
       research: a["no-research"] || !a["research-bundle"] ? "skip" : "reproduce",
       wasm: a["no-wasm"] ? "skip" : "crosscheck",

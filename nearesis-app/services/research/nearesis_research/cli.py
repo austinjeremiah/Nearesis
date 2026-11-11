@@ -8,6 +8,7 @@ import json
 import sys
 from pathlib import Path
 
+from . import METHOD_VERSION
 from .artifacts import compare_runs, write_bundle
 from .dataset import Inputs
 from .experiment import run_experiment
@@ -54,6 +55,16 @@ def g07_run(a) -> int:
     return 0
 
 
+# Analysis revision of the engine. methodVersion (near.intents_pred_v1@1.0.0) is frozen by the preregistration hash, so
+# the revision is what distinguishes engine behaviour changes: a001 = pre-Amendment-002 (no inference records),
+# a002 = Amendment 002 (fixed-smoothing inference records and inferenceSummary).
+METHOD_REVISION = "a002"
+
+
+def recorded_method_revision(run: dict) -> str:
+    return "a002" if "inferenceSummary" in (run.get("estimates") or {}) else "a001"
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="nearesis_research")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -81,6 +92,11 @@ def main(argv=None) -> int:
         return 0
     if a.cmd == "reproduce":
         old = json.loads((Path(a.dir) / "research_run.json").read_text())
+        rec_rev = recorded_method_revision(old)
+        if rec_rev != METHOD_REVISION:
+            # A capsule pins the method it was built with: a different engine revision is a named mismatch, never a silent diff.
+            print(json.dumps({"reproducible": False, "reason": "METHOD_VERSION_MISMATCH", "recordedMethodVersion": old.get("methodVersion"), "recordedMethodRevision": rec_rev, "currentMethodVersion": METHOD_VERSION, "currentMethodRevision": METHOD_REVISION}))
+            return 4
         src = old["inputSnapshot"]["source"]
         new = run_fixture(src["fixture"], old["reproduction"]["seed"])
         res = compare_runs(old, new)

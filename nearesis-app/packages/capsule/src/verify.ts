@@ -22,6 +22,7 @@ export type FailureKind =
   | "INPUT_REDERIVATION_MISMATCH"
   | "RESULTS_MISMATCH"
   | "RESEARCH_NOT_REPRODUCIBLE"
+  | "METHOD_VERSION_MISMATCH"
   | "WASM_CROSSCHECK_MISMATCH";
 
 export interface VerifyFailure {
@@ -235,7 +236,13 @@ export async function verifyCapsule(dir: string, opts: VerifyOptions = {}): Prom
       );
       if (r.error) notes.push(`research re-execution not run: ${r.error.message.slice(0, 120)}`);
       else if (r.status === 0 && /"reproducible":\s*true/.test(r.stdout)) checks.push("researchReproduction");
-      else fail("RESEARCH_NOT_REPRODUCIBLE", `research reproduce exited ${String(r.status)}`);
+      else if (r.status === 4 && /METHOD_VERSION_MISMATCH/.test(r.stdout)) {
+        const j = JSON.parse(r.stdout.trim().split("\n").pop() ?? "{}") as Record<string, string>;
+        fail(
+          "METHOD_VERSION_MISMATCH",
+          `capsule pins research method ${String(m.research.methodVersion ?? j.recordedMethodVersion)} revision ${String(m.research.methodRevision ?? j.recordedMethodRevision)}; the engine is now ${String(j.currentMethodVersion)} revision ${String(j.currentMethodRevision)}`,
+        );
+      } else fail("RESEARCH_NOT_REPRODUCIBLE", `research reproduce exited ${String(r.status)}`);
     } else notes.push("recorded research run: checked by file hash only");
   }
 

@@ -19,3 +19,4 @@ export * from "./gaps.ts";
 export * from "./memo.ts";
 export * from "./bundle.ts";
 export * from "./correction.ts";
+export * from "./ownership.ts";

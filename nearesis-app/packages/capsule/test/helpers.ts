@@ -11,7 +11,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const PKG = join(here, "..");
 export const APP = join(PKG, "..", "..");
 export const SNAPSHOT = join(PKG, "fixtures", "snapshot-synthetic");
-export const RESEARCH_BUNDLE = join(APP, "packages", "test-fixtures", "research", "signal-bundle");
+/** Pre-Amendment-002 research bundle (method revision a001), kept to prove a rebuild reports a method-version mismatch. */
+export const LEGACY_RESEARCH_BUNDLE = join(APP, "packages", "test-fixtures", "research", "signal-bundle");
+export const RESEARCH_BUNDLE = join(APP, "packages", "test-fixtures", "research", "signal-bundle-a002");
 export const WASM = join(APP, "services", "outlayer-verifier", "out", "nearesis-verifier.wasm");
 export const POLICY_FILE = join(APP, "services", "outlayer-verifier", "policy", "attestation-policy.json");
 

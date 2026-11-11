@@ -73,6 +73,9 @@ export const CapsuleManifest = z.strictObject({
       fixture: z.string().nullable(),
       seed: z.number().int().nullable(),
       preregistrationHash: PrefixedSha256.nullable(),
+      /** Method pin: the research method version and analysis revision the run was produced with. Optional for older capsules. */
+      methodVersion: z.string().min(1).optional(),
+      methodRevision: z.string().min(1).optional(),
     })
     .nullable(),
   claims: z.array(CapsuleClaim).max(50),

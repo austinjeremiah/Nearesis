@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { CapsuleResponseRecord } from "@nearesis/contracts";
-import { buildCapsule } from "../../../packages/capsule/src/index.ts";
+import { buildCapsule, writeCapsuleOwnership } from "../../../packages/capsule/src/index.ts";
 import { apiFixture, bearer, login, seedOrg } from "./helpers.ts";
 import type { ApiFixture } from "./helpers.ts";
 
@@ -21,6 +21,16 @@ beforeAll(async () => {
   f = await apiFixture();
   const org = await seedOrg(f.db.admin, "acme", { alice: "owner" });
   token = await login(f.app, org.users.alice!.subject);
+  const ws = await f.app.inject({
+    method: "POST",
+    url: "/v1/workspaces",
+    headers: { ...bearer(token), "idempotency-key": "capsule-ws-0001" },
+    payload: { objective: "capsules", networkScope: "fixture-only" },
+  });
+  writeCapsuleOwnership(join(dir, id), {
+    orgId: org.orgId,
+    workspaceId: (ws.json() as { workspaceId: string }).workspaceId,
+  });
 });
 afterAll(async () => {
   delete process.env.NEARESIS_CAPSULE_DIR;

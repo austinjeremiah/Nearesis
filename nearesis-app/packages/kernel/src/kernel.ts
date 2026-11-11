@@ -20,6 +20,9 @@ import { MonitorScheduler } from "./monitoring/scheduler.ts";
 import { MarkerTaskService } from "./monitoring/tasks.ts";
 import type { RunPort } from "./monitoring/tasks.ts";
 import type { SchedulerOptions } from "./monitoring/scheduler.ts";
+import { registerMonitoringCommands } from "./monitoring/commands.ts";
+import type { MonitoringConfig } from "./monitoring/catalog.ts";
+import { DelegationService } from "./monitoring/delegation.ts";
 
 export interface KernelConfig {
   db: Db;
@@ -30,6 +33,8 @@ export interface KernelConfig {
   /** Engine B canvas-schema semantic validation hook (runs inside the command transaction). */
   semanticValidator?: SemanticValidator;
   stream?: StreamOptions;
+  /** Semantic catalog for monitoring validation (metrics, units, versions, source range). Absent = checks not enforced. */
+  monitoring?: MonitoringConfig;
 }
 
 export const DEFAULT_ENGINE_INTERFACES = ["kernel.tool_gateway@1", "kernel.journal@1", "kernel.leases@1"];
@@ -49,6 +54,7 @@ export class Kernel {
   readonly graph: EvidenceGraphService;
   readonly approvals: ApprovalService;
   readonly monitoring: MonitoringService;
+  readonly delegation: DelegationService;
   readonly identity: IdentityPolicy;
   readonly devAuth: DevAuthProvider | undefined;
   readonly engine: { inspect: PluginManager["inspect"] };
@@ -60,12 +66,14 @@ export class Kernel {
     this.leases = new LeaseService(cfg.db);
     this.approvals = new ApprovalService();
     this.monitoring = new MonitoringService(cfg.db);
+    this.delegation = new DelegationService(cfg.db);
     this.gateway = new KernelToolGateway(cfg.db, this.plugins, this.leases, this.approvals);
     this.workspaces = new WorkspaceRegistry(cfg.db, this.journal);
     this.commands = new CommandBus(cfg.db, this.journal, this.plugins, this.approvals);
     this.outbox = new OutboxPublisher(cfg.db);
     this.stream = new EventStreamService(cfg.db, this.journal, cfg.stream);
     this.canvas = new CanvasService(cfg.db, cfg.semanticValidator);
+    if (cfg.monitoring) registerMonitoringCommands(this.commands, cfg.monitoring);
     this.commands.register("canvas.apply_patch", this.canvas.handler);
     this.graph = new EvidenceGraphService(cfg.db);
     this.commands.register("graph.save_layout", this.graph.saveLayoutHandler);

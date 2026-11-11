@@ -65,22 +65,41 @@ export const Marker = z.strictObject({
   status: MarkerStatus,
   version: z.number().int().positive(),
   selection: SelectionContext.nullable(),
+  /** `replay` when the marker was anchored to a recorded replay event (derived server-side, never client-set). */
+  mode: z.enum(["live", "replay"]).default("live"),
+  /** Visible reason when the marker's latest agent task did not succeed (for example a workflow that failed to start). */
+  reasonCode: z.string().max(100).nullable().default(null),
 });
 export type Marker = z.infer<typeof Marker>;
 
 /** Deterministic condition AST (no code, no expressions): evaluated by comparing observed metric values. */
 export const CompareOp = z.enum(["gt", "gte", "lt", "lte", "eq", "ne"]);
+/** Metric ids are identifiers, never expressions: no spaces, quotes, semicolons or operators. */
+export const MetricIdentifier = z
+  .string()
+  .min(1)
+  .max(200)
+  .regex(/^[A-Za-z][A-Za-z0-9_.-]*$/, "metric id must be an identifier");
+export const MIN_ZSCORE_SAMPLES = 5;
 export type Condition =
   | { kind: "compare"; metricId: string; op: z.infer<typeof CompareOp>; value: number }
+  /** |z| > absoluteGt, where z standardises the observed value against the previous `windowDays` days of finalized observations of the same rule (sample standard deviation, n-1). */
+  | { kind: "zscore"; metricId: string; windowDays: number; absoluteGt: number }
   | { kind: "and" | "or"; terms: Condition[] }
   | { kind: "not"; term: Condition };
 export const Condition: z.ZodType<Condition> = z.lazy(() =>
   z.discriminatedUnion("kind", [
     z.strictObject({
       kind: z.literal("compare"),
-      metricId: z.string().min(1).max(200),
+      metricId: MetricIdentifier,
       op: CompareOp,
       value: z.number().finite(),
+    }),
+    z.strictObject({
+      kind: z.literal("zscore"),
+      metricId: MetricIdentifier,
+      windowDays: z.number().int().min(2).max(365),
+      absoluteGt: z.number().positive().finite(),
     }),
     z.strictObject({ kind: z.enum(["and", "or"]), terms: z.array(Condition).min(1).max(8) }),
     z.strictObject({ kind: z.literal("not"), term: Condition }),
@@ -95,6 +114,9 @@ export const MonitorFrequency = z.strictObject({
 });
 
 export const MonitorAction = z.enum(["notify", "investigate"]);
+/** ch.20 `dataMaturity`: `finalized_only` rules ignore provisional watermarks. */
+export const DataMaturity = z.enum(["finalized_only", "any"]);
+export type DataMaturity = z.infer<typeof DataMaturity>;
 
 export const MonitorRule = z.strictObject({
   ruleId: Uuid,
@@ -118,6 +140,10 @@ export const MonitorRule = z.strictObject({
   version: z.number().int().positive(),
   createdBy: Uuid.nullable(),
   createdAt: IsoDateTime,
+  semanticVersion: SemVer.nullable().default(null),
+  dataMaturity: DataMaturity.default("finalized_only"),
+  /** Cap on agent tasks the rule may enqueue per UTC (watermark) day; the deterministic evaluation itself is uncapped. */
+  maxRunsPerDay: z.number().int().positive().max(1000).nullable().default(null),
 });
 export type MonitorRule = z.infer<typeof MonitorRule>;
 
@@ -133,6 +159,40 @@ export const TriggerOutcome = z.enum([
   "disabled",
 ]);
 export type TriggerOutcome = z.infer<typeof TriggerOutcome>;
+
+/**
+ * Per-evaluation record (ch.20 idempotency key `(ruleId, evaluatedWatermark, ruleVersion)`, plus mode). Every event a rule
+ * sees is recorded exactly once: deterministic outcomes, `skipped_disabled`, `not_final` and `suppressed_run_cap`.
+ */
+export const EvaluationStatus = z.enum([
+  "fired",
+  "condition_false",
+  "debounced",
+  "cooldown",
+  "frequency",
+  "no_data",
+  "not_final",
+  "suppressed_run_cap",
+  "skipped_disabled",
+]);
+export type EvaluationStatus = z.infer<typeof EvaluationStatus>;
+export const MonitorEvaluation = z.strictObject({
+  evaluationId: Uuid,
+  ruleId: Uuid,
+  workspaceId: Uuid,
+  ruleVersion: z.number().int().positive(),
+  semanticVersion: SemVer.nullable(),
+  sourceId: z.string(),
+  watermark: IsoDateTime,
+  mode: z.enum(["live", "replay"]),
+  status: EvaluationStatus,
+  /** The observed metric values and, for z-score conditions, the computed statistic. */
+  evaluatedValue: z.record(z.string(), z.unknown()),
+  triggerId: Uuid.nullable(),
+  taskId: Uuid.nullable(),
+  evaluatedAt: IsoDateTime,
+});
+export type MonitorEvaluation = z.infer<typeof MonitorEvaluation>;
 
 /** One (rule, watermark, mode) evaluation. `mode: replay` is set end to end and never reported as live. */
 export const MonitorTrigger = z.strictObject({
@@ -204,8 +264,12 @@ export const WatermarkEvent = z.strictObject({
   watermark: IsoDateTime,
   mode: TriggerMode,
   values: z.record(z.string(), z.number().finite()),
+  /** `provisional` watermarks never fire a `finalized_only` rule. */
+  maturity: z.enum(["final", "provisional"]).default("final"),
 });
 export type WatermarkEvent = z.infer<typeof WatermarkEvent>;
+/** What producers send: `maturity` defaults to `final`. */
+export type WatermarkEventInput = z.input<typeof WatermarkEvent>;
 
 // ---- command payloads (workspace commands; see api.ts CommandType) ----
 export const MarkerCreatePayload = z.strictObject({
@@ -214,6 +278,8 @@ export const MarkerCreatePayload = z.strictObject({
   anchor: MarkerAnchor,
   question: z.string().max(4000).optional(),
   selection: SelectionContext.optional(),
+  /** ch.11: the user or agent actor the marker is delegated to; must be inside the creator's delegation scope. */
+  delegateTo: Uuid.optional(),
 });
 export const MarkerTransitionPayload = z.strictObject({
   markerId: Uuid,
@@ -223,6 +289,8 @@ export const MarkerTransitionPayload = z.strictObject({
 export const MarkerAssignPayload = z.strictObject({
   markerId: Uuid,
   agents: z.array(AgentRole).min(1).max(10),
+  /** Capability ids the child may use. Must be a subset of the assigner's delegation scope, never a superset. */
+  grants: z.array(z.string().min(1).max(200)).max(64).optional(),
   budget: z
     .strictObject({
       tokens: z.number().int().positive(),
@@ -240,6 +308,9 @@ const RuleBody = {
   markerId: Uuid.nullable().optional(),
   sourceId: z.string().min(1).max(200),
   condition: Condition,
+  semanticVersion: SemVer.optional(),
+  dataMaturity: DataMaturity.default("finalized_only"),
+  maxRunsPerDay: z.number().int().positive().max(1000).optional(),
   frequency: MonitorFrequency.default({ minIntervalSeconds: 0 }),
   debounceSeconds: z.number().int().min(0).max(86_400).default(0),
   cooldownSeconds: z
@@ -260,6 +331,8 @@ export const MonitorRuleUpdatePayload = z.strictObject({
   name: RuleBody.name.optional(),
   markerId: RuleBody.markerId,
   condition: Condition.optional(),
+  dataMaturity: DataMaturity.optional(),
+  maxRunsPerDay: z.number().int().positive().max(1000).nullable().optional(),
   frequency: MonitorFrequency.optional(),
   debounceSeconds: RuleBody.debounceSeconds.optional(),
   cooldownSeconds: RuleBody.cooldownSeconds.optional(),
@@ -283,7 +356,7 @@ export const NotificationReadPayload = z.strictObject({ notificationId: Uuid });
 
 /** Guards for condition ASTs beyond the schema (depth, node count). */
 export function conditionShape(c: Condition): { depth: number; nodes: number } {
-  if (c.kind === "compare") return { depth: 1, nodes: 1 };
+  if (c.kind === "compare" || c.kind === "zscore") return { depth: 1, nodes: 1 };
   const kids = c.kind === "not" ? [c.term] : c.terms;
   const shapes = kids.map(conditionShape);
   return {
@@ -308,6 +381,25 @@ export const MarkerTask = z.strictObject({
   mode: TriggerMode,
   agents: z.array(AgentRole),
   createdAt: IsoDateTime,
+  triggerId: Uuid.nullable().default(null),
+  reasonCode: z.string().nullable().default(null),
+  grants: z.array(z.string()).default([]),
 });
 export type MarkerTask = z.infer<typeof MarkerTask>;
 export const MarkerTaskListResponse = z.strictObject({ tasks: z.array(MarkerTask) });
+
+/** Delegation scope (ch.11): what a member may delegate to agents. Set by an owner or admin; absent means nothing. */
+export const DelegationScope = z.strictObject({
+  userId: Uuid,
+  workspaceId: Uuid,
+  agents: z.array(AgentRole).max(10),
+  /** Capability ids the member may hand to a child (the parent grant set G). */
+  grants: z.array(z.string().min(1).max(200)).max(64),
+  delegateTo: z.array(Uuid).max(50),
+  maxBudget: z.strictObject({
+    tokens: z.number().int().positive(),
+    toolCalls: z.number().int().positive(),
+    usd: z.number().positive(),
+  }),
+});
+export type DelegationScope = z.infer<typeof DelegationScope>;

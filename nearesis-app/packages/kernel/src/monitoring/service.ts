@@ -4,6 +4,7 @@ import type {
   LensResolution,
   Marker,
   MarkerTask,
+  MonitorEvaluation,
   MonitorRule,
   MonitorTrigger,
   Notification,
@@ -53,6 +54,8 @@ export class MonitoringService {
         status: m.status,
         version: m.version,
         selection: m.selection_json ?? null,
+        mode: m.mode,
+        reasonCode: m.reason_code ?? null,
       }));
     });
   }
@@ -147,6 +150,9 @@ export class MonitoringService {
         version: r.version,
         createdBy: r.created_by ?? null,
         createdAt: iso(r.created_at),
+        semanticVersion: r.semantic_version ?? null,
+        dataMaturity: r.data_maturity,
+        maxRunsPerDay: r.max_runs_per_day ?? null,
       })),
     );
   }
@@ -220,6 +226,106 @@ export class MonitoringService {
         mode: t.mode,
         agents: t.agents,
         createdAt: iso(t.created_at),
+        triggerId: t.trigger_id ?? null,
+        reasonCode: t.reason_code ?? null,
+        grants: t.grants ?? [],
+      })),
+    );
+  }
+
+  /** Every evaluation a rule performed or skipped (one row per rule, watermark, rule version and mode). */
+  listEvaluations(
+    s: Session,
+    workspaceId: string,
+    ruleId?: string,
+    limit = 1000,
+  ): Promise<MonitorEvaluation[]> {
+    return this.scoped(s, workspaceId, async (tx) =>
+      (
+        await tx.query(
+          `SELECT * FROM monitor_evaluations WHERE workspace_id = $1 ${ruleId ? "AND rule_id = $3" : ""}
+            ORDER BY watermark, evaluated_at, id LIMIT $2`,
+          ruleId ? [workspaceId, limit, ruleId] : [workspaceId, limit],
+        )
+      ).rows.map((e): MonitorEvaluation => ({
+        evaluationId: e.id,
+        ruleId: e.rule_id,
+        workspaceId: e.workspace_id,
+        ruleVersion: e.rule_version,
+        semanticVersion: e.semantic_version ?? null,
+        sourceId: e.source_id,
+        watermark: iso(e.watermark),
+        mode: e.mode,
+        status: e.status,
+        evaluatedValue: e.evaluated_value,
+        triggerId: e.trigger_id ?? null,
+        taskId: e.task_id ?? null,
+        evaluatedAt: iso(e.evaluated_at),
+      })),
+    );
+  }
+
+  /** "Live triggers today" style counters. Replay triggers are counted separately and never as live. */
+  triggerCounters(s: Session, workspaceId: string, day = new Date().toISOString().slice(0, 10)) {
+    return this.scoped(s, workspaceId, async (tx) => {
+      const r = await tx.query<{ mode: string; n: string }>(
+        `SELECT mode, count(*)::text n FROM monitor_triggers
+          WHERE workspace_id = $1 AND outcome = 'fired' AND evaluated_at >= $2::date AND evaluated_at < ($2::date + 1)
+          GROUP BY mode`,
+        [workspaceId, day],
+      );
+      const n = (m: string) => Number(r.rows.find((x) => x.mode === m)?.n ?? 0);
+      return { day, live: n("live"), replay: n("replay") };
+    });
+  }
+
+  /**
+   * Trigger history export. Each row carries its mode; replay rows are labelled in the `label` column and the report text
+   * carries the word REPLAY (ch.19 step 8). Live and replay rows never share a label.
+   */
+  async exportTriggerHistory(s: Session, workspaceId: string) {
+    const triggers = await this.listTriggers(s, workspaceId, undefined, 5000);
+    const rows = triggers
+      .map((t) => ({
+        triggerId: t.triggerId,
+        ruleId: t.ruleId,
+        sourceId: t.sourceId,
+        watermark: t.watermark,
+        mode: t.mode,
+        outcome: t.outcome,
+        label: t.mode === "replay" ? "REPLAY" : "LIVE",
+        evaluatedAt: t.evaluatedAt,
+      }))
+      .sort((a, b) => a.watermark.localeCompare(b.watermark) || a.triggerId.localeCompare(b.triggerId));
+    const header = "trigger_id,rule_id,source_id,watermark,mode,outcome,label,evaluated_at";
+    const csv = [
+      header,
+      ...rows.map((r) =>
+        [r.triggerId, r.ruleId, r.sourceId, r.watermark, r.mode, r.outcome, r.label, r.evaluatedAt].join(","),
+      ),
+    ].join("\n");
+    const replay = rows.filter((r) => r.mode === "replay").length;
+    const report = `Monitoring trigger history: ${rows.length} rows, ${rows.length - replay} LIVE, ${replay} REPLAY (recorded events, not production observations).\n${csv}\n`;
+    return { rows, csv, report };
+  }
+
+  /** The delegation chain recorded for a marker's children: (user, marker, agents, grants). */
+  listDelegations(s: Session, workspaceId: string, markerId: string) {
+    return this.scoped(s, workspaceId, async (tx) =>
+      (
+        await tx.query(
+          "SELECT * FROM marker_delegations WHERE workspace_id = $1 AND marker_id = $2 ORDER BY created_at, id",
+          [workspaceId, markerId],
+        )
+      ).rows.map((d) => ({
+        delegationId: d.id as string,
+        markerId: d.marker_id as string,
+        taskId: d.task_id as string,
+        userId: (d.delegator_user_id as string | null) ?? null,
+        agents: d.agents as string[],
+        grants: d.grants as string[],
+        parentDelegationId: (d.parent_delegation_id as string | null) ?? null,
+        depth: d.depth as number,
       })),
     );
   }

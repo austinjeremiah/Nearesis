@@ -5,6 +5,7 @@ import type { Session } from "../auth.ts";
 import type { CommandBus } from "../commands.ts";
 import type { Db } from "../db/pool.ts";
 import { KernelError } from "../errors.ts";
+import { writeAudit } from "../journal.ts";
 import { MARKER_TASK_DEFAULT_BUDGET } from "./commands.ts";
 
 export interface RunOutput {
@@ -12,6 +13,8 @@ export interface RunOutput {
   role?: string;
   outputRef: string;
 }
+/** Why a run did not succeed, as the runtime reports it (for example `UNGROUNDED_NUMBER`, `SOURCE_UNAVAILABLE`). */
+export type RunFailure = { reasonCode: string };
 /** The investigation runtime as the marker task service sees it. The API implements it over RunsService + Temporal. */
 export interface RunPort {
   start(
@@ -22,12 +25,20 @@ export interface RunPort {
       budget: { tokens: number; toolCalls: number; usd: number };
       idempotencyKey: string;
       mode: TriggerMode;
+      /** Capabilities the child may use (subset of the assigner's delegation scope). Recorded for audit. */
+      grants: string[];
     },
   ): Promise<{ runId: string; workflowId: string }>;
   status(
     session: Session,
     runId: string,
-  ): Promise<{ state: string; terminal: boolean; succeeded: boolean; outputs: RunOutput[] } | null>;
+  ): Promise<{
+    state: string;
+    terminal: boolean;
+    succeeded: boolean;
+    outputs: RunOutput[];
+    failure?: RunFailure | null;
+  } | null>;
 }
 
 interface TaskRow {
@@ -38,6 +49,7 @@ interface TaskRow {
   origin: "assign" | "rule";
   mode: TriggerMode;
   agents: string[];
+  grants: string[];
   budget: { tokens: number; toolCalls: number; usd: number } | null;
   run_id: string | null;
   status: string;
@@ -150,13 +162,14 @@ export class MarkerTaskService {
     id: string,
     from: string,
     to: string,
-    extra?: { runId: string; workflowId: string },
+    extra?: { runId?: string; workflowId?: string; reasonCode?: string },
   ): Promise<TaskRow | undefined> {
     return this.db.tx(this.ctx(o), async (tx) => {
       const r = await tx.query<TaskRow>(
-        `UPDATE marker_tasks SET status = $3, updated_at = now(), run_id = COALESCE($4, run_id), workflow_id = COALESCE($5, workflow_id)
+        `UPDATE marker_tasks SET status = $3, updated_at = now(), run_id = COALESCE($4, run_id), workflow_id = COALESCE($5, workflow_id),
+                reason_code = COALESCE($6, reason_code)
           WHERE id = $1 AND status = $2 RETURNING *`,
-        [id, from, to, extra?.runId ?? null, extra?.workflowId ?? null],
+        [id, from, to, extra?.runId ?? null, extra?.workflowId ?? null, extra?.reasonCode ?? null],
       );
       return r.rows[0];
     });
@@ -169,7 +182,7 @@ export class MarkerTaskService {
     const task = await this.setStatus(o, o.task_id, "PENDING", "RUNNING");
     if (!task) return "skipped"; // another dispatcher claimed it
     if (!s) {
-      await this.finish(o, task, null, { ok: false, outputs: [] });
+      await this.finish(o, task, null, { ok: false, outputs: [], reasonCode: "NO_REQUESTER_SESSION" });
       return "failed";
     }
     try {
@@ -179,6 +192,7 @@ export class MarkerTaskService {
         budget: task.budget ?? MARKER_TASK_DEFAULT_BUDGET,
         idempotencyKey: `marker-task-${task.id}`,
         mode: task.mode,
+        grants: task.grants ?? [],
       });
       await this.db.tx(this.ctx(o), (tx) =>
         tx.query("UPDATE marker_tasks SET run_id = $2, workflow_id = $3, updated_at = now() WHERE id = $1", [
@@ -187,9 +201,15 @@ export class MarkerTaskService {
           started.workflowId,
         ]),
       );
+      // ch.09 / M10 d: the marker is INVESTIGATING only once the child is durably started.
+      if (task.origin === "assign" && marker.status === "ACTIVE")
+        await this.exec(s, o.workspace_id, "marker.transition", {
+          markerId: task.marker_id,
+          to: "INVESTIGATING",
+        });
       return "started";
     } catch {
-      await this.finish(o, task, s, { ok: false, outputs: [] });
+      await this.finish(o, task, s, { ok: false, outputs: [], reasonCode: "WORKFLOW_START_FAILED" });
       return "failed";
     }
   }
@@ -218,6 +238,8 @@ export class MarkerTaskService {
       status: m.status,
       version: m.version,
       selection: m.selection_json ?? null,
+      mode: m.mode,
+      reasonCode: m.reason_code ?? null,
     };
   }
 
@@ -232,12 +254,16 @@ export class MarkerTaskService {
     ).rows[0];
     if (!row || row.status !== "RUNNING" || !row.run_id) return "skipped";
     if (!s) {
-      await this.finish(o, row, null, { ok: false, outputs: [] });
+      await this.finish(o, row, null, { ok: false, outputs: [], reasonCode: "NO_REQUESTER_SESSION" });
       return "failed";
     }
     const st = await this.port.status(s, row.run_id).catch(() => null);
     if (!st || !st.terminal) return "skipped";
-    const claimed = await this.finish(o, row, s, { ok: st.succeeded, outputs: st.outputs });
+    const claimed = await this.finish(o, row, s, {
+      ok: st.succeeded,
+      outputs: st.outputs,
+      ...(st.succeeded ? {} : { reasonCode: st.failure?.reasonCode ?? `RUN_${st.state}` }),
+    });
     return claimed ? (st.succeeded ? "completed" : "failed") : "skipped";
   }
 
@@ -246,11 +272,35 @@ export class MarkerTaskService {
     o: { org_id: string; workspace_id: string; requested_by: string | null },
     task: TaskRow,
     s: Session | null,
-    res: { ok: boolean; outputs: RunOutput[] },
+    res: { ok: boolean; outputs: RunOutput[]; reasonCode?: string },
   ): Promise<boolean> {
-    if (task.status === "RUNNING") {
-      const claimed = await this.setStatus(o, task.id, "RUNNING", res.ok ? "COMPLETE" : "FAILED");
+    if (task.status === "RUNNING" || task.status === "PENDING") {
+      const claimed = await this.setStatus(o, task.id, task.status, res.ok ? "COMPLETE" : "FAILED", {
+        ...(res.ok ? {} : { reasonCode: res.reasonCode ?? "RUN_FAILED" }),
+      });
       if (!claimed) return false;
+    }
+    if (!res.ok) {
+      // Visible non-success: the marker keeps its status (ACTIVE or INVESTIGATING) and carries the reason. It is never
+      // moved to REVIEW_REQUIRED as if the investigation had produced something.
+      await this.db.tx(this.ctx(o), async (tx) => {
+        await tx.query("UPDATE markers SET reason_code = $2 WHERE id = $1 AND workspace_id = $3", [
+          task.marker_id,
+          res.reasonCode ?? "RUN_FAILED",
+          o.workspace_id,
+        ]);
+        await writeAudit(tx, {
+          orgId: o.org_id,
+          workspaceId: o.workspace_id,
+          actorId: o.requested_by,
+          action: "marker.task_failed",
+          subject: task.marker_id,
+          outcome: "failed",
+          reasonCode: res.reasonCode ?? "RUN_FAILED",
+          detail: { taskId: task.id, runId: task.run_id },
+        });
+      });
+      return true;
     }
     if (!s) return true;
     const ids: string[] = [];

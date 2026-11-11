@@ -63,6 +63,10 @@ afterAll(async () => f?.close());
 describe("monitoring API", () => {
   it("serves marker, lens, rule, trigger, notification and task reads; outsiders get the same 404 as unknown workspaces", async () => {
     const markerId = randomUUID();
+    // a source_event anchor must reference a watermark the collector actually recorded
+    await f.db.admin.query(
+      "INSERT INTO source_watermark_events(source_id, watermark, mode) VALUES ('explorer.swaps', '2026-10-28T00:00:00Z', 'live') ON CONFLICT DO NOTHING",
+    );
     expect(
       (
         await cmd(tokA, "marker.create", {

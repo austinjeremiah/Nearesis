@@ -213,7 +213,8 @@ describe("marker state machine", () => {
     await run(workspaceId, "marker.assign", { markerId, agents: ["quant", "skeptic"] });
     const m = (await k.monitoring.listMarkers(s, workspaceId, markerId))[0]!;
     expect(m).toMatchObject({
-      status: "INVESTIGATING",
+      // The marker becomes INVESTIGATING only when the dispatcher has durably started the child (M10 d).
+      status: "ACTIVE",
       assignedAgents: ["quant", "skeptic"],
       anchorType: "time_range",
     });
@@ -331,7 +332,10 @@ describe("monitor rules and scheduler", () => {
     const f = await ruleFixture();
     const sch = k.monitorScheduler();
     await run(f.workspaceId, "monitor.rule_disable", { ruleId: f.ruleId });
-    expect(await sch.processEvent(ev(f.sourceId, 0, 500))).toEqual([]);
+    // A disabled rule never executes; the event is recorded as skipped (never silently dropped).
+    expect((await sch.processEvent(ev(f.sourceId, 0, 500))).map((r) => r.evaluationStatus)).toEqual([
+      "skipped_disabled",
+    ]);
     expect(
       (await db.admin.query("SELECT count(*)::int n FROM monitor_triggers WHERE rule_id=$1", [f.ruleId]))
         .rows[0].n,

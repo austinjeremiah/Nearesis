@@ -117,6 +117,27 @@ export const monitoringRoutes: FastifyPluginAsync<MonitoringRoutesOptions> = asy
     ),
   }));
 
+  get("/monitors/evaluations", async (s, ws) => ({
+    evaluations: await kernel.monitoring.listEvaluations(s, ws),
+  }));
+  get("/monitors/counters", async (s, ws) => kernel.monitoring.triggerCounters(s, ws));
+  /** Trigger history export: replay rows are labelled REPLAY and the report text says so. */
+  get<{ format?: string }>("/monitors/export", async (s, ws, req) => {
+    const e = await kernel.monitoring.exportTriggerHistory(s, ws);
+    return req.query.format === "csv" ? { csv: e.csv } : { rows: e.rows, report: e.report };
+  });
+  get("/markers/:mid/delegations", async (s, ws, req) => {
+    if (!Uuid.safeParse(req.params.mid).success) throw workspaceNotFound();
+    return { delegations: await kernel.monitoring.listDelegations(s, ws, req.params.mid!) };
+  });
+  /** Owner/admin only: what a member may delegate to agents (ch.11 delegation scope). */
+  app.put<{ Params: { id: string } }>("/v1/workspaces/:id/delegation-scopes", (req, reply) =>
+    scoped(req, async (s, ws) => {
+      await kernel.delegation.set(s, ws, req.body);
+      return reply.status(204).send();
+    }),
+  );
+
   /** Composite: create a marker, and with an explicit `task` activate it and start the scoped child investigation. */
   app.post<{ Params: { id: string } }>("/v1/workspaces/:id/markers", async (req, reply) => {
     const body = PostMarkerBody.safeParse(req.body);

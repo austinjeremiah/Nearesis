@@ -23,6 +23,10 @@ export function runsPort(runs: RunsService): RunPort {
         state: r.state,
         terminal: r.terminal,
         succeeded: r.state === "COMPLETE" || r.state === "PARTIAL",
+        failure:
+          r.failure && typeof (r.failure as { reasonCode?: unknown }).reasonCode === "string"
+            ? { reasonCode: (r.failure as { reasonCode: string }).reasonCode }
+            : null,
         outputs: r.children
           .filter((c) => c.outputRef)
           .map((c) => ({ taskId: c.taskId, role: c.role, outputRef: String(c.outputRef) })),

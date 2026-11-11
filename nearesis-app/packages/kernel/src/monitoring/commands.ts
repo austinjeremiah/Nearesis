@@ -13,12 +13,15 @@ import {
   NotificationReadPayload,
   isMarkerTransitionAllowed,
 } from "@nearesis/contracts";
-import type { MarkerStatus } from "@nearesis/contracts";
+import { AgentRole } from "@nearesis/contracts";
+import type { Condition, MarkerAnchor, MarkerStatus, SelectionContext } from "@nearesis/contracts";
 import { z } from "zod";
 import type { CommandBus, CommandContext, HandlerResult } from "../commands.ts";
 import { KernelError } from "../errors.ts";
 import { zodDetails } from "../workspace.ts";
-import { assertConditionBounds } from "./condition.ts";
+import { canAdmin } from "../auth.ts";
+import type { MonitoringConfig } from "./catalog.ts";
+import { assertConditionBounds, conditionMetrics } from "./condition.ts";
 
 /**
  * Hard ceiling for one marker-scoped investigation (ch.05 budget rules): the assign command may only lower it. These are
@@ -121,12 +124,153 @@ async function assertPanelsInWorkspace(ctx: CommandContext, panelIds: string[]):
   if (r.rows.length !== ids.length) throw denied();
 }
 
-/** Registers every P06 command on the bus (called by the CommandBus constructor). */
-export function registerMonitoringCommands(bus: CommandBus): void {
+const bad = (reason: string, message: string, path: string, issue: string) =>
+  new KernelError("VALIDATION_FAILED", reason, message, { details: [{ path, issue }] });
+const utc = (t: string): boolean => /(Z|[+-]00:?00)$/.test(t);
+
+/** Rejects metrics, units and semantic versions the catalog does not certify (only when a catalog is configured). */
+function assertCatalogMetrics(cfg: MonitoringConfig, c: Condition, semanticVersion?: string): void {
+  const cat = cfg.catalog;
+  if (!cat) return;
+  for (const id of conditionMetrics(c))
+    if (!Object.hasOwn(cat.metrics, id))
+      throw bad(
+        "UNKNOWN_METRIC",
+        "Metric is not in the semantic catalog.",
+        "condition",
+        `unknown metric ${id}`,
+      );
+  if (semanticVersion && !(cat.knownVersions ?? [cat.semanticVersion]).includes(semanticVersion))
+    throw bad(
+      "UNKNOWN_SEMANTIC_VERSION",
+      "Semantic version is not in the catalog.",
+      "semanticVersion",
+      `unknown version ${semanticVersion}`,
+    );
+}
+
+/** ch.11: timestamps ordered, UTC, within the accessible source range; threshold metric and unit allowed. */
+async function assertAnchorValid(
+  ctx: CommandContext,
+  cfg: MonitoringConfig,
+  a: MarkerAnchor,
+  selection: SelectionContext | undefined,
+): Promise<"live" | "replay"> {
+  const times =
+    a.kind === "time_range"
+      ? [a.start, a.end]
+      : a.kind === "time_point"
+        ? [a.at]
+        : a.kind === "source_event"
+          ? [a.at]
+          : [];
+  for (const t of times)
+    if (!utc(t))
+      throw bad("NON_UTC_TIMESTAMP", "Marker timestamps must be absolute UTC.", "anchor", `${t} is not UTC`);
+  if (a.kind === "time_range" && Date.parse(a.end) <= Date.parse(a.start))
+    throw bad("INVALID_RANGE", "Range end must be after start.", "anchor", "end <= start");
+  const range = cfg.catalog?.accessibleRange;
+  if (range)
+    for (const t of times)
+      if (Date.parse(t) < Date.parse(range.start) || Date.parse(t) > Date.parse(range.end))
+        throw bad(
+          "OUTSIDE_SOURCE_RANGE",
+          "Timestamp is outside the accessible source range.",
+          "anchor",
+          `${t} outside ${range.start}..${range.end}`,
+        );
+  if (a.kind === "threshold" && cfg.catalog) {
+    const m = cfg.catalog.metrics[a.metricId];
+    if (!m || !Object.hasOwn(cfg.catalog.metrics, a.metricId))
+      throw bad(
+        "UNKNOWN_METRIC",
+        "Metric is not in the semantic catalog.",
+        "anchor.metricId",
+        `unknown metric ${a.metricId}`,
+      );
+    const unit = selection?.axisUnits?.[a.metricId];
+    if (unit !== undefined && unit !== m.unit)
+      throw bad(
+        "UNIT_MISMATCH",
+        "Threshold unit does not match the metric's certified unit.",
+        "anchor",
+        `${unit} != ${m.unit}`,
+      );
+  }
+  if (a.kind === "source_event") {
+    const r = await ctx.tx.query<{ mode: "live" | "replay" }>(
+      "SELECT mode FROM source_watermark_events WHERE source_id = $1 AND watermark = $2 ORDER BY (mode = 'live') DESC LIMIT 1",
+      [a.sourceId, a.at],
+    );
+    if (!r.rows[0])
+      throw bad(
+        "SOURCE_EVENT_NOT_FOUND",
+        "The referenced source event does not exist.",
+        "anchor",
+        "no such watermark",
+      );
+    return r.rows[0].mode;
+  }
+  return "live";
+}
+
+const ALL_AGENTS: readonly string[] = AgentRole.options;
+interface EffectiveScope {
+  agents: readonly string[];
+  /** undefined = unbounded (implicit owner/admin authority); the runtime role allowlists still apply. */
+  grants: readonly string[] | undefined;
+  delegateTo: readonly string[] | undefined;
+  maxBudget: { tokens: number; toolCalls: number; usd: number };
+}
+/**
+ * The assigner's delegation scope. An explicit row always wins. Without one, owners and admins (who grant scopes) hold
+ * implicit root authority; every other writer role has NO authority to spawn agents.
+ */
+async function effectiveScope(ctx: CommandContext): Promise<EffectiveScope> {
+  const r = await ctx.tx.query(
+    "SELECT agents, grants, delegate_to, max_budget FROM delegation_scopes WHERE workspace_id = $1 AND user_id = $2",
+    [ctx.workspace.id, ctx.session.userId],
+  );
+  if (r.rows[0])
+    return {
+      agents: r.rows[0].agents,
+      grants: r.rows[0].grants,
+      delegateTo: r.rows[0].delegate_to,
+      maxBudget: r.rows[0].max_budget,
+    };
+  if (canAdmin(ctx.session.role))
+    return {
+      agents: ALL_AGENTS,
+      grants: undefined,
+      delegateTo: undefined,
+      maxBudget: MARKER_TASK_BUDGET_CAP,
+    };
+  throw new KernelError(
+    "FORBIDDEN",
+    "DELEGATION_SCOPE_REQUIRED",
+    "You have no delegation scope in this workspace.",
+    {
+      nextAction: "Ask a workspace owner to grant a delegation scope.",
+    },
+  );
+}
+
+/** Registers every P06 command on the bus (called by the CommandBus constructor, and again by the Kernel with its config). */
+export function registerMonitoringCommands(bus: CommandBus, cfg: MonitoringConfig = {}): void {
   bus.register("marker.create", {
     handle: async (ctx, payload): Promise<HandlerResult> => {
       const p = parse(MarkerCreatePayload, payload);
       await assertPanelsInWorkspace(ctx, [p.panelId]);
+      const mode = await assertAnchorValid(ctx, cfg, p.anchor, p.selection);
+      if (p.delegateTo !== undefined) {
+        const scope = await effectiveScope(ctx);
+        if (scope.delegateTo !== undefined && !scope.delegateTo.includes(p.delegateTo))
+          throw new KernelError(
+            "FORBIDDEN",
+            "DELEGATION_SCOPE_EXCEEDED",
+            "delegateTo is outside your delegation scope.",
+          );
+      }
       const markerId = p.markerId ?? randomUUID();
       const doc = await ctx.tx.query<{ revision: number }>(
         "SELECT revision FROM canvas_documents WHERE workspace_id = $1 AND branch_id IS NOT DISTINCT FROM $2",
@@ -135,8 +279,8 @@ export function registerMonitoringCommands(bus: CommandBus): void {
       // A marker is only ever created as DRAFT. The selection is stored as context; it never starts an agent (ch.09).
       await ctx.tx.query(
         `INSERT INTO markers(id, org_id, workspace_id, branch_id, panel_id, anchor_json, created_by, question,
-           source_version, selection_json, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'DRAFT')`,
+           source_version, selection_json, status, mode, delegate_to)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'DRAFT',$11,$12)`,
         [
           markerId,
           ctx.workspace.orgId,
@@ -148,11 +292,13 @@ export function registerMonitoringCommands(bus: CommandBus): void {
           p.question ?? null,
           doc.rows[0]?.revision ?? 0,
           p.selection ? JSON.stringify(p.selection) : null,
+          mode,
+          p.delegateTo ?? null,
         ],
       );
       return {
         eventType: "marker.created",
-        data: { markerId, panelId: p.panelId, anchorType: p.anchor.kind, status: "DRAFT" },
+        data: { markerId, panelId: p.panelId, anchorType: p.anchor.kind, status: "DRAFT", mode },
         result: { markerId },
       };
     },
@@ -187,8 +333,41 @@ export function registerMonitoringCommands(bus: CommandBus): void {
           "Agents can only be assigned to an ACTIVE marker.",
           { nextAction: "Activate the marker first." },
         );
-      const budget = p.budget ?? MARKER_TASK_DEFAULT_BUDGET;
-      const cap = MARKER_TASK_BUDGET_CAP;
+      const scope = await effectiveScope(ctx);
+      const agents = [...new Set(p.agents)];
+      const outside = agents.filter((a) => !scope.agents.includes(a));
+      if (outside.length)
+        throw new KernelError(
+          "FORBIDDEN",
+          "DELEGATION_SCOPE_EXCEEDED",
+          "Agent role is outside your delegation scope.",
+          {
+            details: outside.map((a) => ({ path: "agents", issue: `${a} not delegable by you` })),
+          },
+        );
+      // Choice recorded (M12 a): a request for grants beyond the assigner's own is REJECTED, never silently clipped.
+      const requested = p.grants ? [...new Set(p.grants)] : undefined;
+      const extra = requested && scope.grants ? requested.filter((g) => !scope.grants!.includes(g)) : [];
+      if (extra.length)
+        throw new KernelError(
+          "FORBIDDEN",
+          "DELEGATION_EXPANSION_DENIED",
+          "Child grants must be a subset of your own.",
+          {
+            details: extra.map((g) => ({ path: "grants", issue: `${g} not held by the assigner` })),
+          },
+        );
+      const grants = requested ?? [...(scope.grants ?? [])];
+      const budget = p.budget ?? {
+        tokens: Math.min(MARKER_TASK_DEFAULT_BUDGET.tokens, scope.maxBudget.tokens),
+        toolCalls: Math.min(MARKER_TASK_DEFAULT_BUDGET.toolCalls, scope.maxBudget.toolCalls),
+        usd: Math.min(MARKER_TASK_DEFAULT_BUDGET.usd, scope.maxBudget.usd),
+      };
+      const cap = {
+        tokens: Math.min(MARKER_TASK_BUDGET_CAP.tokens, scope.maxBudget.tokens),
+        toolCalls: Math.min(MARKER_TASK_BUDGET_CAP.toolCalls, scope.maxBudget.toolCalls),
+        usd: Math.min(MARKER_TASK_BUDGET_CAP.usd, scope.maxBudget.usd),
+      };
       if (budget.tokens > cap.tokens || budget.toolCalls > cap.toolCalls || budget.usd > cap.usd)
         throw new KernelError(
           "BUDGET_EXCEEDED",
@@ -204,29 +383,51 @@ export function registerMonitoringCommands(bus: CommandBus): void {
           },
         );
       const taskId = randomUUID();
-      const agents = [...new Set(p.agents)];
       await ctx.tx.query(
-        `INSERT INTO marker_tasks(id, org_id, workspace_id, marker_id, origin, mode, agents, budget, requested_by)
-         VALUES ($1,$2,$3,$4,'assign','live',$5,$6,$7)`,
+        `INSERT INTO marker_tasks(id, org_id, workspace_id, marker_id, origin, mode, agents, budget, requested_by, grants)
+         VALUES ($1,$2,$3,$4,'assign',$5,$6,$7,$8,$9)`,
         [
           taskId,
           ctx.workspace.orgId,
           ctx.workspace.id,
           p.markerId,
+          (await ctx.tx.query("SELECT mode FROM markers WHERE id = $1", [p.markerId])).rows[0].mode,
           JSON.stringify(agents),
           JSON.stringify(budget),
           ctx.session.userId,
+          JSON.stringify(grants),
         ],
       );
-      await ctx.tx.query("UPDATE markers SET assigned_agents = $2 WHERE id = $1", [
+      await ctx.tx.query("UPDATE markers SET assigned_agents = $2, reason_code = NULL WHERE id = $1", [
         p.markerId,
         JSON.stringify(agents),
       ]);
-      const t = await transitionMarker(ctx, p.markerId, "INVESTIGATING");
+      const delegationId = randomUUID();
+      await ctx.tx.query(
+        `INSERT INTO marker_delegations(id, org_id, workspace_id, marker_id, task_id, delegator_user_id, agents, grants)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          delegationId,
+          ctx.workspace.orgId,
+          ctx.workspace.id,
+          p.markerId,
+          taskId,
+          ctx.session.userId,
+          JSON.stringify(agents),
+          JSON.stringify(grants),
+        ],
+      );
+      // The marker stays ACTIVE until the dispatcher has durably started the child (then ACTIVE -> INVESTIGATING).
       return {
         eventType: "marker.assigned",
-        data: { markerId: p.markerId, taskId, agents },
-        result: { markerId: p.markerId, taskId, status: t.to },
+        data: {
+          markerId: p.markerId,
+          taskId,
+          agents,
+          origin: "assign",
+          delegation: { delegationId, userId: ctx.session.userId, grants },
+        },
+        result: { markerId: p.markerId, taskId, status: m.status },
       };
     },
   });
@@ -331,6 +532,7 @@ export function registerMonitoringCommands(bus: CommandBus): void {
     handle: async (ctx, payload) => {
       const p = parse(MonitorRuleCreatePayload, payload);
       assertConditionBounds(p.condition);
+      assertCatalogMetrics(cfg, p.condition, p.semanticVersion);
       if (p.markerId) await assertMarkerInWorkspace(ctx, p.markerId);
       if (p.action === "investigate" && !p.markerId)
         throw new KernelError("VALIDATION_FAILED", "MARKER_REQUIRED", "An investigate rule needs a marker.", {
@@ -339,8 +541,9 @@ export function registerMonitoringCommands(bus: CommandBus): void {
       const ruleId = p.ruleId ?? randomUUID();
       await ctx.tx.query(
         `INSERT INTO monitor_rules(id, org_id, workspace_id, name, marker_id, source_id, condition_json,
-           min_interval_seconds, debounce_seconds, cooldown_seconds, action, enabled, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+           min_interval_seconds, debounce_seconds, cooldown_seconds, action, enabled, created_by,
+           semantic_version, data_maturity, max_runs_per_day)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
         [
           ruleId,
           ctx.workspace.orgId,
@@ -355,6 +558,9 @@ export function registerMonitoringCommands(bus: CommandBus): void {
           p.action,
           p.enabled,
           ctx.session.userId,
+          p.semanticVersion ?? cfg.catalog?.semanticVersion ?? null,
+          p.dataMaturity,
+          p.maxRunsPerDay ?? null,
         ],
       );
       if (p.markerId)
@@ -369,7 +575,10 @@ export function registerMonitoringCommands(bus: CommandBus): void {
   bus.register("monitor.rule_update", {
     handle: async (ctx, payload) => {
       const p = parse(MonitorRuleUpdatePayload, payload);
-      if (p.condition) assertConditionBounds(p.condition);
+      if (p.condition) {
+        assertConditionBounds(p.condition);
+        assertCatalogMetrics(cfg, p.condition);
+      }
       await lockRule(ctx, p.ruleId);
       if (p.markerId) await assertMarkerInWorkspace(ctx, p.markerId);
       const r = await ctx.tx.query(
@@ -377,6 +586,8 @@ export function registerMonitoringCommands(bus: CommandBus): void {
                 min_interval_seconds = COALESCE($4, min_interval_seconds), debounce_seconds = COALESCE($5, debounce_seconds),
                 cooldown_seconds = COALESCE($6, cooldown_seconds), action = COALESCE($7, action),
                 marker_id = CASE WHEN $8::boolean THEN $9::uuid ELSE marker_id END,
+                data_maturity = COALESCE($10, data_maturity),
+                max_runs_per_day = CASE WHEN $11::boolean THEN $12::integer ELSE max_runs_per_day END,
                 state_json = CASE WHEN $3::jsonb IS NULL THEN state_json ELSE '{}'::jsonb END,
                 version = version + 1
           WHERE id = $1 RETURNING version, action, marker_id`,
@@ -390,6 +601,9 @@ export function registerMonitoringCommands(bus: CommandBus): void {
           p.action ?? null,
           p.markerId !== undefined,
           p.markerId ?? null,
+          p.dataMaturity ?? null,
+          p.maxRunsPerDay !== undefined,
+          p.maxRunsPerDay ?? null,
         ],
       );
       const row = r.rows[0] as { version: number; action: string; marker_id: string | null };

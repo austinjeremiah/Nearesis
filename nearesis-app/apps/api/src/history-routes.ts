@@ -91,6 +91,87 @@ export const historyRoutes: FastifyPluginAsync<HistoryRoutesOptions> = async (ap
     guard(req, [req.params.id], async (s) => ({ flags: await svc.recheckFlags(s, req.params.id) })),
   );
 
+  app.post<P1>("/v1/workspaces/:id/graph/nodes/data", async (req) =>
+    guard(req, [req.params.id], (s) => {
+      const { body, opts } = mut(req);
+      return svc.graphOps.updateNodeData(s, req.params.id, body, opts);
+    }),
+  );
+  app.post<P1>("/v1/workspaces/:id/graph/corrections", async (req) =>
+    guard(req, [req.params.id], (s) => {
+      const { body, opts } = mut(req);
+      return svc.graphOps.correctNode(s, req.params.id, body, opts);
+    }),
+  );
+  app.post<P1>("/v1/workspaces/:id/graph/restrictions", async (req) =>
+    guard(req, [req.params.id], (s) => {
+      const { body, opts } = mut(req);
+      return svc.graphOps.setRestriction(s, req.params.id, body, opts);
+    }),
+  );
+  /** Read-only impact analysis of a metric's current version, ACL-filtered for the caller. */
+  app.get<{ Params: { id: string; metric: string }; Querystring: { maxDepth?: string } }>(
+    "/v1/workspaces/:id/impact/:metric",
+    async (req) =>
+      guard(req, [req.params.id], (s) =>
+        svc.impact.impact(s, req.params.id, {
+          metricId: req.params.metric,
+          ...(req.query.maxDepth
+            ? { maxDepth: Math.min(Math.max(Number(req.query.maxDepth) || 1, 1), 1000) }
+            : {}),
+        }),
+      ),
+  );
+  app.get<P1>("/v1/workspaces/:id/revalidation", async (req) =>
+    guard(req, [req.params.id], (s) => svc.impact.revalidationStatus(s, req.params.id)),
+  );
+  /** Supported-publication eligibility: unsupported claims are listed apart, with their missing provenance. */
+  app.get<P1>("/v1/workspaces/:id/publication-eligibility", async (req) =>
+    guard(req, [req.params.id], (s) => svc.publicationEligibility(s, req.params.id)),
+  );
+  app.post<P1>("/v1/workspaces/:id/comments", async (req, reply) =>
+    guard(req, [req.params.id], async (s) => {
+      const { body, opts } = mut(req);
+      const r = await svc.reviews.add(s, req.params.id, body, opts);
+      return reply.status(r.replayed ? 200 : 201).send(r);
+    }),
+  );
+  app.get<{ Params: { id: string }; Querystring: { nodeId?: string } }>(
+    "/v1/workspaces/:id/comments",
+    async (req) =>
+      guard(req, [req.params.id, ...(req.query.nodeId ? [req.query.nodeId] : [])], async (s) => ({
+        comments: await svc.reviews.list(s, req.params.id, req.query.nodeId),
+      })),
+  );
+  app.post<P1>("/v1/workspaces/:id/summaries", async (req, reply) =>
+    guard(req, [req.params.id], async (s) => {
+      const { body, opts } = mut(req);
+      const r = await svc.summaries.create(s, req.params.id, body, opts);
+      return reply.status(r.replayed ? 200 : 201).send(r);
+    }),
+  );
+  app.get<P1>("/v1/workspaces/:id/summaries", async (req) =>
+    guard(req, [req.params.id], async (s) => ({ summaries: await svc.summaries.recall(s, req.params.id) })),
+  );
+  app.post<P1>("/v1/workspaces/:id/claims/tier", async (req) =>
+    guard(req, [req.params.id], (s) => {
+      const { body, opts } = mut(req);
+      return svc.summaries.setClaimTier(s, req.params.id, body, opts);
+    }),
+  );
+  app.post<P1>("/v1/workspaces/:id/retention/delete", async (req) =>
+    guard(req, [req.params.id], (s) => {
+      const { body, opts } = mut(req);
+      return svc.retention.deletePayload(s, req.params.id, body, opts);
+    }),
+  );
+  /** Dereference an evidence item: tombstones answer with metadata only; ACL denials answer 404 and are audited. */
+  app.get<{ Params: { id: string; nid: string } }>("/v1/workspaces/:id/evidence/:nid", async (req) =>
+    guard(req, [req.params.id, req.params.nid], (s) =>
+      svc.retention.dereference(s, req.params.id, req.params.nid),
+    ),
+  );
+
   // ---- snapshots / time machine ---------------------------------------------------------------------------------
   app.get<P1>("/v1/workspaces/:id/snapshots", async (req) =>
     guard(req, [req.params.id], async (s) => ({ snapshots: await svc.snapshots.list(s, req.params.id) })),
@@ -131,6 +212,30 @@ export const historyRoutes: FastifyPluginAsync<HistoryRoutesOptions> = async (ap
           Math.min(Math.max(Number(req.query.limit) || 500, 1), 2000),
         ),
       })),
+  );
+
+  /** Event-log reconstruction at a revision (= journal sequence number), and its verifiable export. */
+  app.get<{ Params: { id: string; rev: string } }>("/v1/workspaces/:id/revisions/:rev", async (req) =>
+    guard(req, [req.params.id], async (s) => {
+      const r = await svc.reconstruct.reconstruct(s, req.params.id, Number(req.params.rev));
+      const { objects: _o, ...rest } = r;
+      void _o;
+      return rest;
+    }),
+  );
+  app.get<{ Params: { id: string; rev: string } }>("/v1/workspaces/:id/revisions/:rev/export", async (req) =>
+    guard(req, [req.params.id], (s) => svc.reconstruct.exportFile(s, req.params.id, Number(req.params.rev))),
+  );
+  app.post<P1>("/v1/workspaces/:id/snapshots/purge", async (req) =>
+    guard(req, [req.params.id], (s) => {
+      const { body, opts } = mut(req);
+      return svc.snapshots.purge(s, req.params.id, body, opts);
+    }),
+  );
+  app.get<PB>("/v1/workspaces/:id/branches/:bid/memory", async (req) =>
+    guard(req, [req.params.id, req.params.bid], async (s) => ({
+      items: await svc.branches.memory(s, req.params.id, req.params.bid),
+    })),
   );
 
   // ---- branches and merges --------------------------------------------------------------------------------------
@@ -217,6 +322,9 @@ export const historyRoutes: FastifyPluginAsync<HistoryRoutesOptions> = async (ap
       if (!b.success) throw new KernelError("VALIDATION_FAILED", "INVALID_BODY", "Invalid request body.");
       return svc.collab.applyUpdate(s, req.params.id, scopeOf(req.params.scope), b.data.update);
     }),
+  );
+  app.get<P1>("/v1/workspaces/:id/collab/layout/reconcile", async (req) =>
+    guard(req, [req.params.id], (s) => svc.collab.reconcileLayout(s, req.params.id)),
   );
   app.get<PC>("/v1/workspaces/:id/collab/:scope/presence", async (req) =>
     guard(req, [req.params.id], (s) => svc.collab.listPresence(s, req.params.id, scopeOf(req.params.scope))),

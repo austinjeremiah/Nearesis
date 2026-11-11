@@ -79,7 +79,7 @@ describe("M07 lens across charts", () => {
         .locator(`[data-testid='panel-${r.panelId}'] [data-testid='lens-notice']`)
         .innerText();
     }
-    await page.screenshot({ path: new URL("../shots/m07-lens.png", import.meta.url).pathname });
+    await page.screenshot({ path: new URL("../../test-results/m07-lens.png", import.meta.url).pathname });
     await ctx.close();
 
     const compatible = resolution.panels.filter((r) => r.compatible);

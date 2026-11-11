@@ -71,7 +71,7 @@ describe("M06 replay badge", () => {
       .first()
       .innerText();
     const liveBadgesAll = await page.getByTestId("mode-badge-live").count();
-    const shotPath = new URL("../shots/m06-replay-badge.png", import.meta.url).pathname;
+    const shotPath = new URL("../../test-results/m06-replay-badge.png", import.meta.url).pathname;
     await page.screenshot({ path: shotPath });
 
     const triggers = (
@@ -98,7 +98,7 @@ describe("M06 replay badge", () => {
         liveBadgesTriggers,
         liveBadgesAll,
         triggers,
-        screenshot: "apps/web/test/shots/m06-replay-badge.png",
+        screenshot: "apps/web/test-results/m06-replay-badge.png (untracked)",
       },
     });
   }, 300_000);

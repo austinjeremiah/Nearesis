@@ -11,6 +11,7 @@ import { writeAudit } from "./journal.ts";
 import { grantFingerprint } from "./leases.ts";
 import type { LeaseService } from "./leases.ts";
 import type { PluginManager, ResolvedPlugin } from "./plugins/manager.ts";
+import { egressFetchFor } from "./egress.ts";
 import { redact, redactString } from "./redact.ts";
 import { zodDetails } from "./workspace.ts";
 
@@ -366,7 +367,9 @@ export class KernelToolGateway implements ToolGateway {
           workspaceId: req.workspaceId,
           principal,
           capability: req.capability,
-        }),
+          // ch.12 tool proxy: the only sanctioned way for a plugin to reach the network (allowlist + SSRF filter).
+          egress: egressFetchFor(installation.manifest.networkHosts),
+        } as Parameters<typeof handler>[1]),
       );
       run.catch(() => undefined); // a late rejection after timeout must not be unhandled
       const value = await Promise.race([

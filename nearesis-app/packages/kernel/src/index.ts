@@ -1,5 +1,6 @@
 export * from "./errors.ts";
 export * from "./redact.ts";
+export * from "./egress.ts";
 export * from "./auth.ts";
 export * from "./journal.ts";
 export * from "./workspace.ts";

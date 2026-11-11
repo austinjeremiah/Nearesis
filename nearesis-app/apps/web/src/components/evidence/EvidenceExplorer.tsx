@@ -221,6 +221,23 @@ export function EvidenceExplorer({ workspaceId }: { workspaceId: string }) {
     );
   }, [view, loaded, mode]);
 
+  // Deep link: `?node=<id>` (e.g. a marker's linked evidence) selects and centres that node once it is laid out.
+  const deepLinked = useRef(false);
+  useEffect(() => {
+    if (deepLinked.current || !loaded || !rfNodes.length) return;
+    const want = new URLSearchParams(window.location.search).get("node");
+    if (!want) return;
+    deepLinked.current = true;
+    if (loaded.graph.nodes.some((n) => n.id === want)) {
+      setSelected({ kind: "node", id: want });
+      const n = rfNodes.find((x) => x.id === want);
+      if (n)
+        requestAnimationFrame(
+          () => void rf.current?.setCenter(n.position.x + 90, n.position.y + 30, { zoom: 1.2, duration: 0 }),
+        );
+    }
+  }, [loaded, rfNodes]);
+
   // Fit once per loaded graph, after nodes have positions (fitView on init runs before they exist).
   const fittedFor = useRef<unknown>(null);
   useEffect(() => {

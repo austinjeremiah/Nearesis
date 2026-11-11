@@ -132,6 +132,17 @@ describe("evidence graph explorer", () => {
     await ctx.close();
   }, 300_000);
 
+  it("deep link ?node= selects and inspects that node (marker evidence links)", async () => {
+    const ctx = await loggedIn(env);
+    const { page } = await open(ctx, `/w/${env.workspaceId}/evidence?node=${ids.C2}`, "__evidence");
+    await page.getByTestId("node-inspector").waitFor({ timeout: 30_000 });
+    await expect(page.getByTestId("node-inspector").textContent()).resolves.toContain(
+      "Intents is the better leading indicator",
+    );
+    await expect(page.getByTestId(`list-node-${ids.C2}`).getAttribute("aria-pressed")).resolves.toBe("true");
+    await ctx.close();
+  }, 300_000);
+
   it("dragging a node saves layout only and never changes evidence relations", async () => {
     const before = await a.get<G>("/graph");
     const ctx = await loggedIn(env);

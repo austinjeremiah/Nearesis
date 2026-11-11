@@ -91,6 +91,9 @@ export interface ReportItem {
 }
 export interface GateView {
   gate: string;
+  name: string;
+  planned: number;
+  defined: number;
   passed: number;
   total: number;
   implemented: number;
@@ -137,7 +140,18 @@ export interface State {
     notRun: number;
     implemented: number;
   };
-  milestone: { passed: number; total: number; percent: number; basis: string };
+  milestone: { label: string; passed: number; total: number; percent: number; basis: string };
+  overall: {
+    planned: number;
+    defined: number;
+    implemented: number;
+    passed: number;
+    failed: number;
+    blocked: number;
+    percent: number;
+    gatesPassed: number;
+    gatesTotal: number;
+  };
   latestResults: { testId: string; runId: string; verdict: string; executedAt: string; observed: string }[];
   commits: { sha: string; author: string; date: string; subject: string }[];
   reports: Record<"phase" | "blockers" | "findings" | "decisions" | "tests" | "handoffs", ReportItem[]>;

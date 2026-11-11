@@ -66,7 +66,7 @@ export function testResult(
 
 export function writeIndex(
   p: MonitorPaths,
-  tests: { testId: string; gate: string; status?: string }[],
+  tests: { testId: string; gate: string; status?: string; required?: boolean }[],
 ): void {
   writeJson(p.testIndex, {
     version: 1,

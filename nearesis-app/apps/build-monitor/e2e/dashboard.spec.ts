@@ -13,7 +13,7 @@ import {
 
 const pkgRoot = resolve(import.meta.dirname, "..");
 const shotDir = resolve(pkgRoot, "..", "..", "..", "NEARESIS_Build_Bible", "reports", "TESTS", "MONITOR");
-const PORT = 4491;
+const PORT = Number(process.env.MONITOR_E2E_PORT ?? 4402);
 
 let child: ChildProcess;
 const paths = tempPaths();
@@ -98,13 +98,16 @@ const waitReady = async (page: import("@playwright/test").Page): Promise<void> =
   await expect(page.getByTestId("lede")).toBeVisible({ timeout: 10_000 });
 };
 
-test("phase chart renders 6 gate rows plus 7 greyed rows and updates live on evidence change", async ({
+test("phase chart renders all 13 gate rows (G00-G12) and updates live on evidence change", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1100 });
   await waitReady(page);
-  await expect(page.locator('[data-testid^="phase-row-"]')).toHaveCount(6);
-  await expect(page.locator('[data-testid^="phase-outside-"]')).toHaveCount(7);
+  await expect(page.locator('[data-testid^="phase-row-"]')).toHaveCount(13);
+  await expect(page.locator('[data-testid^="phase-outside-"]')).toHaveCount(0);
+  await expect(page.getByTestId("phase-row-G12")).toContainText("Release");
+  await expect(page.getByTestId("kpi-overall")).toContainText("0 / 222");
+  await expect(page.locator(".tile", { hasText: "P00\u2013P05 milestone" })).toBeVisible();
   const g0 = page.getByTestId("inner-G00");
   await expect(g0).toHaveAttribute("data-passed", "0");
   await expect(page.getByTestId("kpi-passed")).toContainText("0 / 4");

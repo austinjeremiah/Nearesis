@@ -762,6 +762,13 @@ dd {
   border: 1px dotted var(--muted);
   opacity: 0.55;
 }
+.c-def {
+  border: 1px dashed var(--accent);
+  opacity: 0.8;
+}
+.cellkey.c-def {
+  border-width: 1px;
+}
 .cellkey.c-impl {
   border-width: 2px;
 }

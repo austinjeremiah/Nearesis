@@ -12,7 +12,22 @@ import type { z } from "zod";
 import type { CommitInfo } from "./git.ts";
 import type { MonitorPaths } from "./paths.ts";
 
-export const GATES = ["G00", "G01", "G02", "G03", "G04", "G05"] as const;
+export const GATES = [
+  "G00",
+  "G01",
+  "G02",
+  "G03",
+  "G04",
+  "G05",
+  "G06",
+  "G07",
+  "G08",
+  "G09",
+  "G10",
+  "G11",
+  "G12",
+] as const;
+/** Gate order from ch.15 (entry conditions). */
 export const UPSTREAM: Record<string, string[]> = {
   G00: [],
   G01: ["G00"],
@@ -20,7 +35,51 @@ export const UPSTREAM: Record<string, string[]> = {
   G03: ["G02"],
   G04: ["G01", "G03"],
   G05: ["G03", "G04"],
+  G06: ["G04", "G05"],
+  G07: ["G02", "G03", "G04"],
+  G08: ["G05", "G07"],
+  G09: ["G07", "G08"],
+  G10: ["G01", "G02", "G03", "G04", "G05", "G06", "G07", "G08", "G09"],
+  G11: ["G10"],
+  G12: ["G11"],
 };
+export const GATE_NAMES: Record<string, string> = {
+  G00: "Foundation",
+  G01: "Kernel",
+  G02: "Ingestion",
+  G03: "Analytics",
+  G04: "Agents",
+  G05: "Canvas",
+  G06: "Monitoring",
+  G07: "Research",
+  G08: "History",
+  G09: "Verification",
+  G10: "Integration",
+  G11: "Hardening",
+  G12: "Release",
+};
+/**
+ * Planned test counts per gate (ch.15/16/16b): G00-G05 are the 87 required tests of ch.16;
+ * G06 M01-M16, G07 Q01-Q22, G08 W01-W18, G09 V01-V18, G10 B01-B15, G11 SEC01-SEC22 + PERF01-PERF12, G12 N01-N12.
+ */
+export const GATE_PLANNED: Record<string, number> = {
+  G00: 3,
+  G01: 12,
+  G02: 18,
+  G03: 16,
+  G04: 20,
+  G05: 18,
+  G06: 16,
+  G07: 22,
+  G08: 18,
+  G09: 18,
+  G10: 15,
+  G11: 34,
+  G12: 12,
+};
+/** The first six gates form the 87-test P00-P05 milestone and count required tests only. */
+export const MILESTONE_GATES = new Set(["G00", "G01", "G02", "G03", "G04", "G05"]);
+export const MILESTONE_LABEL = "P00\u2013P05";
 export const TOTAL_PHASES = 13;
 export const EVENT_TAIL = 200;
 const DEFAULT_LIMITS = { ENGINE_A: 4, ENGINE_B: 2 } as const;
@@ -133,7 +192,13 @@ export interface TestView {
 }
 export interface GateView {
   gate: string;
+  name: string;
+  /** Planned test count from the chapters (denominator for progress). */
+  planned: number;
+  /** IDs present in the index and counted for this gate. */
+  defined: number;
   passed: number;
+  /** Same as `defined` (kept for existing consumers). */
   total: number;
   implemented: number;
   executed: number;
@@ -351,7 +416,18 @@ export interface State {
     notRun: number;
     implemented: number;
   };
-  milestone: { passed: number; total: number; percent: number; basis: "evidence-based" };
+  milestone: { label: string; passed: number; total: number; percent: number; basis: "evidence-based" };
+  overall: {
+    planned: number;
+    defined: number;
+    implemented: number;
+    passed: number;
+    failed: number;
+    blocked: number;
+    percent: number;
+    gatesPassed: number;
+    gatesTotal: number;
+  };
   latestResults: TestResult[];
   commits: CommitInfo[];
   waiting: WaitingItem[];
@@ -581,7 +657,7 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
       gate: e.gate,
       name: e.name ?? "",
       indexStatus,
-      implemented: hasFiles || indexStatus !== "NOT_IMPLEMENTED",
+      implemented: hasFiles || indexStatus === "IMPLEMENTED",
       latestVerdict: l ? l.res.verdict : "NOT_RUN",
       latestRunId: l ? l.res.runId : null,
       executedAt: l ? l.res.executedAt : null,
@@ -601,6 +677,8 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
 
   // only required tests count toward gates and the milestone; historical ones are display-only
   const req = tests.filter((t) => t.required);
+  // G06+ count every indexed ID, required or not; G00-G05 count required tests only
+  const scoped = tests.filter((t) => (MILESTONE_GATES.has(t.gate) ? t.required : true));
   // ---- gates (upstream-aware)
   const gateIds = [...new Set([...GATES, ...tests.map((t) => t.gate)])];
   const own = new Map<string, boolean>();
@@ -608,7 +686,7 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
   const pass = new Map<string, boolean>();
   const ordered = [...gateIds].sort();
   const ownPass = (g: string): { passed: number; total: number } => {
-    const ts = req.filter((t) => t.gate === g);
+    const ts = scoped.filter((t) => t.gate === g);
     return { passed: ts.filter((t) => t.latestVerdict === "PASS").length, total: ts.length };
   };
   for (const g of ordered)
@@ -616,7 +694,9 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
       g,
       (() => {
         const o = ownPass(g);
-        return o.total > 0 && o.passed === o.total;
+        // later gates cannot pass while planned IDs are still missing from the index
+        const complete = MILESTONE_GATES.has(g) || o.total >= (GATE_PLANNED[g] ?? 0);
+        return o.total > 0 && o.passed === o.total && complete;
       })(),
     );
   const resolveGate = (g: string, seen = new Set<string>()): boolean => {
@@ -630,16 +710,19 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
   };
   for (const g of ordered) {
     const { passed, total } = ownPass(g);
-    const ts = req.filter((t) => t.gate === g);
+    const ts = scoped.filter((t) => t.gate === g);
     const gp = resolveGate(g);
     let verdict: GateView["verdict"];
     if (gp) verdict = "PASS";
     else if (ts.some((t) => t.latestVerdict === "FAIL")) verdict = "FAIL";
     else if (ts.some((t) => t.latestVerdict === "BLOCKED_DEPENDENCY")) verdict = "BLOCKED";
-    else if (total > 0 && passed === total) verdict = "WAITING_UPSTREAM";
+    else if (own.get(g)) verdict = "WAITING_UPSTREAM";
     else verdict = "PENDING";
     gates.push({
       gate: g,
+      name: GATE_NAMES[g] ?? "",
+      planned: GATE_PLANNED[g] ?? total,
+      defined: total,
       passed,
       total,
       implemented: ts.filter((t) => t.implemented).length,
@@ -660,6 +743,8 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
     blocked: gates.filter((g) => g.verdict === "BLOCKED" || g.verdict === "FAIL").map((g) => g.gate),
   };
   const passed = req.filter((t) => t.latestVerdict === "PASS").length;
+  const ms = tests.filter((t) => MILESTONE_GATES.has(t.gate) && t.required);
+  const msPassed = ms.filter((t) => t.latestVerdict === "PASS").length;
   const counts = {
     required: req.length,
     passed,
@@ -669,10 +754,24 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
     implemented: req.filter((t) => t.implemented).length,
   };
   const milestone = {
-    passed,
-    total: req.length,
-    percent: req.length ? Math.round((passed / req.length) * 1000) / 10 : 0,
+    label: MILESTONE_LABEL,
+    passed: msPassed,
+    total: ms.length,
+    percent: ms.length ? Math.round((msPassed / ms.length) * 1000) / 10 : 0,
     basis: "evidence-based" as const,
+  };
+  const plannedAll = gates.reduce((n, g) => n + g.planned, 0);
+  const passedAll = gates.reduce((n, g) => n + g.passed, 0);
+  const overall = {
+    planned: plannedAll,
+    defined: gates.reduce((n, g) => n + g.defined, 0),
+    implemented: gates.reduce((n, g) => n + g.implemented, 0),
+    passed: passedAll,
+    failed: gates.reduce((n, g) => n + g.failed, 0),
+    blocked: gates.reduce((n, g) => n + g.blocked, 0),
+    percent: plannedAll ? Math.round((passedAll / plannedAll) * 1000) / 10 : 0,
+    gatesPassed: completed,
+    gatesTotal: gates.length,
   };
   const latestResults = [...allResults]
     .sort((a, b) => Date.parse(b.executedAt) - Date.parse(a.executedAt))
@@ -755,6 +854,7 @@ export function buildSnapshot(paths: MonitorPaths, now: Date, commits: CommitInf
     phases,
     counts,
     milestone,
+    overall,
     latestResults,
     commits,
     waiting,

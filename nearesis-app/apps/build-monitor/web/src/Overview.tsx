@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { PhaseChart } from "./PhaseChart.tsx";
 import type { AgentView, State, WaitingItem } from "./types.ts";
-import { GATE_NAMES, ageOf, collapseStarts, gatePill, pct, relAge } from "./util.ts";
+import { GATE_NAMES, ageOf, collapseStarts, gateDenom, gatePill, pct, relAge } from "./util.ts";
 
 export interface OverviewProps {
   s: State;
@@ -24,28 +24,44 @@ export function Overview({ s, now, openFile, go }: OverviewProps) {
   return (
     <>
       <p className="lede" data-testid="lede">
-        <b>{s.counts.passed}</b> of <b>{s.counts.required}</b> gate tests have passed at a commit.{" "}
-        <b>{active}</b> agents are active and <b>{stale}</b> are stale. <b>{s.counts.failed}</b>{" "}
+        <b>{s.overall.passed}</b> of <b>{s.overall.planned}</b> planned tests across G00–G12 have passed at a
+        commit; the {s.milestone.label} milestone stands at{" "}
+        <b>
+          {s.milestone.passed} / {s.milestone.total}
+        </b>
+        . <b>{active}</b> agents are active and <b>{stale}</b> are stale. <b>{s.counts.failed}</b>{" "}
         {s.counts.failed === 1 ? "test is" : "tests are"} failing. <b>{s.waiting.length}</b>{" "}
         {s.waiting.length === 1 ? "item is" : "items are"} waiting on you.
       </p>
       <section className="tiles" aria-label="Headline figures">
         <div className="tile">
-          <div className="k">Gate tests passed</div>
+          <div className="k">{s.milestone.label} milestone</div>
           <div className="v" data-testid="kpi-passed">
-            {s.counts.passed} / {s.counts.required}
+            {s.milestone.passed} / {s.milestone.total}
           </div>
           <div className="meter thin">
-            <i style={{ width: `${pct(s.counts.passed, s.counts.required) * 100}%` }} />
+            <i style={{ width: `${pct(s.milestone.passed, s.milestone.total) * 100}%` }} />
           </div>
-          <div className="s">evidence-based, at a commit</div>
+          <div className="s">required tests, evidence-based, at a commit</div>
+        </div>
+        <div className="tile">
+          <div className="k">Overall progress</div>
+          <div className="v" data-testid="kpi-overall">
+            {s.overall.passed} / {s.overall.planned}
+          </div>
+          <div className="meter thin">
+            <i style={{ width: `${pct(s.overall.passed, s.overall.planned) * 100}%` }} />
+          </div>
+          <div className="s" data-testid="kpi-overall-sub">
+            {s.overall.percent}% passed · {s.overall.defined} defined · {s.overall.implemented} implemented
+          </div>
         </div>
         <div className="tile">
           <div className="k">Gates passed</div>
           <div className="v">
             {gatesPassed} / {s.gates.length}
           </div>
-          <div className="s">{s.phases.total} phases total; P06–P12 out of milestone</div>
+          <div className="s">all {s.phases.total} gates, G00–G12</div>
         </div>
         <div className="tile">
           <div className="k">Agents active</div>
@@ -112,12 +128,12 @@ function Stepper({ s, go }: { s: State; go: OverviewProps["go"] }) {
               role="listitem"
               className={`step step-${pill}`}
               onClick={() => go("tests", g.gate)}
-              title={`${g.gate}: ${g.passed}/${g.total} passed. ${g.upstream.length ? `Needs ${g.upstream.join(" + ")}` : "No upstream"}`}
+              title={`${g.gate}: ${g.passed}/${gateDenom(g)} passed (planned ${g.planned}, defined ${g.defined}, implemented ${g.implemented}). ${g.upstream.length ? `Needs ${g.upstream.join(" + ")}` : "No upstream"}`}
             >
               <b>{g.gate}</b>
               <span>{GATE_NAMES[g.gate]}</span>
               <small>
-                {g.passed}/{g.total} · {pill}
+                {g.passed}/{gateDenom(g)} · {pill}
               </small>
               {g.upstream.length > 0 && <em>needs {g.upstream.join(" + ")}</em>}
             </button>

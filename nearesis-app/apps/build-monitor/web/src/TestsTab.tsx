@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { State, TestView } from "./types.ts";
-import { GATE_NAMES, ageOf, gatePill } from "./util.ts";
+import { GATE_NAMES, ageOf, gateDenom, gatePill } from "./util.ts";
 
 export function cellClass(t: TestView): string {
   if (!t.required) return "c-hist";
   if (t.latestVerdict === "PASS") return t.staleEvidence ? "c-pass c-stale" : "c-pass";
   if (t.latestVerdict === "FAIL") return "c-fail";
   if (t.latestVerdict === "BLOCKED_DEPENDENCY") return "c-blocked";
-  return t.implemented ? "c-impl" : "c-none";
+  if (t.implemented) return "c-impl";
+  return t.indexStatus === "DEFINED" ? "c-def" : "c-none";
 }
 
 const VERDICT_FILTERS = ["All", "PASS", "FAIL", "BLOCKED_DEPENDENCY", "NOT_RUN"];
@@ -82,8 +83,12 @@ export function TestsTab({
           implemented, not run
         </span>
         <span>
+          <i className="cellkey c-def" />
+          defined, not implemented
+        </span>
+        <span>
           <i className="cellkey c-none" />
-          not implemented
+          not defined
         </span>
         <span>
           <i className="cellkey c-hist" />
@@ -102,7 +107,10 @@ export function TestsTab({
             <b>{g.gate}</b>
             <span className="muted">{GATE_NAMES[g.gate]}</span>
             <span className={`pill pill-${gatePill(g)}`}>
-              {g.passed}/{g.total}
+              {g.passed}/{gateDenom(g)}
+            </span>
+            <span className="muted" data-testid={`counts-${g.gate}`}>
+              planned {g.planned} · defined {g.defined} · implemented {g.implemented} · passed {g.passed}
             </span>
           </div>
           <div className="cells">
@@ -146,7 +154,11 @@ export function TestsTab({
             {tip.t.executedAt ? ` · ${ageOf(tip.t.executedAt, now)}` : ""}
             {tip.t.latestCommit ? ` · ${tip.t.latestCommit.slice(0, 7)}` : ""}
           </div>
-          {!tip.t.implemented && <div className="muted">not implemented</div>}
+          {!tip.t.implemented && (
+            <div className="muted">
+              {tip.t.indexStatus === "DEFINED" ? "defined, not implemented" : "not implemented"}
+            </div>
+          )}
           {!tip.t.required && (
             <div className="muted">
               historical{tip.t.supersededBy ? `, superseded by ${tip.t.supersededBy}` : ""}

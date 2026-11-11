@@ -20,8 +20,16 @@ export const GATE_NAMES: Record<string, string> = {
   G03: "Analytics",
   G04: "Agents",
   G05: "Canvas",
+  G06: "Monitoring",
+  G07: "Research",
+  G08: "History",
+  G09: "Verification",
+  G10: "Integration",
+  G11: "Hardening",
+  G12: "Release",
 };
-export const OUTSIDE_PHASES = ["P06", "P07", "P08", "P09", "P10", "P11", "P12"];
+/** Denominator for a gate's bars: planned tests, or more if the index holds more. */
+export const gateDenom = (g: GateView): number => Math.max(g.planned, g.defined, 1);
 
 /** Verdict pill for a gate: PASS / PARTIAL / FAIL / BLOCKED / PENDING. */
 export function gatePill(g: GateView): "PASS" | "PARTIAL" | "FAIL" | "BLOCKED" | "PENDING" {

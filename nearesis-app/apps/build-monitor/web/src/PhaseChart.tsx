@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { GateView } from "./types.ts";
-import { GATE_NAMES, OUTSIDE_PHASES, gatePill, pct, useWidth } from "./util.ts";
+import { GATE_NAMES, gateDenom, gatePill, pct, useWidth } from "./util.ts";
 
 const TRACK_H = 24;
 const GRID = [0, 0.25, 0.5, 0.75, 1];
@@ -61,7 +61,7 @@ export function PhaseChart({ gates }: { gates: GateView[] }) {
       >
         {gates.map((g) => {
           const pill = gatePill(g);
-          const bar = (n: number): number => pct(n, g.total) * trackW;
+          const bar = (n: number): number => pct(n, gateDenom(g)) * trackW;
           return (
             <div
               key={g.gate}
@@ -82,7 +82,7 @@ export function PhaseChart({ gates }: { gates: GateView[] }) {
                 ))}
                 <rect x={0} y={2} width={bar(g.implemented)} height={TRACK_H} rx={4} className="b-impl" />
                 <rect x={0} y={7} width={bar(g.executed)} height={TRACK_H - 10} rx={3} className="b-exec" />
-                <g data-testid={`inner-${g.gate}`} data-passed={g.passed} data-total={g.total}>
+                <g data-testid={`inner-${g.gate}`} data-passed={g.passed} data-total={gateDenom(g)}>
                   <rect
                     x={0}
                     y={10}
@@ -114,7 +114,7 @@ export function PhaseChart({ gates }: { gates: GateView[] }) {
               </svg>
               <div className="pmeta">
                 <span className="count">
-                  {g.passed}/{g.total}
+                  {g.passed}/{gateDenom(g)}
                 </span>
                 <span className={`pill pill-${pill}`}>{pill}</span>
                 {g.lockedBy.length > 0 && (
@@ -135,22 +135,6 @@ export function PhaseChart({ gates }: { gates: GateView[] }) {
             </div>
           );
         })}
-        {OUTSIDE_PHASES.map((p) => (
-          <div key={p} className="prow outside" data-testid={`phase-outside-${p}`}>
-            <div className="plabel">
-              <b>{p}</b>
-              {!narrow && <span className="muted"> outside milestone</span>}
-            </div>
-            <svg width={trackW} height={TRACK_H + 4} aria-hidden="true" className="ptrack">
-              {GRID.map((v) => (
-                <line key={v} x1={v * trackW} x2={v * trackW} y1={0} y2={TRACK_H + 4} className="grid" />
-              ))}
-            </svg>
-            <div className="pmeta">
-              <span className="muted">{narrow ? "n/a" : "not in the 87-test milestone"}</span>
-            </div>
-          </div>
-        ))}
         <div className="axis" style={{ marginLeft: narrow ? 52 : 178, width: trackW }}>
           {(narrow ? [0, 0.5, 1] : GRID).map((v) => (
             <span key={v} style={{ left: `${v * 100}%` }}>
@@ -165,7 +149,7 @@ export function PhaseChart({ gates }: { gates: GateView[] }) {
             {tip.g.gate} {GATE_NAMES[tip.g.gate]}
           </b>
           <div>
-            Total {tip.g.total} · implemented {tip.g.implemented}
+            Planned {tip.g.planned} · defined {tip.g.defined} · implemented {tip.g.implemented}
           </div>
           <div>
             Executed {tip.g.executed} · passed {tip.g.passed}
@@ -184,7 +168,8 @@ export function PhaseChart({ gates }: { gates: GateView[] }) {
         <thead>
           <tr>
             <th>Gate</th>
-            <th>Total</th>
+            <th>Planned</th>
+            <th>Defined</th>
             <th>Implemented</th>
             <th>Executed</th>
             <th>Passed</th>
@@ -197,7 +182,8 @@ export function PhaseChart({ gates }: { gates: GateView[] }) {
           {gates.map((g) => (
             <tr key={g.gate}>
               <td>{g.gate}</td>
-              <td>{g.total}</td>
+              <td>{g.planned}</td>
+              <td>{g.defined}</td>
               <td>{g.implemented}</td>
               <td>{g.executed}</td>
               <td>{g.passed}</td>

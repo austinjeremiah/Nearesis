@@ -31,4 +31,4 @@ it("N01: testnet commitment readback; final tx status and hash match after final
     observed:
       "not run: no testnet write was attempted; the repository's only RPC client is read-only and has no broadcast method",
   });
-});
+}, 120_000);

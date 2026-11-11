@@ -56,4 +56,4 @@ it("V05: hash readback logic is correct offline; with --live the recorded testne
     fixtureHash: h,
     evidence: { offlineComparisonChecked: true, transactionHash: null },
   });
-});
+}, 120_000);

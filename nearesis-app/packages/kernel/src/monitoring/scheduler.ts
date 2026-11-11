@@ -39,6 +39,8 @@ export interface SchedulerOptions {
   holder?: string;
   leaseMs?: number;
   batch?: number;
+  /** Maximum workspaces evaluated at once for one event (default 8). */
+  concurrency?: number;
   /**
    * Test seam: awaited after a rule was selected as enabled and before it is locked and evaluated, to exercise the
    * select-then-disable race. Never set in production.
@@ -56,6 +58,7 @@ export class MonitorScheduler {
   readonly holder: string;
   private readonly leaseMs: number;
   private readonly batch: number;
+  private readonly concurrency: number;
   private readonly onRuleSelected: ((ruleId: string) => Promise<void>) | undefined;
   private timer: NodeJS.Timeout | undefined;
   private fence = 0;
@@ -68,6 +71,7 @@ export class MonitorScheduler {
     this.holder = opts.holder ?? `sched-${randomUUID()}`;
     this.leaseMs = opts.leaseMs ?? 15_000;
     this.batch = opts.batch ?? 100;
+    this.concurrency = Math.max(1, opts.concurrency ?? 8);
     this.onRuleSelected = opts.onRuleSelected;
   }
 
@@ -207,9 +211,28 @@ export class MonitorScheduler {
         ),
       )
     ).rows;
-    const out: ProcessResult[] = [];
-    for (const r of rules.filter((x) => !scope.workspaceId || x.workspace_id === scope.workspaceId))
-      out.push(await this.processRule(r, ev));
+    // Rules of different workspaces are independent (each evaluation locks only its own workspace and rule), so they run
+    // concurrently with a bound; rules of one workspace stay sequential in rule order. A 100-rule burst on one source then
+    // costs about (rules per workspace) evaluations of latency instead of all 100 (PERF03).
+    const todo = rules.filter((x) => !scope.workspaceId || x.workspace_id === scope.workspaceId);
+    const byWorkspace = new Map<string, Array<{ i: number; r: RuleRef }>>();
+    todo.forEach((r, i) => {
+      const g = byWorkspace.get(r.workspace_id) ?? [];
+      g.push({ i, r });
+      byWorkspace.set(r.workspace_id, g);
+    });
+    const out: ProcessResult[] = new Array<ProcessResult>(todo.length);
+    const groups = [...byWorkspace.values()];
+    let next = 0;
+    await Promise.all(
+      Array.from({ length: Math.min(this.concurrency, groups.length) }, async () => {
+        for (;;) {
+          const g = groups[next++];
+          if (!g) return;
+          for (const { i, r } of g) out[i] = await this.processRule(r, ev);
+        }
+      }),
+    );
     return out;
   }
 

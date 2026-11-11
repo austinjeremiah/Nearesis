@@ -15,6 +15,9 @@ export const GRAPH_NODE_TYPES = [
   "source",
   "marker",
   "agent",
+  "statistical_result",
+  "claim",
+  "verification_artifact",
 ] as const;
 export type GraphNodeType = (typeof GRAPH_NODE_TYPES)[number];
 
@@ -26,6 +29,12 @@ export interface GraphNode {
   /** Query nodes (canvas panels) carry the query hash the panel renders. */
   queryRef?: string;
   data?: Record<string, unknown>;
+  /** Claims only: whether a non-tombstone supporting evidence path exists. */
+  support?: "supported" | "unsupported" | "contradicted";
+  /** A semantic-version change flagged this node (or something it derives from) for revalidation. */
+  recheckRequired?: boolean;
+  /** Explicit tombstone for a removed or unresolvable endpoint. */
+  tombstone?: boolean;
 }
 export interface GraphEdge {
   id: string;
@@ -82,11 +91,12 @@ export class EvidenceGraphService {
         )
       ).rows[0];
       if (!ws) throw noWorkspaceAccess();
-      return this.project(tx, workspaceId, ws.version, ws.active_branch_id);
+      return this.projectIn(tx, workspaceId, ws.version, ws.active_branch_id);
     });
   }
 
-  private async project(
+  /** Project inside a caller-held tenant transaction (used by snapshots and branch capture). */
+  async projectIn(
     tx: Tx,
     workspaceId: string,
     version: number,
@@ -144,11 +154,37 @@ export class EvidenceGraphService {
       });
     }
 
-    const evNodes = await tx.query<{ id: string; kind: GraphNodeType; label: string; data: object }>(
-      "SELECT id, kind, label, data FROM evidence_nodes WHERE workspace_id = $1 ORDER BY created_at, id",
+    const evNodes = await tx.query<{
+      id: string;
+      kind: GraphNodeType;
+      label: string;
+      data: object;
+      tombstone: boolean;
+    }>(
+      "SELECT id, kind, label, data, tombstone FROM evidence_nodes WHERE workspace_id = $1 ORDER BY created_at, id",
       [workspaceId],
     );
-    for (const n of evNodes.rows) put({ id: n.id, type: n.kind, label: n.label, data: n.data as never });
+    for (const n of evNodes.rows)
+      put({
+        id: n.id,
+        type: n.kind,
+        label: n.label,
+        data: n.data as never,
+        ...(n.tombstone ? { tombstone: true } : {}),
+      });
+    const tombstones = new Set(evNodes.rows.filter((n) => n.tombstone).map((n) => n.id));
+    const flagged = new Set(
+      (
+        await tx.query<{ node_id: string }>(
+          "SELECT DISTINCT node_id FROM evidence_node_flags WHERE workspace_id = $1 AND resolved_at IS NULL",
+          [workspaceId],
+        )
+      ).rows.map((r) => r.node_id),
+    );
+    for (const id of flagged) {
+      const n = nodes.get(id);
+      if (n) n.recheckRequired = true;
+    }
 
     // Runtime agents (A6's schema): read-only, and absent in deployments that have not migrated it.
     try {
@@ -211,6 +247,37 @@ export class EvidenceGraphService {
           relation: e.relation,
           missing,
         });
+    }
+
+    // Unsupported claims are visibly distinguishable: a claim is supported only by a live (non-tombstone) evidence node.
+    const SUPPORT_KINDS = new Set([
+      "statistical_result",
+      "observation",
+      "source",
+      "verification_artifact",
+      "query",
+    ]);
+    const supportOf = (claimId: string, relation: "supports" | "contradicts"): boolean =>
+      edges.some((e) => {
+        if (e.relation !== relation) return false;
+        const other = e.target === claimId ? e.source : e.source === claimId ? e.target : null;
+        if (other === null || tombstones.has(other)) return false;
+        const on = nodes.get(other);
+        return !!on && SUPPORT_KINDS.has(on.type);
+      }) ||
+      (relation === "supports" &&
+        edges.some((e) => {
+          if (e.relation !== "derived_from" || e.source !== claimId || tombstones.has(e.target)) return false;
+          const on = nodes.get(e.target);
+          return !!on && SUPPORT_KINDS.has(on.type);
+        }));
+    for (const n of nodes.values()) {
+      if (n.type !== "claim") continue;
+      n.support = supportOf(n.id, "supports")
+        ? "supported"
+        : supportOf(n.id, "contradicts")
+          ? "contradicted"
+          : "unsupported";
     }
 
     const lay = (

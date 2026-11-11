@@ -313,9 +313,9 @@ describe("P06 monitoring flow", () => {
     await page.keyboard.press("ArrowRight");
     await until(async () => (await page.getByTestId("tab-rules").getAttribute("aria-selected")) === "true");
     expect(await page.evaluate(() => document.activeElement?.getAttribute("data-testid"))).toBe("tab-rules");
-    await page.keyboard.press("End");
+    await page.keyboard.press("End"); // the last tab (Delegation since the delegation-scope view was added)
     await until(
-      async () => (await page.getByTestId("tab-notifications").getAttribute("aria-selected")) === "true",
+      async () => (await page.getByTestId("tab-delegation").getAttribute("aria-selected")) === "true",
     );
     await page.keyboard.press("Home");
     await page.keyboard.press("ArrowRight");

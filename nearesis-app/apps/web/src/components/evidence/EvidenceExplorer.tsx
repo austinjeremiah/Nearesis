@@ -16,7 +16,7 @@ import {
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GraphEdge, GraphNode, GraphProjection } from "@nearesis/contracts";
-import { Badge, Button, EmptyState, HonestyBanner } from "@nearesis/ui";
+import { Badge, EmptyState, HonestyBanner } from "@nearesis/ui";
 import { ApiError, evidenceApi, getJson, historyApi, saveLayout } from "../history/client.ts";
 import {
   applyFilter,

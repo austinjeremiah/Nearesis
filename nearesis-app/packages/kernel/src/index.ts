@@ -32,3 +32,4 @@ export {
 } from "./monitoring/commands.ts";
 export * from "./monitoring/tasks.ts";
 export { outsideConfinement as unconfined } from "./plugins/confine.ts";
+export * from "./mcp-policy.ts";

@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { InferenceProvider } from "@nearesis/contracts";
 import type pg from "pg";
+import { containsSecretShape, scrubSecretShapes } from "@nearesis/kernel";
 import { runExternalEffect } from "./ledger.ts";
 import { usdForTokens, type Supervisor } from "./supervisor.ts";
 
@@ -54,7 +55,16 @@ export class LedgerInference {
           idempotencyKey: a.key,
           maxTokens: a.maxTokens ?? 2000,
         });
-        return { output: r.output as unknown, usage: r.usage, provider: r.provider, model: r.model };
+        // ch.12: a model response is untrusted. Credential shapes (plain, base64, split by invisible characters) are
+        // scrubbed BEFORE the durable record is written, so neither the ledger nor any later replay can carry them.
+        const secretsRedacted = containsSecretShape(r.output);
+        return {
+          output: scrubSecretShapes(r.output) as unknown,
+          usage: r.usage,
+          provider: r.provider,
+          model: r.model,
+          secretsRedacted,
+        };
       },
       { signal: c.signal },
     );

@@ -1408,7 +1408,8 @@
       "owner": "ENGINE_A",
       "definition": "ch16",
       "testFiles": [
-        "apps/api/test/acceptance/M06.accept.test.ts"
+        "apps/api/test/acceptance/M06.accept.test.ts",
+        "apps/web/test/acceptance/M06.accept.test.ts"
       ],
       "live": false,
       "status": "IMPLEMENTED",
@@ -1422,9 +1423,11 @@
       "passCondition": "compatible date range filters all linked panels",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "apps/web/test/acceptance/M07.accept.test.ts"
+      ],
       "live": false,
-      "status": "UNIMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": false
     },
     {
@@ -1666,6 +1669,138 @@
       "live": false,
       "status": "IMPLEMENTED",
       "required": false
+    },
+    {
+      "testId": "SEC01",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Prompt injection with JWT exfiltration request",
+      "passCondition": "0 secret disclosure/tool escalation",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [
+        "tests/security/SEC01.accept.test.ts"
+      ],
+      "live": false,
+      "status": "IMPLEMENTED",
+      "required": true
+    },
+    {
+      "testId": "SEC02",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "SSRF into metadata address",
+      "passCondition": "blocked before outbound connection",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "UNIMPLEMENTED",
+      "required": true
+    },
+    {
+      "testId": "SEC03",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "RLS fuzz tenant IDs",
+      "passCondition": "no foreign workspace result",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "UNIMPLEMENTED",
+      "required": true
+    },
+    {
+      "testId": "SEC04",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Mainnet action without approval",
+      "passCondition": "0 chain writes",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "UNIMPLEMENTED",
+      "required": true
+    },
+    {
+      "testId": "SEC05",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Dependency/credential scan",
+      "passCondition": "no critical unmitigated finding or secret",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "UNIMPLEMENTED",
+      "required": true
+    },
+    {
+      "testId": "SEC06",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Read-only sandbox escape attempt",
+      "passCondition": "no host FS/privileged network access",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "UNIMPLEMENTED",
+      "required": true
+    },
+    {
+      "testId": "PERF01",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Cached query under parallel load",
+      "passCondition": "measured p95 under SLO with environment recorded",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "UNIMPLEMENTED",
+      "required": true
+    },
+    {
+      "testId": "PERF02",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "50-panel canvas",
+      "passCondition": "bounded memory, responsive input; no long main thread block",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "UNIMPLEMENTED",
+      "required": true
+    },
+    {
+      "testId": "PERF03",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "100 monitor rules storm",
+      "passCondition": "no duplicate tasks and bounded queues",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "UNIMPLEMENTED",
+      "required": true
+    },
+    {
+      "testId": "PERF04",
+      "gate": "G11",
+      "phase": "P11",
+      "name": "Backup/restore",
+      "passCondition": "data reconciliation and outbox replay consistent",
+      "owner": "ENGINE_A",
+      "definition": "ch16",
+      "testFiles": [],
+      "live": false,
+      "status": "UNIMPLEMENTED",
+      "required": true
     }
   ]
 }

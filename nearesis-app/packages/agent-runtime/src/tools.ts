@@ -3,6 +3,7 @@ import { z } from "zod";
 import { SemanticQuery } from "@nearesis/contracts";
 import type { ExecutionRequest, ExecutionResponse, Principal, ToolGateway } from "@nearesis/contracts";
 import type pg from "pg";
+import { REDACTED, containsSecretShape } from "@nearesis/kernel";
 import { AgentRuntimeError } from "./errors.ts";
 import { hashOf } from "./canonical.ts";
 import { withTenant } from "./tenant.ts";
@@ -220,6 +221,22 @@ export class AgentToolClient {
         tool,
         reasonCode: "TOOL_INPUT_INVALID",
         detail: "input failed schema; not executed",
+      };
+    }
+    // ch.12 exfiltration guard: a tool input may not carry a credential (or the marker left where one was scrubbed from
+    // the model output). Reason and audit never contain the value.
+    if (containsSecretShape(parsed.data) || JSON.stringify(parsed.data).includes(REDACTED)) {
+      await c.audit.write({
+        ...base,
+        kind: "tool.rejected",
+        reasonCode: "SECRET_IN_TOOL_INPUT",
+        detail: { tool },
+      });
+      return {
+        ok: false,
+        tool,
+        reasonCode: "SECRET_IN_TOOL_INPUT",
+        detail: "input carried credential-shaped content; not executed",
       };
     }
     await c.meter.consume({

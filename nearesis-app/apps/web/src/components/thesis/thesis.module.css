@@ -350,3 +350,27 @@
 .field input {
   min-width: 10.5rem;
 }
+/* Narrow viewports: grid tracks may shrink below their content; long hashes and cells wrap instead of widening the page. */
+.page,
+.section,
+.head,
+.card {
+  grid-template-columns: minmax(0, 1fr);
+}
+.table td,
+.table th {
+  overflow-wrap: anywhere;
+}
+.list,
+.tree > * {
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .table {
+    display: block;
+    overflow-x: auto;
+  }
+  .question {
+    font-size: var(--text-xl);
+  }
+}

@@ -4,7 +4,8 @@
  * verified. Not a defined acceptance ID: results are reported as browser-test results only.
  */
 import { createHash } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CapsuleResponseRecord } from "@nearesis/contracts";
 import { API_PORT, BASE, type Env, loggedIn, open, startEnv, WEB_DIR } from "../thesis/harness.ts";
@@ -108,6 +109,35 @@ describe("research capsule viewer (live capsule API)", () => {
     await page.screenshot({ path: `${OUT}/capsule-viewer-live.png`, fullPage: true });
     await ctx.close();
   }, 600_000);
+
+  it("fits a 375px viewport without horizontal page scroll", async () => {
+    if (!existsSync(join(env.files.capsuleDir, "cap-synthetic-2026-11-10", "manifest.json")))
+      env.buildCapsule();
+    const ctx = await loggedIn(env);
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto(`${BASE}/w/${env.workspaceId}/capsule?id=cap-synthetic-2026-11-10`);
+    await page.waitForFunction(
+      () => (window as unknown as { __capsule?: { ready?: boolean } }).__capsule?.ready === true,
+      null,
+      { timeout: 180_000 },
+    );
+    await page.getByTestId("proof-outlayer").waitFor();
+    const r = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      wide: [...document.querySelectorAll("body *")]
+        .filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1)
+        .slice(0, 5)
+        .map(
+          (e) =>
+            `${e.tagName.toLowerCase()}.${(e.getAttribute("class") ?? "").split(" ")[0]} ${Math.round(e.getBoundingClientRect().right)}`,
+        ),
+    }));
+    await page.screenshot({ path: `${OUT}/capsule-375.png`, fullPage: true });
+    expect(r.wide, JSON.stringify(r)).toEqual([]);
+    expect(r.scrollWidth).toBeLessThanOrEqual(375);
+    await ctx.close();
+  }, 300_000);
 
   it("refuses unknown capsules and traversal through the BFF", async () => {
     const ctx = await loggedIn(env);

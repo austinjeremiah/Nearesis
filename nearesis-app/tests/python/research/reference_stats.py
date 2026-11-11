@@ -43,3 +43,49 @@ def dm_reference(d: list[float], max_lags: int) -> dict:
     nu = n - 1
     p = float(betainc(nu / 2.0, 0.5, nu / (nu + t * t)))
     return {"statistic": t, "p_value": p, "variance": v}
+
+
+def dm_candidate_reference(d: list[float], cand: dict, rho_clip: float, andrews_const: float, horizon: int = 1) -> dict:
+    """Independent plain-loop reference for the amendment-001 candidates (written from the amendment text only; production
+    code never imports this module). Student-t tail through the regularised incomplete beta."""
+    n = len(d)
+    dbar = sum(d) / n
+    c = [x - dbar for x in d]
+
+    def rho_of(c):
+        num = sum(c[t] * c[t - 1] for t in range(1, len(c)))
+        den = sum(c[t - 1] ** 2 for t in range(1, len(c)))
+        r = num / den if den > 0 else 0.0
+        return max(-rho_clip, min(rho_clip, r))
+
+    rule = cand["lag"]
+    if rule["rule"] == "fixed":
+        lag = rule["value"]
+    elif rule["rule"] == "nw94":
+        lag = math.floor(4 * (n / 100) ** (2 / 9))
+    else:
+        r = rho_of(c)
+        a1 = 4 * r * r / ((1 - r) ** 2 * (1 + r) ** 2)
+        lag = min(math.floor(andrews_const * (a1 * n) ** (1 / 3)), n - 2)
+
+    def lrv(x, divisor):
+        def g(k):
+            return sum(x[t] * x[t - k] for t in range(k, len(x))) / divisor
+
+        v = g(0)
+        for k in range(1, lag + 1):
+            v += 2 * (1 - k / (lag + 1)) * g(k)
+        return v
+
+    if cand["prewhiten"]:
+        r = rho_of(c)
+        u = [c[t] - r * c[t - 1] for t in range(1, n)]
+        v = lrv(u, n - 1) / (1 - r) ** 2
+    else:
+        v = lrv(c, n)
+    t = dbar / math.sqrt(v / n)
+    if cand["hln"]:
+        h = horizon
+        t *= math.sqrt((n + 1 - 2 * h + h * (h - 1) / n) / n)
+    nu = n - 1
+    return {"statistic": t, "p_value": float(betainc(nu / 2.0, 0.5, nu / (nu + t * t))), "variance": v, "lag": lag}

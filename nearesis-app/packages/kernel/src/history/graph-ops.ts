@@ -5,6 +5,7 @@ import {
   SemanticVersionChangeRequest,
   SetNodeRestrictionRequest,
   UpdateNodeDataRequest,
+  CorrectNodeRequest,
 } from "@nearesis/contracts";
 import type { Tx } from "../db/pool.ts";
 import { KernelError } from "../errors.ts";
@@ -164,7 +165,12 @@ export class GraphOps {
         );
         return {
           eventType: p.kind === "claim" ? "claim.updated" : "evidence.verified",
-          data: { change: "graph.node_added", nodeId: id, kind: p.kind },
+          data: {
+            change: "graph.node_added",
+            nodeId: id,
+            kind: p.kind,
+            node: { kind: p.kind, label: p.label, data: p.data, semanticPins: p.semanticPins },
+          },
           result: { nodeId: id },
         };
       },
@@ -243,7 +249,18 @@ export class GraphOps {
         }
         return {
           eventType: "evidence.verified",
-          data: { change: "graph.edge_added", edgeId, relation: p.relation, tombstoned },
+          data: {
+            change: "graph.edge_added",
+            edgeId,
+            relation: p.relation,
+            tombstoned,
+            edge: { from: p.from, to: p.to, relation: p.relation, reason: p.reason ?? null },
+            tombstones: tombstoned.map((id) => ({
+              id,
+              kind: p.tombstoneKind,
+              reason: p.tombstoneReason ?? null,
+            })),
+          },
           result: { edgeId, tombstoned },
         };
       },
@@ -303,9 +320,59 @@ export class GraphOps {
             change: "graph.node_data_updated",
             nodeId: p.nodeId,
             keys: Object.keys(p.data),
+            patch: p.data,
             reason: p.reason ?? null,
           },
           result: { nodeId: p.nodeId, keys: Object.keys(p.data) },
+        };
+      },
+    });
+  }
+
+  /**
+   * Compensating correction: updates the node and records a new event that references the event it corrects. The
+   * original event is never touched (journal is append-only for the application role).
+   */
+  async correctNode(session: Session, workspaceId: string, body: unknown, opts: CommandOpts = {}) {
+    const p = parseBody(CorrectNodeRequest, body);
+    return this.runner.run(session, workspaceId, {
+      commandType: "graph.correct_node",
+      commandId: p.commandId,
+      idempotencyKey: opts.idempotencyKey,
+      expectedVersion: p.expectedVersion,
+      payload: p,
+      handle: async (ctx) => {
+        const orig = (
+          await ctx.tx.query(
+            "SELECT event_type, payload_hash FROM workspace_events WHERE workspace_id = $1 AND seq = $2",
+            [ctx.workspace.id, p.correctsSeq],
+          )
+        ).rows[0];
+        if (!orig) throw new KernelError("NOT_FOUND", "EVENT_NOT_FOUND", "No such event to correct.");
+        const cur = (
+          await ctx.tx.query<{ label: string; data: Record<string, unknown>; tombstone: boolean }>(
+            "SELECT label, data, tombstone FROM evidence_nodes WHERE id = $1 AND workspace_id = $2 FOR UPDATE",
+            [p.nodeId, ctx.workspace.id],
+          )
+        ).rows[0];
+        if (!cur) throw new KernelError("NOT_FOUND", "NODE_NOT_FOUND", "No such evidence node.");
+        const label = p.label ?? cur.label;
+        const data = p.data ? { ...cur.data, ...p.data } : cur.data;
+        await ctx.tx.query("UPDATE evidence_nodes SET label = $2, data = $3 WHERE id = $1", [
+          p.nodeId,
+          label,
+          JSON.stringify(data),
+        ]);
+        return {
+          eventType: "claim.updated",
+          data: {
+            change: "graph.correction",
+            nodeId: p.nodeId,
+            corrects: { seq: p.correctsSeq, eventType: orig.event_type, payloadHash: orig.payload_hash },
+            patch: { ...(p.label ? { label: p.label } : {}), ...(p.data ? { data: p.data } : {}) },
+            reason: p.reason,
+          },
+          result: { nodeId: p.nodeId, correctsSeq: p.correctsSeq },
         };
       },
     });

@@ -1,6 +1,7 @@
 import { canonicalJson, sha256Hex } from "@nearesis/plugin-sdk";
 import type { CanvasDocument, DataVintage, GraphProjection, ObjectChange } from "@nearesis/contracts";
-import { CreateSnapshotRequest } from "@nearesis/contracts";
+import { CreateSnapshotRequest, PurgeSnapshotRequest } from "@nearesis/contracts";
+import { canAdmin } from "../auth.ts";
 import type { Session } from "../auth.ts";
 import type { CanvasService } from "../canvas.ts";
 import type { Db, Tx } from "../db/pool.ts";
@@ -8,6 +9,8 @@ import { KernelError } from "../errors.ts";
 import type { EvidenceGraphService } from "../graph.ts";
 import { noWorkspaceAccess } from "../workspace.ts";
 import { HistoryRunner, idFor, parseBody } from "./runner.ts";
+import { capturePanelResults, panelResultsHash, panelCacheKey } from "./pinned.ts";
+import type { PanelExecutor, PanelResults } from "./pinned.ts";
 import type { CommandOpts } from "./graph-ops.ts";
 
 export type ObjectMap = Record<string, unknown>;
@@ -93,6 +96,20 @@ export interface SnapshotPayload {
   /** Layout is stored beside, never inside, the evidence semantics. */
   layout: Record<string, { x: number; y: number }>;
   objects: ObjectMap;
+  /** Results captured at finalization for data-pinned snapshots (W10). Part of the content hash when present. */
+  panelResults?: PanelResults;
+}
+
+/** Content hash of a snapshot: semantic content only (never capture time), plus captured panel results when present. */
+export function snapshotContentHash(payload: SnapshotPayload, semanticPins: Record<string, string>): string {
+  const base = {
+    objects: payload.objects,
+    canvas: { ...payload.canvas, updatedAt: undefined },
+    semanticPins,
+  };
+  return hashOf(
+    payload.panelResults ? { ...base, panelResults: panelResultsHash(payload.panelResults) } : base,
+  );
 }
 
 export interface SnapshotRow {
@@ -146,7 +163,12 @@ export class SnapshotOps {
   }
 
   /** Capture workspace state, pin data and semantic versions. Immutable once written. */
-  async create(session: Session, workspaceId: string, body: unknown, opts: CommandOpts = {}) {
+  async create(
+    session: Session,
+    workspaceId: string,
+    body: unknown,
+    opts: CommandOpts & { executor?: PanelExecutor } = {},
+  ) {
     const p = parseBody(CreateSnapshotRequest, body);
     return this.runner.run(session, workspaceId, {
       commandType: "snapshot.create",
@@ -191,6 +213,16 @@ export class SnapshotOps {
         const objects = await captureLiveObjects(tx, workspace.id, branchId);
         const payload: SnapshotPayload = { canvas, graph: graphProj, layout, objects };
         const semanticPins = await currentSemanticVersions(tx, workspace.id);
+        if (opts.executor) {
+          // A data-pinned snapshot needs a watermark for every source its panels read; nothing is filled with now().
+          payload.panelResults = await capturePanelResults(
+            opts.executor,
+            canvas.panels,
+            p.sourceSnapshot?.watermark ?? null,
+            semanticPins,
+            p.sourceSnapshot?.manifestHash ?? null,
+          );
+        }
         const vintage: DataVintage = {
           capturedAt: new Date().toISOString(),
           workspaceVersion: workspace.version,
@@ -201,7 +233,7 @@ export class SnapshotOps {
           semanticPins,
         };
         // The hash covers the semantic content only (not capture time), so identical state hashes identically.
-        const contentHash = hashOf({ objects, canvas: { ...canvas, updatedAt: undefined }, semanticPins });
+        const contentHash = snapshotContentHash(payload, semanticPins);
         await tx.query(
           `INSERT INTO history_snapshots(id, org_id, workspace_id, branch_id, label, event_seq, workspace_version,
              document_revision, data_revision, content_hash, payload, data_vintage, created_by)
@@ -242,6 +274,47 @@ export class SnapshotOps {
     });
   }
 
+  private need(p: SnapshotPayload | null): SnapshotPayload {
+    if (!p)
+      throw new KernelError(
+        "NOT_FOUND",
+        "VINTAGE_UNAVAILABLE",
+        "This snapshot's payload was removed by a retention purge.",
+      );
+    return p;
+  }
+
+  /** Retention purge: payload removed, identity and content hash kept, never silently replaced by anything else. */
+  async purge(session: Session, workspaceId: string, body: unknown, opts: CommandOpts = {}) {
+    const p = parseBody(PurgeSnapshotRequest, body);
+    return this.runner.run(session, workspaceId, {
+      commandType: "snapshot.purge",
+      commandId: p.commandId,
+      idempotencyKey: opts.idempotencyKey,
+      expectedVersion: p.expectedVersion,
+      payload: p,
+      handle: async (ctx) => {
+        if (!canAdmin(ctx.session.role))
+          throw new KernelError(
+            "FORBIDDEN",
+            "INSUFFICIENT_ROLE",
+            "Only an owner or admin may purge a snapshot.",
+          );
+        const r = await ctx.tx.query(
+          `UPDATE history_snapshots SET payload = NULL, purged_at = now(), purge_reason = $3
+            WHERE id = $1 AND workspace_id = $2 AND payload IS NOT NULL`,
+          [p.snapshotId, ctx.workspace.id, p.reason],
+        );
+        if (!r.rowCount) throw new KernelError("NOT_FOUND", "SNAPSHOT_NOT_FOUND", "No purgeable snapshot.");
+        return {
+          eventType: "workspace.updated",
+          data: { change: "snapshot.purged", snapshotId: p.snapshotId, reason: p.reason },
+          result: { snapshotId: p.snapshotId, purged: true },
+        };
+      },
+    });
+  }
+
   private async assertWorkspace(tx: Tx, workspaceId: string): Promise<{ version: number }> {
     const w = (await tx.query("SELECT version FROM workspaces WHERE id = $1", [workspaceId])).rows[0];
     if (!w) throw noWorkspaceAccess();
@@ -259,7 +332,8 @@ export class SnapshotOps {
     if (!r) throw noWorkspaceAccess();
     return {
       row: rowToSummary(r),
-      payload: r.payload as SnapshotPayload,
+      /** Null once a retention purge removed the payload; the identity and content hash remain. */
+      payload: (r.payload ?? null) as SnapshotPayload | null,
       documentRevision: r.document_revision as number,
     };
   }
@@ -297,13 +371,10 @@ export class SnapshotOps {
   ) {
     return this.db.tx(this.tenant(session), async (tx) => {
       await this.assertWorkspace(tx, workspaceId);
-      const { row, payload } = await this.load(tx, workspaceId, snapshotId);
+      const { row, payload: p0 } = await this.load(tx, workspaceId, snapshotId);
+      const payload = this.need(p0);
       const meta = await this.label(tx, workspaceId, row);
-      const verified = hashOf({
-        objects: payload.objects,
-        canvas: { ...payload.canvas, updatedAt: undefined },
-        semanticPins: row.dataVintage.semanticPins,
-      });
+      const verified = snapshotContentHash(payload, row.dataVintage.semanticPins);
       const body: Partial<SnapshotPayload> =
         part === "canvas"
           ? { canvas: payload.canvas }
@@ -321,6 +392,8 @@ export class SnapshotOps {
       await this.assertWorkspace(tx, workspaceId);
       const x = await this.load(tx, workspaceId, a);
       const y = await this.load(tx, workspaceId, b);
+      this.need(x.payload);
+      this.need(y.payload);
       const pins = new Set([
         ...Object.keys(x.row.dataVintage.semanticPins),
         ...Object.keys(y.row.dataVintage.semanticPins),
@@ -335,10 +408,78 @@ export class SnapshotOps {
       return {
         from: a,
         to: b,
-        changes: diffObjects(x.payload.objects, y.payload.objects),
+        changes: diffObjects(x.payload!.objects, y.payload!.objects),
         documentRevision: { from: x.documentRevision, to: y.documentRevision },
         semanticPinChanges,
       };
+    });
+  }
+
+  /**
+   * Execute every panel of a finalized snapshot against its pinned watermark and semantic versions (never against live
+   * data) and compare with what was captured at finalization.
+   */
+  async executePinned(session: Session, workspaceId: string, snapshotId: string, executor: PanelExecutor) {
+    const { row, payload } = await this.db.tx(this.tenant(session), async (tx) => {
+      await this.assertWorkspace(tx, workspaceId);
+      return this.load(tx, workspaceId, snapshotId);
+    });
+    if (!payload)
+      throw new KernelError("NOT_FOUND", "VINTAGE_UNAVAILABLE", "Snapshot payload is unavailable.");
+    const pin = {
+      watermark: row.dataVintage.sourceSnapshot?.watermark ?? null,
+      semanticVersions: row.dataVintage.semanticPins,
+    };
+    const captured = payload.panelResults ?? {};
+    const out = [];
+    for (const panel of payload.canvas.panels) {
+      const result = await executor.execute(panel, pin);
+      const resultHash = hashOf(result);
+      out.push({
+        panelId: panel.panelId,
+        result,
+        resultHash,
+        capturedHash: captured[panel.panelId]?.resultHash ?? null,
+        byteEqualToCaptured: captured[panel.panelId]?.resultHash === resultHash,
+        metadata: {
+          snapshotId,
+          pinnedSemanticVersions: pin.semanticVersions,
+          watermark: pin.watermark,
+          cacheKey: panelCacheKey(panel.queryRef.hash, pin.semanticVersions, row.dataVintage.sourceSnapshot),
+        },
+      });
+    }
+    return out;
+  }
+
+  /** Execute the live canvas (current watermark, current semantic versions) for comparison with pinned results. */
+  async executeLive(session: Session, workspaceId: string, executor: PanelExecutor) {
+    return this.db.tx(this.tenant(session), async (tx) => {
+      const ws = (
+        await tx.query<{ active_branch_id: string | null }>(
+          "SELECT active_branch_id FROM workspaces WHERE id = $1",
+          [workspaceId],
+        )
+      ).rows[0];
+      if (!ws) throw noWorkspaceAccess();
+      const doc = await this.canvas.load(tx, workspaceId, ws.active_branch_id!);
+      const versions = await currentSemanticVersions(tx, workspaceId);
+      const out = [];
+      for (const panel of doc?.panels ?? []) {
+        const result = await executor.execute(panel, { watermark: null, semanticVersions: versions });
+        out.push({
+          panelId: panel.panelId,
+          result,
+          resultHash: hashOf(result),
+          metadata: {
+            snapshotId: null,
+            pinnedSemanticVersions: versions,
+            watermark: null,
+            cacheKey: panelCacheKey(panel.queryRef.hash, versions, null),
+          },
+        });
+      }
+      return out;
     });
   }
 
@@ -348,12 +489,28 @@ export class SnapshotOps {
       await this.assertWorkspace(tx, workspaceId);
       const entries: Array<Record<string, unknown>> = [];
       const ev = await tx.query(
-        `SELECT seq, event_type, actor_id, occurred_at, payload FROM workspace_events
+        `SELECT seq, event_type, actor_id, actor_kind, occurred_at, payload FROM workspace_events
           WHERE workspace_id = $1 ORDER BY seq DESC LIMIT $2`,
         [workspaceId, limit],
       );
+      // Attribution for entries that come from tables rather than events: the event that created them says who did.
+      const kindOf = new Map<string, string>();
+      for (const e of ev.rows) {
+        const pl = (e.payload ?? {}) as Record<string, unknown>;
+        const ch = String(pl.change ?? "");
+        if (e.event_type === "snapshot.finalized" && pl.snapshotId)
+          kindOf.set(`snap:${pl.snapshotId}`, e.actor_kind);
+        else if (ch === "branch.created") kindOf.set(`branch:${pl.branchId}`, e.actor_kind);
+        else if (ch === "merge.proposed") kindOf.set(`merge:${pl.proposalId}:proposed`, e.actor_kind);
+        else if (ch === "merge.accepted" || ch === "merge.rejected")
+          kindOf.set(`merge:${pl.proposalId}:decided`, e.actor_kind);
+        else if (ch === "graph.semantic_version_changed")
+          kindOf.set(`semver:${pl.metricId}:${pl.toVersion}`, e.actor_kind);
+      }
+      const kind = (k: string): string => kindOf.get(k) ?? "human";
       for (const e of ev.rows)
         entries.push({
+          actorKind: e.actor_kind,
           at: new Date(e.occurred_at).toISOString(),
           seq: e.seq,
           kind: "event",
@@ -370,6 +527,7 @@ export class SnapshotOps {
       );
       for (const s of sn.rows)
         entries.push({
+          actorKind: kind(`snap:${s.id}`),
           at: new Date(s.created_at).toISOString(),
           seq: s.event_seq,
           kind: "snapshot",
@@ -385,6 +543,7 @@ export class SnapshotOps {
       );
       for (const b of br.rows)
         entries.push({
+          actorKind: kind(`branch:${b.branch_id}`),
           at: new Date(b.created_at).toISOString(),
           seq: null,
           kind: "branch",
@@ -400,6 +559,7 @@ export class SnapshotOps {
       );
       for (const m of mp.rows) {
         entries.push({
+          actorKind: kind(`merge:${m.id}:proposed`),
           at: new Date(m.created_at).toISOString(),
           seq: null,
           kind: "merge",
@@ -411,6 +571,7 @@ export class SnapshotOps {
         });
         if (m.decided_at)
           entries.push({
+            actorKind: kind(`merge:${m.id}:decided`),
             at: new Date(m.decided_at).toISOString(),
             seq: null,
             kind: "merge",
@@ -427,6 +588,7 @@ export class SnapshotOps {
       );
       for (const v of sv.rows)
         entries.push({
+          actorKind: kind(`semver:${v.metric_id}:${v.version}`),
           at: new Date(v.changed_at).toISOString(),
           seq: null,
           kind: "semantic_version",

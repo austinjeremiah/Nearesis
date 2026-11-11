@@ -90,6 +90,26 @@ export const SetNodeRestrictionRequest = z.strictObject({
 });
 export type SetNodeRestrictionRequest = z.infer<typeof SetNodeRestrictionRequest>;
 
+/** A correction never rewrites history: it appends a compensating event that references the original event. */
+export const CorrectNodeRequest = z.strictObject({
+  ...CommandMeta,
+  nodeId: Uuid,
+  /** Sequence number of the journal event being corrected. */
+  correctsSeq: z.number().int().positive(),
+  label: z.string().min(1).max(500).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
+  reason: z.string().min(1).max(1000),
+});
+export type CorrectNodeRequest = z.infer<typeof CorrectNodeRequest>;
+
+/** Retention purge of a snapshot payload (identity and content hash stay). Owner/admin only. */
+export const PurgeSnapshotRequest = z.strictObject({
+  ...CommandMeta,
+  snapshotId: Uuid,
+  reason: z.string().min(1).max(500),
+});
+export type PurgeSnapshotRequest = z.infer<typeof PurgeSnapshotRequest>;
+
 export const DataVintage = z.strictObject({
   capturedAt: IsoDateTime,
   workspaceVersion: z.number().int().nonnegative(),
@@ -255,10 +275,19 @@ export const TimelineEntry = z.strictObject({
   type: z.string(),
   ref: z.string().nullable(),
   actorId: Uuid.nullable(),
+  /** Human and machine edits are attributed distinctly (ch.10); never unknown. */
+  actorKind: z.enum(["human", "agent", "service"]),
   summary: z.string(),
   documentRevision: z.number().int().nullable(),
 });
 export type TimelineEntry = z.infer<typeof TimelineEntry>;
+
+export const AddReviewCommentRequest = z.strictObject({
+  ...CommandMeta,
+  nodeId: Uuid,
+  body: z.string().min(1).max(4000),
+});
+export type AddReviewCommentRequest = z.infer<typeof AddReviewCommentRequest>;
 
 export const CollabScope = z.enum(["layout", "notes"]);
 export type CollabScope = z.infer<typeof CollabScope>;

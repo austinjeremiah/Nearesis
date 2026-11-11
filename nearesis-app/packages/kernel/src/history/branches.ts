@@ -124,6 +124,12 @@ export class BranchOps {
       )
     ).rows[0];
     if (!r) throw noWorkspaceAccess();
+    if (!r.objects)
+      throw new KernelError(
+        "NOT_FOUND",
+        "VINTAGE_UNAVAILABLE",
+        "The base snapshot was removed by a retention purge.",
+      );
     return r.objects as ObjectMap;
   }
 

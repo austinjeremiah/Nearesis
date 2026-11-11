@@ -3,6 +3,8 @@ import type { CanvasService } from "../canvas.ts";
 import type { Db } from "../db/pool.ts";
 import type { EvidenceGraphService } from "../graph.ts";
 import type { EventJournal } from "../journal.ts";
+import { ReviewOps } from "./reviews.ts";
+import { ReconstructOps } from "./reconstruct.ts";
 import { ImpactOps } from "./impact.ts";
 import { BranchOps } from "./branches.ts";
 import { CollabService } from "./collab.ts";
@@ -27,6 +29,8 @@ export class HistoryService {
   readonly branches: BranchOps;
   readonly collab: CollabService;
   readonly impact: ImpactOps;
+  readonly reviews: ReviewOps;
+  readonly reconstruct: ReconstructOps;
   private readonly db: Db;
 
   constructor(deps: HistoryDeps) {
@@ -38,6 +42,8 @@ export class HistoryService {
     this.branches = new BranchOps(deps.db, this.runner);
     this.collab = new CollabService(deps.db);
     this.impact = new ImpactOps(deps.db);
+    this.reviews = new ReviewOps(deps.db, this.runner);
+    this.reconstruct = new ReconstructOps(deps.db);
   }
 
   private readonly graph: EvidenceGraphService;

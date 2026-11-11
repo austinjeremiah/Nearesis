@@ -6,13 +6,13 @@ import type { Kernel, Session } from "../../src/index.ts";
 import { createTestDb, createWs, loginSession, runCmd, seedOrg, testKernel } from "../helpers/index.ts";
 import type { TestDb } from "../helpers/index.ts";
 
-export const panel = (title = "Volume") =>
+export const panel = (title = "Volume", queryHash = "b".repeat(64)) =>
   PanelSpec.parse({
     panelId: randomUUID(),
     schemaVersion: 1,
     kind: "timeSeries",
     title,
-    queryRef: { hash: "b".repeat(64), semanticVersion: "1.0.0", snapshotPolicy: "live" },
+    queryRef: { hash: queryHash, semanticVersion: "1.0.0", snapshotPolicy: "live" },
     dataBinding: { fields: ["ts", "vol"], units: { vol: "USD" }, timezone: "UTC", completeness: "complete" },
     encoding: { x: "ts", y: ["vol"] },
     layout: { x: 0, y: 0, w: 6, h: 4 },
@@ -103,12 +103,18 @@ export async function snapshot(
   workspaceId: string,
   label: string,
   extra: Record<string, unknown> = {},
+  opts: { executor?: import("../../src/history/pinned.ts").PanelExecutor } = {},
 ) {
-  const r = await w.h.snapshots.create(w.owner, workspaceId, {
-    expectedVersion: await wsVersion(w, workspaceId),
-    label,
-    ...extra,
-  });
+  const r = await w.h.snapshots.create(
+    w.owner,
+    workspaceId,
+    {
+      expectedVersion: await wsVersion(w, workspaceId),
+      label,
+      ...extra,
+    },
+    opts,
+  );
   return r.result as { snapshotId: string; contentHash: string; documentRevision: number };
 }
 

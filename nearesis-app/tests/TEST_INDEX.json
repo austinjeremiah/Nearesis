@@ -1797,9 +1797,11 @@
       "passCondition": "measured p95 under SLO with environment recorded",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "tests/perf/PERF01.accept.test.ts"
+      ],
       "live": false,
-      "status": "UNIMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true,
       "dependsOn": []
     },
@@ -1811,9 +1813,11 @@
       "passCondition": "bounded memory, responsive input; no long main thread block",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "tests/perf/PERF02.accept.test.ts"
+      ],
       "live": false,
-      "status": "UNIMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true,
       "dependsOn": []
     },
@@ -1825,9 +1829,11 @@
       "passCondition": "no duplicate tasks and bounded queues",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "tests/perf/PERF03.accept.test.ts"
+      ],
       "live": false,
-      "status": "UNIMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true,
       "dependsOn": []
     },
@@ -1839,9 +1845,11 @@
       "passCondition": "data reconciliation and outbox replay consistent",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "tests/perf/PERF04.accept.test.ts"
+      ],
       "live": false,
-      "status": "UNIMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true,
       "dependsOn": []
     },
@@ -2107,9 +2115,11 @@
       "passCondition": "all PASS criteria (a)-(f) of ch16b M08, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/M08.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "K02",
@@ -2126,9 +2136,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b M09, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/M09.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "K01",
@@ -2144,9 +2156,11 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b M10, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/M10.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "C13",
@@ -2163,9 +2177,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b M11, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/workflow/test/acceptance/M11.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "M02",
@@ -2202,9 +2218,11 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b M13, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/M13.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "M03",
@@ -2220,9 +2238,11 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b M14, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/M14.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "M04",
@@ -2237,9 +2257,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b M15, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/M15.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "M03",
@@ -2256,9 +2278,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b M16, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/M16.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "M03",
@@ -2274,9 +2298,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b Q11, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "services/research/test/acceptance/Q11.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "Q03",
@@ -2292,9 +2318,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b Q12, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "services/research/test/acceptance/Q12.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "Q01"
@@ -2308,9 +2336,11 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b Q13, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "services/research/test/acceptance/Q13.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "Q03",
@@ -2325,9 +2355,11 @@
       "passCondition": "all PASS criteria (a)-(f) of ch16b Q14, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "services/research/test/acceptance/Q14.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "Q01",
@@ -2343,9 +2375,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b Q15, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "services/research/test/acceptance/Q15.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "Q01",
@@ -2362,9 +2396,11 @@
       "passCondition": "all PASS criteria (a)-(f) of ch16b Q16, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "services/research/test/acceptance/Q16.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": []
     },
@@ -2376,9 +2412,11 @@
       "passCondition": "all PASS criteria (a)-(f) of ch16b Q17, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "services/research/test/acceptance/Q17.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "Q03",
@@ -2394,9 +2432,11 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b Q18, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "services/research/test/acceptance/Q18.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "Q05",
@@ -2412,9 +2452,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b Q19, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "services/research/test/acceptance/Q19.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "Q10",
@@ -2430,9 +2472,11 @@
       "passCondition": "all PASS criteria (a)-(f) of ch16b Q20, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "services/research/test/acceptance/Q20.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "Q04",
@@ -2447,9 +2491,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b Q21, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "services/research/test/acceptance/Q21.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "A04"
@@ -2463,9 +2509,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b Q22, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "services/research/test/acceptance/Q22.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "Q02",
@@ -2539,9 +2587,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b W10, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/W10.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "W05",
@@ -2557,9 +2607,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b W11, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/W11.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "W05",
@@ -2575,9 +2627,11 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b W12, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/W12.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "W05",
@@ -2593,9 +2647,11 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b W13, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/W13.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "W01",
@@ -2611,9 +2667,11 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b W14, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/W14.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "W01",
@@ -2629,9 +2687,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b W15, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/W15.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "W04",
@@ -2646,9 +2706,11 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b W16, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/W16.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "W04",
@@ -2664,9 +2726,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b W17, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/W17.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "A17",
@@ -2682,9 +2746,11 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b W18, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/W18.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "W03",

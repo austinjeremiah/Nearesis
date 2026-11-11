@@ -7,6 +7,7 @@ import { fixtureAddress } from "./fixture-addresses.ts";
 export const SCHEDULER_DIR = join(APP_ROOT, ".data", "scheduler");
 export const SCHEDULER_STATE_PATH = join(SCHEDULER_DIR, "state.json");
 export const SCHEDULER_BQ_STATE_PATH = join(SCHEDULER_DIR, "bq-state.json");
+export const SCHEDULER_ACCOUNT_STATE_PATH = join(SCHEDULER_DIR, "account-state.json");
 export const SCHEDULER_LOAD_STATE_PATH = join(SCHEDULER_DIR, "explorer-load.json");
 export const SCHEDULER_RAW_DIR = join(SCHEDULER_DIR, "raw");
 export const SCHEDULER_CONTROL_PATH = join(SCHEDULER_DIR, "control.json");

@@ -9,6 +9,7 @@ import { loadCredentials, REDIS_URL } from "../backfill/env.ts";
 import { makeChSink } from "../backfill/orchestrator.ts";
 import { quotaDayStart } from "../backfill/plan.ts";
 import { StateStore } from "../backfill/state.ts";
+import { AccountStateStore } from "../backfill/account-run.ts";
 import { systemClock, type Clock } from "../clock.ts";
 import type { Db } from "../db.ts";
 import { ALLOW_ONECLICK, HttpClient } from "../http/client.ts";
@@ -16,11 +17,13 @@ import type { CredentialSource } from "../http/credentials.ts";
 import {
   ALL_TASKS,
   FORWARD_FROM_DAY,
+  SCHEDULER_ACCOUNT_STATE_PATH,
   SCHEDULER_BQ_STATE_PATH,
   SCHEDULER_LOAD_STATE_PATH,
   type SchedulerConfig,
   type TaskName,
 } from "./config.ts";
+import { pendingAccountDays, runAccountDaily } from "./account-forward.ts";
 import { runBqDaily, runPriceDaily } from "./daily.ts";
 import { runExplorerForward } from "./explorer-forward.ts";
 import { backoffMs, dueTasks, pendingBqDays, pendingPriceDays, type Facts } from "./plan.ts";
@@ -50,6 +53,7 @@ export class Scheduler {
   private readonly creds: CredentialSource;
   private readonly log: (m: string) => void;
   private readonly bqStore = new StateStore(SCHEDULER_BQ_STATE_PATH, FORWARD_FROM_DAY, FORWARD_FROM_DAY);
+  private readonly accountStore = new AccountStateStore(SCHEDULER_ACCOUNT_STATE_PATH);
   private readonly loadStore = new StateStore(SCHEDULER_LOAD_STATE_PATH, FORWARD_FROM_DAY, FORWARD_FROM_DAY);
   constructor(private readonly d: SchedulerDeps) {
     this.clock = d.clock ?? systemClock;
@@ -60,10 +64,14 @@ export class Scheduler {
   facts(): Facts {
     const now = this.clock.now();
     return {
-      bqPending: pendingBqDays(now, (id) => this.bqStore.isDone(id)).length,
+      bqPending: pendingBqDays(now, (id) => this.bqStore.isDone(id)).length + this.accountPending(now).length,
       pricePending: pendingPriceDays(now, this.d.sched.state.price).length,
       explorerInflight: this.d.sched.state.explorer.inflight !== null,
     };
+  }
+
+  private accountPending(now: number): string[] {
+    return pendingAccountDays(now, this.accountStore, (day) => this.bqStore.isDone(`transactions:${day}`));
   }
 
   due(): TaskName[] {
@@ -136,7 +144,24 @@ export class Scheduler {
         this.log(
           `bq: completed ${r.completed.length}, deferred(budget) ${r.budgetSkipped.length}, retry-later ${r.retryLater.length}`,
         );
-        if (r.budgetSkipped.length > 0) throw Object.assign(new Error("budget"), { name: "BudgetDeferred" });
+        // Account-level daily activity (organic target): same ledger, so the 95% daily cap covers every job.
+        const acct = await runAccountDaily({
+          bq: createBigQueryClient(),
+          archive,
+          ch,
+          store: this.accountStore,
+          ledger,
+          location: discovery.datasetLocation,
+          days: this.accountPending(nowMs()),
+          maxDays: cfg.bqMaxDaysPerRun,
+          nowMs,
+          log: this.log,
+        });
+        this.log(
+          `account: completed ${acct.completed.length}, deferred(budget) ${acct.skippedForBudget.length}`,
+        );
+        if (r.budgetSkipped.length > 0 || acct.skippedForBudget.length > 0)
+          throw Object.assign(new Error("budget"), { name: "BudgetDeferred" });
         return;
       }
       case "price": {

@@ -22,7 +22,9 @@ export function runsPort(runs: RunsService): RunPort {
       return {
         state: r.state,
         terminal: r.terminal,
-        succeeded: r.state === "COMPLETE" || r.state === "PARTIAL",
+        // Fail closed: only a COMPLETE run produces evidence for a marker. A PARTIAL run (for example an abstention because a
+        // required metric is not in the catalog) is a visible non-success with the run's own reason code.
+        succeeded: r.state === "COMPLETE",
         failure:
           r.failure && typeof (r.failure as { reasonCode?: unknown }).reasonCode === "string"
             ? { reasonCode: (r.failure as { reasonCode: string }).reasonCode }

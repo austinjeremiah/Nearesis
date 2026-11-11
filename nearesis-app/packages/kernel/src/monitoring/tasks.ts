@@ -75,13 +75,12 @@ export function scopedQuestion(m: Marker, t: { mode: TriggerMode; agents: string
         : a.kind === "threshold"
           ? `the threshold ${a.metricId} ${a.op === "gt" ? ">" : "<"} ${a.value}`
           : `the source event ${a.eventId} from ${a.sourceId} at ${a.at}`;
+  // The agent receives the exact selection (never an image): the structured context is embedded verbatim as JSON.
   const sel = m.selection;
-  const ctx = sel
-    ? ` Query ${sel.queryHash.slice(0, 12)} at semantic version ${sel.semanticVersion}; series ${sel.seriesIds.join(", ") || "n/a"}; units ${JSON.stringify(sel.axisUnits)}${sel.sourceWatermark ? `; source watermark ${sel.sourceWatermark}` : ""}.`
-    : "";
+  const ctx = sel ? ` Selection: ${JSON.stringify(sel)}.` : "";
   const label = t.mode === "replay" ? "[REPLAY of recorded events, not live data] " : "";
   const roles = t.agents.length ? ` Assigned roles: ${t.agents.join(", ")}.` : "";
-  return `${label}${m.question ?? "Explain what happened here."} Scope: ${where} only.${ctx}${roles}`.slice(
+  return `${label}${m.question ?? "Explain what happened here."} Marker ${m.markerId}. Scope: ${where} only.${ctx}${roles}`.slice(
     0,
     4000,
   );

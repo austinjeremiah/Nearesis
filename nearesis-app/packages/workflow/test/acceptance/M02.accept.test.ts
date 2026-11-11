@@ -102,7 +102,9 @@ it("M02: an agent assigned to a marker runs a scoped child investigation whose o
         linkedEvidenceIds: string[];
         assignedAgents: string[];
       };
-    expect((await marker()).status).toBe("INVESTIGATING");
+    // The marker is INVESTIGATING only once the dispatcher has durably started the child (M10 d), so right after the
+    // assign command it is still ACTIVE with a PENDING task.
+    expect((await marker()).status).toBe("ACTIVE");
     // The dispatcher starts the child run, then reconciles it once terminal.
     const done = await waitFor(
       async () => {
@@ -179,7 +181,7 @@ it("M02: an agent assigned to a marker runs a scoped child investigation whose o
 
     observe({
       testId: "M02",
-      observed: `marker ACTIVE -> assign [quant, skeptic] -> INVESTIGATING; dispatcher started 1 child run ${runId.slice(0, 8)} in workspace ${ws().slice(0, 8)} (budget <= 200k tokens / 24 calls / USD 20); run ${run[0]!.state} with ${kids.length} agent outputs; ${done.linkedEvidenceIds.length} evidence nodes each carry markerId, runId and the agent task's outputRef; marker -> REVIEW_REQUIRED with linkedEvidenceIds = those nodes (+ references edges); draft assign and orphan evidence rejected; re-dispatch is a no-op (1 task)`,
+      observed: `marker ACTIVE -> assign [quant, skeptic] (still ACTIVE, PENDING task) -> dispatcher started 1 child run ${runId.slice(0, 8)} in workspace ${ws().slice(0, 8)} (budget <= 200k tokens / 24 calls / USD 20); run ${run[0]!.state} with ${kids.length} agent outputs; ${done.linkedEvidenceIds.length} evidence nodes each carry markerId, runId and the agent task's outputRef; marker -> REVIEW_REQUIRED with linkedEvidenceIds = those nodes (+ references edges); draft assign and orphan evidence rejected; re-dispatch is a no-op (1 task)`,
       fixtureHash: hashOf(planFor("basic")),
       evidence: {
         markerId,

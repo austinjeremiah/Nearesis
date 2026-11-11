@@ -164,13 +164,23 @@ export class EventStore {
   }
 }
 
-/** Connects to `GET <url>` as an SSE stream with Last-Event-ID resume. Returns a disposer. */
-export function connectSse(
-  url: string,
-  store: EventStore,
-  init: { headers?: Record<string, string> } = {},
-): () => void {
+export type SseStatus = "open" | "retrying" | "failed" | "denied";
+export interface SseInit {
+  headers?: Record<string, string>;
+  /** Called on every transition: stream open, retry scheduled, retries exhausted ("failed"), access refused ("denied"). */
+  onStatus?: (s: SseStatus, info: { attempt: number; status?: number }) => void;
+  /** Consecutive failed connection attempts before giving up (default 10, about one minute with the backoff below). */
+  maxAttempts?: number;
+}
+
+/**
+ * Connects to `GET <url>` as an SSE stream with Last-Event-ID resume. Retries use capped exponential backoff and are
+ * bounded: after `maxAttempts` consecutive failures the client reports "failed" and stops. A 401/403/404 response
+ * (revoked or invalid session, unknown workspace) is never retried: it reports "denied". Returns a disposer.
+ */
+export function connectSse(url: string, store: EventStore, init: SseInit = {}): () => void {
   const ctrl = new AbortController();
+  const max = init.maxAttempts ?? 10;
   let stopped = false;
   const run = async (attempt: number): Promise<void> => {
     try {
@@ -179,7 +189,13 @@ export function connectSse(
         signal: ctrl.signal,
         credentials: "same-origin",
       });
+      if (res.status === 401 || res.status === 403 || res.status === 404) {
+        init.onStatus?.("denied", { attempt, status: res.status });
+        return;
+      }
       if (!res.ok || !res.body) throw new Error(`sse ${res.status}`);
+      attempt = 0;
+      init.onStatus?.("open", { attempt });
       const parser = new SseParser();
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
       for (;;) {
@@ -187,11 +203,16 @@ export function connectSse(
         if (done) break;
         for (const f of parser.push(value)) store.handleFrame(f);
       }
-      attempt = 0;
     } catch {
       if (stopped) return;
     }
-    if (!stopped) setTimeout(() => void run(attempt + 1), Math.min(10_000, 500 * 2 ** attempt));
+    if (stopped) return;
+    if (attempt + 1 >= max) {
+      init.onStatus?.("failed", { attempt: attempt + 1 });
+      return;
+    }
+    init.onStatus?.("retrying", { attempt: attempt + 1 });
+    setTimeout(() => void run(attempt + 1), Math.min(10_000, 500 * 2 ** attempt));
   };
   void run(0);
   return () => {

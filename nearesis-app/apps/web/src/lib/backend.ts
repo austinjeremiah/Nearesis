@@ -133,6 +133,24 @@ export class KernelBackend implements CanvasBackend {
   readonly store: EventStore;
   private listeners = new Set<(e: DomainEvent) => void>();
   onReload: (() => void) | null = null;
+  /** Stream health for the UI: live, reconnecting (retrying), offline (retries exhausted) or denied (session/ACL). */
+  onConnection: ((s: "live" | "reconnecting" | "offline" | "denied") => void) | null = null;
+  private stopSse: (() => void) | null = null;
+
+  private connect(): void {
+    this.stopSse?.();
+    this.stopSse = connectSse(this.api("/events"), this.store, {
+      onStatus: (s) =>
+        this.onConnection?.(
+          s === "open" ? "live" : s === "retrying" ? "reconnecting" : s === "denied" ? "denied" : "offline",
+        ),
+    });
+  }
+
+  /** Restarts the event stream after retries were exhausted (manual retry, or the browser came back online). */
+  retryStream(): void {
+    if (this.listeners.size) this.connect();
+  }
 
   constructor(
     readonly workspaceId: string,
@@ -260,11 +278,12 @@ export class KernelBackend implements CanvasBackend {
   subscribe(onEvent: (e: DomainEvent) => void): () => void {
     this.listeners.add(onEvent);
     if (this.listeners.size === 1 && this.lastDoc) this.store.reset(0);
-    const stop = connectSse(this.api("/events"), this.store);
+    this.connect();
     const stopWm = this.dataMode !== "fixture" ? this.pollWatermarks() : () => undefined;
     return () => {
       this.listeners.delete(onEvent);
-      stop();
+      this.stopSse?.();
+      this.stopSse = null;
       stopWm();
     };
   }

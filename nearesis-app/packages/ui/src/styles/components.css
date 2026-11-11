@@ -59,6 +59,8 @@
 .nz-iconbtn {
   width: 28px;
   padding: 0;
+  /* Never let a crowded top bar squash a touch target below its size. */
+  flex: none;
 }
 .nz-iconbtn[data-size="sm"] {
   width: 24px;
@@ -1128,9 +1130,28 @@ button.nz-chip:hover {
     width: 100%;
   }
 }
+@media (max-width: 900px) {
+  /* The top bar must fit beside the sidebar at tablet widths: the search trigger gives way first. */
+  .nz-search-trigger {
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+  .nz-search-trigger .nz-kbd {
+    display: none;
+  }
+  .nz-search-trigger .nz-grow {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
 @media (max-width: 760px) {
   .nz-shell {
     grid-template-columns: minmax(0, 1fr) 0;
+    .nz-topbar {
+      gap: var(--space-1);
+      padding: 0 var(--space-2);
+    }
   }
   .nz-sidebar {
     position: fixed;
@@ -1143,6 +1164,13 @@ button.nz-chip:hover {
   .nz-shell[data-mobile-nav="open"] .nz-sidebar {
     transform: none;
     box-shadow: var(--shadow-pop);
+  }
+  /* A closed drawer is off screen: take its controls out of the tab order and the accessibility tree. */
+  .nz-shell[data-mobile-nav="closed"] .nz-sidebar {
+    visibility: hidden;
+    transition:
+      transform var(--dur-slow) var(--ease-enter),
+      visibility 0s linear var(--dur-slow);
   }
   .nz-shell[data-mobile-nav="open"] .nz-scrim,
   .nz-shell[data-chat="open"] .nz-scrim {

@@ -21,6 +21,11 @@ export interface HttpRequest {
   /** Credential attached as a header; read through the CredentialSource. */
   auth?: { credential: string; header: string; scheme?: "Bearer" | "" };
   timeoutMs?: number;
+  /**
+   * Marks the single confirmation request an adapter documents after a first 401/403 (the explorer collector, D18).
+   * The auth circuit lets exactly one such request through per rejection; any other request is refused while open.
+   */
+  authConfirm?: boolean;
 }
 
 export interface HttpResponse {
@@ -68,6 +73,25 @@ export interface HttpClientOptions {
   credentials?: CredentialSource;
   clock?: Clock;
   defaultTimeoutMs?: number;
+  /** After a 401 or 403 the credential is not sent again for this long (then exactly one probe). Default 5 min. */
+  authCircuitMs?: number;
+  /** Called once when a credential is rejected: the source is degraded and a human must act. */
+  onAuthDegraded?: (e: AuthDegraded) => void;
+}
+
+export interface AuthDegraded {
+  credential: string;
+  host: string;
+  status: number;
+  state: "degraded";
+  humanAction: string;
+}
+
+interface AuthBreaker {
+  openedAt: number;
+  fingerprint: string | null;
+  probing: boolean;
+  confirmUsed: boolean;
 }
 
 /**
@@ -76,6 +100,7 @@ export interface HttpClientOptions {
  */
 export class HttpClient {
   readonly requestLog: RequestLogEntry[] = [];
+  readonly #breakers = new Map<string, AuthBreaker>();
   readonly #o: HttpClientOptions;
   constructor(o: HttpClientOptions) {
     this.#o = o;
@@ -111,11 +136,81 @@ export class HttpClient {
     return u;
   }
 
+  /** Auth state of the source behind a credential: `degraded` after a 401 or 403 until rotation or a successful probe. */
+  authState(credential: string, host: string): { state: "ok" | "degraded"; humanAction?: string } {
+    const b = this.#breakers.get(`${host}|${credential}`);
+    return b
+      ? { state: "degraded", humanAction: `rotate credential ${credential} for ${host}` }
+      : { state: "ok" };
+  }
+
+  #checkBreaker(
+    key: string,
+    credential: string,
+    host: string,
+    method: string,
+    path: string,
+    confirm: boolean,
+  ): void {
+    const b = this.#breakers.get(key);
+    if (!b) return;
+    const now = (this.#o.clock ?? systemClock).now();
+    if (this.#o.credentials && this.#o.credentials.fingerprint(credential) !== b.fingerprint) {
+      this.#breakers.delete(key); // rotated: the new credential is tried, the old one is never sent again
+      return;
+    }
+    if (!b.probing && now - b.openedAt >= (this.#o.authCircuitMs ?? 300_000)) {
+      b.probing = true; // exactly one probe after the circuit interval
+      return;
+    }
+    if (confirm && !b.confirmUsed) {
+      b.confirmUsed = true;
+      return;
+    }
+    this.requestLog.push({ at: now, method, host, path, status: null, outcome: "denied" });
+    throw new IngestionError("AUTH_REJECTED", false, {
+      reason: "auth circuit open: credential was rejected, rotate it",
+      host,
+      credential,
+    });
+  }
+
+  #observeAuth(key: string, credential: string, host: string, status: number): void {
+    const now = (this.#o.clock ?? systemClock).now();
+    if (status === 401 || status === 403) {
+      const existing = this.#breakers.get(key);
+      this.#breakers.set(key, {
+        confirmUsed: existing?.confirmUsed ?? false,
+        openedAt: now,
+        fingerprint: this.#o.credentials?.fingerprint(credential) ?? null,
+        probing: false,
+      });
+      if (!existing)
+        this.#o.onAuthDegraded?.({
+          credential,
+          host,
+          status,
+          state: "degraded",
+          humanAction: `rotate credential ${credential} for ${host}`,
+        });
+    } else if (status < 400) this.#breakers.delete(key);
+  }
+
   async request(r: HttpRequest): Promise<HttpResponse> {
     const clock = this.#o.clock ?? systemClock;
     const u = this.assertAllowed(r.method, r.url);
     const headers: Record<string, string> = { accept: "application/json", ...(r.headers ?? {}) };
     if (r.body !== undefined) headers["content-type"] = "application/json";
+    const breakerKey = r.auth ? `${u.hostname}|${r.auth.credential}` : null;
+    if (r.auth && breakerKey)
+      this.#checkBreaker(
+        breakerKey,
+        r.auth.credential,
+        u.hostname,
+        r.method,
+        u.pathname,
+        r.authConfirm === true,
+      );
     if (r.auth) {
       const v = this.#o.credentials?.get(r.auth.credential);
       if (v) headers[r.auth.header] = r.auth.scheme === "" ? v : `${r.auth.scheme ?? "Bearer"} ${v}`;
@@ -148,6 +243,7 @@ export class HttpClient {
         rh[k.toLowerCase()] = v;
       });
       entry.status = res.status;
+      if (r.auth && breakerKey) this.#observeAuth(breakerKey, r.auth.credential, u.hostname, res.status);
       return { status: res.status, headers: redactHeaders(rh), body: buf, receivedAtMs: clock.now() };
     } catch (e) {
       if (ctl.signal.aborted || (e as Error).name === "AbortError" || (e as Error).name === "TimeoutError") {

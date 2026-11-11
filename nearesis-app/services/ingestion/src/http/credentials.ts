@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { IngestionError } from "../errors.ts";
 
@@ -7,6 +8,7 @@ import { IngestionError } from "../errors.ts";
  */
 export class CredentialSource {
   readonly #values: Map<string, string>;
+  #reloadFrom: { path: string; fallbackEnv: NodeJS.ProcessEnv } | null = null;
   readonly #reads: Map<string, number> = new Map();
   readonly #denied: boolean;
 
@@ -37,7 +39,32 @@ export class CredentialSource {
     } catch {
       /* no .env: fine */
     }
-    return new CredentialSource(m, false);
+    const src = new CredentialSource(m, false);
+    src.#reloadFrom = { path, fallbackEnv };
+    return src;
+  }
+
+  /**
+   * Credential rotation without restart: the next `get` returns the new value and the old one is gone. The source
+   * never exposes either value; callers compare `fingerprint` to detect that a rotation happened.
+   */
+  rotate(name: string, value: string): void {
+    if (this.#denied) return;
+    this.#values.set(name, value);
+  }
+
+  /** Re-reads the dotenv file this source was built from (picks up a rotated key); no-op for other sources. */
+  reload(): void {
+    if (!this.#reloadFrom || this.#denied) return;
+    const fresh = CredentialSource.fromDotenv(this.#reloadFrom.path, this.#reloadFrom.fallbackEnv);
+    this.#values.clear();
+    for (const [k, v] of fresh.#values) this.#values.set(k, v);
+  }
+
+  /** Non-reversible identity of the current value (not counted as a read); null when absent. */
+  fingerprint(name: string): string | null {
+    const v = this.#values.get(name);
+    return v ? createHash("sha256").update(v).digest("hex").slice(0, 12) : null;
   }
 
   static fromMap(values: Record<string, string>): CredentialSource {

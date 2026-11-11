@@ -5,6 +5,7 @@ import type { Redis } from "ioredis";
 import type { RawArchive } from "../archive/archive.ts";
 import type { Clock } from "../clock.ts";
 import type { Db } from "../db.ts";
+import { IngestionError } from "../errors.ts";
 import { sha256Hex, canonicalJson } from "../hash.ts";
 import type { HttpClient } from "../http/client.ts";
 import { HttpNetworkError, HttpTimeoutError } from "../http/client.ts";
@@ -302,8 +303,14 @@ export class ExplorerCollector {
           method: "GET",
           url,
           auth: { credential: this.credentialName, header: "authorization", scheme: "Bearer" },
+          ...(authSeen === 1 ? { authConfirm: true } : {}),
         });
       } catch (e) {
+        if (e instanceof IngestionError && e.code === "AUTH_REJECTED") {
+          // the HTTP client's auth circuit is open: no request was sent, the credential must be rotated
+          this.breaker.open();
+          return { kind: "auth_rejected", statuses: authStatuses };
+        }
         if (!(e instanceof HttpTimeoutError || e instanceof HttpNetworkError)) throw e;
         if (++transient > (this.d.maxTransientRetries ?? 2)) return { kind: "transient", status: null };
         await this.backoff(transient, undefined);

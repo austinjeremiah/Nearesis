@@ -19,6 +19,7 @@ const CANARY = `B-CANARY-${randomUUID().slice(0, 8)}`;
 
 let fx: ApiFixture;
 let tokenA = "";
+let subjectA = "";
 let tokenB = "";
 let orgA = "";
 let orgB = "";
@@ -29,7 +30,8 @@ beforeAll(async () => {
   const b = await seedOrg(fx.db.admin, "sec03b", { bob: "owner" });
   orgA = a.orgId;
   orgB = b.orgId;
-  tokenA = await login(fx.app, a.users.alice!.subject);
+  subjectA = a.users.alice!.subject;
+  tokenA = await login(fx.app, subjectA);
   tokenB = await login(fx.app, b.users.bob!.subject);
 }, 60_000);
 afterAll(async () => fx?.close());
@@ -371,7 +373,11 @@ it("SEC03: tenant A never receives, changes or creates anything of tenant B", as
               label: "pwned",
               name: "pwned",
             };
-      const res = await http(tokenA, r.method, `${path}${q}`, body, forgedHeaders);
+      // POST /v1/session/revoke revokes the presented bearer token itself. It stays in the fuzz, but each request gets
+      // a fresh session for A so the revocation does not sign A out for every later request (which would turn the rest
+      // of the fuzz into vacuous 401s and break the own-data control below).
+      const tok = r.path === "/v1/session/revoke" ? await login(fx.app, subjectA) : tokenA;
+      const res = await http(tok, r.method, `${path}${q}`, body, forgedHeaders);
       status[String(res.status)] = (status[String(res.status)] ?? 0) + 1;
       scan(`${r.method} ${r.path}`, `${v}|${rest.join("|")}|${q}`, res.text);
     }

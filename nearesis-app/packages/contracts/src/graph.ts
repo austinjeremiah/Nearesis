@@ -11,6 +11,9 @@ export const GraphNodeType = z.enum([
   "source",
   "marker",
   "agent",
+  "statistical_result",
+  "claim",
+  "verification_artifact",
 ]);
 export type GraphNodeType = z.infer<typeof GraphNodeType>;
 
@@ -22,6 +25,12 @@ export const GraphNode = z.strictObject({
   /** Query nodes (canvas panels) carry the query hash the panel renders. */
   queryRef: z.string().optional(),
   data: z.record(z.string(), z.unknown()).optional(),
+  /** v1.5.0 (additive). Claims: whether a supporting evidence path exists. Absent on other node kinds. */
+  support: z.enum(["supported", "unsupported", "contradicted"]).optional(),
+  /** v1.5.0 (additive). A semantic-version change flagged this node for revalidation. */
+  recheckRequired: z.boolean().optional(),
+  /** v1.5.0 (additive). Explicit tombstone for a removed/unresolvable endpoint. */
+  tombstone: z.boolean().optional(),
 });
 export type GraphNode = z.infer<typeof GraphNode>;
 

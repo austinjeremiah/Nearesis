@@ -71,6 +71,13 @@ export const MarkerAnchor = z.discriminatedUnion("kind", [
     op: z.enum(["gt", "lt"]),
     value: z.number(),
   }),
+  /** v1.5.0 (additive): anchored to a discrete source event (e.g. a swap, a watermark update, a quote failure). */
+  z.strictObject({
+    kind: z.literal("source_event"),
+    sourceId: z.string().min(1).max(200),
+    eventId: z.string().min(1).max(200),
+    at: IsoDateTime,
+  }),
 ]);
 export const MarkerSpec = z.strictObject({
   markerId: Uuid,

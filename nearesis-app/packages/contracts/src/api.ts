@@ -20,6 +20,17 @@ export const CommandType = z.enum([
   "plugin.enable",
   "plugin.disable",
   "graph.save_layout",
+  "marker.transition",
+  "marker.assign",
+  "marker.link_evidence",
+  "lens.create",
+  "lens.update",
+  "lens.delete",
+  "monitor.rule_create",
+  "monitor.rule_update",
+  "monitor.rule_enable",
+  "monitor.rule_disable",
+  "notification.read",
 ]);
 export const WorkspaceCommand = z.strictObject({
   apiVersion: z.literal("v1"),

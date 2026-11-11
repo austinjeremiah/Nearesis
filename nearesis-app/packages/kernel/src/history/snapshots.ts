@@ -6,6 +6,7 @@ import type { Session } from "../auth.ts";
 import type { CanvasService } from "../canvas.ts";
 import type { Db, Tx } from "../db/pool.ts";
 import { KernelError } from "../errors.ts";
+import { IntegrityGuard } from "../integrity.ts";
 import type { EvidenceGraphService } from "../graph.ts";
 import { noWorkspaceAccess } from "../workspace.ts";
 import { HistoryRunner, idFor, parseBody } from "./runner.ts";
@@ -153,12 +154,15 @@ const SNAP_COLS =
   "id, workspace_id, branch_id, label, content_hash, created_at, created_by, data_vintage, document_revision, data_revision";
 
 export class SnapshotOps {
+  private readonly integrity: IntegrityGuard;
   constructor(
     private readonly db: Db,
     private readonly runner: HistoryRunner,
     private readonly canvas: CanvasService,
     private readonly graph: EvidenceGraphService,
-  ) {}
+  ) {
+    this.integrity = new IntegrityGuard(db);
+  }
 
   private tenant(s: Session) {
     return { orgId: s.principal.orgId, userId: s.userId };
@@ -327,13 +331,21 @@ export class SnapshotOps {
   async load(tx: Tx, workspaceId: string, snapshotId: string) {
     const r = (
       await tx.query(
-        `SELECT ${SNAP_COLS}, payload FROM history_snapshots WHERE id = $1 AND workspace_id = $2`,
+        `SELECT ${SNAP_COLS}, org_id, payload FROM history_snapshots WHERE id = $1 AND workspace_id = $2`,
         [snapshotId, workspaceId],
       )
     ).rows[0];
     if (!r) throw noWorkspaceAccess();
+    const row = rowToSummary(r);
+    // Evidence integrity on the read path: the stored payload must still hash to the recorded content hash. A purged
+    // payload (retention) has nothing left to verify; its identity and hash remain.
+    if (r.payload) {
+      const scope = { orgId: r.org_id as string, userId: null };
+      const actual = snapshotContentHash(r.payload as SnapshotPayload, row.dataVintage.semanticPins);
+      await this.integrity.verify(scope, "evidence_item", snapshotId, row.contentHash, actual);
+    }
     return {
-      row: rowToSummary(r),
+      row,
       /** Null once a retention purge removed the payload; the identity and content hash remain. */
       payload: (r.payload ?? null) as SnapshotPayload | null,
       documentRevision: r.document_revision as number,

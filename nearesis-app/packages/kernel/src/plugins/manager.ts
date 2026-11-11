@@ -7,12 +7,14 @@ import {
   isPluginModule,
   majorOf,
   parseManifest,
+  canonicalJson,
   sha256Hex,
   verifyManifestSignature,
 } from "@nearesis/plugin-sdk";
 import type { PluginModule } from "@nearesis/plugin-sdk";
 import type { Db, Tx } from "../db/pool.ts";
 import { KernelError } from "../errors.ts";
+import { INTEGRITY_REASON, IntegrityGuard } from "../integrity.ts";
 import { writeAudit } from "../journal.ts";
 import type { PluginSandboxConfig } from "./sandbox-exec.ts";
 import { sandboxedModule } from "./sandbox-exec.ts";
@@ -63,6 +65,8 @@ export interface InstallationRow {
   major: number;
   apiVersion: number;
   manifest: PluginManifest;
+  /** sha256 of the canonical manifest recorded at install; null only for rows that predate it. */
+  manifestSha256: string | null;
   trust: TrustMode;
   state: PluginState;
   stateReason: string | null;
@@ -102,6 +106,7 @@ function mapRow(r: Record<string, unknown>): InstallationRow {
     major: r.major as number,
     apiVersion: r.api_version as number,
     manifest: r.manifest as PluginManifest,
+    manifestSha256: (r.manifest_sha256 as string | null) ?? null,
     trust: r.trust as TrustMode,
     state: r.state as PluginState,
     stateReason: (r.state_reason as string | null) ?? null,
@@ -254,8 +259,8 @@ export class PluginManager implements PluginWorkspaceOps {
     try {
       await this.db.txGlobal(async (tx) => {
         await tx.query(
-          `INSERT INTO plugin_installations(id, plugin_id, version, major, api_version, manifest, trust, state, state_reason, installed_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          `INSERT INTO plugin_installations(id, plugin_id, version, major, api_version, manifest, trust, state, state_reason, installed_by, manifest_sha256)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
           [
             id,
             manifest.pluginId,
@@ -267,6 +272,7 @@ export class PluginManager implements PluginWorkspaceOps {
             state,
             reason,
             actorId,
+            sha256Hex(canonicalJson(manifest)),
           ],
         );
         await writeAudit(tx, {
@@ -330,6 +336,7 @@ export class PluginManager implements PluginWorkspaceOps {
 
   /** Load (or re-load after restart) the plugin module, re-verifying trust and artifact hash first. */
   async moduleFor(inst: InstallationRow): Promise<PluginModule> {
+    await this.verifyManifestIntegrity(inst);
     const cached = this.modules.get(inst.id);
     if (cached) return cached;
     if (inst.trust === "production") {
@@ -355,6 +362,35 @@ export class PluginManager implements PluginWorkspaceOps {
       throw new KernelError("INTERNAL", "PLUGIN_LOAD_FAILED", "Plugin failed to load.");
     this.modules.set(inst.id, imported.default);
     return imported.default;
+  }
+
+  /**
+   * The stored manifest must still hash to the value recorded at install, on every use (including cached modules): a
+   * byte changed in the database is quarantined and the plugin is not run. Pre-existing rows without a recorded hash
+   * are bound on first use and the binding is audited.
+   */
+  private async verifyManifestIntegrity(inst: InstallationRow): Promise<void> {
+    const actual = sha256Hex(canonicalJson(inst.manifest));
+    const scope = { orgId: null, userId: null };
+    const guard = new IntegrityGuard(this.db);
+    if (inst.manifestSha256 === null) {
+      await guard.assertNotQuarantined(scope, "plugin_manifest", inst.id);
+      await this.db.txGlobal(async (tx) => {
+        await tx.query(
+          "UPDATE plugin_installations SET manifest_sha256 = $2 WHERE id = $1 AND manifest_sha256 IS NULL",
+          [inst.id, actual],
+        );
+        await writeAudit(tx, {
+          orgId: null,
+          action: "plugin.manifest_hash_bound",
+          subject: `${inst.pluginId}@${inst.version}`,
+          outcome: "ok",
+          detail: { manifestSha256: actual },
+        });
+      });
+      return;
+    }
+    await guard.verify(scope, "plugin_manifest", inst.id, inst.manifestSha256, actual);
   }
 
   isolationOf(manifest: PluginManifest): "confined" | "sandbox" {
@@ -850,7 +886,10 @@ export class PluginManager implements PluginWorkspaceOps {
     } catch (e) {
       return {
         ok: false,
-        reasonCode: "PLUGIN_LOAD_FAILED",
+        reasonCode:
+          e instanceof KernelError && e.reasonCode === INTEGRITY_REASON
+            ? INTEGRITY_REASON
+            : "PLUGIN_LOAD_FAILED",
         message: (e as Error).message,
         installation: inst,
       };

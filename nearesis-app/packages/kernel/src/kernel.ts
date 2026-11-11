@@ -9,6 +9,7 @@ import { EvidenceGraphService } from "./graph.ts";
 import { KernelToolGateway } from "./gateway.ts";
 import { EventJournal } from "./journal.ts";
 import { LeaseService } from "./leases.ts";
+import { IntegrityGuard } from "./integrity.ts";
 import { OutboxPublisher } from "./outbox.ts";
 import { PluginManager } from "./plugins/manager.ts";
 import type { PluginManagerConfig } from "./plugins/manager.ts";
@@ -53,6 +54,8 @@ export class Kernel {
   readonly stream: EventStreamService;
   readonly graph: EvidenceGraphService;
   readonly approvals: ApprovalService;
+  /** Read-path hash verification and quarantine for stored artefacts (SEC13). */
+  readonly integrity: IntegrityGuard;
   readonly monitoring: MonitoringService;
   readonly delegation: DelegationService;
   readonly identity: IdentityPolicy;
@@ -65,6 +68,7 @@ export class Kernel {
     this.plugins = new PluginManager(cfg.db, cfg.plugins);
     this.leases = new LeaseService(cfg.db);
     this.approvals = new ApprovalService();
+    this.integrity = new IntegrityGuard(cfg.db);
     this.monitoring = new MonitoringService(cfg.db);
     this.delegation = new DelegationService(cfg.db);
     this.gateway = new KernelToolGateway(cfg.db, this.plugins, this.leases, this.approvals);

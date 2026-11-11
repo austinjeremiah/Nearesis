@@ -1,5 +1,7 @@
 import type { DomainEvent } from "@nearesis/contracts";
 import type { Db, Tx } from "./db/pool.ts";
+import { canonicalJson, sha256Hex } from "@nearesis/plugin-sdk";
+import { IntegrityGuard } from "./integrity.ts";
 import { redactString } from "./redact.ts";
 
 export interface ConsumerContext {
@@ -50,7 +52,22 @@ export class OutboxPublisher {
   private readonly consumers = new Map<string, Consumer>();
   private timer: NodeJS.Timeout | undefined;
 
-  constructor(private readonly db: Db) {}
+  private readonly integrity: IntegrityGuard;
+
+  constructor(private readonly db: Db) {
+    this.integrity = new IntegrityGuard(db);
+  }
+
+  /** Re-hashes the stored payload against `payload_hash` before any consumer sees it; a mismatch quarantines the event. */
+  async verifyRow(row: ClaimRow): Promise<void> {
+    await this.integrity.verify(
+      { orgId: row.org_id, userId: null },
+      "outbox_event",
+      row.event_id,
+      row.payload_hash,
+      sha256Hex(canonicalJson(row.payload)),
+    );
+  }
 
   register(name: string, consumer: Consumer): void {
     this.consumers.set(name, consumer);
@@ -85,6 +102,7 @@ export class OutboxPublisher {
       let failed = 0;
       for (const row of rows) {
         try {
+          await this.verifyRow(row);
           await this.deliver(rowToEvent(row));
           await tx.query("SELECT outbox_settle($1, true, NULL)", [row.outbox_id]);
           delivered++;

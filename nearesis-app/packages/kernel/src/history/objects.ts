@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { Session } from "../auth.ts";
 import type { Db } from "../db/pool.ts";
 import { KernelError } from "../errors.ts";
+import { IntegrityGuard } from "../integrity.ts";
 
 const MAX_BYTES = 8_000_000;
 
@@ -10,7 +11,10 @@ const MAX_BYTES = 8_000_000;
  * Identical bytes are stored once per tenant; branching never copies them, evidence refers to them by hash only.
  */
 export class ObjectStore {
-  constructor(private readonly db: Db) {}
+  private readonly integrity: IntegrityGuard;
+  constructor(private readonly db: Db) {
+    this.integrity = new IntegrityGuard(db);
+  }
 
   private ctx(s: Session) {
     return { orgId: s.principal.orgId, userId: s.userId, actorKind: s.principal.kind };
@@ -27,6 +31,26 @@ export class ObjectStore {
       ),
     );
     return { hash, sizeBytes: bytes.length };
+  }
+
+  /**
+   * Reads an object by hash. The bytes are re-hashed before they are returned: a stored byte that no longer matches its
+   * address is quarantined and the read fails with `integrity_error` (ch.12 "tamper one input byte").
+   */
+  async get(session: Session, hash: string): Promise<Uint8Array | null> {
+    const scope = { orgId: session.principal.orgId, userId: session.userId };
+    await this.integrity.assertNotQuarantined(scope, "archive_object", hash);
+    const bytes = await this.db.tx(this.ctx(session), async (tx) => {
+      const r = await tx.query<{ bytes: Buffer }>(
+        "SELECT bytes FROM raw_objects WHERE org_id = $1 AND hash = $2",
+        [session.principal.orgId, hash],
+      );
+      return r.rows[0]?.bytes ?? null;
+    });
+    if (!bytes) return null;
+    const actual = createHash("sha256").update(bytes).digest("hex");
+    await this.integrity.verify(scope, "archive_object", hash, hash, actual);
+    return new Uint8Array(bytes);
   }
 
   async stats(session: Session): Promise<{ count: number; bytes: number; hashes: string[] }> {

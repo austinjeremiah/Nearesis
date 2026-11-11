@@ -20,7 +20,6 @@ import {
   selectionFor,
   sha256,
   startScriptedWorker,
-  type Actor,
 } from "./m-marker-helpers.ts";
 
 let env: Env;

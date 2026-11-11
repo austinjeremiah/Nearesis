@@ -13,7 +13,6 @@ import {
   sha256,
   temporalCount,
   unreachableApi,
-  type Actor,
 } from "./m-marker-helpers.ts";
 
 let env: Env;

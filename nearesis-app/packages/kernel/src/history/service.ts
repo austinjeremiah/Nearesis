@@ -3,6 +3,7 @@ import type { CanvasService } from "../canvas.ts";
 import type { Db } from "../db/pool.ts";
 import type { EvidenceGraphService } from "../graph.ts";
 import type { EventJournal } from "../journal.ts";
+import { RetentionOps } from "./retention.ts";
 import { CopyOps } from "./copy.ts";
 import { ObjectStore } from "./objects.ts";
 import { SummaryOps } from "./summaries.ts";
@@ -38,6 +39,7 @@ export class HistoryService {
   readonly objects: ObjectStore;
   readonly summaries: SummaryOps;
   readonly copy: CopyOps;
+  readonly retention: RetentionOps;
   readonly reconstruct: ReconstructOps;
   private readonly db: Db;
 
@@ -54,6 +56,7 @@ export class HistoryService {
     this.objects = new ObjectStore(deps.db);
     this.summaries = new SummaryOps(deps.db, this.runner);
     this.copy = new CopyOps(deps.db, deps.commands);
+    this.retention = new RetentionOps(deps.db, this.runner);
     this.reconstruct = new ReconstructOps(deps.db);
   }
 

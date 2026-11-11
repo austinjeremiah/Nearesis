@@ -119,8 +119,8 @@ it("W16: concurrent layout edits converge to the canvas recorded by the event lo
   expect(rb.ok, String(rb.error)).toBe(true);
 
   // (a) both clients reach byte-equal layout state within the declared deadline.
-  let la: Record<string, unknown> = {};
-  let lb: Record<string, unknown> = {};
+  let la!: Record<string, unknown>;
+  let lb!: Record<string, unknown>;
   const end = Date.now() + DEADLINE_MS;
   do {
     la = (await A.call({ cmd: "sync" })).layout as Record<string, unknown>;

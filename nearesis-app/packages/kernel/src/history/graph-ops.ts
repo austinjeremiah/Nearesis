@@ -171,9 +171,15 @@ export class GraphOps {
               "No such raw object in the store.",
             );
         }
+        if (p.publicAssetId) {
+          const ok = (await ctx.tx.query("SELECT 1 FROM public_assets WHERE id = $1", [p.publicAssetId]))
+            .rows[0];
+          if (!ok)
+            throw new KernelError("VALIDATION_FAILED", "PUBLIC_ASSET_MISSING", "No such public asset.");
+        }
         await ctx.tx.query(
-          `INSERT INTO evidence_nodes(id, org_id, workspace_id, kind, label, data, semantic_pins, raw_object_hash)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          `INSERT INTO evidence_nodes(id, org_id, workspace_id, kind, label, data, semantic_pins, raw_object_hash, public_asset_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
           [
             id,
             ctx.workspace.orgId,
@@ -183,6 +189,7 @@ export class GraphOps {
             JSON.stringify(p.data),
             JSON.stringify(p.semanticPins),
             p.rawObjectHash ?? null,
+            p.publicAssetId ?? null,
           ],
         );
         return {

@@ -76,7 +76,9 @@ it("W08: unsupported claims are distinguishable and numeric claims need complete
   });
   await addEdge(w, workspaceId, web, webClaim, "supports");
 
-  const bare = await addNode(w, workspaceId, "claim", "no supports edge at all", { data: { numeric: false } });
+  const bare = await addNode(w, workspaceId, "claim", "no supports edge at all", {
+    data: { numeric: false },
+  });
 
   const g1 = await w.k.graph.get(w.owner, workspaceId);
   const node = (id: string) => g1.nodes.find((n) => n.id === id)!;

@@ -167,8 +167,9 @@ export class EvidenceGraphService {
       label: string;
       data: object;
       tombstone: boolean;
+      deleted_at: Date | null;
     }>(
-      "SELECT id, kind, label, data, tombstone FROM evidence_nodes WHERE workspace_id = $1 ORDER BY created_at, id",
+      "SELECT id, kind, label, data, tombstone, deleted_at FROM evidence_nodes WHERE workspace_id = $1 ORDER BY created_at, id",
       [workspaceId],
     );
     for (const n of evNodes.rows) {
@@ -183,6 +184,8 @@ export class EvidenceGraphService {
       });
     }
     const tombstones = new Set(evNodes.rows.filter((n) => n.tombstone).map((n) => n.id));
+    // Evidence whose payload a retention workflow deleted (hash kept): dependants say so instead of vanishing (W18).
+    const retired = new Set(evNodes.rows.filter((n) => n.deleted_at).map((n) => n.id));
     const flagged = new Set(
       (
         await tx.query<{ node_id: string }>(
@@ -291,7 +294,11 @@ export class EvidenceGraphService {
         .map((e) => e.source)
         .filter((id) => !tombstones.has(id));
       const weakWeb = supporters.flatMap((id) => incompleteEvidence(id).map((m) => `evidence:${id}:${m}`));
-      const unavailable = supporters.some((id) => nodes.get(id)?.evidenceUnavailable);
+      const unavailable = edges.some(
+        (e) =>
+          ["supports", "derived_from", "reproduces"].includes(e.relation) &&
+          ((e.target === n.id && retired.has(e.source)) || (e.source === n.id && retired.has(e.target))),
+      );
       const base = supportOf(n.id, "supports")
         ? "supported"
         : supportOf(n.id, "contradicts")

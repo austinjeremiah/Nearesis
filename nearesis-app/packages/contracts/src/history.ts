@@ -40,6 +40,8 @@ export const AddEvidenceNodeRequest = z.strictObject({
   semanticPins: SemanticPins.default({}),
   /** Content-addressed raw payload (sha256 hex) held in the tenant object store; never copied by branching. */
   rawObjectHash: Sha256Hex.optional(),
+  /** Reference to an operator-published public asset (shared across workspaces on purpose). */
+  publicAssetId: Uuid.optional(),
 });
 export type AddEvidenceNodeRequest = z.infer<typeof AddEvidenceNodeRequest>;
 
@@ -306,6 +308,29 @@ export const CreateSummaryRequest = z.strictObject({
   metricPins: SemanticPins.default({}),
 });
 export type CreateSummaryRequest = z.infer<typeof CreateSummaryRequest>;
+
+export const ClaimTier = z.enum(["exploratory", "out_of_sample"]);
+export type ClaimTier = z.infer<typeof ClaimTier>;
+
+export const SetClaimTierRequest = z.strictObject({
+  ...CommandMeta,
+  nodeId: Uuid,
+  toTier: ClaimTier,
+  /** What the change rests on. Memory is accepted syntactically so that it can be refused and audited. */
+  basis: z.discriminatedUnion("kind", [
+    z.strictObject({ kind: z.literal("evidence"), nodeIds: z.array(Uuid).min(1).max(100) }),
+    z.strictObject({ kind: z.literal("memory"), summaryId: Uuid }),
+  ]),
+});
+export type SetClaimTierRequest = z.infer<typeof SetClaimTierRequest>;
+
+/** Legal-retention deletion of an evidence item's payload; the item stays as a tombstone with its hash. */
+export const RetentionDeleteRequest = z.strictObject({
+  ...CommandMeta,
+  nodeId: Uuid,
+  reason: z.string().min(1).max(500),
+});
+export type RetentionDeleteRequest = z.infer<typeof RetentionDeleteRequest>;
 
 export const AddReviewCommentRequest = z.strictObject({
   ...CommandMeta,

@@ -11,7 +11,7 @@ const MAP: Record<string, string> = {
   "×": "x",
 };
 
-function clean(s: string): string {
+export function clean(s: string): string {
   let o = "";
   for (const ch of s) {
     const m = MAP[ch];
@@ -21,7 +21,7 @@ function clean(s: string): string {
   return o.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 }
 
-function wrap(line: string, width: number): string[] {
+export function wrap(line: string, width: number): string[] {
   if (line.length <= width) return [line];
   const out: string[] = [];
   let cur = "";

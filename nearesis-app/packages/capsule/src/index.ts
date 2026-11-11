@@ -16,3 +16,5 @@ export * from "./proof-record.ts";
 export * from "./tree.ts";
 export * from "./prereg-commit.ts";
 export * from "./gaps.ts";
+export * from "./memo.ts";
+export * from "./bundle.ts";

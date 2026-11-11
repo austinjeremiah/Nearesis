@@ -171,6 +171,25 @@ export function buildResults(
         computation: "estimates.primary.horizon from research_run.json",
       });
   }
+  const ci = research
+    ? (get(research, "estimates", "primary", "delta_mae_ci") as Record<string, unknown> | undefined)
+    : undefined;
+  if (ci && typeof ci.lo === "number" && typeof ci.hi === "number") {
+    out.push({
+      id: "research-delta-mae-lo",
+      label: "Lower bound of the bootstrap confidence interval for the primary MAE improvement",
+      value: String(ci.lo),
+      unit: "log1p units",
+      computation: "estimates.primary.delta_mae_ci.lo from research_run.json",
+    });
+    out.push({
+      id: "research-delta-mae-hi",
+      label: "Upper bound of the bootstrap confidence interval for the primary MAE improvement",
+      value: String(ci.hi),
+      unit: "log1p units",
+      computation: "estimates.primary.delta_mae_ci.hi from research_run.json",
+    });
+  }
   return out;
 }
 

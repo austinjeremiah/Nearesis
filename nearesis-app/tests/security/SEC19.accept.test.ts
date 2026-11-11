@@ -54,6 +54,8 @@ const SERVICE_ROLE: Record<string, string[]> = {
   monitor_open_tasks: ["marker_tasks"],
   monitor_rules_for_source: ["monitor_rules"],
   // migration 014 (verified-state write path): the single writer; it refuses non-verifier callers and a workspace outside the caller org
+  // migration 016 (release gate): tenant-bound; signer and reviewer must be distinct human owners or admins of the caller org
+  release_waiver_sign: ["memberships", "release_waivers"],
   verified_state_record: ["verification_states", "verifier_identities", "workspaces"],
 };
 // Tables without row-level security that the application role may read: platform-level, no tenant content.

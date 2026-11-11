@@ -1,4 +1,4 @@
-import { CanvasPatch } from "@nearesis/contracts";
+import { CanvasPatch, isMarkerTransitionAllowed } from "@nearesis/contracts";
 import { applyCanvasPatch, documentContentHash } from "@nearesis/canvas-schema";
 import type { CanvasDocument, MarkerSpec, PanelSpec, Selection } from "@nearesis/contracts";
 import { canonicalJson } from "@nearesis/plugin-sdk";
@@ -300,6 +300,20 @@ export class CanvasService {
     for (const [id, m] of am) {
       const old = bm.get(id);
       if (old && canonicalJson(old) === canonicalJson(m)) continue;
+      if (old && old.status !== m.status && !isMarkerTransitionAllowed(old.status, m.status)) {
+        throw new KernelError(
+          "DOMAIN_INVARIANT",
+          "INVALID_MARKER_TRANSITION",
+          `Marker cannot move from ${old.status} to ${m.status}.`,
+        );
+      }
+      if (!old && m.status !== "DRAFT") {
+        throw new KernelError(
+          "DOMAIN_INVARIANT",
+          "INVALID_MARKER_TRANSITION",
+          "A new marker starts as DRAFT.",
+        );
+      }
       if (old) {
         await tx.query(
           "UPDATE markers SET anchor_json=$2, status=$3, question=$4, panel_id=$5, version = version + 1 WHERE id=$1",
@@ -324,6 +338,17 @@ export class CanvasService {
         );
       }
     }
-    for (const id of bm.keys()) if (!am.has(id)) await tx.query("DELETE FROM markers WHERE id = $1", [id]);
+    for (const [id, old] of bm) {
+      if (am.has(id)) continue;
+      // Only an unsaved DRAFT can be deleted; a saved marker leaves the board by being DISMISSED or RESOLVED (it carries
+      // tasks, rules and evidence links).
+      if (old.status !== "DRAFT")
+        throw new KernelError(
+          "DOMAIN_INVARIANT",
+          "MARKER_NOT_DELETABLE",
+          "Only a DRAFT marker can be removed; dismiss or resolve it instead.",
+        );
+      await tx.query("DELETE FROM markers WHERE id = $1", [id]);
+    }
   }
 }

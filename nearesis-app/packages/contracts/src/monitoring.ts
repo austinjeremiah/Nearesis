@@ -172,6 +172,7 @@ export const LensFilter = z.strictObject({
     .optional(),
   route: z.string().max(200).optional(),
 });
+export type LensFilter = z.infer<typeof LensFilter>;
 export const Lens = z.strictObject({
   lensId: Uuid,
   workspaceId: Uuid,

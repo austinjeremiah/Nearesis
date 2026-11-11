@@ -32,6 +32,7 @@ export const CommandType = z.enum([
   "monitor.rule_disable",
   "notification.read",
 ]);
+export type CommandType = z.infer<typeof CommandType>;
 export const WorkspaceCommand = z.strictObject({
   apiVersion: z.literal("v1"),
   commandId: Uuid,

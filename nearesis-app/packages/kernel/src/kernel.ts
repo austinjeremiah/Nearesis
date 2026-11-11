@@ -15,6 +15,9 @@ import type { PluginManagerConfig } from "./plugins/manager.ts";
 import { EventStreamService } from "./stream.ts";
 import type { StreamOptions } from "./stream.ts";
 import { WorkspaceRegistry } from "./workspace.ts";
+import { MonitoringService } from "./monitoring/service.ts";
+import { MonitorScheduler } from "./monitoring/scheduler.ts";
+import type { SchedulerOptions } from "./monitoring/scheduler.ts";
 
 export interface KernelConfig {
   db: Db;
@@ -43,6 +46,7 @@ export class Kernel {
   readonly stream: EventStreamService;
   readonly graph: EvidenceGraphService;
   readonly approvals: ApprovalService;
+  readonly monitoring: MonitoringService;
   readonly identity: IdentityPolicy;
   readonly devAuth: DevAuthProvider | undefined;
   readonly engine: { inspect: PluginManager["inspect"] };
@@ -53,6 +57,7 @@ export class Kernel {
     this.plugins = new PluginManager(cfg.db, cfg.plugins);
     this.leases = new LeaseService(cfg.db);
     this.approvals = new ApprovalService();
+    this.monitoring = new MonitoringService(cfg.db);
     this.gateway = new KernelToolGateway(cfg.db, this.plugins, this.leases, this.approvals);
     this.workspaces = new WorkspaceRegistry(cfg.db, this.journal);
     this.commands = new CommandBus(cfg.db, this.journal, this.plugins, this.approvals);
@@ -66,6 +71,11 @@ export class Kernel {
     this.devAuth = cfg.authProvider ? undefined : new DevAuthProvider(cfg.db, cfg.sessionSecret, nodeEnv);
     this.identity = new IdentityPolicy(cfg.db, cfg.authProvider ?? this.devAuth!);
     this.engine = { inspect: () => this.plugins.inspect() };
+  }
+
+  /** A monitor scheduler bound to this kernel's database and journal. The caller owns start/stop. */
+  monitorScheduler(opts: SchedulerOptions = {}): MonitorScheduler {
+    return new MonitorScheduler(this.db, this.journal, opts);
   }
 
   async boot(): Promise<void> {

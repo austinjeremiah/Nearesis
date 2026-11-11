@@ -91,6 +91,19 @@ export class IdentityPolicy {
   }
 }
 
+/** Server-side session for background work done on a user's behalf (scheduler tasks). Null when they can no longer write. */
+export async function sessionForUser(db: Db, orgId: string, userId: string): Promise<Session | null> {
+  const role = await db.tx({ orgId, userId }, async (tx) => {
+    const r = await tx.query<{ role: Role }>(
+      "SELECT role FROM memberships WHERE org_id = $1 AND user_id = $2",
+      [orgId, userId],
+    );
+    return r.rows[0]?.role;
+  });
+  if (!role || !canWrite(role)) return null;
+  return { principal: { kind: "human", actorId: userId, orgId }, role, userId };
+}
+
 const WRITE_ROLES: readonly Role[] = ["owner", "admin", "analyst"];
 const ADMIN_ROLES: readonly Role[] = ["owner", "admin"];
 export const canWrite = (r: Role): boolean => WRITE_ROLES.includes(r);

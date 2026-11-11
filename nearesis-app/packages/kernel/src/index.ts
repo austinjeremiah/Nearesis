@@ -17,3 +17,12 @@ export * from "./plugins/install.ts";
 export { Db, DEFAULT_ADMIN_URL, DEFAULT_APP_URL } from "./db/pool.ts";
 export type { Tx, TenantContext } from "./db/pool.ts";
 export { migrate, MIGRATIONS_DIR } from "./db/migrate.ts";
+export * from "./history-commands.ts";
+export * from "./monitoring/condition.ts";
+export * from "./monitoring/scheduler.ts";
+export * from "./monitoring/service.ts";
+export {
+  MARKER_TASK_BUDGET_CAP,
+  MARKER_TASK_DEFAULT_BUDGET,
+  transitionMarker,
+} from "./monitoring/commands.ts";

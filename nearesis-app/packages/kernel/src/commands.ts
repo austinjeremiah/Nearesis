@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
 import { registerHistoryCommands } from "./history-commands.ts";
+import { registerMonitoringCommands } from "./monitoring/commands.ts";
 import {
   CommandType,
   MarkerAnchor,
@@ -65,11 +65,6 @@ export interface PluginWorkspaceOps {
 }
 
 const ObjectiveUpdate = z.strictObject({ objective: z.string().min(1).max(4000) });
-const MarkerCreate = z.strictObject({
-  panelId: z.uuid(),
-  markerId: z.uuid().optional(),
-  anchor: MarkerAnchor,
-});
 const PluginRef = z.strictObject({ pluginId: z.string().regex(/^[a-z][a-z0-9-]{1,63}$/) });
 
 function parsePayload<S extends z.ZodType>(schema: S, payload: unknown): z.infer<S> {
@@ -109,33 +104,7 @@ export class CommandBus {
         };
       },
     });
-    this.register("marker.create", {
-      handle: async (ctx, payload) => {
-        const p = parsePayload(MarkerCreate, payload);
-        // The panel must belong to THIS workspace (and be visible under RLS). Foreign and unknown panels give the same
-        // response, so cross-tenant marker injection cannot probe for object existence (K04).
-        const panel = await ctx.tx.query(
-          "SELECT id FROM panels WHERE id = $1 AND workspace_id = $2 AND removed_at IS NULL",
-          [p.panelId, ctx.workspace.id],
-        );
-        if (!panel.rows[0]) throw new KernelError("FORBIDDEN", "ACCESS_DENIED", "Access denied.");
-        const markerId = p.markerId ?? randomUUID();
-        await ctx.tx.query(
-          `INSERT INTO markers(id, org_id, workspace_id, branch_id, panel_id, anchor_json, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-          [
-            markerId,
-            ctx.workspace.orgId,
-            ctx.workspace.id,
-            ctx.workspace.activeBranchId,
-            p.panelId,
-            JSON.stringify(p.anchor),
-            ctx.session.userId,
-          ],
-        );
-        return { eventType: "marker.created", data: { markerId, panelId: p.panelId }, result: { markerId } };
-      },
-    });
+    registerMonitoringCommands(this);
     this.register("plugin.enable", {
       minRole: "admin",
       handle: (ctx, payload) => plugins.enableInWorkspace(ctx, parsePayload(PluginRef, payload).pluginId),

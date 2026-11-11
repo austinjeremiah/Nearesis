@@ -118,7 +118,7 @@ export async function loginSession(k: Kernel, subject: string): Promise<Session>
 // ---- scenario helpers -------------------------------------------------------------------------------------------
 
 import { randomUUID } from "node:crypto";
-import type { ExecutionRequest, ExecutionResponse } from "@nearesis/contracts";
+import type { CommandType, ExecutionRequest, ExecutionResponse } from "@nearesis/contracts";
 
 export async function createWs(k: Kernel, s: Session, objective = "test objective") {
   return k.workspaces.create(s, {
@@ -132,13 +132,7 @@ export function runCmd(
   k: Kernel,
   s: Session,
   workspaceId: string,
-  commandType:
-    | "workspace.update_objective"
-    | "marker.create"
-    | "plugin.enable"
-    | "plugin.disable"
-    | "canvas.apply_patch"
-    | "graph.save_layout",
+  commandType: CommandType,
   payload: Record<string, unknown>,
   expectedVersion: number,
   commandId: string = randomUUID(),

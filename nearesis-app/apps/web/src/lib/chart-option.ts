@@ -36,6 +36,8 @@ export interface BuiltChart {
 function markerToSpec(m: MarkerSpec): ChartMarker {
   if (m.anchor.kind === "time_range")
     return { id: m.markerId, kind: "time_range", start: m.anchor.start, end: m.anchor.end, label: "marker" };
+  if (m.anchor.kind === "source_event")
+    return { id: m.markerId, kind: "time_point", at: m.anchor.at, label: `event ${m.anchor.sourceId}` };
   if (m.anchor.kind === "time_point")
     return { id: m.markerId, kind: "time_point", at: m.anchor.at, label: "marker" };
   return {
@@ -63,7 +65,9 @@ export function toChartSpec(args: {
   let rows = data.rows;
   let method: "none" | "min_max_bucket" = "none";
 
-  if (isTime && panel.kind !== "scatter" && rows.length > DOWNSAMPLE_THRESHOLD) {
+  // Candlesticks are row-wise OHLC records and heatmaps are cell grids: dropping rows would change what is shown.
+  const rowWise = panel.kind === "candlestick" || panel.kind === "heatmap";
+  if (isTime && panel.kind !== "scatter" && !rowWise && rows.length > DOWNSAMPLE_THRESHOLD) {
     const keep = new Set<number>();
     for (const f of yFields) {
       const yi = col(f);
@@ -82,16 +86,23 @@ export function toChartSpec(args: {
   const kind: ChartKind =
     panel.kind === "scatter"
       ? "scatter"
-      : panel.kind === "bar" || panel.kind === "waterfall"
-        ? "bar"
-        : viz.mark === "area"
-          ? "area"
-          : "line";
-  const xType: "time" | "category" | "value" = isTime
-    ? "time"
-    : panel.kind === "scatter" || viz.x?.type === "number"
-      ? "value"
-      : "category";
+      : panel.kind === "candlestick"
+        ? "candlestick"
+        : panel.kind === "heatmap"
+          ? "heatmap"
+          : panel.kind === "bar" || panel.kind === "waterfall"
+            ? "bar"
+            : viz.mark === "area"
+              ? "area"
+              : "line";
+  const xType: "time" | "category" | "value" =
+    panel.kind === "heatmap"
+      ? "category"
+      : isTime
+        ? "time"
+        : panel.kind === "scatter" || viz.x?.type === "number"
+          ? "value"
+          : "category";
 
   const spec: ChartSpec = {
     kind,
@@ -99,12 +110,20 @@ export function toChartSpec(args: {
     columns: data.columns.map((c) => ({ name: c.name, unit: c.unit })),
     rows,
     x: { field: panel.encoding.x ?? "", type: xType },
-    y: yFields.map((f) => {
+    y: (panel.kind === "heatmap" ? [panel.encoding.series ?? ""] : yFields).map((f) => {
       const axis = viz.axes.find((a) => a.field === f);
       const side = axis?.side === "right" ? ("right" as const) : ("left" as const);
       const unit = panel.dataBinding.units[f] ?? data.columns[col(f)]?.unit ?? null;
       return { field: f, unit: unit ?? (side === "right" ? f : null), side };
     }),
+    ...(panel.kind === "heatmap" && yFields[0]
+      ? {
+          value: {
+            field: yFields[0],
+            unit: panel.dataBinding.units[yFields[0]] ?? data.columns[col(yFields[0])]?.unit ?? null,
+          },
+        }
+      : {}),
     scale: viz.scale,
     gaps: args.gaps,
     markers: args.markers.map(markerToSpec),

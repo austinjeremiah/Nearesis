@@ -184,7 +184,7 @@ export function Panel(props: {
     panel.kind !== "note" &&
     panel.kind !== "evidenceGraph";
 
-  const isChart = CHART_KINDS.has(panel.kind) && viz.x?.type === "utc_time";
+  const isChart = CHART_KINDS.has(panel.kind) && panel.kind !== "heatmap" && viz.x?.type === "utc_time";
   const fresh = freshness as "fresh" | "late" | "partial" | "stale" | "unavailable";
   return (
     <PanelCard

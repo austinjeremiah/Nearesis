@@ -8,6 +8,8 @@ import { join } from "node:path";
 import { type Browser, chromium, type Page } from "playwright";
 
 export const WEB_DIR = new URL("../..", import.meta.url).pathname;
+/** Build output directory. Set NEARESIS_WEB_DIST to build beside (not over) a `.next` another server is using. */
+export const DIST = process.env.NEARESIS_WEB_DIST ?? ".next";
 export const PORT = Number(process.env.NEARESIS_WEB_PORT ?? 3100);
 export const BASE = `http://127.0.0.1:${PORT}`;
 
@@ -23,7 +25,7 @@ async function up(): Promise<boolean> {
 }
 
 function newestMtime(dir: string): number {
-  const out = spawnSync("find", [dir, "-type", "f", "-newer", join(WEB_DIR, ".next", "BUILD_ID")], {
+  const out = spawnSync("find", [dir, "-type", "f", "-newer", join(WEB_DIR, DIST, "BUILD_ID")], {
     encoding: "utf8",
   });
   return out.stdout.trim().length;
@@ -33,7 +35,7 @@ function newestMtime(dir: string): number {
 export async function startWeb(
   extraEnv: Record<string, string> = {},
 ): Promise<{ reused: boolean; buildId: string }> {
-  const buildIdPath = join(WEB_DIR, ".next", "BUILD_ID");
+  const buildIdPath = join(WEB_DIR, DIST, "BUILD_ID");
   const stale = !existsSync(buildIdPath) || newestMtime(join(WEB_DIR, "src")) > 0;
   if (stale && (await up()))
     throw new Error(`a stale server is running on :${PORT}; stop it before running acceptance tests`);
@@ -131,6 +133,6 @@ export async function launch(): Promise<Browser> {
 }
 
 export function buildFingerprint(): { buildId: string; builtAt: string } {
-  const p = join(WEB_DIR, ".next", "BUILD_ID");
+  const p = join(WEB_DIR, DIST, "BUILD_ID");
   return { buildId: readFileSync(p, "utf8").trim(), builtAt: statSync(p).mtime.toISOString() };
 }

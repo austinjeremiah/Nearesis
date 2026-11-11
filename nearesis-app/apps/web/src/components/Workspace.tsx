@@ -17,6 +17,8 @@ import { RENDERER_VERSION } from "../lib/chart-option.ts";
 import { hooks } from "../lib/test-hooks.ts";
 import type { CanvasBackend, GraphProjection, PanelData } from "../lib/types.ts";
 import { InvalidPanel, Panel } from "./Panel.tsx";
+import { ReportView } from "./ReportView.tsx";
+import { SettingsView } from "./SettingsView.tsx";
 import {
   AgentChatPanel,
   AppShell,
@@ -108,6 +110,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   const [devLogin, setDevLogin] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceRow[]>([]);
+  const [view, setView] = useState<string>("canvas");
   const conv = useRunConversation(workspaceId, mode === "kernel", source);
   const convRef = useRef(conv);
   convRef.current = conv;
@@ -192,6 +195,18 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     let srcTimer: ReturnType<typeof setInterval> | null = null;
     const search = new URLSearchParams(window.location.search);
     void devLoginAvailable().then(setDevLogin);
+    const readHash = () => {
+      const h = window.location.hash.replace(/^#/, "");
+      setView(
+        h === "settings" || /^report\/[0-9a-f-]{36}$/.test(h)
+          ? h.startsWith("report/")
+            ? `rep:${h.slice(7)}`
+            : h
+          : "canvas",
+      );
+    };
+    readHash();
+    window.addEventListener("hashchange", readHash);
     // Signed-in users get the kernel-backed workspace on the semantic layer by default.
     if (!search.has("backend") && /^[0-9a-f-]{36}$/.test(workspaceId))
       void fetch("/api/session", { cache: "no-store" }).then((r) => {
@@ -276,6 +291,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     return () => {
       unsub();
       if (srcTimer) clearInterval(srcTimer);
+      window.removeEventListener("hashchange", readHash);
       window.removeEventListener("offline", goOffline);
       window.removeEventListener("online", goOnline);
     };
@@ -561,6 +577,22 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     [focusPanel],
   );
 
+  const navigateView = useCallback((key: string) => {
+    const h = key === "settings" ? "#settings" : key.startsWith("rep:") ? `#report/${key.slice(4)}` : "";
+    const u = new URL(window.location.href);
+    u.hash = h;
+    window.history.pushState(null, "", u.toString());
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  }, []);
+  const reportRunId = view.startsWith("rep:") ? view.slice(4) : null;
+  useEffect(() => {
+    if (reportRunId && mode === "kernel" && !convRef.current.runs[reportRunId])
+      convRef.current.openRun(
+        reportRunId,
+        convRef.current.investigations.find((r) => r.runId === reportRunId)?.questionSummary,
+      );
+  }, [reportRunId, mode]);
+
   const kernel = mode === "kernel";
   const sidebar: SidebarData = {
     workspaces: workspaces.length
@@ -574,7 +606,9 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       updated: r.updatedAt,
     })),
     sources,
-    reports: [],
+    reports: conv.investigations
+      .filter((r) => r.terminal)
+      .map((r) => ({ id: r.runId, title: r.questionSummary })),
     user,
   };
   const commands: PaletteCommand[] = [
@@ -596,8 +630,12 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       id: "canvas",
       label: "Go to canvas",
       group: "Navigate",
-      run: () => document.getElementById("main")?.scrollTo({ top: 0 }),
+      run: () => {
+        navigateView("canvas");
+        document.getElementById("main")?.scrollTo({ top: 0 });
+      },
     },
+    { id: "settings", label: "Open settings", group: "Navigate", run: () => navigateView("settings") },
     ...workspaces
       .filter((w) => w.id !== workspaceId)
       .map((w) => ({
@@ -678,7 +716,8 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
         sidebar={
           <Sidebar
             data={sidebar}
-            active="canvas"
+            active={view}
+            onSwitchWorkspace={(id) => window.location.assign(kernelWorkspaceUrl(id, source))}
             collapsed={navCollapsed}
             onToggleCollapsed={() => setNavCollapsed((c) => !c)}
             footerExtra={
@@ -694,13 +733,16 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
                 const id = key.slice(4);
                 setChatOpen(true);
                 conv.openRun(id, conv.investigations.find((r) => r.runId === id)?.questionSummary);
-              } else if (key === "settings") setToast("Settings are not available yet.");
+              } else if (key === "settings" || key === "canvas" || key.startsWith("rep:")) navigateView(key);
             }}
           />
         }
         topbar={
           <TopBar
-            crumbs={[{ label: kernel ? "Workspace" : "Fixture workspace" }, { label: "Canvas" }]}
+            crumbs={[
+              { label: kernel ? "Workspace" : "Fixture workspace" },
+              { label: view === "settings" ? "Settings" : reportRunId ? "Report" : "Canvas" },
+            ]}
             connection={connection}
             run={runIndicator}
             onOpenPalette={() => setPaletteOpen(true)}
@@ -792,33 +834,65 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
         {mode === "fixture" && (
           <HonestyBanner data-testid="mode-badge">fixture mode · SYNTHETIC data</HonestyBanner>
         )}
-        {doc && doc.panels.length === 0 && doc.invalid.length === 0 && <WorkspaceOnboarding onAsk={askNow} />}
-        <div className="nz-canvas">
-          {doc?.invalid.map((i) => (
-            <InvalidPanel key={`inv-${i.index}`} index={i.index} raw={i.raw} issues={i.issues} />
-          ))}
-          {doc?.panels.map((p) => (
-            <Panel
-              key={p.panelId}
-              panel={p}
-              runtime={runtimes[p.panelId] ?? initialRuntime()}
-              data={data[p.queryRef.hash] ?? null}
-              markers={markersByPanel[p.panelId] ?? []}
-              graph={p.kind === "evidenceGraph" ? graph : null}
-              entering={entering.has(p.panelId)}
-              onMove={(dx, dy) => move(p, dx, dy)}
-              onBrush={(a, b) => select(p, a, b)}
-              onKeyboardRange={(a, b) => select(p, a, b)}
-              onMarkRange={() => markRange(p)}
-              onResize={(dw, dh) => resize(p, dw, dh)}
-              onThreshold={(v) => addThreshold(p, v)}
-              onGraphLayout={saveLayout}
-              hasSelection={Boolean(
-                pendingSel[p.panelId] ?? doc.selections.find((s) => s.panelId === p.panelId),
-              )}
-            />
-          ))}
-        </div>
+        {view === "settings" && (
+          <SettingsView
+            workspaceId={workspaceId}
+            workspaceName={sidebar.workspaces.find((w) => w.id === workspaceId)?.name ?? "Workspace"}
+            mode={mode}
+            source={source}
+            theme={theme}
+            user={user.name}
+            signedIn={signedIn}
+            onToggleTheme={toggleTheme}
+            onSwitchSource={switchSource}
+            onBack={() => navigateView("canvas")}
+          />
+        )}
+        {reportRunId && (
+          <ReportView
+            runId={reportRunId}
+            title={conv.investigations.find((r) => r.runId === reportRunId)?.questionSummary ?? "Report"}
+            model={conv.runs[reportRunId] ?? null}
+            unavailable={mode !== null && mode !== "kernel"}
+            sourceLabel={source === "live" ? "LIVE" : "SYNTHETIC"}
+            onBack={() => navigateView("canvas")}
+            onOpenPanel={(h) => {
+              navigateView("canvas");
+              setTimeout(() => openCitation({ queryHash: h }), 80);
+            }}
+          />
+        )}
+        {view === "canvas" && doc && doc.panels.length === 0 && doc.invalid.length === 0 && (
+          <WorkspaceOnboarding onAsk={askNow} />
+        )}
+        {view === "canvas" && (
+          <div className="nz-canvas">
+            {doc?.invalid.map((i) => (
+              <InvalidPanel key={`inv-${i.index}`} index={i.index} raw={i.raw} issues={i.issues} />
+            ))}
+            {doc?.panels.map((p) => (
+              <Panel
+                key={p.panelId}
+                panel={p}
+                runtime={runtimes[p.panelId] ?? initialRuntime()}
+                data={data[p.queryRef.hash] ?? null}
+                markers={markersByPanel[p.panelId] ?? []}
+                graph={p.kind === "evidenceGraph" ? graph : null}
+                entering={entering.has(p.panelId)}
+                onMove={(dx, dy) => move(p, dx, dy)}
+                onBrush={(a, b) => select(p, a, b)}
+                onKeyboardRange={(a, b) => select(p, a, b)}
+                onMarkRange={() => markRange(p)}
+                onResize={(dw, dh) => resize(p, dw, dh)}
+                onThreshold={(v) => addThreshold(p, v)}
+                onGraphLayout={saveLayout}
+                hasSelection={Boolean(
+                  pendingSel[p.panelId] ?? doc.selections.find((s) => s.panelId === p.panelId),
+                )}
+              />
+            ))}
+          </div>
+        )}
       </AppShell>
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={commands} />
       {toast && (

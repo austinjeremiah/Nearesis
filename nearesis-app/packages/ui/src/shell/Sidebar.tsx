@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { FreshnessBadge } from "../canvas/badges";
 import {
   IconCanvas,
@@ -62,6 +62,8 @@ export interface SidebarProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onNavigate: (key: string) => void;
+  /** Called with the chosen workspace id from the switcher menu. The current workspace is a no-op. */
+  onSwitchWorkspace?: (workspaceId: string) => void;
   /** Rendered in the footer next to the user (theme switch and so on). */
   footerExtra?: ReactNode;
 }
@@ -115,8 +117,26 @@ export function Sidebar({
   collapsed,
   onToggleCollapsed,
   onNavigate,
+  onSwitchWorkspace,
   footerExtra,
 }: SidebarProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const headRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!headRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
   const ws = data.workspaces.find((w) => w.id === data.activeWorkspaceId) ?? data.workspaces[0];
   const initials = data.user.name
     .split(/\s+/)
@@ -126,12 +146,16 @@ export function Sidebar({
     .toUpperCase();
   return (
     <nav className="nz-sidebar" data-collapsed={collapsed ? "true" : "false"} aria-label="Primary">
-      <div className="nz-sb-head">
+      <div className="nz-sb-head" ref={headRef}>
         <button
           type="button"
           className="nz-ws-switch"
+          data-testid="workspace-switch"
           aria-label={collapsed ? `${ws?.name ?? "No workspace"}, switch workspace` : undefined}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
           title="Switch workspace"
+          onClick={() => setMenuOpen((o) => !o)}
         >
           <span className="nz-ws-mark" aria-hidden="true">
             {(ws?.name ?? "N").slice(0, 1).toUpperCase()}
@@ -144,6 +168,36 @@ export function Sidebar({
           </span>
           <IconChevronDown className="nz-icon nz-hide-collapsed" />
         </button>
+        {menuOpen && (
+          <div className="nz-ws-menu" role="menu" aria-label="Workspaces" data-testid="workspace-menu">
+            {data.workspaces.map((w) => (
+              <button
+                key={w.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={w.id === data.activeWorkspaceId}
+                className="nz-ws-menu-item"
+                data-testid={`workspace-option-${w.id}`}
+                onClick={() => {
+                  setMenuOpen(false);
+                  if (w.id !== data.activeWorkspaceId) onSwitchWorkspace?.(w.id);
+                }}
+              >
+                <span className="nz-ws-mark" aria-hidden="true">
+                  {w.name.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="nz-grow" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {w.name}
+                </span>
+              </button>
+            ))}
+            {data.workspaces.length <= 1 && (
+              <div className="nz-sb-meta" style={{ padding: "var(--space-2)" }}>
+                No other workspaces for this account.
+              </div>
+            )}
+          </div>
+        )}
         <IconButton
           label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           shortcut="["

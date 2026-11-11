@@ -75,24 +75,39 @@ export function buildOption(spec: ChartSpec, o: BuildOptions): BuiltChart {
   const style = CHART_STYLE[spec.kind];
 
   if (spec.kind === "candlestick") {
+    // Columns are resolved by declared field name (y = open, close, low, high); positional only as a fallback.
+    const ci = [0, 1, 2, 3].map((k) => {
+      const i = col(spec.y[k]?.field);
+      return i >= 0 ? i : k + 1;
+    });
+    const ti = xi >= 0 ? xi : 0;
     series.push({
       type: "candlestick",
       name: spec.title,
-      data: spec.rows.map((r) => [time(r[0]), num(r[1]), num(r[2]), num(r[3]), num(r[4])]),
+      data: spec.rows.map((r) => [
+        time(r[ti]),
+        num(r[ci[0]!]),
+        num(r[ci[1]!]),
+        num(r[ci[2]!]),
+        num(r[ci[3]!]),
+      ]),
       itemStyle: { color: t.up, color0: t.down, borderColor: t.up, borderColor0: t.down },
       animation: animate,
     });
   } else if (spec.kind === "heatmap") {
-    const yCats = Array.from(new Set(spec.rows.map((r) => String(r[1] ?? ""))));
-    const xCats = Array.from(new Set(spec.rows.map((r) => String(r[0] ?? ""))));
-    const vals = spec.rows.map((r) => num(r[2])).filter((v): v is number => v !== null);
+    const hx = xi >= 0 ? xi : 0;
+    const hy = col(spec.y[0]?.field) >= 0 ? col(spec.y[0]?.field) : 1;
+    const hv = col(spec.value?.field) >= 0 ? col(spec.value?.field) : 2;
+    const yCats = Array.from(new Set(spec.rows.map((r) => String(r[hy] ?? ""))));
+    const xCats = Array.from(new Set(spec.rows.map((r) => String(r[hx] ?? ""))));
+    const vals = spec.rows.map((r) => num(r[hv])).filter((v): v is number => v !== null);
     series.push({
       type: "heatmap",
       name: spec.title,
       data: spec.rows.map((r) => [
-        xCats.indexOf(String(r[0] ?? "")),
-        yCats.indexOf(String(r[1] ?? "")),
-        num(r[2]),
+        xCats.indexOf(String(r[hx] ?? "")),
+        yCats.indexOf(String(r[hy] ?? "")),
+        num(r[hv]), // null stays a missing cell, never 0
       ]),
       itemStyle: { borderColor: t.surface, borderWidth: 1, borderRadius: 2 },
       animation: animate,
@@ -169,28 +184,28 @@ export function buildOption(spec: ChartSpec, o: BuildOptions): BuiltChart {
           ...(spec.kind === "area" ? { areaStyle: { color, opacity: style.areaOpacity } } : {}),
         });
     });
+  }
 
-    const first = series[0];
-    if (first && isTime) {
-      const areas: unknown[] = (spec.gaps ?? []).map((g) => [
-        { xAxis: Date.parse(g.from), name: `missing: ${g.reason}`, itemStyle: { color: t.gap } },
-        { xAxis: Date.parse(g.to) },
-      ]);
-      const lines: unknown[] = [];
-      for (const m of spec.markers ?? []) {
-        const mk = markerToOption(m, t);
-        if (mk.area) areas.push(mk.area);
-        if (mk.line) lines.push(mk.line);
-      }
-      first.markArea = { silent: true, label: { ...text, position: "insideTop" }, data: areas };
-      first.markLine = {
-        silent: true,
-        symbol: "none",
-        lineStyle: { color: t.marker, type: "dashed", width: 1 },
-        label: { color: t.marker, fontSize: 11, fontFamily: t.fontFamily },
-        data: lines,
-      };
+  const first = series[0];
+  if (first && isTime) {
+    const areas: unknown[] = (spec.gaps ?? []).map((g) => [
+      { xAxis: Date.parse(g.from), name: `missing: ${g.reason}`, itemStyle: { color: t.gap } },
+      { xAxis: Date.parse(g.to) },
+    ]);
+    const lines: unknown[] = [];
+    for (const m of spec.markers ?? []) {
+      const mk = markerToOption(m, t);
+      if (mk.area) areas.push(mk.area);
+      if (mk.line) lines.push(mk.line);
     }
+    first.markArea = { silent: true, label: { ...text, position: "insideTop" }, data: areas };
+    first.markLine = {
+      silent: true,
+      symbol: "none",
+      lineStyle: { color: t.marker, type: "dashed", width: 1 },
+      label: { color: t.marker, fontSize: 11, fontFamily: t.fontFamily },
+      data: lines,
+    };
   }
 
   const multi = spec.y.length > 1 && spec.kind !== "candlestick";

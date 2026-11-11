@@ -9,5 +9,5 @@
     "plugins": [{ "name": "next" }]
   },
   "include": ["src", "test", "next.config.ts", "next-env.d.ts"],
-  "exclude": ["node_modules", ".next"]
+  "exclude": ["node_modules", ".next", ".next-*"]
 }

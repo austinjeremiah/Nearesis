@@ -6,7 +6,16 @@ import type { CanvasDocument, ChartData, PanelSpec } from "@nearesis/contracts";
 import { hashCanonical, type QueryResultShape } from "@nearesis/canvas-schema";
 import type { GraphProjection, PanelData } from "../lib/types.ts";
 
-export const SCENARIOS = ["baseline", "hostile", "large", "corrupt", "graph", "gaps", "empty"] as const;
+export const SCENARIOS = [
+  "baseline",
+  "hostile",
+  "large",
+  "corrupt",
+  "graph",
+  "gaps",
+  "empty",
+  "visuals",
+] as const;
 export type ScenarioId = (typeof SCENARIOS)[number];
 
 export interface Scenario {
@@ -509,8 +518,123 @@ function graph(): Scenario {
   return { ...b, id: "graph", document: doc([...d.panels, gp]), graph: { nodes, edges } };
 }
 
+/** OHLC daily candles: low <= min(open, close) and high >= max(open, close) by construction. */
+function candles() {
+  const rows: ChartData["rows"] = [];
+  let prev = 4.1;
+  for (let d = 0; d < 30; d++) {
+    const open = prev;
+    const close = Math.round((open + Math.sin(d / 3) * 0.12 + ((d * 13) % 7) * 0.01 - 0.03) * 1000) / 1000;
+    const low = Math.round((Math.min(open, close) - 0.05) * 1000) / 1000;
+    const high = Math.round((Math.max(open, close) + 0.06) * 1000) / 1000;
+    rows.push([iso(T0 + d * DAY), open, close, low, high]);
+    prev = close;
+  }
+  const num = (name: string) => ({ name, unit: "usd", role: "measure" as const, metricId: name });
+  return makeData(
+    { measures: ["near.open", "near.close", "near.low", "near.high"] },
+    {
+      grain: "day",
+      fields: [TIME_FIELD, num("near.open"), num("near.close"), num("near.low"), num("near.high")],
+    },
+    [
+      { name: "intents.day", unit: null },
+      { name: "near.open", unit: "usd" },
+      { name: "near.close", unit: "usd" },
+      { name: "near.low", unit: "usd" },
+      { name: "near.high", unit: "usd" },
+    ],
+    rows,
+  );
+}
+
+/** Chain x weekday swap counts; one cell is unknown (null), never 0. */
+function heat() {
+  const chains = ["near", "eth", "sol", "base"];
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const rows: ChartData["rows"] = [];
+  chains.forEach((c, ci) =>
+    days.forEach((d, di) => rows.push([d, c, ci === 2 && di === 3 ? null : 40 + ((ci * 31 + di * 17) % 90)])),
+  );
+  return makeData(
+    { measures: ["intents.swap_count"], dimensions: ["intents.weekday", "intents.chain"] },
+    {
+      grain: "day",
+      fields: [
+        { name: "intents.weekday", unit: null, role: "dimension" },
+        { name: "intents.chain", unit: null, role: "dimension" },
+        { name: "intents.swap_count", unit: "count", role: "measure", metricId: "intents.swap_count" },
+      ],
+    },
+    [
+      { name: "intents.weekday", unit: null },
+      { name: "intents.chain", unit: null },
+      { name: "intents.swap_count", unit: "count" },
+    ],
+    rows,
+  );
+}
+
+function visuals(): Scenario {
+  const k = candles();
+  const h = heat();
+  const s = swaps();
+  const panels = [
+    panel(1, k.hash, {
+      kind: "candlestick",
+      title: "NEAR daily candles (USD)",
+      dataBinding: {
+        fields: ["intents.day", "near.open", "near.close", "near.low", "near.high"],
+        units: { "near.open": "usd", "near.close": "usd", "near.low": "usd", "near.high": "usd" },
+        timezone: "UTC",
+        completeness: "complete",
+      },
+      encoding: {
+        x: "intents.day",
+        y: ["near.open", "near.close", "near.low", "near.high"],
+        interpolateGaps: false,
+      },
+    }),
+    panel(2, h.hash, {
+      kind: "heatmap",
+      title: "Swaps by chain and weekday",
+      dataBinding: {
+        fields: ["intents.weekday", "intents.chain", "intents.swap_count"],
+        units: { "intents.swap_count": "count" },
+        timezone: "UTC",
+        completeness: "partial",
+      },
+      encoding: {
+        x: "intents.weekday",
+        y: ["intents.swap_count"],
+        series: "intents.chain",
+        interpolateGaps: false,
+      },
+    }),
+    panel(3, s.hash, {
+      kind: "timeSeries",
+      title: "Completed 1Click swaps per UTC day",
+      dataBinding: {
+        fields: ["intents.day", "intents.swap_count"],
+        units: { "intents.swap_count": "count" },
+        timezone: "UTC",
+        completeness: "partial",
+      },
+      encoding: { x: "intents.day", y: ["intents.swap_count"], interpolateGaps: false },
+    }),
+  ];
+  return {
+    id: "visuals",
+    document: doc(panels),
+    data: { [k.hash]: k.data, [h.hash]: h.data, [s.hash]: s.data },
+    graph: null,
+  };
+}
+
 export function loadScenario(id: string): Scenario {
   switch (id) {
+    case "visuals":
+      return visuals();
     case "hostile":
       return hostile();
     case "large":

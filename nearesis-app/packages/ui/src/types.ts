@@ -45,7 +45,8 @@ export type ChartMarker =
 
 /**
  * A declared chart. `rows` follow `columns`. Per kind: line/area/bar/scatter use `x` and `y[]`; heatmap uses
- * x (category), y[0] (category) and value (third column); candlestick uses [time, open, close, low, high].
+ * x (category), y[0] (row category field) and `value` (the measure field); candlestick uses x (time) and
+ * y = [open, close, low, high] fields. Fields are resolved by name, never by column position.
  */
 export interface ChartSpec {
   kind: ChartKind;

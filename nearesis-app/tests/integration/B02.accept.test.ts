@@ -81,9 +81,12 @@ it("B02: every output shows its provenance and whether it came from a fixture or
     // live question: submitted with source=live; it is recorded as live and no fixture data is substituted for it
     const lws = await s.env.kernel!.newWorkspace("B02 live source");
     const lr = await ask(s, lws, "A20-P", "Are Intents flows economically durable?", { source: "live" });
-    const lsrc = await q<{ source: string }>(s.env, s.env.tenantId, "SELECT source FROM runs WHERE id=$1", [
-      lr.runId,
-    ]);
+    const lsrc = await waitFor(async () => {
+      const r = await q<{ source: string }>(s.env, s.env.tenantId, "SELECT source FROM runs WHERE id=$1", [
+        lr.runId,
+      ]);
+      return r.length ? r : null;
+    }, 30_000);
     expect(lsrc[0]!.source).toBe("live");
     const end = await waitFor(async () => {
       const r = (await runRow(s, lr.runId))!;

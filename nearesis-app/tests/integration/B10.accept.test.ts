@@ -65,7 +65,8 @@ it("B10: unavailable proof is shown blocked, never faked, and the rest of the fl
   expect(on.proof!.ui).toContain("not the accuracy of the data");
   expect(on.proof!.gate.status).toBe("FIXTURE_PASS");
   expect(on.proof!.result!.liveHalf.status).toBe("BLOCKED_DEPENDENCY");
-  expect(JSON.stringify(outputs(on))).not.toMatch(/OutLayer-backed(?! )|\bTEE-verified/);
+  expect(scanFixtureClaims(Object.values(outputs(on))).violations).toEqual([]);
+  expect(JSON.stringify(outputs(on))).not.toMatch(/TEE[- ]verified|verified on-chain/i);
   // negative control: injecting "TEE-verified" into the memo template is caught by the scan and the publication gate
   const planted = "The result is TEE-verified.";
   expect(CLAIM.test(planted)).toBe(true);

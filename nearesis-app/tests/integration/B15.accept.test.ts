@@ -72,6 +72,14 @@ it("B15: a branch tests a sensitivity, the comparison shows both values, counter
   expect(sign(rFull.pearson_ppm)).toBe(1);
   expect(sign(rExcl.pearson_ppm)).toBe(-1); // designed sign flip
 
+  const graphDump = async () => {
+    const g = (await s.owner.call("GET", `/v1/workspaces/${ws}/graph`)).json as {
+      nodes: Array<{ id: string }>;
+      edges: Array<{ id: string }>;
+    };
+    return JSON.stringify([g.nodes, g.edges]);
+  };
+  const graphBeforeDump = await graphDump();
   const parentBefore = { graph: await graphHash(), panels: await canvasHash() };
   // snapshot the parent, then branch from it (history API)
   const snap = await s.owner.call("POST", `/v1/workspaces/${ws}/snapshots`, {
@@ -119,7 +127,18 @@ it("B15: a branch tests a sensitivity, the comparison shows both values, counter
     .json as { changes?: unknown[] };
   // (a) the branch result differs as designed and the parent is unchanged byte for byte
   const parentAfter = { graph: await graphHash(), panels: await canvasHash() };
-  expect(parentAfter).toEqual(parentBefore);
+  expect(parentAfter.panels).toEqual(parentBefore.panels);
+  const afterDump = JSON.parse(await graphDump()) as unknown[][];
+  const beforeDump = JSON.parse(graphBeforeDump) as unknown[][];
+  const changed: string[] = [];
+  for (const k of [0, 1])
+    beforeDump[k]!.forEach((x, i) => {
+      if (JSON.stringify(x) !== JSON.stringify(afterDump[k]![i]))
+        changed.push(`${JSON.stringify(x)} => ${JSON.stringify(afterDump[k]![i])}`);
+    });
+  expect(changed.join(" || ").slice(0, 1500)).toBe("");
+  expect(afterDump[0]!.length).toBe(beforeDump[0]!.length);
+  expect(afterDump[1]!.length).toBe(beforeDump[1]!.length);
   expect(JSON.stringify(view)).toContain("exclude top 1%");
   expect((diff.changes ?? []).length).toBeGreaterThan(0);
   // (b) comparison: both values with filters; the claim verdict is capped at MIXED by the frozen Q18 sign-flip rule

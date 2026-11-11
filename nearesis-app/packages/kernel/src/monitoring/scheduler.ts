@@ -29,8 +29,11 @@ export interface SchedulerOptions {
   holder?: string;
   leaseMs?: number;
   batch?: number;
-  /** Clock for lease expiry only (rule logic uses watermark time). */
-  now?: () => number;
+  /**
+   * Test seam: awaited after a rule was selected as enabled and before it is locked and evaluated, to exercise the
+   * select-then-disable race. Never set in production.
+   */
+  onRuleSelected?: (ruleId: string) => Promise<void>;
 }
 
 /**
@@ -43,6 +46,7 @@ export class MonitorScheduler {
   readonly holder: string;
   private readonly leaseMs: number;
   private readonly batch: number;
+  private readonly onRuleSelected: ((ruleId: string) => Promise<void>) | undefined;
   private timer: NodeJS.Timeout | undefined;
   private fence = 0;
 
@@ -54,6 +58,7 @@ export class MonitorScheduler {
     this.holder = opts.holder ?? `sched-${randomUUID()}`;
     this.leaseMs = opts.leaseMs ?? 15_000;
     this.batch = opts.batch ?? 100;
+    this.onRuleSelected = opts.onRuleSelected;
   }
 
   /** Records a source-watermark update for the scheduler. Idempotent per (source, watermark, mode). */
@@ -160,7 +165,7 @@ export class MonitorScheduler {
   }
 
   /** Evaluates one event against every enabled rule listening to its source. Safe to call from competing workers. */
-  async processEvent(raw: WatermarkEvent): Promise<ProcessResult[]> {
+  async processEvent(raw: WatermarkEvent, scope: { workspaceId?: string } = {}): Promise<ProcessResult[]> {
     const ev = WatermarkEventSchema.parse(raw);
     const rules = (
       await this.db.txGlobal((tx) =>
@@ -171,7 +176,8 @@ export class MonitorScheduler {
       )
     ).rows;
     const out: ProcessResult[] = [];
-    for (const r of rules) out.push(await this.processRule(r, ev));
+    for (const r of rules.filter((x) => !scope.workspaceId || x.workspace_id === scope.workspaceId))
+      out.push(await this.processRule(r, ev));
     return out;
   }
 
@@ -180,6 +186,7 @@ export class MonitorScheduler {
     ev: WatermarkEvent,
   ): Promise<ProcessResult> {
     const wm = Date.parse(ev.watermark);
+    await this.onRuleSelected?.(r.rule_id);
     return this.db.tx({ orgId: r.org_id, userId: r.created_by, actorKind: "service" }, async (tx) => {
       // Lock order matches the command bus: workspace, then rule. Disable/enable commands hold the same locks, so a rule
       // disabled before this point is seen as disabled here and never executes.

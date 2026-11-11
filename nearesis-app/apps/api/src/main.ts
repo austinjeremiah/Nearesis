@@ -36,6 +36,7 @@ await kernel.boot();
 kernel.outbox.start();
 const app = await buildApp({
   kernel,
+  ...(process.env.NEARESIS_MONITOR_BACKGROUND === "1" ? { monitorBackground: {} } : {}),
   engine: temporalEngine(process.env.TASK_QUEUE ? { taskQueue: process.env.TASK_QUEUE } : {}),
 });
 const port = Number(process.env.PORT ?? 4100);

@@ -17,6 +17,8 @@ import type { StreamOptions } from "./stream.ts";
 import { WorkspaceRegistry } from "./workspace.ts";
 import { MonitoringService } from "./monitoring/service.ts";
 import { MonitorScheduler } from "./monitoring/scheduler.ts";
+import { MarkerTaskService } from "./monitoring/tasks.ts";
+import type { RunPort } from "./monitoring/tasks.ts";
 import type { SchedulerOptions } from "./monitoring/scheduler.ts";
 
 export interface KernelConfig {
@@ -76,6 +78,11 @@ export class Kernel {
   /** A monitor scheduler bound to this kernel's database and journal. The caller owns start/stop. */
   monitorScheduler(opts: SchedulerOptions = {}): MonitorScheduler {
     return new MonitorScheduler(this.db, this.journal, opts);
+  }
+
+  /** Marker-task dispatcher over the investigation runtime. The caller owns when to call `dispatchOpen()`. */
+  markerTasks(port: RunPort): MarkerTaskService {
+    return new MarkerTaskService(this.db, this.commands, port);
   }
 
   async boot(): Promise<void> {

@@ -8,10 +8,13 @@ import type { Kernel, Session } from "@nearesis/kernel";
 import { RunsService } from "./runs.ts";
 import type { InvestigationEngine } from "./runs.ts";
 import { historyRoutes } from "./history-routes.ts";
+import { monitoringRoutes } from "./monitoring-routes.ts";
 
 const Uuid = z.uuid();
 
 export interface AppOptions {
+  /** Start the monitor scheduler and marker-task dispatcher inside this API process. */
+  monitorBackground?: { intervalMs?: number };
   kernel: Kernel;
   /** Starts/signals investigation workflows (production: `temporalEngine()`). Without one, question/cancel/approval writes are 503. */
   engine?: InvestigationEngine;
@@ -355,6 +358,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   );
 
   await app.register(historyRoutes, { kernel });
+  await app.register(monitoringRoutes, { kernel, runs, authenticate, background: opts.monitorBackground });
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.
   void HTTP_STATUS_FOR;

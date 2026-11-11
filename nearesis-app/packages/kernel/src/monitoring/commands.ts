@@ -20,9 +20,13 @@ import { KernelError } from "../errors.ts";
 import { zodDetails } from "../workspace.ts";
 import { assertConditionBounds } from "./condition.ts";
 
-/** Hard ceiling for one marker-scoped investigation (ch.05 budget rules): the assign command may only lower it. */
-export const MARKER_TASK_BUDGET_CAP = { tokens: 200_000, toolCalls: 24, usd: 5 } as const;
-export const MARKER_TASK_DEFAULT_BUDGET = { tokens: 32_000, toolCalls: 12, usd: 3 } as const;
+/**
+ * Hard ceiling for one marker-scoped investigation (ch.05 budget rules): the assign command may only lower it. These are
+ * runtime reservation units (the same ones `POST /questions` takes; a 4-role investigation reserves more than the
+ * 32k/12/3 minimum). Actual paid-model spend stays under the shared inference ledger cap regardless of this number.
+ */
+export const MARKER_TASK_BUDGET_CAP = { tokens: 200_000, toolCalls: 24, usd: 20 } as const;
+export const MARKER_TASK_DEFAULT_BUDGET = MARKER_TASK_BUDGET_CAP;
 
 function parse<S extends z.ZodType>(schema: S, payload: unknown): z.infer<S> {
   const r = schema.safeParse(payload);

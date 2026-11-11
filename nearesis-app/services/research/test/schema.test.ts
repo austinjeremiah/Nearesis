@@ -28,7 +28,12 @@ it("rejects an artifact with an unknown status", () => {
 it("inference record: a significance claim requires VALID status", async () => {
   const { ResearchInferenceRecord } = await import("@nearesis/contracts");
   const base = {
-    method: { id: "wpe_fixed_m_daniell", version: "fixed-smoothing-dm/1.0.0", label: "post_hoc_methodological_correction", role: "primary" },
+    method: {
+      id: "wpe_fixed_m_daniell",
+      version: "fixed-smoothing-dm/1.0.0",
+      label: "post_hoc_methodological_correction",
+      role: "primary",
+    },
     status: "METHOD_NOT_VALIDATED",
     nested: true,
     horizon: 1,
@@ -40,17 +45,30 @@ it("inference record: a significance claim requires VALID status", async () => {
     calibration_reference: null,
     significance_claim_allowed: false,
     limitations: [],
-    conclusion: { state: "comparison_method_not_validated", observed_candidate_lower_error: true, statistically_meaningful_difference: false, causal_claim: "excluded" },
+    conclusion: {
+      state: "comparison_method_not_validated",
+      observed_candidate_lower_error: true,
+      statistically_meaningful_difference: false,
+      causal_claim: "excluded",
+    },
   };
   expect(ResearchInferenceRecord.safeParse(base).success).toBe(true);
-  expect(ResearchInferenceRecord.safeParse({ ...base, significance_claim_allowed: true }).success).toBe(false);
-  expect(ResearchInferenceRecord.safeParse({ ...base, status: "VALID", significance_claim_allowed: true }).success).toBe(true);
+  expect(ResearchInferenceRecord.safeParse({ ...base, significance_claim_allowed: true }).success).toBe(
+    false,
+  );
+  expect(
+    ResearchInferenceRecord.safeParse({ ...base, status: "VALID", significance_claim_allowed: true }).success,
+  ).toBe(true);
 });
 
 it("amendment 002 bundles parse and carry a non-valid inference record for the nested primary comparison", () => {
   for (const name of ["signal-bundle-a002", "nosignal-bundle-a002"]) {
-    const a = ResearchRunArtifact.parse(JSON.parse(readFileSync(resolve(dir, name, "research_run.json"), "utf8")));
-    const inf = (a.estimates.primary as { inference?: { status: string; significance_claim_allowed: boolean } }).inference;
+    const a = ResearchRunArtifact.parse(
+      JSON.parse(readFileSync(resolve(dir, name, "research_run.json"), "utf8")),
+    );
+    const inf = (
+      a.estimates.primary as { inference?: { status: string; significance_claim_allowed: boolean } }
+    ).inference;
     expect(inf?.status).toBe("METHOD_NOT_VALIDATED");
     expect(inf?.significance_claim_allowed).toBe(false);
   }

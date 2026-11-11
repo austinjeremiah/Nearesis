@@ -28,7 +28,9 @@ it("Q14 loss functions, uncertainty and paired forecast comparison", () => {
     expect(am.oneShot.executions).toBe(1);
     expect(am.evaluationFrozenAt < am.oneShot.at).toBe(true);
     // (b) statistic and p-value equal the independent oracle; the i.i.d. variance gives a detectably different value
-    expect(Math.abs(m.dm.production.statistic - m.dm.reference.statistic)).toBeLessThanOrEqual(m.dm.tolerance);
+    expect(Math.abs(m.dm.production.statistic - m.dm.reference.statistic)).toBeLessThanOrEqual(
+      m.dm.tolerance,
+    );
     expect(Math.abs(m.dm.production.p_value - m.dm.reference.p_value)).toBeLessThanOrEqual(m.dm.pTolerance);
     expect(m.dm.production.m).toBe(m.dm.reference.m);
     expect(Math.abs(m.dm.iid.statistic - m.dm.reference.statistic)).toBeGreaterThan(m.dm.tolerance);

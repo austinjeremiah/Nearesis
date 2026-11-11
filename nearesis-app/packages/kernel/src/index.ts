@@ -14,6 +14,8 @@ export * from "./outbox.ts";
 export * from "./integrity.ts";
 export * from "./verified-state.ts";
 export * from "./classification.ts";
+export * from "./release-gate.ts";
+export * from "./release-gate-runbook.ts";
 export * from "./leases.ts";
 export * from "./gateway.ts";
 export * from "./kernel.ts";

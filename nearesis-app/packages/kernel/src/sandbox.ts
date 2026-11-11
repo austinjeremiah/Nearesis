@@ -46,7 +46,54 @@ export interface SandboxResult {
   stdout: string;
   stderr: string;
   timedOut: boolean;
+  /**
+   * Set only when the wall-clock timeout fired while the container sat at its memory ceiling (usage at least
+   * `MEMORY_CEILING_RATIO` of the limit). A job that is pinned at its limit while the kernel reclaims instead of killing it
+   * is memory-limited, not CPU-limited; Docker does not always deliver the OOM kill promptly.
+   */
+  memoryAtLimit?: boolean;
   containerName: string;
+}
+
+export const MEMORY_CEILING_RATIO = 0.9;
+
+const UNIT_BYTES: Record<string, number> = {
+  B: 1,
+  KIB: 1024,
+  MIB: 1024 ** 2,
+  GIB: 1024 ** 3,
+  KB: 1e3,
+  MB: 1e6,
+  GB: 1e9,
+};
+
+/** Parses the `MemUsage` column of `docker stats` ("63.15MiB / 64MiB") and reports whether usage is at the ceiling. */
+export function usageAtCeiling(memUsage: string, ratio = MEMORY_CEILING_RATIO): boolean {
+  const m = /^\s*([\d.]+)\s*([A-Za-z]+)\s*\/\s*([\d.]+)\s*([A-Za-z]+)\s*$/.exec(memUsage);
+  if (!m) return false;
+  const used = Number(m[1]) * (UNIT_BYTES[m[2]!.toUpperCase()] ?? NaN);
+  const limit = Number(m[3]) * (UNIT_BYTES[m[4]!.toUpperCase()] ?? NaN);
+  return Number.isFinite(used) && Number.isFinite(limit) && limit > 0 && used / limit >= ratio;
+}
+
+/** One `docker stats` sample of a running container; false when it cannot be read within 3 s. */
+function sampleAtCeiling(docker: string, name: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const p = spawn(docker, ["stats", "--no-stream", "--format", "{{.MemUsage}}", name], {
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    let out = "";
+    const t = setTimeout(() => p.kill(), 3000);
+    p.stdout.on("data", (c: Buffer) => (out += c.toString("utf8")));
+    p.on("error", () => {
+      clearTimeout(t);
+      resolve(false);
+    });
+    p.on("close", () => {
+      clearTimeout(t);
+      resolve(usageAtCeiling(out));
+    });
+  });
 }
 
 const FORBIDDEN_HOST = [
@@ -224,9 +271,13 @@ export function startSandboxed(spec: SandboxSpec, onLine: (line: string) => void
   const kill = () => {
     spawn(docker, ["kill", name], { stdio: "ignore" }).on("error", () => undefined);
   };
+  let memoryAtLimit = false;
   const timer = setTimeout(() => {
     timedOut = true;
-    kill();
+    void sampleAtCeiling(docker, name).then((atCeiling) => {
+      memoryAtLimit = atCeiling;
+      kill();
+    });
   }, spec.timeoutMs ?? 20_000);
   child.stdin.on("error", () => undefined);
   if (spec.stdin !== undefined) child.stdin.write(spec.stdin);
@@ -237,7 +288,14 @@ export function startSandboxed(spec: SandboxSpec, onLine: (line: string) => void
     });
     child.on("close", (code) => {
       clearTimeout(timer);
-      resolve({ exitCode: code, stdout, stderr, timedOut, containerName: name });
+      resolve({
+        exitCode: code,
+        stdout,
+        stderr,
+        timedOut,
+        ...(memoryAtLimit ? { memoryAtLimit } : {}),
+        containerName: name,
+      });
     });
   });
   done.catch(() => undefined);

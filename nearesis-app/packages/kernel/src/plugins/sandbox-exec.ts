@@ -39,8 +39,9 @@ export function limitReason(
   timedOut: boolean,
   errCode?: string,
   message?: string,
+  memoryAtLimit = false,
 ): string | null {
-  if (timedOut) return "PLUGIN_CPU_LIMIT";
+  if (timedOut) return memoryAtLimit ? "PLUGIN_MEMORY_LIMIT" : "PLUGIN_CPU_LIMIT";
   if (errCode === "ENOSPC" || /ENOSPC|no space left/i.test(message ?? "")) return "PLUGIN_DISK_LIMIT";
   if (errCode === "EAGAIN" || /EAGAIN|Resource temporarily unavailable/i.test(message ?? ""))
     return "PLUGIN_PROCESS_LIMIT";
@@ -153,6 +154,7 @@ export function sandboxedModule(
           r.timedOut,
           settled && !settled.ok ? settled.code : undefined,
           settled && !settled.ok ? settled.message : r.stderr,
+          r.memoryAtLimit === true,
         );
         if (reason) throw new PluginLimitError(reason, `sandbox limit: ${reason}`);
         throw new Error(settled && !settled.ok ? settled.message : `sandbox exited ${r.exitCode}`);

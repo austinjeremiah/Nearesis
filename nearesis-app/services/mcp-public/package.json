@@ -1,0 +1,24 @@
+{
+  "name": "@nearesis/mcp-public",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --exclude 'test/acceptance/**'",
+    "start:http": "tsx src/http.ts",
+    "start:stdio": "tsx src/stdio.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@nearesis/capsule": "workspace:*",
+    "@nearesis/contracts": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@nearesis/acceptance": "workspace:*"
+  }
+}

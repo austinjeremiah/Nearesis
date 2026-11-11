@@ -15,6 +15,7 @@ export type ReasonCode =
   | "SOURCE_UNAVAILABLE"
   | "CANNOT_COMPUTE"
   | "UNGROUNDED_NUMBER"
+  | "ADJUDICATION_NOT_PURE"
   | "CANCELLED";
 
 export class AgentRuntimeError extends Error {

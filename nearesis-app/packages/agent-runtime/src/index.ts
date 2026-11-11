@@ -21,3 +21,5 @@ export * from "./testing/fake-gateway.ts";
 export * from "./testing/scripted-provider.ts";
 export * from "./testing/scenarios.ts";
 export * from "./review.ts";
+export * from "./graphs/adversarial.ts";
+export * from "./adversarial-port.ts";

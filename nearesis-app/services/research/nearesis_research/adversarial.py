@@ -74,3 +74,17 @@ def run_protocol(snapshot_manifest: dict, catalog: dict, results: dict, script: 
     adj = adjudicate(accepted, stances, engine_verdict, frozen)
     return {"branchInputHashes": hashes, "inputsEqual": hashes["bull"] == hashes["bear"], "rejected": rejected, "audit": audit, "adjudication": adj,
             "preregistrationHashBefore": prereg_hash, "preregistrationHashAfter": prereg_hash, "adjudicationHash": _h(adj)}
+
+
+def run_given(given: dict, results: dict, branch_args: dict, stances: dict, engine_verdict: dict, frozen: Frozen, prereg_hash: str, prereg_after=None) -> dict:
+    """Protocol over branch inputs and branch output supplied by an external orchestrator (the agent-runtime bull/bear
+    graph). `given` holds the exact package each branch was handed; the hashes are computed over those, not rebuilt here."""
+    audit: list = []
+    hashes = {s: {"snapshot": _h(given[s]["snapshotManifest"]), "catalog": _h(given[s]["metricCatalog"])} for s in ("bull", "bear")}
+    accepted, rejected = {}, []
+    for s in ("bull", "bear"):
+        acc, rej = validate_arguments(s, branch_args.get(s, []), results, frozen, audit)
+        accepted[s], rejected = acc, rejected + rej
+    adj = adjudicate(accepted, stances, engine_verdict, frozen)
+    return {"branchInputHashes": hashes, "inputsEqual": hashes["bull"] == hashes["bear"], "rejected": rejected, "audit": audit, "adjudication": adj,
+            "preregistrationHashBefore": prereg_hash, "preregistrationHashAfter": prereg_after() if prereg_after else frozen.doc_hash, "adjudicationHash": _h(adj)}

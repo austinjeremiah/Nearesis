@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CredentialSource } from "../http/credentials.ts";
 import { APP_ROOT } from "../backfill/env.ts";
+import { fixtureAddress } from "./fixture-addresses.ts";
 
 export const SCHEDULER_DIR = join(APP_ROOT, ".data", "scheduler");
 export const SCHEDULER_STATE_PATH = join(SCHEDULER_DIR, "state.json");
@@ -75,7 +76,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): SchedulerConfi
 
 /**
  * Recipient / refund addresses per chain come from configuration (env or .env), never from a wallet or a key.
- * NEARESIS_QUOTE_RECIPIENT_<CHAIN> / NEARESIS_QUOTE_REFUND_<CHAIN>, or NEARESIS_QUOTE_ADDRESS_<CHAIN> for both.
+ * NEARESIS_QUOTE_RECIPIENT_<CHAIN> / NEARESIS_QUOTE_REFUND_<CHAIN>, or NEARESIS_QUOTE_ADDRESS_<CHAIN> for both; otherwise the
+ * committed `config/quote-fixture-addresses.json` (label "quote-only fixture, non-owned"); chains without one are unavailable.
  */
 export function quoteAddress(
   creds: Pick<CredentialSource, "get" | "has">,
@@ -85,7 +87,8 @@ export function quoteAddress(
   const c = chain.toUpperCase().replace(/[^A-Z0-9]/g, "_");
   for (const name of [`NEARESIS_QUOTE_${kind.toUpperCase()}_${c}`, `NEARESIS_QUOTE_ADDRESS_${c}`])
     if (creds.has(name)) return creds.get(name) ?? null;
-  return null;
+  // Committed, documented quote-only fixtures (non-owned) cover the chains that have an official public example.
+  return fixtureAddress(chain);
 }
 
 const TRUE = /^(1|true|yes|on)$/i;

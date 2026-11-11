@@ -374,3 +374,37 @@
     font-size: var(--text-xl);
   }
 }
+.conclusions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+}
+.conclusion {
+  font-size: var(--text-xs);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-strong);
+  color: var(--fg-muted);
+}
+.conclusion[data-kind="observed_lower_error"] {
+  border-color: var(--fg-subtle);
+  color: var(--fg);
+}
+.conclusion[data-kind="meaningful_difference"] {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.conclusion[data-kind="insufficient"] {
+  border-style: dashed;
+  color: var(--warn);
+  border-color: var(--warn);
+}
+.conclusion[data-kind="not_validated"],
+.conclusion[data-kind="invalid_input"] {
+  border-style: dotted;
+  color: var(--bad);
+  border-color: var(--bad);
+}
+.conclusionDetail {
+  color: var(--fg-subtle);
+}

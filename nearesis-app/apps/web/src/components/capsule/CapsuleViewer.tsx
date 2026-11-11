@@ -3,6 +3,8 @@ import "../../lib/zod-config.ts"; // jitless zod: no eval probe under the strict
 import { useEffect, useMemo, useState } from "react";
 import { Button, EmptyState, HonestyBanner, ProvenanceChip } from "@nearesis/ui";
 import { Claim, ClaimLegend } from "../thesis/ClaimTag.tsx";
+import { ConclusionTags, InferenceSummary } from "../thesis/Conclusions.tsx";
+import type { ArtifactsResponse } from "../thesis/model.ts";
 import { CapsuleResponseRecord } from "@nearesis/contracts";
 import { type CapsuleResponse, type CapsuleView, type ClaimClass, proofStatus } from "../thesis/model.ts";
 
@@ -237,7 +239,7 @@ export function CapsuleViewer({ workspaceId }: { workspaceId: string }) {
           {res.reason}
         </EmptyState>
       ) : (
-        <Capsule c={res.capsule} />
+        <Capsule c={res.capsule} workspaceId={workspaceId} />
       )}
       {list && list.length > 1 ? (
         <section className={s.section} aria-labelledby="h-all">
@@ -260,7 +262,7 @@ export function CapsuleViewer({ workspaceId }: { workspaceId: string }) {
   );
 }
 
-function Capsule({ c }: { c: CapsuleView }) {
+function Capsule({ c, workspaceId }: { c: CapsuleView; workspaceId: string }) {
   const st = proofStatus(c.verification);
   const results = new Map(c.results.map((r) => [r.id, r]));
   return (
@@ -313,6 +315,8 @@ function Capsule({ c }: { c: CapsuleView }) {
           })}
         </ul>
       </section>
+
+      <ComparisonConclusions capsuleId={c.capsuleId} workspaceId={workspaceId} />
 
       <section className={s.section} aria-labelledby="h-results">
         <div className={s.sectionHead}>
@@ -429,5 +433,61 @@ function Capsule({ c }: { c: CapsuleView }) {
         </ul>
       </section>
     </>
+  );
+}
+
+/**
+ * The research run packaged in this capsule (verified against the manifest hash by the server), shown with its four
+ * separate comparison conclusions. Nothing is shown when the capsule carries no research run.
+ */
+function ComparisonConclusions({ capsuleId, workspaceId }: { capsuleId: string; workspaceId: string }) {
+  const [r, setR] = useState<ArtifactsResponse | null>(null);
+  useEffect(() => {
+    void fetch(`/w/${workspaceId}/thesis/artifacts?capsule=${encodeURIComponent(capsuleId)}`, {
+      cache: "no-store",
+    })
+      .then((x) =>
+        x.ok
+          ? (x.json() as Promise<ArtifactsResponse>)
+          : { status: "unavailable" as const, reason: `request failed (${x.status})` },
+      )
+      .then(setR);
+  }, [capsuleId, workspaceId]);
+  if (!r) return null;
+  return (
+    <section className={s.section} aria-labelledby="h-conclusions" data-testid="capsule-conclusions">
+      <div className={s.sectionHead}>
+        <h2 id="h-conclusions">Comparison conclusions</h2>
+      </div>
+      {r.status === "unavailable" ? (
+        <p className={s.sectionNote}>{r.reason}</p>
+      ) : (
+        <>
+          <InferenceSummary run={r.artifact} />
+          <table className={s.table}>
+            <thead>
+              <tr>
+                <th>Comparison</th>
+                <th>Conclusion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(r.artifact.estimates.byHorizonCandidate)
+                .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+                .map(([k, cmp]) => (
+                  <tr key={k}>
+                    <td>
+                      {cmp.candidate} vs baseline, {cmp.horizon}d
+                    </td>
+                    <td>
+                      <ConclusionTags inference={cmp.inference} testId={`capsule-conclusion-${k}`} />
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </section>
   );
 }

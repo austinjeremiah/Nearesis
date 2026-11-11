@@ -153,7 +153,12 @@ export async function startEnv(): Promise<Env> {
           "--out",
           join(capsuleDir, id),
           "--research-bundle",
-          "packages/test-fixtures/research/signal-bundle",
+          "packages/test-fixtures/research/signal-bundle-a002",
+          // X1's method-revision pin makes research reproduction pass again; tenant ownership is required by the API.
+          "--org",
+          orgA.orgId,
+          "--workspace",
+          wsA,
         ],
         { cwd: join(WEB_DIR, "..", ".."), encoding: "utf8" },
       );
@@ -184,14 +189,23 @@ export async function loggedIn(
   who: "alice" | "carol" | "bob",
   opts: { width?: number; height?: number } = {},
 ): Promise<BrowserContext> {
-  const ctx = await env.browser.newContext({
+  // The API rate-limits dev login; sign in once per user and reuse the session cookie for further contexts.
+  let state = sessionStates.get(who);
+  if (!state) {
+    const first = await env.browser.newContext();
+    const r = await first.request.post(`${BASE}/api/dev/login`, { data: { subject: env.subjects[who] } });
+    if (r.status() >= 300) throw new Error(`login failed: ${r.status()}`);
+    state = await first.storageState();
+    await first.close();
+    sessionStates.set(who, state);
+  }
+  return env.browser.newContext({
     viewport: { width: opts.width ?? 1440, height: opts.height ?? 900 },
     deviceScaleFactor: 1,
+    storageState: state,
   });
-  const r = await ctx.request.post(`${BASE}/api/dev/login`, { data: { subject: env.subjects[who] } });
-  if (r.status() >= 300) throw new Error(`login failed: ${r.status()}`);
-  return ctx;
 }
+const sessionStates = new Map<string, Awaited<ReturnType<BrowserContext["storageState"]>>>();
 
 export interface Watched {
   page: Page;

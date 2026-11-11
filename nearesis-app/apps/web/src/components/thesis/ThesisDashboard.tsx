@@ -13,6 +13,7 @@ import {
 } from "@nearesis/ui";
 import { hashCanonical } from "@nearesis/canvas-schema";
 import { Claim, ClaimLegend, ClaimTag } from "./ClaimTag.tsx";
+import { ConclusionTags, conclusionLabels, InferenceSummary } from "./Conclusions.tsx";
 import type { ResearchRunArtifact } from "@nearesis/contracts";
 import type { ArtifactsResponse, ThesisData, ThesisSeries } from "./model.ts";
 import s from "./thesis.module.css";
@@ -226,7 +227,12 @@ function Research({
       }
     ).lagComparison ?? {};
   const placebo = a.falsification.placebo;
-  const supporting = comps.filter((c) => c.fdr_reject === true && (c.delta_mae ?? 0) > 0);
+  // Descriptive (lower observed error) and inferential conclusions, both labelled exactly as the inference record says.
+  const supporting = comps.filter((c) =>
+    conclusionLabels(c.inference).some(
+      (l) => l.kind === "observed_lower_error" || l.kind === "meaningful_difference",
+    ),
+  );
   return (
     <>
       <section className={s.section} aria-labelledby="h-verdict">
@@ -279,15 +285,19 @@ function Research({
         </div>
       </section>
 
+      <section className={s.section} aria-label="Statistical inference">
+        <InferenceSummary run={a} />
+      </section>
+
       <section className={s.section} aria-labelledby="h-models">
         <div className={s.sectionHead}>
           <h2 id="h-models">Model comparison by horizon (out of sample)</h2>
           <ClaimTag cls="derived" />
         </div>
         <p className={s.sectionNote}>
-          ΔMAE &gt; 0 means the candidate forecasts better than the baseline. p-values are Diebold–Mariano
-          one-sided, adjusted for the pre-registered test family with Benjamini–Hochberg. Predictive
-          comparison only; not causal.
+          ΔMAE &gt; 0 means a lower observed forecast error than the baseline; that alone is not a statistical
+          conclusion. Conclusions come only from each comparison&apos;s inference record, never from p-values.
+          Predictive comparison only; no causal claim.
         </p>
         <div className={s.card}>
           <div className={s.chartBox}>
@@ -301,8 +311,7 @@ function Research({
                 <th className={s.num}>MAE baseline</th>
                 <th className={s.num}>MAE candidate</th>
                 <th className={s.num}>ΔMAE (95% CI)</th>
-                <th className={s.num}>p (adj.)</th>
-                <th>FDR</th>
+                <th>Conclusion</th>
                 <th className={s.num}>Origins</th>
               </tr>
             </thead>
@@ -317,13 +326,8 @@ function Research({
                     {num(c.delta_mae)}
                     {c.delta_mae_ci ? ` (${num(c.delta_mae_ci.lo)} to ${num(c.delta_mae_ci.hi)})` : ""}
                   </td>
-                  <td className={s.num}>{num(c.p_adjusted)}</td>
                   <td>
-                    {c.fdr_reject === true
-                      ? "significant"
-                      : c.fdr_reject === false
-                        ? "not significant"
-                        : "not tested"}
+                    <ConclusionTags inference={c.inference} testId={`conclusion-${c.key}`} />
                   </td>
                   <td className={s.num}>{c.n_origins}</td>
                 </tr>
@@ -390,8 +394,8 @@ function Research({
                 supporting.map((c) => (
                   <li key={c.key}>
                     <Claim cls="derived" testId={`evidence-item-${c.key}`}>
-                      {c.candidate} beats the baseline at {c.horizon}d: ΔMAE {num(c.delta_mae)},
-                      FDR-significant (p adj. {num(c.p_adjusted)}).
+                      {c.candidate} vs baseline at {c.horizon}d: ΔMAE {num(c.delta_mae)}.{" "}
+                      <ConclusionTags inference={c.inference} />
                       <div className={s.metricSub}>
                         Result <a href={`#result-${c.key.replace(":", "-")}`}>{c.key}</a>
                       </div>
@@ -399,7 +403,9 @@ function Research({
                   </li>
                 ))
               ) : (
-                <li className={s.muted}>No FDR-significant improvement in the published run.</li>
+                <li className={s.muted}>
+                  No comparison shows a lower observed forecast error in the published run.
+                </li>
               )}
             </ul>
           </div>

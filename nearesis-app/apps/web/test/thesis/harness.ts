@@ -6,7 +6,7 @@
  * NEARESIS_CAPSULE_DIR shared by the in-process API and the web server.
  */
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { spawnSync as run } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -35,7 +35,11 @@ export interface Env {
   subject: string;
   files: { capsuleDir: string };
   /** Builds a real capsule (SYNTHETIC fixture snapshot + research bundle) into the capsule dir; returns its id. */
-  buildCapsule: (id?: string) => string;
+  buildCapsule: (
+    id?: string,
+    researchBundleDir?: string,
+    opts?: { skipResearchReproduction?: boolean },
+  ) => string;
   browser: Browser;
   close: () => Promise<void>;
 }
@@ -99,7 +103,13 @@ export async function startEnv(): Promise<Env> {
     workspaceId: ws.workspaceId,
     subject: org.users.alice!.subject,
     files,
-    buildCapsule: (id = "cap-synthetic-2026-11-10") => {
+    buildCapsule: (
+      id = "cap-synthetic-2026-11-10",
+      researchBundleDir = "packages/test-fixtures/research/signal-bundle-a002",
+      opts: { skipResearchReproduction?: boolean } = {},
+    ) => {
+      // One capsule id per snapshot: rebuilding replaces it.
+      rmSync(join(files.capsuleDir, id), { recursive: true, force: true });
       const appRoot = join(WEB_DIR, "..", "..");
       const r = run(
         "pnpm",
@@ -113,10 +123,15 @@ export async function startEnv(): Promise<Env> {
           "--out",
           join(files.capsuleDir, id),
           "--research-bundle",
-          "packages/test-fixtures/research/signal-bundle",
-          // Research re-execution is the research engine's own check (the API's capsule view skips it too); the run file
-          // is still included and hash-checked against the manifest by the thesis loader.
-          "--no-research",
+          researchBundleDir,
+          // Tenant ownership: the API shows a capsule only to its owning org and workspace.
+          "--org",
+          org.orgId,
+          "--workspace",
+          ws.workspaceId,
+          // Research re-execution runs by default; only deliberately modified test runs (which cannot reproduce by
+          // construction) skip it.
+          ...(opts.skipResearchReproduction ? ["--no-research"] : []),
         ],
         { cwd: appRoot, encoding: "utf8" },
       );

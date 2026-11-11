@@ -35,4 +35,30 @@ describe("BFF allowlist", () => {
     expect(isAllowed(`workspaces/${ws}/markers/extra`)).toBe(false);
     expect(isAllowed(`workspaces/${ws}/monitors/../commands`)).toBe(false);
   });
+  it("admits the history and capsule routes and refuses traversal or unknown sub-paths", () => {
+    for (const p of [
+      `workspaces/${ws}/graph/rechecks`,
+      `workspaces/${ws}/graph/rechecks/resolve`,
+      `workspaces/${ws}/snapshots`,
+      `workspaces/${ws}/snapshots/compare`,
+      `workspaces/${ws}/snapshots/${run}/graph`,
+      `workspaces/${ws}/timeline`,
+      `workspaces/${ws}/branches/${run}/diff`,
+      `workspaces/${ws}/merge-proposals/${run}/accept`,
+      `capsules`,
+      `capsules/cap-synthetic-2026-11-10`,
+      `capsules/cap-synthetic-2026-11-10/verify`,
+      `capsules/cap-synthetic-2026-11-10/exports/site/index.html`,
+    ])
+      expect(isAllowed(p), p).toBe(true);
+    for (const p of [
+      `workspaces/${ws}/snapshots/${run}/payload`,
+      `workspaces/${ws}/branches/${run}/delete`,
+      `capsules/../workspaces`,
+      `capsules/cap-1/exports/../manifest.json`,
+      `capsules/cap-1/exports/a/../../b`,
+      `capsules/cap-1/research/research_run.json`,
+    ])
+      expect(isAllowed(p), p).toBe(false);
+  });
 });

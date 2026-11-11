@@ -26,7 +26,15 @@ async function forward(req: Request, path: string[]): Promise<Response> {
     body: req.method === "GET" ? undefined : await req.text(),
   });
   const out = new Headers();
-  for (const h of ["content-type", "x-trace-id", "cache-control"]) {
+  // Export files keep the API's sandbox CSP, nosniff and checksum headers.
+  for (const h of [
+    "content-type",
+    "x-trace-id",
+    "cache-control",
+    "content-security-policy",
+    "x-content-type-options",
+    "x-capsule-sha256",
+  ]) {
     const v = r.headers.get(h);
     if (v) out.set(h, v);
   }

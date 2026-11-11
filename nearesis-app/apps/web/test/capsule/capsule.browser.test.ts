@@ -1,18 +1,26 @@
 /**
- * Research capsule viewer browser tests (real web app + kernel session; Playwright Chromium). The capsule record is a
- * TEST-ONLY SYNTHETIC fixture injected via file; the page must never show an unverified artifact as verified.
- * Not a defined acceptance ID: results are reported as browser-test results only.
+ * Research capsule viewer browser tests against the live capsule API (V1): a real capsule built with the capsule CLI
+ * (SYNTHETIC fixture snapshot, labelled). The page must mirror the API record and never show an unverified artifact as
+ * verified. Not a defined acceptance ID: results are reported as browser-test results only.
  */
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Env, loggedIn, open, startEnv, WEB_DIR } from "../thesis/harness.ts";
-import { syntheticCapsule } from "../thesis/synthetic.ts";
+import { CapsuleResponseRecord } from "@nearesis/contracts";
+import { API_PORT, BASE, type Env, loggedIn, open, startEnv, WEB_DIR } from "../thesis/harness.ts";
 
 const OUT = `${WEB_DIR}test-results/capsule`;
 const contentCsp = (v: unknown[]) =>
   process.env.NEARESIS_THESIS_DEV === "1"
     ? v.filter((x) => !String((x as { source?: string }).source ?? "").includes("next-devtools"))
     : v;
+const CLASS: Record<string, string> = {
+  observed_fact: "observed",
+  derived_statistic: "derived",
+  agent_interpretation: "interpretation",
+  hypothesis: "hypothesis",
+  unsupported: "unsupported",
+};
 
 let env: Env;
 beforeAll(async () => {
@@ -23,77 +31,96 @@ afterAll(async () => {
   await env?.close();
 });
 
-describe("research capsule viewer", () => {
-  it("reports unavailable when no capsule record exists", async () => {
-    rmSync(env.files.capsule, { force: true });
+describe("research capsule viewer (live capsule API)", () => {
+  it("reports unavailable when no capsule has been published", async () => {
     const ctx = await loggedIn(env);
     const { page } = await open(ctx, `/w/${env.workspaceId}/capsule`, "__capsule");
     await expect(page.getByTestId("capsule-unavailable").textContent()).resolves.toMatch(
-      /Nothing here is shown as verified/,
+      /No research capsule has been published/,
     );
     expect(await page.getByTestId("proof-outlayer").count()).toBe(0);
     await ctx.close();
   }, 300_000);
 
-  it("never upgrades a malformed 'verified' record, separates local reproducibility from OutLayer proof, and demotes unsupported claims", async () => {
-    writeFileSync(env.files.capsule, JSON.stringify(syntheticCapsule()));
+  it("mirrors the API record: verification kept apart, claims classed, exports served intact through the BFF", async () => {
+    const id = env.buildCapsule();
+    const token = await env.kernel.devAuth!.login(env.subject);
+    const rec = CapsuleResponseRecord.parse(
+      await (
+        await fetch(`http://127.0.0.1:${API_PORT}/v1/capsules/${id}`, {
+          headers: { authorization: `Bearer ${token}` },
+        })
+      ).json(),
+    );
+    if (rec.status !== "available") throw new Error(`API reports ${rec.reason}`);
+    const c = rec.capsule;
     const ctx = await loggedIn(env);
-    const { page, csp, errors } = await open(
-      ctx,
-      `/w/${env.workspaceId}/capsule?id=cap-synthetic-1`,
-      "__capsule",
-    );
+    const { page, csp, errors } = await open(ctx, `/w/${env.workspaceId}/capsule?id=${id}`, "__capsule");
     await page.getByTestId("proof-outlayer").waitFor();
-    await expect(page.getByTestId("proof-outlayer").getAttribute("data-status")).resolves.toBe("unverified");
-    await expect(page.getByTestId("proof-outlayer").textContent()).resolves.toMatch(
-      /Unverified.*lacks a job id or check time/,
+    await expect(page.getByTestId("proof-local").getAttribute("data-status")).resolves.toBe(
+      c.verification.local.status,
     );
-    await expect(page.getByTestId("proof-local").getAttribute("data-status")).resolves.toBe("reproduced");
-    await expect(page.getByTestId("capsule-status-summary").textContent()).resolves.toContain(
-      "Not cryptographically verified",
+    const outlayerShown = await page.getByTestId("proof-outlayer").getAttribute("data-status");
+    const o = c.verification.outlayer;
+    expect(outlayerShown).toBe(
+      o.status === "verified" && o.jobId && o.checkedAt
+        ? "verified"
+        : o.status === "failed"
+          ? "failed"
+          : "unverified",
     );
-    await expect(page.getByTestId("capsule-synthetic").isVisible()).resolves.toBe(true);
-    // C1 cites R1 (present) -> derived; C2 cites R9 (absent) -> unsupported; C3 is a hypothesis.
-    await expect(page.getByTestId("capsule-claim-C1").getAttribute("data-class")).resolves.toBe("derived");
-    await expect(page.getByTestId("capsule-claim-C2").getAttribute("data-class")).resolves.toBe(
-      "unsupported",
-    );
-    await expect(page.getByTestId("capsule-claim-C3").getAttribute("data-class")).resolves.toBe("hypothesis");
-    await expect(page.getByTestId("capsule-hashes").textContent()).resolves.toContain("not recorded"); // container digest null
-    await expect(page.getByTestId("verification-failures").textContent()).resolves.toContain(
-      "attestation_missing",
-    );
-    await expect(page.getByTestId("last-verified").textContent()).resolves.toContain("2026-11-11T01:00:00Z");
-    // Provenance lineage from the claim walks to the source and reports the dangling reference.
-    await page.getByTestId("prov-node-C1").click();
-    const lineage = await page.getByTestId("lineage").textContent();
-    expect(lineage).toContain("NEAR Intents Explorer");
-    await expect(page.getByTestId("lineage-missing").textContent()).resolves.toContain("C1 → ghost");
-    // The unsafe export link is not rendered as a link.
-    expect(await page.locator("a[href^='javascript:']").count()).toBe(0);
-    await expect(page.getByTestId("capsule-rebuild").textContent()).resolves.toContain(
-      "pnpm research:rebuild --snapshot",
-    );
+    if (outlayerShown !== "verified")
+      await expect(page.getByTestId("capsule-status-summary").textContent()).resolves.toContain(
+        "Not cryptographically verified",
+      );
+    if (c.sourceLabel === "SYNTHETIC")
+      await expect(page.getByTestId("capsule-synthetic").isVisible()).resolves.toBe(true);
+    const results = new Set(c.results.map((r) => r.id));
+    for (const cl of c.claims) {
+      const supported = cl.resultIds.length > 0 && cl.resultIds.every((r) => results.has(r));
+      const expected =
+        CLASS[cl.claimClass] === "hypothesis" || supported ? CLASS[cl.claimClass] : "unsupported";
+      await expect(page.getByTestId(`capsule-claim-${cl.id}`).getAttribute("data-class")).resolves.toBe(
+        expected,
+      );
+    }
+    const hashes = await page.getByTestId("capsule-hashes").textContent();
+    expect(hashes).toContain(c.hashes.sourceSnapshotHash);
+    expect(hashes).toContain(c.hashes.resultManifestHash);
+    // Exports: every link goes through the same-origin BFF and returns the exact bytes the record hashes.
+    const links = page.getByTestId("capsule-export-link");
+    expect(await links.count()).toBe(c.exports.filter((e) => e.href.startsWith("/v1/capsules/")).length);
+    const exportChecks: Array<{ href: string; status: number; shaOk: boolean; sandbox: boolean }> = [];
+    for (const e of c.exports) {
+      const r = await ctx.request.get(`${BASE}/api/k/${e.href.slice(4)}`);
+      const body = await r.body();
+      const sha = createHash("sha256").update(body).digest("hex");
+      exportChecks.push({
+        href: e.href,
+        status: r.status(),
+        shaOk: e.sha256 === null || sha === e.sha256,
+        sandbox: (r.headers()["content-security-policy"] ?? "").includes("sandbox"),
+      });
+    }
+    expect(exportChecks.every((x) => x.status === 200 && x.shaOk && x.sandbox)).toBe(true);
     expect(contentCsp(await csp())).toEqual([]);
     expect(errors).toEqual([]);
-    await page.screenshot({ path: `${OUT}/capsule-viewer.png`, fullPage: true });
+    await page.screenshot({ path: `${OUT}/capsule-viewer-live.png`, fullPage: true });
     await ctx.close();
-  }, 300_000);
+  }, 600_000);
 
-  it("shows OutLayer-verified only when the record carries a job id and check time", async () => {
-    writeFileSync(
-      env.files.capsule,
-      JSON.stringify(
-        syntheticCapsule({ outlayer: { jobId: "job-fixture-1", checkedAt: "2026-11-11T02:00:00Z" } }),
-      ),
-    );
+  it("refuses unknown capsules and traversal through the BFF", async () => {
     const ctx = await loggedIn(env);
-    const { page } = await open(ctx, `/w/${env.workspaceId}/capsule?id=cap-synthetic-1`, "__capsule");
-    await page.getByTestId("proof-outlayer").waitFor();
-    await expect(page.getByTestId("proof-outlayer").getAttribute("data-status")).resolves.toBe("verified");
-    // Still labelled SYNTHETIC: a fixture record is never presented as research evidence.
-    await expect(page.getByTestId("capsule-synthetic").isVisible()).resolves.toBe(true);
-    rmSync(env.files.capsule, { force: true });
+    const { page } = await open(ctx, `/w/${env.workspaceId}/capsule?id=does-not-exist`, "__capsule");
+    await expect(page.getByTestId("capsule-unavailable").textContent()).resolves.toMatch(/not found/);
+    for (const p of [
+      "capsules/cap-synthetic-2026-11-10/exports/../manifest.json",
+      "capsules/cap-synthetic-2026-11-10/research/research_run.json",
+    ])
+      expect((await ctx.request.get(`${BASE}/api/k/${p}`)).status()).toBe(404);
+    const anon = await env.browser.newContext();
+    expect((await anon.request.get(`${BASE}/api/k/capsules`)).status()).toBeGreaterThanOrEqual(400);
+    await anon.close();
     await ctx.close();
   }, 300_000);
 });

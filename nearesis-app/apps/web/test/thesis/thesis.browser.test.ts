@@ -2,10 +2,11 @@
  * Thesis dashboard browser tests (real web app, real kernel session, real semantic gateway; Playwright Chromium).
  * Not a defined acceptance ID: results are reported as browser-test results only.
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type Env, loggedIn, open, startEnv, WEB_DIR } from "./harness.ts";
-import { syntheticArtifacts } from "./synthetic.ts";
+import { join } from "node:path";
+import { ResearchRunArtifact } from "@nearesis/contracts";
 
 const OUT = `${WEB_DIR}test-results/thesis`;
 let env: Env;
@@ -44,7 +45,7 @@ const SOURCE = process.env.NEARESIS_THESIS_SOURCE === "fixture" ? "fixture" : "l
 
 describe("thesis dashboard", () => {
   it("shows observed series with coverage, refuses to invent research results, and exports exactly what it renders", async () => {
-    rmSync(env.files.artifacts, { force: true });
+    // No capsule published yet: research results must be reported unavailable, never invented.
     const ctx = await loggedIn(env);
     const { page, csp, errors } = await open(
       ctx,
@@ -111,42 +112,72 @@ describe("thesis dashboard", () => {
     await ctx.close();
   }, 600_000);
 
-  it("labels SYNTHETIC research artifacts, separates claim classes and demotes claims citing missing results", async () => {
-    writeFileSync(env.files.artifacts, JSON.stringify(syntheticArtifacts()));
+  it("shows the research engine's published run from a real capsule, number for number, with its claim scope", async () => {
+    const id = env.buildCapsule();
+    const run = ResearchRunArtifact.parse(
+      JSON.parse(readFileSync(join(env.files.capsuleDir, id, "research", "research_run.json"), "utf8")),
+    );
     const ctx = await loggedIn(env);
     const { page, csp, errors } = await open(
       ctx,
       `/w/${env.workspaceId}/thesis?source=${SOURCE}`,
       "__thesis",
     );
-    await page.waitForTimeout(1500);
-    await expect(page.getByTestId("synthetic-banner").textContent()).resolves.toMatch(
-      /research results are a labelled test fixture/,
+    await page.getByTestId("verdict").waitFor({ timeout: 60_000 });
+    await expect(page.getByTestId("verdict").textContent()).resolves.toContain(run.status.replace(/_/g, " "));
+    await expect(page.getByTestId("verdict").textContent()).resolves.toContain(
+      run.evidenceStrength.replace(/_/g, " "),
     );
-    await expect(page.getByTestId("verdict").textContent()).resolves.toContain("INSUFFICIENT DATA");
-    expect(await page.getByTestId("lag-table").locator("tbody tr").count()).toBe(10);
-    await expect(page.getByTestId("model-table").textContent()).resolves.toContain("not computed");
-    // E1 cites an existing result -> derived; E4 cites a result absent from the artifacts -> unsupported.
-    await expect(page.getByTestId("evidence-item-E1").getAttribute("data-class")).resolves.toBe("derived");
-    await expect(page.getByTestId("evidence-item-E2").getAttribute("data-class")).resolves.toBe(
-      "interpretation",
+    if (run.claimScope === "synthetic_fixture_only_no_live_claim")
+      await expect(page.getByTestId("fixture-claim-scope").isVisible()).resolves.toBe(true);
+    await expect(page.getByTestId("artifacts-source").textContent()).resolves.toContain(
+      run.inputSnapshot.label,
     );
-    await expect(page.getByTestId("evidence-item-E4").getAttribute("data-class")).resolves.toBe(
-      "unsupported",
+    await expect(page.getByTestId("hypothesis").textContent()).resolves.toContain(run.hypothesis.text);
+    await expect(page.getByTestId("preregistration").textContent()).resolves.toContain(
+      run.preregistration.hash,
     );
-    await expect(page.getByTestId("hypothesis").getAttribute("data-class")).resolves.toBe("hypothesis");
-    await expect(page.getByTestId("falsification").textContent()).resolves.toContain("not evaluated");
+    // Model comparison: one row per published comparison, values identical to the artifact (4 decimals).
+    const rows = await page.getByTestId("model-table").locator("tbody tr").allTextContents();
+    const comps = Object.values(run.estimates.byHorizonCandidate);
+    expect(rows.length).toBe(comps.length);
+    for (const c of comps) {
+      const row = rows.find((r) => r.startsWith(`${c.horizon}d${c.candidate}`));
+      expect(row, `${c.horizon}:${c.candidate}`).toBeTruthy();
+      if (typeof c.delta_mae === "number") expect(row).toContain(c.delta_mae.toFixed(4));
+    }
+    expect(await page.getByTestId("counter-item-0").count()).toBe(run.counterevidence.length ? 1 : 0);
+    expect(await page.locator("[data-testid^='counter-item-']").count()).toBe(run.counterevidence.length);
+    await expect(page.getByTestId("research-limitations").textContent()).resolves.toContain(
+      run.limitations[0]!,
+    );
     expect(await page.getByTestId("capsule-link").getAttribute("href")).toBe(
-      `/w/${env.workspaceId}/capsule?id=cap-synthetic-1`,
+      `/w/${env.workspaceId}/capsule?id=${id}`,
     );
-    expect(await page.getByTestId("evidence-graph-link").count()).toBe(1);
     expect(contentCsp(await csp())).toEqual([]);
     expect(errors).toEqual([]);
-    await page.getByTestId("lag-table").scrollIntoViewIfNeeded();
-    await page.screenshot({ path: `${OUT}/thesis-research-synthetic.png`, fullPage: true });
-    rmSync(env.files.artifacts, { force: true });
+    await page.getByTestId("model-table").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${OUT}/thesis-research-capsule.png`, fullPage: true });
     await ctx.close();
   }, 600_000);
+
+  it("refuses a research run whose bytes no longer match the capsule manifest", async () => {
+    const id = "cap-synthetic-2026-11-10";
+    const file = join(env.files.capsuleDir, id, "research", "research_run.json");
+    const original = readFileSync(file);
+    writeFileSync(file, Buffer.concat([original, Buffer.from(" ")]));
+    try {
+      const ctx = await loggedIn(env);
+      const { page } = await open(ctx, `/w/${env.workspaceId}/thesis?source=${SOURCE}`, "__thesis");
+      await expect(page.getByTestId("research-unavailable").textContent()).resolves.toContain(
+        "does not match the capsule manifest hash",
+      );
+      expect(await page.getByTestId("verdict").count()).toBe(0);
+      await ctx.close();
+    } finally {
+      writeFileSync(file, original);
+    }
+  }, 300_000);
 
   it("rejects an out-of-range window and refuses access without a workspace session", async () => {
     const ctx = await loggedIn(env);

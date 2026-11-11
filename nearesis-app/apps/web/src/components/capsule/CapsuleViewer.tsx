@@ -2,7 +2,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button, EmptyState, HonestyBanner, ProvenanceChip } from "@nearesis/ui";
 import { Claim, ClaimLegend } from "../thesis/ClaimTag.tsx";
-import { type CapsuleResponse, type CapsuleView, proofStatus } from "../thesis/model.ts";
+import { CapsuleResponseRecord } from "@nearesis/contracts";
+import { type CapsuleResponse, type CapsuleView, type ClaimClass, proofStatus } from "../thesis/model.ts";
+
+/** Capsule contract claim classes -> the dashboard's five display classes. */
+const CLASS_OF: Record<CapsuleView["claims"][number]["claimClass"], ClaimClass> = {
+  observed_fact: "observed",
+  derived_statistic: "derived",
+  agent_interpretation: "interpretation",
+  hypothesis: "hypothesis",
+  unsupported: "unsupported",
+};
+/** Export hrefs in the record are kernel API paths; the browser reaches them through the same-origin BFF. */
+const exportHref = (href: string) => (href.startsWith("/v1/capsules/") ? `/api/k/${href.slice(4)}` : null);
 import s from "../thesis/thesis.module.css";
 
 /**
@@ -162,19 +174,48 @@ function Provenance({ c }: { c: CapsuleView }) {
 export function CapsuleViewer({ workspaceId }: { workspaceId: string }) {
   const id = useMemo(() => new URLSearchParams(window.location.search).get("id"), []);
   const [res, setRes] = useState<CapsuleResponse | null>(null);
+  const [list, setList] = useState<Array<{
+    capsuleId: string;
+    title: string;
+    label: string;
+    createdAt: string;
+  }> | null>(null);
   useEffect(() => {
-    void fetch(`/w/${workspaceId}/capsule/data${id ? `?id=${encodeURIComponent(id)}` : ""}`, {
-      cache: "no-store",
-    })
-      .then((r) =>
-        r.ok
-          ? (r.json() as Promise<CapsuleResponse>)
-          : { status: "unavailable" as const, reason: `request failed (${r.status})` },
-      )
-      .then((x) => {
-        setRes(x);
-        (window as unknown as { __capsule?: unknown }).__capsule = { ready: true, res: x };
-      });
+    let live = true;
+    const done = (x: CapsuleResponse) => {
+      if (!live) return;
+      setRes(x);
+      (window as unknown as { __capsule?: unknown }).__capsule = { ready: true, res: x };
+    };
+    void (async () => {
+      const lr = await fetch("/api/k/capsules", { cache: "no-store" });
+      const capsules = lr.ok ? (((await lr.json()) as { capsules?: typeof list }).capsules ?? []) : [];
+      if (live) setList(capsules);
+      const target =
+        id ?? [...(capsules ?? [])].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).at(-1)?.capsuleId;
+      if (!target)
+        return done({
+          status: "unavailable",
+          reason: lr.ok
+            ? "No research capsule has been published yet. Nothing here is shown as verified."
+            : `Capsule listing failed (${lr.status}).`,
+        });
+      const r = await fetch(`/api/k/capsules/${encodeURIComponent(target)}`, { cache: "no-store" });
+      if (!r.ok) return done({ status: "unavailable", reason: `Capsule request failed (${r.status}).` });
+      // The record is validated against the published contract before anything is rendered.
+      const parsed = CapsuleResponseRecord.safeParse(await r.json());
+      done(
+        parsed.success
+          ? parsed.data
+          : {
+              status: "unavailable",
+              reason: "Capsule record failed contract validation; nothing is shown as verified.",
+            },
+      );
+    })();
+    return () => {
+      live = false;
+    };
   }, [workspaceId, id]);
 
   return (
@@ -197,6 +238,23 @@ export function CapsuleViewer({ workspaceId }: { workspaceId: string }) {
       ) : (
         <Capsule c={res.capsule} />
       )}
+      {list && list.length > 1 ? (
+        <section className={s.section} aria-labelledby="h-all">
+          <div className={s.sectionHead}>
+            <h2 id="h-all">All capsules</h2>
+          </div>
+          <ul data-testid="capsule-list">
+            {list.map((c) => (
+              <li key={c.capsuleId}>
+                <a href={`/w/${workspaceId}/capsule?id=${encodeURIComponent(c.capsuleId)}`}>{c.title}</a>{" "}
+                <span className={s.metricSub}>
+                  {c.label} · {c.createdAt}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </main>
   );
 }
@@ -224,7 +282,8 @@ function Capsule({ c }: { c: CapsuleView }) {
       </header>
       {c.sourceLabel === "SYNTHETIC" ? (
         <HonestyBanner data-testid="capsule-synthetic">
-          SYNTHETIC capsule record (test fixture). Not research-engine output and not evidence.
+          SYNTHETIC capsule: built from labelled synthetic fixture data. It demonstrates the method and makes
+          no live claim about NEAR.
         </HonestyBanner>
       ) : null}
 
@@ -235,14 +294,15 @@ function Capsule({ c }: { c: CapsuleView }) {
         <ul className={s.list}>
           {c.claims.map((cl) => {
             const supported = cl.resultIds.length > 0 && cl.resultIds.every((r) => results.has(r));
-            const cls = cl.claimClass === "hypothesis" || supported ? cl.claimClass : "unsupported";
+            const declared = CLASS_OF[cl.claimClass];
+            const cls: ClaimClass = declared === "hypothesis" || supported ? declared : "unsupported";
             return (
               <li key={cl.id}>
                 <Claim cls={cls} testId={`capsule-claim-${cl.id}`}>
                   {cl.text}
                   <div className={s.metricSub}>
                     {cl.resultIds.length ? `Results: ${cl.resultIds.join(", ")}` : "No result cited"}
-                    {cls === "unsupported" && cl.claimClass !== "unsupported"
+                    {cls === "unsupported" && declared !== "unsupported"
                       ? " · cited result missing from the capsule, shown as unsupported"
                       : ""}
                   </div>
@@ -334,10 +394,17 @@ function Capsule({ c }: { c: CapsuleView }) {
               <ul className={s.list}>
                 {c.exports.map((e) => (
                   <li key={e.href}>
-                    {/^(https?:\/\/|\/)/.test(e.href) ? (
-                      <a href={e.href}>{e.label}</a>
+                    {exportHref(e.href) ? (
+                      <a
+                        href={exportHref(e.href)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-testid="capsule-export-link"
+                      >
+                        {e.label}
+                      </a>
                     ) : (
-                      <span>{e.label} (link withheld: not an http(s) or same-site path)</span>
+                      <span>{e.label} (link withheld: not a capsule export path)</span>
                     )}
                     <div className={s.mono}>{e.sha256 ?? "no checksum recorded"}</div>
                   </li>

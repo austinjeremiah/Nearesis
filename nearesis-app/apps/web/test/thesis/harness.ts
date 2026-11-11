@@ -2,10 +2,12 @@
  * Harness for the thesis/capsule browser tests: disposable Postgres DB + real Kernel + Fastify API on
  * NEARESIS_WEB_API_PORT (default 4740), and the web app on NEARESIS_WEB_PORT (default 3620) with its own dist dir.
  * Uses `next dev` when NEARESIS_THESIS_DEV=1 (needed while other agents' files fail `next build` type checking),
- * otherwise `next build` + `next start`. Injected research/capsule files are test-only and labelled SYNTHETIC.
+ * otherwise `next build` + `next start`. Research capsules are built with the real capsule CLI into a per-run
+ * NEARESIS_CAPSULE_DIR shared by the in-process API and the web server.
  */
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { mkdtempSync } from "node:fs";
+import { spawnSync as run } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Browser, type BrowserContext, chromium, type Page } from "playwright";
@@ -31,7 +33,9 @@ export interface Env {
   kernel: Kernel;
   workspaceId: string;
   subject: string;
-  files: { artifacts: string; capsule: string };
+  files: { capsuleDir: string };
+  /** Builds a real capsule (SYNTHETIC fixture snapshot + research bundle) into the capsule dir; returns its id. */
+  buildCapsule: (id?: string) => string;
   browser: Browser;
   close: () => Promise<void>;
 }
@@ -54,16 +58,16 @@ export async function startEnv(): Promise<Env> {
   await app.listen({ host: "127.0.0.1", port: API_PORT });
   const s = await loginSession(kernel, org.users.alice!.subject);
   const ws = await createWs(kernel, s, "NEAR Intents vs price as a leading indicator of adoption");
-  const tmp = mkdtempSync(join(tmpdir(), "thesis-"));
-  const files = { artifacts: join(tmp, "artifacts.json"), capsule: join(tmp, "capsule.json") };
+  const files = { capsuleDir: mkdtempSync(join(tmpdir(), "capsules-")) };
+  // The in-process API reads the capsule root from the environment on every request.
+  process.env.NEARESIS_CAPSULE_DIR = files.capsuleDir;
   const env = {
     ...process.env,
     NEXT_TELEMETRY_DISABLED: "1",
     NEARESIS_WEB_DIST: DIST,
     NEARESIS_API_URL: `http://127.0.0.1:${API_PORT}`,
     NEARESIS_TEST_HOOKS: "1",
-    NEARESIS_TEST_RESEARCH_ARTIFACTS: files.artifacts,
-    NEARESIS_TEST_CAPSULE: files.capsule,
+    NEARESIS_CAPSULE_DIR: files.capsuleDir,
   };
   const dev = process.env.NEARESIS_THESIS_DEV === "1";
   if (!dev) {
@@ -95,6 +99,27 @@ export async function startEnv(): Promise<Env> {
     workspaceId: ws.workspaceId,
     subject: org.users.alice!.subject,
     files,
+    buildCapsule: (id = "cap-synthetic-2026-11-10") => {
+      const appRoot = join(WEB_DIR, "..", "..");
+      const r = run(
+        "pnpm",
+        [
+          "--filter",
+          "@nearesis/capsule",
+          "-s",
+          "capsule:build",
+          "--snapshot",
+          "packages/capsule/fixtures/snapshot-synthetic",
+          "--out",
+          join(files.capsuleDir, id),
+          "--research-bundle",
+          "packages/test-fixtures/research/signal-bundle",
+        ],
+        { cwd: appRoot, encoding: "utf8" },
+      );
+      if (r.status !== 0) throw new Error(`capsule build failed: ${r.stderr.slice(-1000)}`);
+      return id;
+    },
     browser,
     close: async () => {
       await browser.close();

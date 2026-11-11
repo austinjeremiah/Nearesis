@@ -12,7 +12,8 @@ import {
 } from "@nearesis/ui";
 import { hashCanonical } from "@nearesis/canvas-schema";
 import { Claim, ClaimLegend, ClaimTag } from "./ClaimTag.tsx";
-import type { ArtifactsResponse, ResearchArtifacts, ThesisData, ThesisSeries } from "./model.ts";
+import type { ResearchRunArtifact } from "@nearesis/contracts";
+import type { ArtifactsResponse, ThesisData, ThesisSeries } from "./model.ts";
 import s from "./thesis.module.css";
 
 const DAY = 86_400_000;
@@ -182,141 +183,148 @@ function Coverage({ sr }: { sr: ThesisSeries }) {
   );
 }
 
-function Research({ a, workspaceId }: { a: ResearchArtifacts; workspaceId: string }) {
-  const pairs = [...new Set(a.lagResults.map((r) => `${r.leader} → ${r.follower}`))];
-  const lagSpec: ChartSpec | null = a.lagResults.length
-    ? {
-        kind: "bar",
-        title: "Lagged correlation by lead (days)",
-        columns: [{ name: "lag", unit: "days" }, ...pairs.map((p) => ({ name: p, unit: "corr" }))],
-        rows: [...new Set(a.lagResults.map((r) => r.lagDays))]
-          .sort((x, y) => x - y)
-          .map((lag) => [
-            String(lag),
-            ...pairs.map(
-              (p) =>
-                a.lagResults.find((r) => r.lagDays === lag && `${r.leader} → ${r.follower}` === p)
-                  ?.estimate ?? null,
-            ),
-          ]),
-        x: { field: "lag", type: "category" },
-        y: pairs.map((p) => ({ field: p, unit: "corr" })),
+type Comparison = ResearchRunArtifact["estimates"]["primary"];
+const num = (v: number | null | undefined, d = 4) =>
+  v === null || v === undefined || !Number.isFinite(v) ? "not reported" : v.toFixed(d);
+
+/**
+ * Research results exactly as the research engine published them (R1 ResearchRunArtifact). Every number is read from
+ * the artifact; nothing is recomputed or re-labelled here. Status and evidence strength are separate axes.
+ */
+function Research({
+  r,
+  workspaceId,
+}: {
+  r: Extract<ArtifactsResponse, { status: "available" }>;
+  workspaceId: string;
+}) {
+  const a = r.artifact;
+  const fixture = a.claimScope === "synthetic_fixture_only_no_live_claim";
+  const comps = Object.entries(a.estimates.byHorizonCandidate)
+    .map(([key, c]) => ({ key, ...(c as Comparison) }))
+    .sort((x, y) => x.horizon - y.horizon || x.candidate.localeCompare(y.candidate));
+  const candidates = [...new Set(comps.map((c) => c.candidate))];
+  const horizonSpec: ChartSpec = {
+    kind: "bar",
+    title: "Out-of-sample MAE improvement over the baseline, by horizon",
+    columns: [{ name: "horizon", unit: "days" }, ...candidates.map((c) => ({ name: c, unit: "ΔMAE" }))],
+    rows: [...new Set(comps.map((c) => c.horizon))].map((h) => [
+      `${h}d`,
+      ...candidates.map((c) => comps.find((x) => x.horizon === h && x.candidate === c)?.delta_mae ?? null),
+    ]),
+    x: { field: "horizon", type: "category" },
+    y: candidates.map((c) => ({ field: c, unit: "ΔMAE" })),
+  };
+  const lag =
+    (
+      a.falsification as {
+        lagComparison?: Record<
+          string,
+          { delta_mae?: number; relative_improvement?: number | null; n_origins?: number; status?: string }
+        >;
       }
-    : null;
-  const byResult = new Map(a.lagResults.map((r) => [r.id, r]));
+    ).lagComparison ?? {};
+  const placebo = a.falsification.placebo;
+  const supporting = comps.filter((c) => c.fdr_reject === true && (c.delta_mae ?? 0) > 0);
   return (
     <>
       <section className={s.section} aria-labelledby="h-verdict">
         <div className={s.sectionHead}>
           <h2 id="h-verdict">Verdict and hypothesis</h2>
-          <ProvenanceChip sourceLabel={a.sourceLabel} data-testid="artifacts-source" />
+          <ProvenanceChip sourceLabel={a.inputSnapshot.label} data-testid="artifacts-source" />
         </div>
+        {fixture ? (
+          <HonestyBanner data-testid="fixture-claim-scope">
+            Claim scope: synthetic fixture only, no live claim. This run demonstrates the method on labelled
+            fixture data; it is not evidence about NEAR.
+          </HonestyBanner>
+        ) : null}
         <div className={s.grid2}>
           <div className={s.verdict} data-testid="verdict">
-            <ClaimTag cls="interpretation" />
-            <span className={s.verdictStatus}>
-              {a.verdict ? a.verdict.status.replace("_", " ") : "No verdict recorded"}
-            </span>
-            <span className={s.muted}>
-              {a.verdict?.summary ?? "The research run has not produced a verdict."}
-            </span>
+            <ClaimTag cls="derived" />
+            <span className={s.verdictStatus}>{a.status.replace(/_/g, " ")}</span>
             <span className={s.metricSub}>
-              {a.producer} · {a.producedAt} · artifact set {a.artifactSetId}
+              Evidence strength: {a.evidenceStrength.replace(/_/g, " ")} · thresholds from the frozen
+              pre-registration
+            </span>
+            <ul>
+              {a.verdict.reasons.map((x, i) => (
+                <li key={i}>{x}</li>
+              ))}
+            </ul>
+            <span className={s.metricSub}>
+              Experiment {a.experimentId} · method {a.methodVersion} · capsule {r.capsuleId}
             </span>
           </div>
           <div className={s.card}>
             <Claim cls="hypothesis" testId="hypothesis">
-              {a.hypothesis.statement}
+              {a.hypothesis.text}
             </Claim>
             <div className={s.metricSub}>
-              Pre-registration:{" "}
-              {a.hypothesis.preregistrationHash ? (
-                <span className={s.mono}>
-                  {a.hypothesis.preregistrationHash} ({a.hypothesis.preregisteredAt})
-                </span>
+              Primary: {a.hypothesis.primaryComparison} at {a.hypothesis.primaryHorizon}-day horizon · causal
+              claim excluded
+            </div>
+            <div className={s.metricSub} data-testid="preregistration">
+              Pre-registration <span className={s.mono}>{a.preregistration.hash}</span> ·{" "}
+              {a.preregistrationVerified ? (
+                <span className={s.ok}>verified against the frozen record</span>
               ) : (
-                <span className={s.warn}>not pre-registered</span>
-              )}
+                <span className={s.bad}>NOT verified</span>
+              )}{" "}
+              · {a.preregistration.fdr.method.replace(/_/g, "-")} FDR q={a.preregistration.fdr.q} · loss{" "}
+              {a.preregistration.loss}
             </div>
           </div>
         </div>
       </section>
 
-      <section className={s.section} aria-labelledby="h-falsify">
+      <section className={s.section} aria-labelledby="h-models">
         <div className={s.sectionHead}>
-          <h2 id="h-falsify">Falsification criteria</h2>
-        </div>
-        <table className={s.table} data-testid="falsification">
-          <thead>
-            <tr>
-              <th>Criterion</th>
-              <th>Status</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {a.hypothesis.falsification.map((f) => (
-              <tr key={f.id}>
-                <td>{f.criterion}</td>
-                <td
-                  className={
-                    f.status === "triggered" ? s.bad : f.status === "not_evaluated" ? s.warn : undefined
-                  }
-                >
-                  {f.status.replace("_", " ")}
-                </td>
-                <td className={s.mono}>{f.resultId ?? "none"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <section className={s.section} aria-labelledby="h-lag">
-        <div className={s.sectionHead}>
-          <h2 id="h-lag">Lag analysis</h2>
+          <h2 id="h-models">Model comparison by horizon (out of sample)</h2>
           <ClaimTag cls="derived" />
         </div>
         <p className={s.sectionNote}>
-          Estimates come from the research engine artifacts. Positive lag means the leader moves first.
-          Correlation is not causation.
+          ΔMAE &gt; 0 means the candidate forecasts better than the baseline. p-values are Diebold–Mariano
+          one-sided, adjusted for the pre-registered test family with Benjamini–Hochberg. Predictive
+          comparison only; not causal.
         </p>
         <div className={s.card}>
-          {lagSpec ? (
-            <div className={s.chartBox}>
-              <Chart spec={lagSpec} testId="chart-lag" />
-            </div>
-          ) : (
-            <EmptyState title="No lag results in the artifact set" art={false} />
-          )}
-          <table className={s.table} data-testid="lag-table">
+          <div className={s.chartBox}>
+            <Chart spec={horizonSpec} testId="chart-horizons" />
+          </div>
+          <table className={s.table} data-testid="model-table">
             <thead>
               <tr>
-                <th>Leader → follower</th>
-                <th className={s.num}>Lag (days)</th>
-                <th className={s.num}>Estimate</th>
-                <th className={s.num}>95% CI</th>
-                <th className={s.num}>p</th>
-                <th className={s.num}>n</th>
-                <th>Method</th>
+                <th>Horizon</th>
+                <th>Candidate</th>
+                <th className={s.num}>MAE baseline</th>
+                <th className={s.num}>MAE candidate</th>
+                <th className={s.num}>ΔMAE (95% CI)</th>
+                <th className={s.num}>p (adj.)</th>
+                <th>FDR</th>
+                <th className={s.num}>Origins</th>
               </tr>
             </thead>
             <tbody>
-              {a.lagResults.map((r) => (
-                <tr key={r.id} id={`result-${r.id}`}>
-                  <td>
-                    {r.leader} → {r.follower}
-                  </td>
-                  <td className={s.num}>{r.lagDays}</td>
-                  <td className={s.num}>{r.estimate.toFixed(3)}</td>
+              {comps.map((c) => (
+                <tr key={c.key} id={`result-${c.key.replace(":", "-")}`}>
+                  <td>{c.horizon}d</td>
+                  <td>{c.candidate}</td>
+                  <td className={s.num}>{num(c.mae_baseline)}</td>
+                  <td className={s.num}>{num(c.mae_candidate)}</td>
                   <td className={s.num}>
-                    {r.ciLow !== null && r.ciHigh !== null
-                      ? `${r.ciLow.toFixed(3)} to ${r.ciHigh.toFixed(3)}`
-                      : "not reported"}
+                    {num(c.delta_mae)}
+                    {c.delta_mae_ci ? ` (${num(c.delta_mae_ci.lo)} to ${num(c.delta_mae_ci.hi)})` : ""}
                   </td>
-                  <td className={s.num}>{r.pValue === null ? "not reported" : r.pValue.toFixed(4)}</td>
-                  <td className={s.num}>{r.n}</td>
-                  <td>{r.method}</td>
+                  <td className={s.num}>{num(c.p_adjusted)}</td>
+                  <td>
+                    {c.fdr_reject === true
+                      ? "significant"
+                      : c.fdr_reject === false
+                        ? "not significant"
+                        : "not tested"}
+                  </td>
+                  <td className={s.num}>{c.n_origins}</td>
                 </tr>
               ))}
             </tbody>
@@ -324,105 +332,134 @@ function Research({ a, workspaceId }: { a: ResearchArtifacts; workspaceId: strin
         </div>
       </section>
 
-      <section className={s.section} aria-labelledby="h-models">
+      <section className={s.section} aria-labelledby="h-falsify">
         <div className={s.sectionHead}>
-          <h2 id="h-models">Model comparison (out of sample)</h2>
+          <h2 id="h-falsify">Falsification checks</h2>
           <ClaimTag cls="derived" />
         </div>
-        <table className={s.table} data-testid="model-table">
-          <thead>
-            <tr>
-              <th>Model</th>
-              <th>Target</th>
-              <th>Features</th>
-              <th>Holdout</th>
-              <th className={s.num}>Metric</th>
-              <th className={s.num}>Value</th>
-              <th className={s.num}>n</th>
-            </tr>
-          </thead>
-          <tbody>
-            {a.models.map((m) => (
-              <tr key={m.id}>
-                <td>
-                  {m.name}
-                  {m.baseline ? <span className={s.muted}> (baseline)</span> : null}
-                </td>
-                <td>{m.target}</td>
-                <td>{m.features.join(", ") || "none"}</td>
-                <td>
-                  {m.holdout.from} to {m.holdout.to}
-                </td>
-                <td className={s.num}>{m.metric}</td>
-                <td className={s.num}>{m.value === null ? "not computed" : m.value.toFixed(4)}</td>
-                <td className={s.num}>{m.n}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className={s.grid2}>
+          <div className={s.card} data-testid="falsification">
+            <h3 className={s.cardTitle}>Placebo test</h3>
+            {placebo ? (
+              <span className={placebo.passed ? s.ok : s.bad}>
+                {placebo.passed ? "Passed" : "Failed"} · p = {num(placebo.p_value)}
+              </span>
+            ) : (
+              <span className={s.warn}>Not run</span>
+            )}
+          </div>
+          <div className={s.card}>
+            <h3 className={s.cardTitle}>Lag comparison</h3>
+            <table className={s.table} data-testid="lag-table">
+              <thead>
+                <tr>
+                  <th className={s.num}>Lag (days)</th>
+                  <th className={s.num}>ΔMAE</th>
+                  <th className={s.num}>Relative</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(lag).map(([k, v]) => (
+                  <tr key={k}>
+                    <td className={s.num}>{k}</td>
+                    <td className={s.num}>{num(v.delta_mae)}</td>
+                    <td className={s.num}>{num(v.relative_improvement, 3)}</td>
+                    <td>{v.status ?? "not reported"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <section className={s.section} aria-labelledby="h-evidence">
         <div className={s.sectionHead}>
           <h2 id="h-evidence">Evidence and counterevidence</h2>
+          <a href={`/w/${workspaceId}/evidence`} data-testid="evidence-graph-link">
+            Open the evidence graph
+          </a>
         </div>
         <div className={s.grid2}>
-          {(["bull", "bear"] as const).map((side) => (
-            <div key={side} className={s.card} data-testid={`evidence-${side}`}>
-              <h3 className={s.cardTitle}>{side === "bull" ? "For the thesis" : "Against the thesis"}</h3>
-              <ul className={s.list}>
-                {a.evidence
-                  .filter((e) => e.side === side)
-                  .map((e) => (
-                    <li key={e.id}>
-                      <Claim
-                        cls={
-                          e.resultIds.every((id) => byResult.has(id) || a.models.some((m) => m.id === id)) ||
-                          e.claimClass === "hypothesis"
-                            ? e.claimClass
-                            : "unsupported"
-                        }
-                        testId={`evidence-item-${e.id}`}
-                      >
-                        {e.text}
-                        <div className={s.metricSub}>
-                          Results:{" "}
-                          {e.resultIds.length
-                            ? e.resultIds.map((id) => (
-                                <a key={id} href={`#result-${id}`} className={s.mono}>
-                                  {id}{" "}
-                                </a>
-                              ))
-                            : "none cited"}
-                          {e.graphNodeId ? (
-                            <>
-                              {" · "}
-                              <a
-                                href={`/w/${workspaceId}?node=${encodeURIComponent(e.graphNodeId)}`}
-                                data-testid="evidence-graph-link"
-                              >
-                                evidence graph
-                              </a>
-                            </>
-                          ) : null}
-                        </div>
-                      </Claim>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          ))}
+          <div className={s.card} data-testid="evidence-bull">
+            <h3 className={s.cardTitle}>For the hypothesis</h3>
+            <ul className={s.list}>
+              {supporting.length ? (
+                supporting.map((c) => (
+                  <li key={c.key}>
+                    <Claim cls="derived" testId={`evidence-item-${c.key}`}>
+                      {c.candidate} beats the baseline at {c.horizon}d: ΔMAE {num(c.delta_mae)},
+                      FDR-significant (p adj. {num(c.p_adjusted)}).
+                      <div className={s.metricSub}>
+                        Result <a href={`#result-${c.key.replace(":", "-")}`}>{c.key}</a>
+                      </div>
+                    </Claim>
+                  </li>
+                ))
+              ) : (
+                <li className={s.muted}>No FDR-significant improvement in the published run.</li>
+              )}
+            </ul>
+          </div>
+          <div className={s.card} data-testid="evidence-bear">
+            <h3 className={s.cardTitle}>Against the hypothesis (counterevidence published by the engine)</h3>
+            <ul className={s.list}>
+              {a.counterevidence.length ? (
+                a.counterevidence.map((c, i) => (
+                  <li key={i}>
+                    <Claim cls="derived" testId={`counter-item-${i}`}>
+                      {c.kind.replace(/_/g, " ")}
+                      <div className={s.metricSub}>
+                        {Object.entries(c)
+                          .filter(([k]) => k !== "kind")
+                          .map(([k, v]) => `${k} ${typeof v === "number" ? num(v) : String(v)}`)
+                          .join(" · ")}
+                      </div>
+                    </Claim>
+                  </li>
+                ))
+              ) : (
+                <li className={s.muted}>None reported.</li>
+              )}
+            </ul>
+          </div>
         </div>
-        {a.limitations.length ? (
+        <div className={s.grid2}>
+          <div className={s.card}>
+            <h3 className={s.cardTitle}>Input snapshot</h3>
+            <dl className={s.record}>
+              <dt>Label</dt>
+              <dd>{a.inputSnapshot.label}</dd>
+              <dt>Dataset</dt>
+              <dd className={s.mono}>{a.inputSnapshot.datasetHash}</dd>
+              <dt>Complete</dt>
+              <dd className={a.inputSnapshot.complete ? undefined : s.warn}>
+                {a.inputSnapshot.complete ? "yes" : "no: coverage is partial"}
+              </dd>
+              <dt>Rows</dt>
+              <dd>
+                development {a.inputSnapshot.developmentRows}, post-regime {a.inputSnapshot.postRegimeRows},
+                straddle excluded {a.inputSnapshot.straddleRowsExcluded}, dropped{" "}
+                {a.inputSnapshot.droppedSamples.count}
+              </dd>
+              <dt>Lockbox</dt>
+              <dd>
+                n={a.inputSnapshot.lockbox.n}, {a.inputSnapshot.lockbox.opened ? "opened once" : "sealed"}
+              </dd>
+              <dt>Regime split</dt>
+              <dd>{a.inputSnapshot.regimeSplit}</dd>
+            </dl>
+          </div>
           <div className={s.card}>
             <h3 className={s.cardTitle}>Research limitations</h3>
-            <ul>
+            <ul data-testid="research-limitations">
               {a.limitations.map((l, i) => (
                 <li key={i}>{l}</li>
               ))}
             </ul>
           </div>
-        ) : null}
+        </div>
       </section>
     </>
   );
@@ -605,14 +642,14 @@ export function ThesisDashboard({ workspaceId }: { workspaceId: string }) {
       </header>
 
       {data?.sourceLabel === "SYNTHETIC" ||
-      (artifacts?.status === "available" && artifacts.artifacts.sourceLabel === "SYNTHETIC") ? (
+      (artifacts?.status === "available" && artifacts.artifact.inputSnapshot.label === "SYNTHETIC") ? (
         <HonestyBanner data-testid="synthetic-banner">
           SYNTHETIC data:{" "}
           {data?.sourceLabel === "SYNTHETIC"
             ? "series come from labelled fixture snapshots"
             : "series are live"}
-          {artifacts?.status === "available" && artifacts.artifacts.sourceLabel === "SYNTHETIC"
-            ? "; research results are a labelled test fixture, not research-engine output"
+          {artifacts?.status === "available" && artifacts.artifact.inputSnapshot.label === "SYNTHETIC"
+            ? "; the research run used a labelled synthetic fixture dataset (claim scope: no live claim)"
             : ""}
           . Not evidence for the thesis.
         </HonestyBanner>
@@ -736,7 +773,7 @@ export function ThesisDashboard({ workspaceId }: { workspaceId: string }) {
           </EmptyState>
         </section>
       ) : (
-        <Research a={artifacts.artifacts} workspaceId={workspaceId} />
+        <Research r={artifacts} workspaceId={workspaceId} />
       )}
 
       {data && artifacts ? (
@@ -810,10 +847,10 @@ export function ThesisDashboard({ workspaceId }: { workspaceId: string }) {
                 >
                   Series (CSV)
                 </Button>
-                {artifacts.status === "available" && artifacts.artifacts.capsuleId ? (
+                {artifacts.status === "available" ? (
                   <a
                     className="nz-btn"
-                    href={`/w/${workspaceId}/capsule?id=${encodeURIComponent(artifacts.artifacts.capsuleId)}`}
+                    href={`/w/${workspaceId}/capsule?id=${encodeURIComponent(artifacts.capsuleId)}`}
                     data-testid="capsule-link"
                   >
                     Open research capsule

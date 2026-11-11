@@ -28,6 +28,7 @@ import {
   nodeState,
   projectionFromObjects,
   RELATIONS,
+  secondaryFlags,
   STATE_LABEL,
   upstream,
 } from "./graph-model.ts";
@@ -87,6 +88,11 @@ function EvidenceNode({ data, selected }: NodeProps<Node<NData>>) {
           {STATE_LABEL[state]}
         </div>
       ) : null}
+      {secondaryFlags(node).map((f) => (
+        <div key={f} className={e.nodeFlag} data-testid={`ev-flag-${node.id}`}>
+          also: {STATE_LABEL[f]}
+        </div>
+      ))}
       <Handle type="source" position={Position.Bottom} isConnectable={false} />
     </div>
   );

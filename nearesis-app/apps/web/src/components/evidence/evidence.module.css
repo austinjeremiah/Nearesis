@@ -322,3 +322,7 @@
 .change {
   min-width: 7.5rem;
 }
+.nodeFlag {
+  font-size: var(--text-2xs);
+  color: var(--warn);
+}

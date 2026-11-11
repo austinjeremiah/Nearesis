@@ -27,8 +27,9 @@ async function parse<T>(r: Response): Promise<T> {
   return body as T;
 }
 
-export const historyApi = (ws: string) => `/w/${ws}/history/api`;
-export const evidenceApi = (ws: string) => `/w/${ws}/evidence/api`;
+/** Both pages use the shared same-origin BFF (lib/server/bff-allow.ts lists the history routes). */
+export const historyApi = (ws: string) => `/api/k/workspaces/${ws}`;
+export const evidenceApi = (ws: string) => `/api/k/workspaces/${ws}`;
 
 export async function getJson<T>(url: string): Promise<T> {
   return parse<T>(await fetch(url, { cache: "no-store" }));

@@ -30,17 +30,25 @@ export type NodeState = "ok" | "unsupported" | "contradicted" | "support_unknown
 
 /**
  * Display state. Claims without a supporting path are `unsupported` (W08); a claim whose support was not computed
- * (e.g. a branch overlay view) is `support_unknown`, never assumed supported. Tombstones and rechecks win.
+ * (e.g. a branch overlay view) is `support_unknown`, never assumed supported. Tombstones win; rechecks are
+ * secondary on unsupported or contradicted claims.
  */
 export function nodeState(n: GraphNode): NodeState {
   if (n.tombstone) return "tombstone";
+  // W08: an unsupported or contradicted claim is shown as such first; a pending recheck is a secondary flag.
+  if (n.type === "claim" && n.support === "unsupported") return "unsupported";
+  if (n.type === "claim" && n.support === "contradicted") return "contradicted";
   if (n.recheckRequired) return "recheck";
-  if (n.type === "claim") {
-    if (n.support === "unsupported") return "unsupported";
-    if (n.support === "contradicted") return "contradicted";
-    if (n.support === undefined) return "support_unknown";
-  }
+  if (n.type === "claim" && n.support === undefined) return "support_unknown";
   return "ok";
+}
+
+/** Secondary flags shown beside the primary state, so no state hides another. */
+export function secondaryFlags(n: GraphNode): NodeState[] {
+  const p = nodeState(n);
+  const out: NodeState[] = [];
+  if (n.recheckRequired && p !== "recheck") out.push("recheck");
+  return out;
 }
 
 export const STATE_LABEL: Record<NodeState, string> = {

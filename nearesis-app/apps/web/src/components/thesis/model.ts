@@ -1,11 +1,10 @@
 /**
- * Investment-thesis dashboard model. Shared by the server routes (validation) and the client (rendering).
- *
- * Research artifacts and capsules have no published contract yet (`packages/contracts/src/research-artifacts.ts` is an
- * empty seam). These local schemas are the bound interface until R1/Engine A publish theirs; a queue request asks for
- * the contract. Nothing here computes a statistic: statistics are only ever displayed from artifacts.
+ * Investment-thesis dashboard model, shared by the server routes and the client. Research results use R1's
+ * `ResearchRunArtifact` and capsules use V1's `CapsuleViewRecord` (packages/contracts). Nothing here computes a
+ * statistic: statistics are only ever displayed from published artifacts.
  */
 import { z } from "zod";
+import type { CapsuleResponseRecord, CapsuleViewRecord, ResearchRunArtifact } from "@nearesis/contracts";
 
 /** The five epistemic classes the dashboard must keep visually distinct (final_prompt §9). */
 export const CLAIM_CLASSES = ["observed", "derived", "interpretation", "hypothesis", "unsupported"] as const;
@@ -138,182 +137,20 @@ export interface ThesisData {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Research artifacts (bound interface until the contract lands)
+// Research results (R1's ResearchRunArtifact) and capsules (V1's CapsuleViewRecord) come from published contracts.
 
-const Id = z.string().min(1).max(120);
-export const ResearchArtifacts = z.strictObject({
-  artifactSetId: Id,
-  producer: z.string().min(1).max(200),
-  producedAt: z.iso.datetime({ offset: true }),
-  sourceLabel: z.enum(["SYNTHETIC", "RECORDED", "LIVE"]),
-  question: z.string().min(1).max(500),
-  hypothesis: z.strictObject({
-    id: Id,
-    statement: z.string().min(1).max(1000),
-    preregistrationHash: z
-      .string()
-      .regex(/^[0-9a-f]{64}$/)
-      .nullable(),
-    preregisteredAt: z.iso.datetime({ offset: true }).nullable(),
-    falsification: z
-      .array(
-        z.strictObject({
-          id: Id,
-          criterion: z.string().min(1).max(500),
-          status: z.enum(["not_triggered", "triggered", "not_evaluated"]),
-          resultId: Id.nullable(),
-        }),
-      )
-      .max(20),
-  }),
-  verdict: z
-    .strictObject({
-      status: z.enum(["SUPPORTED", "NOT_SUPPORTED", "MIXED", "INSUFFICIENT_DATA"]),
-      summary: z.string().max(1000),
-      resultIds: z.array(Id).max(50),
-    })
-    .nullable(),
-  lagResults: z
-    .array(
-      z.strictObject({
-        id: Id,
-        leader: z.string().max(120),
-        follower: z.string().max(120),
-        lagDays: z.number().int().min(-120).max(120),
-        estimate: z.number(),
-        ciLow: z.number().nullable(),
-        ciHigh: z.number().nullable(),
-        pValue: z.number().min(0).max(1).nullable(),
-        n: z.number().int().nonnegative(),
-        method: z.string().max(200),
-      }),
-    )
-    .max(400),
-  models: z
-    .array(
-      z.strictObject({
-        id: Id,
-        name: z.string().max(200),
-        target: z.string().max(120),
-        features: z.array(z.string().max(120)).max(20),
-        holdout: z.strictObject({ from: z.iso.date(), to: z.iso.date() }),
-        metric: z.enum(["MAE", "RMSE", "MAPE", "R2"]),
-        value: z.number().nullable(),
-        baseline: z.boolean(),
-        n: z.number().int().nonnegative(),
-      }),
-    )
-    .max(50),
-  evidence: z
-    .array(
-      z.strictObject({
-        id: Id,
-        side: z.enum(["bull", "bear"]),
-        claimClass: z.enum(CLAIM_CLASSES),
-        text: z.string().min(1).max(1000),
-        resultIds: z.array(Id).max(20),
-        graphNodeId: Id.nullable(),
-      }),
-    )
-    .max(20),
-  limitations: z.array(z.string().max(500)).max(30),
-  capsuleId: Id.nullable(),
-});
-export type ResearchArtifacts = z.infer<typeof ResearchArtifacts>;
+export type CapsuleView = CapsuleViewRecord;
+export type CapsuleResponse = CapsuleResponseRecord;
 
 export type ArtifactsResponse =
-  { status: "available"; artifacts: ResearchArtifacts } | { status: "unavailable"; reason: string };
-
-// ---------------------------------------------------------------------------------------------------------------
-// Research capsule (presentation only; verification is performed by Engine A, never in the browser)
-
-const Sha = z.string().regex(/^[0-9a-f]{64}$/);
-export const CapsuleView = z.strictObject({
-  capsuleId: Id,
-  title: z.string().min(1).max(300),
-  sourceLabel: z.enum(["SYNTHETIC", "RECORDED", "LIVE"]),
-  createdAt: z.iso.datetime({ offset: true }),
-  claims: z
-    .array(
-      z.strictObject({
-        id: Id,
-        text: z.string().max(1000),
-        claimClass: z.enum(CLAIM_CLASSES),
-        resultIds: z.array(Id).max(20),
-      }),
-    )
-    .max(50),
-  results: z
-    .array(
-      z.strictObject({
-        id: Id,
-        label: z.string().max(200),
-        value: z.string().max(80),
-        unit: z.string().max(40).nullable(),
-        computation: z.string().max(300),
-      }),
-    )
-    .max(100),
-  hashes: z.strictObject({
-    preregistrationHash: Sha.nullable(),
-    sourceSnapshotHash: Sha,
-    semanticModelHash: Sha,
-    analysisCodeCommit: z.string().regex(/^[0-9a-f]{7,40}$/),
-    containerDigest: z
-      .string()
-      .regex(/^sha256:[0-9a-f]{64}$/)
-      .nullable(),
-    resultManifestHash: Sha,
-  }),
-  verification: z.strictObject({
-    local: z.strictObject({
-      status: z.enum(["reproduced", "mismatch", "not_run"]),
-      method: z.string().max(300),
-      checkedAt: z.iso.datetime({ offset: true }).nullable(),
-      detail: z.string().max(500),
-    }),
-    outlayer: z.strictObject({
-      status: z.enum(["verified", "failed", "unverified", "not_submitted"]),
-      method: z.string().max(300),
-      jobId: z.string().max(200).nullable(),
-      checkedAt: z.iso.datetime({ offset: true }).nullable(),
-      detail: z.string().max(500),
-    }),
-    failures: z
-      .array(
-        z.strictObject({
-          at: z.iso.datetime({ offset: true }),
-          kind: z.string().max(80),
-          detail: z.string().max(500),
-        }),
-      )
-      .max(50),
-  }),
-  provenance: z
-    .array(
-      z.strictObject({
-        id: Id,
-        kind: z.enum(["source", "snapshot", "query", "model", "result", "claim", "code"]),
-        label: z.string().max(300),
-        hash: z.string().max(80).nullable(),
-        parents: z.array(Id).max(20),
-      }),
-    )
-    .max(200),
-  rebuild: z.strictObject({
-    command: z.string().max(300),
-    snapshotId: z.string().max(120),
-    steps: z.array(z.string().max(300)).max(20),
-  }),
-  exports: z
-    .array(z.strictObject({ label: z.string().max(120), href: z.string().max(500), sha256: Sha.nullable() }))
-    .max(20),
-  limitations: z.array(z.string().max(500)).max(30),
-});
-export type CapsuleView = z.infer<typeof CapsuleView>;
-
-export type CapsuleResponse =
-  { status: "available"; capsule: CapsuleView } | { status: "unavailable"; reason: string };
+  | {
+      status: "available";
+      /** Capsule the run was read from, and the SHA-256 the capsule manifest records for the run file. */
+      capsuleId: string;
+      runFileSha256: string | null;
+      artifact: ResearchRunArtifact;
+    }
+  | { status: "unavailable"; reason: string };
 
 /**
  * Display status for verification. OutLayer-backed proof is shown as verified only with status "verified" AND a job

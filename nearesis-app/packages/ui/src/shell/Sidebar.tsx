@@ -4,9 +4,13 @@ import {
   IconCanvas,
   IconChevronDown,
   IconBell,
+  IconBranch,
   IconInvestigation,
+  IconLink,
+  IconQuery,
   IconReport,
   IconSettings,
+  IconShield,
   IconSidebar,
   IconSource,
 } from "../icons";
@@ -65,6 +69,8 @@ export interface SidebarProps {
   onNavigate: (key: string) => void;
   /** When set, a Monitoring entry is shown; `unread` is the notification count. */
   monitoring?: { unread: number };
+  /** When true, the Research group (thesis, evidence graph, time machine, capsules) is shown; keys are `page:<name>`. */
+  research?: boolean;
   /** Called with the chosen workspace id from the switcher menu. The current workspace is a no-op. */
   onSwitchWorkspace?: (workspaceId: string) => void;
   /** Rendered in the footer next to the user (theme switch and so on). */
@@ -122,6 +128,7 @@ export function Sidebar({
   onNavigate,
   onSwitchWorkspace,
   monitoring,
+  research,
   footerExtra,
 }: SidebarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -241,6 +248,30 @@ export function Sidebar({
             >
               Monitoring
             </Item>
+          </div>
+        )}
+        {research && (
+          <div className="nz-sb-group" data-testid="sidebar-research">
+            <div className="nz-sb-label nz-hide-collapsed">Research</div>
+            {(
+              [
+                ["thesis", "Investment thesis", <IconQuery key="i" />],
+                ["evidence", "Evidence graph", <IconLink key="i" />],
+                ["history", "Time machine", <IconBranch key="i" />],
+                ["capsule", "Research capsules", <IconShield key="i" />],
+              ] as const
+            ).map(([k, label, icon]) => (
+              <Item
+                key={k}
+                icon={icon}
+                label={label}
+                collapsed={collapsed}
+                current={active === `page:${k}`}
+                onClick={() => onNavigate(`page:${k}`)}
+              >
+                {label}
+              </Item>
+            ))}
           </div>
         )}
         <div className="nz-sb-group">

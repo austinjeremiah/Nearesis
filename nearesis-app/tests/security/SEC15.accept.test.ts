@@ -16,6 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { observe } from "@nearesis/acceptance";
+import { readbackLive, signerPemFromEnv } from "../../plugins/chain-commit/src/live.ts";
 import { canonicalJson, sha256Hex, signManifest } from "../../packages/plugin-sdk/src/index.ts";
 import type { ExecutionRequest } from "../../packages/contracts/src/index.ts";
 import { TOOL_CATALOG } from "../../packages/agent-runtime/src/tools.ts";
@@ -179,7 +180,7 @@ it("SEC15: only the exact owner approval writes, once; everything else is denied
     ws: string,
     run: string,
     input: unknown,
-    prep?: { approveHash?: string; by?: Session; ttlMs?: number; otherRun?: boolean },
+    prep?: { approveHash?: string; by?: Session; ttlMs?: number; otherRun?: boolean; deadlineMs?: number },
     sameAgent?: ReturnType<typeof agent>,
   ) => {
     const a = sameAgent ?? agent(run);
@@ -204,7 +205,7 @@ it("SEC15: only the exact owner approval writes, once; everything else is denied
       actor: a.actor,
       capability: CAPABILITY,
       input,
-      deadlineMs: 8000,
+      deadlineMs: prep?.deadlineMs ?? 8000,
       trace: { traceId: randomUUID() },
     } as unknown as ExecutionRequest;
     requestIds.push(req.requestId);
@@ -465,9 +466,70 @@ it("SEC15: only the exact owner approval writes, once; everything else is denied
     expect(reasons[need] ?? 0, need).toBeGreaterThan(0);
   expect(controlWrote).toBe(1); // sensitivity: an unguarded path does write, so the zero counts above mean something
 
+  // ---- LIVE half (ADR-20261111-005/-006): the same gateway, approval and plugin path against NEAR testnet.
+  let liveNote = "LIVE half not run (no --live)";
+  let liveEvidence: Record<string, unknown> | null = null;
+  if (process.env.NEARESIS_ACCEPT_LIVE === "1") {
+    const liveSigner = await startSigner(signerPemFromEnv(join(process.cwd(), "..", ".env")));
+    try {
+      process.env.CHAIN_COMMIT_SIGNER_URL = `http://127.0.0.1:${liveSigner.port}/sign`;
+      process.env.CHAIN_COMMIT_RPC_URL = "https://rpc.testnet.near.org";
+      process.env.CHAIN_COMMIT_LIVE = "1";
+      const m2 = buildManifest({
+        publisher: TEST_PUBLISHER,
+        networkHosts: [`127.0.0.1:${liveSigner.port}`, "rpc.testnet.near.org"],
+        version: "1.1.0",
+      });
+      (m2 as unknown as Record<string, unknown>).signature = signManifest(m2, TEST_KEY.privateKey);
+      await k.plugins.install(null, m2);
+      await k.plugins.upgrade(null, "chain-commit", "1.1.0");
+      const liveHash = createHash("sha256").update(`sec15-live-${Date.now()}`).digest("hex");
+      const liveGood = good({ payloadHash: liveHash, depositYocto: "0", gas: 30_000_000_000_000 });
+      const liveStats = async () =>
+        (await (await fetch(`http://127.0.0.1:${liveSigner.port}/stats`)).json()) as { signed: number };
+      // denials with valid approvals of their exact input: 0 signatures, nothing broadcast
+      const before = (await liveStats()).signed;
+      for (const over of [
+        { network: "near-mainnet" },
+        { contract: "evil.testnet" },
+        { method: "ft_transfer" },
+      ]) {
+        const input = { ...liveGood, ...over };
+        const d = await attempt("live denial", await workspace(), randomUUID(), input, {
+          approveHash: hashOf(input),
+        });
+        expect(d.res.state).not.toBe("ok");
+      }
+      expect((await liveStats()).signed - before).toBe(0);
+      const lws = await workspace();
+      const lrun = randomUUID();
+      const lok = await attempt("live valid owner approval", lws, lrun, liveGood, {
+        approveHash: hashOf(liveGood),
+        deadlineMs: 60_000,
+      });
+      const out = JSON.stringify(lok.res);
+      expect(out).toContain('"state":"ok"');
+      const txHash = /"txHash":"([A-Za-z0-9]+)"/.exec(out)?.[1];
+      expect(txHash).toBeTruthy();
+      const rb = await readbackLive(txHash as string, liveHash);
+      expect(rb.finality).toBe("FINAL");
+      expect(rb.succeeded && rb.equal).toBe(true);
+      liveEvidence = {
+        txHash,
+        payloadHash: liveHash,
+        finality: rb.finality,
+        viewTimestampNs: rb.viewTimestampNs,
+      };
+      liveNote = `LIVE half: executed through the kernel gateway with an owner approval against NEAR testnet, real borsh transaction signed by the signer process: tx ${txHash} (contract ${rb.receiver}, method ${rb.method}), FINAL, contract view returns the committed hash ${liveHash}; 3 live denials (mainnet, other contract, transfer method) with valid approvals produced 0 signatures`;
+    } finally {
+      liveSigner.stop();
+      delete process.env.CHAIN_COMMIT_LIVE;
+    }
+  }
+
   observe({
     testId: "SEC15",
-    observed: `FIXTURE half (loopback chain fixture, locally generated ed25519 key, testnet only): ${outcomes.length} agent invocations of chain_commit.commit_hash@1: exactly 1 executed (valid owner approval: 1 chain call, 1 signature, signature verified by the fixture chain), ${denials.length} denied with 0 chain calls and 0 signatures (${mutations.length} single-parameter mutations of an approved call, expired, other-run, non-owner issuer, no approval, replay, ${policy.length} policy violations that carried a valid approval of their exact input: non-allowlisted contract and method, transfer, swap, mainnet, deposit and gas above ceiling); the signer process refused ${signerRefused}/${signerDirect.length} policy-violating requests sent to it directly; ${audited.length}/${denials.length} denials audited with reasons ${JSON.stringify(reasons)}; ${used.length} approval has used_at set (the executed one); key forms searched in the host environment, the signer's environment (${signerEnvVars.length} variables, started with an empty env, key via stdin), ${files.length} files, ${audit.rowCount} audit rows, ${invocations.rowCount} invocation rows, RPC log and tool responses: 0 hits; agent tool catalog has ${agentTools.length} chain, sign, swap or transfer tools and the plugin offers exactly one capability; control: the handler called without the gateway wrote ${controlWrote} to the chain, so the zero counts are sensitive. LIVE half (funded testnet account) not run: BLOCKED_DEPENDENCY, no funded key or RPC access under the owner limits`,
+    observed: `FIXTURE half (loopback chain fixture, locally generated ed25519 key, testnet only): ${outcomes.length} agent invocations of chain_commit.commit_hash@1: exactly 1 executed (valid owner approval: 1 chain call, 1 signature, signature verified by the fixture chain), ${denials.length} denied with 0 chain calls and 0 signatures (${mutations.length} single-parameter mutations of an approved call, expired, other-run, non-owner issuer, no approval, replay, ${policy.length} policy violations that carried a valid approval of their exact input: non-allowlisted contract and method, transfer, swap, mainnet, deposit and gas above ceiling); the signer process refused ${signerRefused}/${signerDirect.length} policy-violating requests sent to it directly; ${audited.length}/${denials.length} denials audited with reasons ${JSON.stringify(reasons)}; ${used.length} approval has used_at set (the executed one); key forms searched in the host environment, the signer's environment (${signerEnvVars.length} variables, started with an empty env, key via stdin), ${files.length} files, ${audit.rowCount} audit rows, ${invocations.rowCount} invocation rows, RPC log and tool responses: 0 hits; agent tool catalog has ${agentTools.length} chain, sign, swap or transfer tools and the plugin offers exactly one capability; control: the handler called without the gateway wrote ${controlWrote} to the chain, so the zero counts are sensitive. ${liveNote}`,
     fixtureHash: createHash("sha256")
       .update(JSON.stringify({ mutations, policy, signerDirect }))
       .digest("hex"),
@@ -478,6 +540,7 @@ it("SEC15: only the exact owner approval writes, once; everything else is denied
       approvalsUsed: used.length,
       filesScanned: files.length,
       controlWrote,
+      live: liveEvidence,
     },
   });
 }, 300_000);

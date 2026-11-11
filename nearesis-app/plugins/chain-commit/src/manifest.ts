@@ -20,7 +20,7 @@ export const COMMIT_CAPABILITY = {
   inputSchema: COMMIT_INPUT_SCHEMA,
   outputSchema: { type: "object" },
   requiredGrants: ["chain:commit"],
-  timeoutMs: 10_000,
+  timeoutMs: 60_000,
   maxOutputBytes: 10_000,
 } as unknown as CapabilityDecl;
 

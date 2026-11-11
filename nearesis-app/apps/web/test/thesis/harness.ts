@@ -124,7 +124,7 @@ export async function loggedIn(env: Env): Promise<BrowserContext> {
 export async function open(
   ctx: BrowserContext,
   path: string,
-  readyFlag: "__thesis" | "__capsule",
+  readyFlag: string,
 ): Promise<{ page: Page; csp: () => Promise<unknown[]>; errors: string[] }> {
   const page = await ctx.newPage();
   const errors: string[] = [];

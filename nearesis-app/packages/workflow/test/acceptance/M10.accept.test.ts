@@ -15,6 +15,10 @@ import {
   unreachableApi,
 } from "./m-marker-helpers.ts";
 
+// Grants are now enforced on the child's kernel leases, so the assigned set must cover the tools the scripted child uses
+// (the `basic` plan's semantic analyst and quant). The assertions about the recorded grants are unchanged.
+const CHILD_GRANTS = ["semantic.discover@1", "semantic.query@1", "research.run_model@1", "stats.read@1"];
+
 let env: Env;
 let api: Api;
 beforeAll(async () => {
@@ -116,7 +120,7 @@ it("M10: no agent, workflow or paid call starts from unsaved selections or draft
   const scope = await owner.call("PUT", `/v1/workspaces/${ws()}/delegation-scopes`, {
     userId: editor.userId,
     agents: ["quant", "skeptic", "semantic_analyst"],
-    grants: ["semantic.query@1", "stats.read@1"],
+    grants: CHILD_GRANTS,
     delegateTo: [],
     maxBudget: { tokens: 200_000, toolCalls: 24, usd: 20 },
   });
@@ -169,7 +173,7 @@ it("M10: no agent, workflow or paid call starts from unsaved selections or draft
   const assigned = await command(editor, ws(), "marker.assign", {
     markerId,
     agents: ["quant", "skeptic"],
-    grants: ["semantic.query@1"],
+    grants: CHILD_GRANTS,
     budget: { tokens: 200_000, toolCalls: 24, usd: 20 },
   });
   expect(assigned.status).toBe(200);
@@ -200,7 +204,7 @@ it("M10: no agent, workflow or paid call starts from unsaved selections or draft
     expect(tasks).toHaveLength(1); // exactly one scoped child
     expect(afterStart.markerTasks - before.markerTasks).toBe(1);
     expect(tasks[0]!.workflowId).toBeTruthy();
-    expect(tasks[0]!.grants).toEqual(["semantic.query@1"]);
+    expect(tasks[0]!.grants).toEqual(CHILD_GRANTS);
     // Temporal visibility is eventually consistent: poll with a deadline
     const wf = await waitFor(
       async () => ((await temporalCount(env.taskQueue)) === 1 ? 1 : null),
@@ -243,7 +247,7 @@ it("M10: no agent, workflow or paid call starts from unsaved selections or draft
       userId: editor.userId,
       markerId,
       agents: ["quant", "skeptic"],
-      grants: ["semantic.query@1"],
+      grants: CHILD_GRANTS,
       taskId: tasks[0]!.taskId,
       depth: 1,
     });

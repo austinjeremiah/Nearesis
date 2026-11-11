@@ -104,6 +104,10 @@ export const CapsuleManifest = z.strictObject({
       reason: z.string().max(300).nullable(),
     })
     .optional(),
+  /** Semantic metric versions this capsule's results were computed under, e.g. `{ m: "1.0.0" }`. */
+  metricVersions: z
+    .record(z.string().regex(/^[A-Za-z0-9_.-]{1,60}$/), z.string().regex(/^\d+\.\d+\.\d+$/))
+    .optional(),
   /** SHA-256 of the canonical manifest with this field removed. */
   capsuleHash: Sha256Hex,
 });

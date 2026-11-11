@@ -18,3 +18,4 @@ export * from "./prereg-commit.ts";
 export * from "./gaps.ts";
 export * from "./memo.ts";
 export * from "./bundle.ts";
+export * from "./correction.ts";

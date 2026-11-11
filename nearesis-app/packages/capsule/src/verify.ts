@@ -81,16 +81,16 @@ export function readManifest(dir: string): CapsuleManifest | null {
 }
 
 /** Environment for child processes: no secrets, no JWTs, only what uv/wasmtime need to run. */
-export function scrubbedEnv(extra: Record<string, string> = {}): Record<string, string> {
+export function scrubbedEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   const keep = ["PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "NEARESIS_TOOLCHAIN", "NEARESIS_APP_ROOT"];
-  const env: Record<string, string> = {};
+  const env = {} as NodeJS.ProcessEnv;
   for (const k of Object.keys(process.env))
     if (
       (keep.includes(k) || k.startsWith("UV_") || k.startsWith("COREPACK_")) &&
       process.env[k] !== undefined
     )
       env[k] = process.env[k]!;
-  return { ...env, ...extra };
+  return { ...env, ...extra } as NodeJS.ProcessEnv;
 }
 
 export function findWasmtime(): string | null {

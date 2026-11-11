@@ -39,6 +39,10 @@ export interface BuildOptions {
   /** Directory holding `research_run.json` from services/research (fixture runs are re-executable offline). */
   researchBundleDir?: string;
   wasmPath?: string;
+  /** Overrides the capsule id (default `cap-<snapshotId>`); used when a corrected rerun supersedes a capsule. */
+  capsuleId?: string;
+  /** Semantic metric versions recorded in the manifest. They are part of the capsule hash. */
+  metricVersions?: Record<string, string>;
   /** Extra author prose appended to THESIS.md. It is subject to the same publication check as generated text. */
   extraThesisNotes?: string[];
 }
@@ -447,7 +451,7 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
   const resultManifestHash = canonicalSha256(partial.results);
   const body = {
     schemaVersion: "nearesis.capsule.v1" as const,
-    capsuleId: `cap-${descriptor.snapshotId}`,
+    capsuleId: opts.capsuleId ?? `cap-${descriptor.snapshotId}`,
     title: partial.title,
     label: descriptor.label,
     createdAt: descriptor.frozenAt,
@@ -479,6 +483,7 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
       resultManifestHash,
     },
     limitations,
+    ...(opts.metricVersions ? { metricVersions: opts.metricVersions } : {}),
     attestation: {
       status: "unverified" as const,
       evidenceSource: null,

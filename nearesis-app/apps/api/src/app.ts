@@ -10,6 +10,8 @@ import type { InvestigationEngine } from "./runs.ts";
 import { historyRoutes } from "./history-routes.ts";
 import { monitoringRoutes } from "./monitoring-routes.ts";
 import { capsuleRoutes } from "./capsule-routes.ts";
+import { requestGuards } from "./request-guards.ts";
+import type { RequestGuardOptions } from "./request-guards.ts";
 
 const Uuid = z.uuid();
 
@@ -22,6 +24,8 @@ export interface AppOptions {
   nodeEnv?: string | undefined;
   /** SSE journal poll interval (ms). */
   ssePollMs?: number;
+  /** Cross-origin, content-type and rate-limit guards for mutating requests. */
+  guards?: RequestGuardOptions;
 }
 
 declare module "fastify" {
@@ -56,6 +60,8 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       typeof incoming === "string" && /^[A-Za-z0-9-]{8,64}$/.test(incoming) ? incoming : randomUUID();
     void reply.header("x-trace-id", req.traceId);
   });
+
+  requestGuards(app, opts.guards);
 
   app.setErrorHandler(async (err, req, reply) => {
     const fe = err as { statusCode?: number; validation?: unknown; code?: string };

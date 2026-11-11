@@ -1,3 +1,4 @@
+import { CATALOG_UNAVAILABLE, catalogUnreadable } from "./source-gate.ts";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
 import { ApplicationFailure, CancelledFailure, Context } from "@temporalio/activity";
@@ -735,6 +736,14 @@ export function createActivities(d: ActivityDeps) {
         if (!row || row.source !== "live")
           return { gated: false, state: "RUN", reasonCode: null, sources: [] };
         const by = row.context?.metricSources ?? {};
+        // fail closed: a live run whose catalog could not be read has no known sources, so it cannot be shown fresh
+        if (catalogUnreadable(by))
+          return {
+            gated: true,
+            state: "BLOCKED_SOURCE",
+            reasonCode: CATALOG_UNAVAILABLE,
+            sources: [],
+          };
         // the sources behind the metrics the plan needs; a plan naming no metric the live catalog knows (or none at all)
         // reads the whole live layer, so every live source counts
         const named = i.requiredMetrics.filter((m) => by[m]);

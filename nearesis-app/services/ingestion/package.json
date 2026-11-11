@@ -12,7 +12,9 @@
     "replay": "tsx src/cli/replay.ts",
     "migrate": "tsx src/cli/migrate.ts",
     "backfill": "tsx src/backfill/cli.ts",
-    "test:backfill": "vitest run test/backfill"
+    "test:backfill": "vitest run test/backfill",
+    "scheduler": "tsx src/scheduler/cli.ts",
+    "test:scheduler": "vitest run test/scheduler"
   },
   "dependencies": {
     "@clickhouse/client": "1.25.0",

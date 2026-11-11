@@ -22,6 +22,10 @@ cubes:
         sql: "privacy_era"
         type: string
         description: "public | private_settlement (created on/after 2026-10-27)"
+      - name: created_at
+        sql: "created_at"
+        type: time
+        description: "Swap creation time (UTC, ms); query with granularity hour for the hourly series"
     measures:
       - name: swap_count
         type: count
@@ -79,6 +83,149 @@ cubes:
             "id": "live.oneclick_completed_swap_count",
             "cubeMember": "intents_swaps_live.completed_swap_count",
           }
+      - name: usd_known_swap_count
+        type: count
+        filters:
+          - sql: "{CUBE}.amount_in_usd IS NOT NULL"
+        description: "Swaps whose input USD value is known (amount_in_usd not NULL)"
+        meta:
+          {
+            "segmentOverlap": "n/a",
+            "botProxyDefinition": "Not filtered; includes bot and system traffic",
+            "denominator": "n/a: additive count or level with no denominator",
+            "certifiedVersion": "1.0.0",
+            "certified": true,
+            "owner": "nearesis-analytics",
+            "testFixture": "live:nearesis_live",
+            "visibility": "public",
+            "zeroPolicy": "zero_requires_complete_coverage",
+            "expectedUpdateLag": "PT1H",
+            "docUri": "docs/metrics/METRICS.md#liveoneclick_usd_known_swap_count",
+            "grain": "day",
+            "displayName": "LIVE 1Click swaps with known USD value",
+            "kind": "flow",
+            "unit": "swaps",
+            "aggregationLaw": "sum",
+            "sources": ["near-explorer:intents_swaps"],
+            "transformations": ["Swaps whose amount_in_usd is not NULL"],
+            "uncertainty": "REAL data. Unknown amounts are NULL and excluded here; they are never treated as zero.",
+            "id": "live.oneclick_usd_known_swap_count",
+            "cubeMember": "intents_swaps_live.usd_known_swap_count",
+          }
+      - name: usd_unknown_swap_count
+        type: count
+        filters:
+          - sql: "{CUBE}.amount_in_usd IS NULL"
+        description: "Swaps whose input USD value is unknown (NULL, never counted as zero)"
+        meta:
+          {
+            "segmentOverlap": "n/a",
+            "botProxyDefinition": "Not filtered; includes bot and system traffic",
+            "denominator": "n/a: additive count or level with no denominator",
+            "certifiedVersion": "1.0.0",
+            "certified": true,
+            "owner": "nearesis-analytics",
+            "testFixture": "live:nearesis_live",
+            "visibility": "public",
+            "zeroPolicy": "zero_requires_complete_coverage",
+            "expectedUpdateLag": "PT1H",
+            "docUri": "docs/metrics/METRICS.md#liveoneclick_usd_unknown_swap_count",
+            "grain": "day",
+            "displayName": "LIVE 1Click swaps with unknown USD value",
+            "kind": "flow",
+            "unit": "swaps",
+            "aggregationLaw": "sum",
+            "sources": ["near-explorer:intents_swaps"],
+            "transformations": ["Swaps whose amount_in_usd is NULL"],
+            "uncertainty": "REAL data. Explorer rows can carry no amounts (empty fields); they stay NULL.",
+            "id": "live.oneclick_usd_unknown_swap_count",
+            "cubeMember": "intents_swaps_live.usd_unknown_swap_count",
+          }
+      - name: amount_unknown_swap_count
+        type: count
+        filters:
+          - sql: "{CUBE}.amount_in IS NULL OR {CUBE}.amount_out IS NULL"
+        description: "Swaps with an unknown token amount on either side (NULL, never counted as zero)"
+        meta:
+          {
+            "segmentOverlap": "n/a",
+            "botProxyDefinition": "Not filtered; includes bot and system traffic",
+            "denominator": "n/a: additive count or level with no denominator",
+            "certifiedVersion": "1.0.0",
+            "certified": true,
+            "owner": "nearesis-analytics",
+            "testFixture": "live:nearesis_live",
+            "visibility": "public",
+            "zeroPolicy": "zero_requires_complete_coverage",
+            "expectedUpdateLag": "PT1H",
+            "docUri": "docs/metrics/METRICS.md#liveoneclick_amount_unknown_swap_count",
+            "grain": "day",
+            "displayName": "LIVE 1Click swaps with an unknown token amount",
+            "kind": "flow",
+            "unit": "swaps",
+            "aggregationLaw": "sum",
+            "sources": ["near-explorer:intents_swaps"],
+            "transformations": ["Swaps whose amount_in or amount_out is NULL"],
+            "uncertainty": "REAL data. Counted as unknown, never as a zero amount.",
+            "id": "live.oneclick_amount_unknown_swap_count",
+            "cubeMember": "intents_swaps_live.amount_unknown_swap_count",
+          }
+      - name: volume_usd_known
+        type: number
+        sql: "toString(sum({CUBE}.amount_in_usd))"
+        description: "Sum of input USD over swaps whose USD value is KNOWN only (exact decimal string). NULL when no swap in the slice has a known value. Read it with usd_completeness"
+        meta:
+          {
+            "segmentOverlap": "n/a",
+            "botProxyDefinition": "Not filtered; includes bot and system traffic",
+            "denominator": "n/a: additive count or level with no denominator",
+            "certifiedVersion": "1.0.0",
+            "certified": true,
+            "owner": "nearesis-analytics",
+            "testFixture": "live:nearesis_live",
+            "visibility": "public",
+            "zeroPolicy": "zero_requires_complete_coverage",
+            "expectedUpdateLag": "PT1H",
+            "docUri": "docs/metrics/METRICS.md#liveoneclick_volume_usd_known",
+            "grain": "day",
+            "displayName": "LIVE 1Click input volume (USD, known values only)",
+            "kind": "flow",
+            "unit": "usd",
+            "aggregationLaw": "sum",
+            "sources": ["near-explorer:intents_swaps"],
+            "transformations": ["Exact decimal sum of amount_in_usd over swaps where it is not NULL"],
+            "uncertainty": "REAL data, a LOWER BOUND: swaps with an unknown USD value are excluded, not zero. Always read with live.oneclick_usd_completeness; NULL means no swap in the slice has a known value.",
+            "id": "live.oneclick_volume_usd_known",
+            "cubeMember": "intents_swaps_live.volume_usd_known",
+          }
+      - name: usd_completeness
+        type: number
+        sql: "{usd_known_swap_count} / nullIf({swap_count}, 0)"
+        description: "Share of swaps (0..1) whose USD value is known: the completeness of volume_usd_known"
+        meta:
+          {
+            "segmentOverlap": "n/a",
+            "botProxyDefinition": "Not filtered; includes bot and system traffic",
+            "denominator": "all LIVE 1Click swaps in the slice",
+            "certifiedVersion": "1.0.0",
+            "certified": true,
+            "owner": "nearesis-analytics",
+            "testFixture": "live:nearesis_live",
+            "visibility": "public",
+            "zeroPolicy": "zero_requires_complete_coverage",
+            "expectedUpdateLag": "PT1H",
+            "docUri": "docs/metrics/METRICS.md#liveoneclick_usd_completeness",
+            "grain": "day",
+            "displayName": "LIVE 1Click USD-value completeness",
+            "kind": "rate",
+            "unit": "ratio",
+            "aggregationLaw": "ratio",
+            "sources": ["near-explorer:intents_swaps"],
+            "transformations": ["usd_known_swap_count / swap_count"],
+            "uncertainty": "REAL data. 1 means every swap in the slice has a USD value; volume_usd_known is only a full total then.",
+            "id": "live.oneclick_usd_completeness",
+            "cubeMember": "intents_swaps_live.usd_completeness",
+          }
 
 views:
   - name: intents_swaps_live
@@ -90,5 +237,11 @@ views:
           - source_label
           - status
           - privacy_era
+          - created_at
           - swap_count
           - completed_swap_count
+          - usd_known_swap_count
+          - usd_unknown_swap_count
+          - amount_unknown_swap_count
+          - volume_usd_known
+          - usd_completeness

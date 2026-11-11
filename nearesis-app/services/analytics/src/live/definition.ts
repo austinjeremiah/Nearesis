@@ -106,6 +106,12 @@ export const LIVE_CUBES: CubeDef[] = [
         type: "string",
         description: "public | private_settlement (created on/after 2026-10-27)",
       },
+      {
+        name: "created_at",
+        sql: "created_at",
+        type: "time",
+        description: "Swap creation time (UTC, ms); query with granularity hour for the hourly series",
+      },
     ],
     measures: [
       {
@@ -118,6 +124,109 @@ export const LIVE_CUBES: CubeDef[] = [
         type: "count",
         filter: "{CUBE}.status = 'SUCCESS'",
         description: "Swaps whose latest status is SUCCESS (LIVE)",
+      },
+      {
+        name: "usd_known_swap_count",
+        type: "count",
+        filter: "{CUBE}.amount_in_usd IS NOT NULL",
+        description: "Swaps whose input USD value is known (amount_in_usd not NULL)",
+      },
+      {
+        name: "usd_unknown_swap_count",
+        type: "count",
+        filter: "{CUBE}.amount_in_usd IS NULL",
+        description: "Swaps whose input USD value is unknown (NULL, never counted as zero)",
+      },
+      {
+        name: "amount_unknown_swap_count",
+        type: "count",
+        filter: "{CUBE}.amount_in IS NULL OR {CUBE}.amount_out IS NULL",
+        description: "Swaps with an unknown token amount on either side (NULL, never counted as zero)",
+      },
+      {
+        name: "volume_usd_known",
+        type: "number",
+        sql: "toString(sum({CUBE}.amount_in_usd))",
+        exactScale: 18,
+        description:
+          "Sum of input USD over swaps whose USD value is KNOWN only (exact decimal string). NULL when no swap in the slice has a known value. Read it with usd_completeness",
+      },
+      {
+        name: "usd_completeness",
+        type: "number",
+        sql: "{usd_known_swap_count} / nullIf({swap_count}, 0)",
+        description: "Share of swaps (0..1) whose USD value is known: the completeness of volume_usd_known",
+      },
+    ],
+    rollups: [],
+  },
+  {
+    name: "quote_attempts_live_facts",
+    table: "quote_attempts",
+    view: "quote_attempts_live",
+    timeColumn: "scheduled_bucket_utc",
+    dimensions: [
+      label,
+      {
+        name: "route_id",
+        sql: "route_id",
+        type: "string",
+        description: "Route: origin>destination (symbol.chain)",
+      },
+      { name: "privacy_mode", sql: "privacy_mode", type: "string", description: "public | basic | advanced" },
+      {
+        name: "attempt_class",
+        sql: "class",
+        type: "string",
+        description: "OK | NO_QUOTE | NETWORK_ERROR | TIMEOUT | INVALID_OUTPUT (NULL for unavailable slots)",
+      },
+      { name: "slot", sql: "slot", type: "string", description: "observed | unavailable" },
+      { name: "notional_usd", sql: "notional_usd", type: "number", description: "Grid notional size in USD" },
+    ],
+    measures: [
+      { name: "slot_count", type: "count", description: "All grid slots (observed and unavailable)" },
+      {
+        name: "route_quote_attempt_count",
+        type: "count",
+        filter: "{CUBE}.slot = 'observed'",
+        description: "Observed dry quote attempts (LIVE)",
+      },
+      {
+        name: "route_quote_ok_count",
+        type: "count",
+        filter: "{CUBE}.class = 'OK'",
+        description: "Dry quote attempts with class OK",
+      },
+      {
+        name: "route_quote_no_quote_count",
+        type: "count",
+        filter: "{CUBE}.class = 'NO_QUOTE'",
+        description: "Attempts where the provider reported no route or liquidity (distinct from failures)",
+      },
+      {
+        name: "route_quote_failure_count",
+        type: "count",
+        filter: "{CUBE}.class IN ('NETWORK_ERROR', 'TIMEOUT', 'INVALID_OUTPUT')",
+        description: "Attempts that failed (network, timeout or invalid output)",
+      },
+      {
+        name: "route_quote_unavailable_slot_count",
+        type: "count",
+        filter: "{CUBE}.slot = 'unavailable'",
+        description: "Grid slots never attempted (missing configuration, asset not listed); never backfilled",
+      },
+      {
+        name: "route_quote_availability",
+        type: "number",
+        sql: "{route_quote_ok_count} / nullIf({slot_count}, 0)",
+        description: "OK attempts divided by all grid slots",
+      },
+      {
+        name: "route_quote_cost_bps",
+        type: "number",
+        sql: "avgIf((toFloat64({CUBE}.amount_in_usd) - toFloat64({CUBE}.amount_out_usd)) / toFloat64({CUBE}.amount_in_usd) * 10000, {CUBE}.class = 'OK' AND {CUBE}.amount_in_usd > 0 AND {CUBE}.amount_out_usd IS NOT NULL)",
+        description:
+          "Average implied cost in bps: (input USD - output USD) / input USD, provider-stated USD values",
       },
     ],
     rollups: [],

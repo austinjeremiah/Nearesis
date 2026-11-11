@@ -114,6 +114,9 @@ export async function startEnv(): Promise<Env> {
           join(files.capsuleDir, id),
           "--research-bundle",
           "packages/test-fixtures/research/signal-bundle",
+          // Research re-execution is the research engine's own check (the API's capsule view skips it too); the run file
+          // is still included and hash-checked against the manifest by the thesis loader.
+          "--no-research",
         ],
         { cwd: appRoot, encoding: "utf8" },
       );

@@ -1,4 +1,5 @@
 "use client";
+import "../../lib/zod-config.ts"; // jitless zod: no eval probe under the strict CSP
 import {
   Background,
   Controls,

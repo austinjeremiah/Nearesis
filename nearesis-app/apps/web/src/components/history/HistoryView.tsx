@@ -1,4 +1,5 @@
 "use client";
+import "../../lib/zod-config.ts"; // jitless zod: no eval probe under the strict CSP
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, EmptyState, ErrorState, HonestyBanner } from "@nearesis/ui";
 import { ApiError, getJson, historyApi, mutate } from "./client.ts";

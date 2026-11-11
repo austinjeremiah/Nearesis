@@ -107,6 +107,14 @@ describe("quote sampler round", () => {
     expect(r.rows).toHaveLength(18);
     expect(res.complete).toBe(true);
     expect(new Set(r.rows.map((x) => `${x.route_id}|${x.notional_usd}|${x.privacy_mode}`)).size).toBe(18);
+    // the table's ReplacingMergeTree key must not collapse distinct slots (unavailable slots have no amount)
+    expect(
+      new Set(
+        r.rows.map((x) =>
+          [x.route_id, x.amount_base_units, x.privacy_mode, x.scheduled_bucket_utc, x.attempt_no].join("|"),
+        ),
+      ).size,
+    ).toBe(18);
     const byClass = (c: string) => r.rows.filter((x) => x.class === c).length;
     expect(byClass("OK")).toBeGreaterThan(0);
     expect(byClass("NETWORK_ERROR")).toBe(4); // BASIC -> HTTP 503, 2 routes x 2 notionals
@@ -116,7 +124,10 @@ describe("quote sampler round", () => {
     expect(unavailable).toHaveLength(6); // the unlisted third route
     expect(
       unavailable.every(
-        (x) => x.reason === "ASSET_NOT_LISTED" && x.class === null && x.amount_base_units === "",
+        (x) =>
+          x.reason === "ASSET_NOT_LISTED" &&
+          x.class === null &&
+          String(x.amount_base_units).startsWith("n/a:"),
       ),
     ).toBe(true);
     for (const x of r.rows) {

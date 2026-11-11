@@ -75,7 +75,8 @@ const base = (s: PlannedSlot, bucketIso: string): QuoteRow => ({
   origin_chain: s.originChain,
   destination_chain: s.destinationChain,
   notional_usd: s.notionalUsd,
-  amount_base_units: s.amountBaseUnits ?? "",
+  // unavailable slots have no amount; the notional keeps each slot a distinct primary-key row (ReplacingMergeTree would collapse them otherwise)
+  amount_base_units: s.amountBaseUnits ?? `n/a:${s.notionalUsd}`,
   privacy_mode: s.privacyMode,
   scheduled_bucket_utc: bucketIso,
   attempt_no: 1,

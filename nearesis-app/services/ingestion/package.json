@@ -14,6 +14,7 @@
     "backfill": "tsx src/backfill/cli.ts",
     "test:backfill": "vitest run test/backfill",
     "scheduler": "tsx src/scheduler/cli.ts",
+    "quotes:validate": "tsx src/scheduler/validate-quotes.ts",
     "test:scheduler": "vitest run test/scheduler"
   },
   "dependencies": {

@@ -63,6 +63,8 @@ jobs:
         run: sh scripts/ci/steps.sh lint
       - name: Format check
         run: sh scripts/ci/steps.sh format
+      - name: Test dependency graph
+        run: sh scripts/ci/steps.sh deps
       - name: Package tests
         run: sh scripts/ci/steps.sh test
       - name: Browser e2e (build monitor)

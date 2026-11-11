@@ -15,6 +15,7 @@
     "contracts:schemas": "pnpm --filter @nearesis/contracts gen:schemas",
     "monitor:dev": "pnpm --filter @nearesis/build-monitor dev",
     "accept": "tsx scripts/accept.ts",
+    "test:deps": "tsx scripts/tests/validate-deps.ts",
     "dev:seed": "tsx scripts/dev/seed.ts",
     "dev:infra": "docker compose -f infrastructure/compose/docker-compose.yml up -d --wait",
     "dev:infra:down": "docker compose -f infrastructure/compose/docker-compose.yml down",

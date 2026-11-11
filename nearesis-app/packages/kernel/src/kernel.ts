@@ -10,6 +10,7 @@ import { KernelToolGateway } from "./gateway.ts";
 import { EventJournal } from "./journal.ts";
 import { LeaseService } from "./leases.ts";
 import { IntegrityGuard } from "./integrity.ts";
+import { VerifiedStateService } from "./verified-state.ts";
 import { OutboxPublisher } from "./outbox.ts";
 import { PluginManager } from "./plugins/manager.ts";
 import type { PluginManagerConfig } from "./plugins/manager.ts";
@@ -56,6 +57,8 @@ export class Kernel {
   readonly approvals: ApprovalService;
   /** Read-path hash verification and quarantine for stored artefacts (SEC13). */
   readonly integrity: IntegrityGuard;
+  /** The only writer of verification state; the publication gate reads through it (SEC14). */
+  readonly verifiedState: VerifiedStateService;
   readonly monitoring: MonitoringService;
   readonly delegation: DelegationService;
   readonly identity: IdentityPolicy;
@@ -69,6 +72,7 @@ export class Kernel {
     this.leases = new LeaseService(cfg.db);
     this.approvals = new ApprovalService();
     this.integrity = new IntegrityGuard(cfg.db);
+    this.verifiedState = new VerifiedStateService(cfg.db);
     this.monitoring = new MonitoringService(cfg.db);
     this.delegation = new DelegationService(cfg.db);
     this.gateway = new KernelToolGateway(cfg.db, this.plugins, this.leases, this.approvals);

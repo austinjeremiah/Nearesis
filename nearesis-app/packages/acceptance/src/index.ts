@@ -12,6 +12,8 @@ export interface Observation {
   fixtureHash?: string | null;
   evidence?: Record<string, unknown>;
   blocked?: string;
+  /** The check does not apply here (for example an optional adapter is not enabled); recorded as NOT_RUN with this reason. */
+  notRun?: string;
 }
 
 export function observe(o: Observation): void {

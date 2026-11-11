@@ -6,7 +6,8 @@
  *   PASS               exit 0 AND an observation exists AND it is not blocked
  *   BLOCKED_DEPENDENCY observation.blocked set (e.g. missing credential) — never PASS
  *   FAIL               non-zero exit, or exit 0 without an observation (assertions must be observed, not assumed)
- *   NOT_RUN            no bound test files yet (not recorded as evidence; reported only)
+ *   NOT_RUN            no bound test files yet (not recorded as evidence; reported only), or observation.notRun set
+ *                      (the check does not apply, e.g. an optional adapter is not enabled; recorded with its reason)
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
@@ -89,14 +90,18 @@ for (const t of selected) {
         fixtureHash?: string | null;
         evidence?: unknown;
         blocked?: string;
+        notRun?: string;
       })
     : null;
   const logPath = join(REPORTS, "TESTS", t.testId, `${runId}.log`);
-  let verdict: "PASS" | "FAIL" | "BLOCKED_DEPENDENCY";
+  let verdict: "PASS" | "FAIL" | "BLOCKED_DEPENDENCY" | "NOT_RUN";
   let failureReason: string | null = null;
   if (obs?.blocked) {
     verdict = "BLOCKED_DEPENDENCY";
     failureReason = obs.blocked;
+  } else if (obs?.notRun && r.status === 0) {
+    verdict = "NOT_RUN";
+    failureReason = obs.notRun;
   } else if (r.status === 0 && obs) verdict = "PASS";
   else {
     verdict = "FAIL";
@@ -145,6 +150,7 @@ for (const t of selected) {
     ts: new Date().toISOString(),
     session,
     engine: engineOf(t),
+    // the event vocabulary has no not_run kind; a NOT_RUN check is reported as test.blocked with its reason as detail
     kind: verdict === "PASS" ? "test.passed" : verdict === "FAIL" ? "test.failed" : "test.blocked",
     subject: t.testId,
     detail: failureReason ?? undefined,

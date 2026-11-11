@@ -223,7 +223,7 @@ it("SEC03: tenant A never receives, changes or creates anything of tenant B", as
   for (const t of keyed) {
     const col = t.keycol!.split(",")[0]!;
     const c = await fx.db.admin.connect();
-    let rows = 0;
+    let rows: number;
     try {
       rows = (await c.query(`SELECT count(*)::int n FROM ${t.schema}.${t.tbl} WHERE ${col} = $1`, [orgB]))
         .rows[0].n as number;

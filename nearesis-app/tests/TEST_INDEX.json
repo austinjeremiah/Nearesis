@@ -1749,9 +1749,11 @@
       "passCondition": "0 chain writes",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "tests/security/SEC04.accept.test.ts"
+      ],
       "live": false,
-      "status": "UNIMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true,
       "dependsOn": []
     },

@@ -15,6 +15,8 @@ import { egressFetchFor } from "./egress.ts";
 import { redact, redactString } from "./redact.ts";
 import { zodDetails } from "./workspace.ts";
 
+const MAINNET_MENTION = /main[\s_.-]*net/i;
+
 type Denial = { state: "blocked" | "failed"; reasonCode: string; message: string };
 
 /** ToolGateway implementation: ch.04 "Internal execution path" steps 1-7. */
@@ -105,8 +107,9 @@ export class KernelToolGateway implements ToolGateway {
       | { kind: "done"; response: ExecutionResponse }
       | { kind: "run"; resolved: ResolvedPlugin; invocationId: string; warnings: string[] };
     const a: PhaseA = await this.db.tx(tctx, async (tx): Promise<PhaseA> => {
-      const ws = await tx.query("SELECT id FROM workspaces WHERE id = $1", [req.workspaceId]);
+      const ws = await tx.query("SELECT id, network_scope FROM workspaces WHERE id = $1", [req.workspaceId]);
       if (!ws.rows[0]) throw new KernelError("FORBIDDEN", "ACCESS_DENIED", "Access denied.");
+      const networkScope = ws.rows[0].network_scope as string;
 
       await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
         `inv:${req.workspaceId}:${req.idempotencyKey}`,
@@ -259,6 +262,24 @@ export class KernelToolGateway implements ToolGateway {
           },
           prov,
         );
+      }
+
+      // Step 3a (ch.12 "Chain commitment policy"): a chain write is only possible in a testnet workspace, never names
+      // mainnet, and is never approvable into a read-only or fixture workspace. Evaluated before any approval is consumed.
+      if (capability.sideEffect === "chain_write") {
+        const why =
+          networkScope !== "near-testnet"
+            ? {
+                reasonCode: "CHAIN_WRITE_SCOPE",
+                message: "Chain writes are only permitted in a near-testnet workspace.",
+              }
+            : MAINNET_MENTION.test(JSON.stringify(req.input ?? null))
+              ? {
+                  reasonCode: "MAINNET_WRITE_REFUSED",
+                  message: "Mainnet writes are refused; they are a human-only release step.",
+                }
+              : null;
+        if (why) return deny({ state: "blocked", reasonCode: why.reasonCode, message: why.message }, prov);
       }
 
       // Step 3b (ch.05): paid and chain-writing calls by an agent need a kernel-verified approval of this exact call,

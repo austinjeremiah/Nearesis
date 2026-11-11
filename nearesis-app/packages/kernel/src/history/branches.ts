@@ -6,6 +6,7 @@ import {
   ResolveConflictRequest,
 } from "@nearesis/contracts";
 import type { MergeConflict, ObjectChange } from "@nearesis/contracts";
+import { canAdmin } from "../auth.ts";
 import type { Session } from "../auth.ts";
 import type { Db, Tx } from "../db/pool.ts";
 import { KernelError } from "../errors.ts";
@@ -45,6 +46,8 @@ const RELATIONS = new Set([
   "reproduces",
   "supersedes",
 ]);
+
+const semverMajor = (v: string): string => v.replace(/^v/, "").split(".")[0] ?? v;
 
 const bad = (reason: string, msg: string) => new KernelError("VALIDATION_FAILED", reason, msg);
 
@@ -169,7 +172,7 @@ export class BranchOps {
       handle: async (ctx) => {
         const snap = (
           await ctx.tx.query(
-            "SELECT id, branch_id, event_seq FROM history_snapshots WHERE id = $1 AND workspace_id = $2",
+            "SELECT id, branch_id, event_seq, data_vintage, created_at FROM history_snapshots WHERE id = $1 AND workspace_id = $2",
             [p.fromSnapshotId, ctx.workspace.id],
           )
         ).rows[0];
@@ -183,9 +186,29 @@ export class BranchOps {
             [id, ctx.workspace.orgId, ctx.workspace.id, snap.branch_id, snap.event_seq, ctx.session.userId],
           );
           await ctx.tx.query(
-            `INSERT INTO history_branches(branch_id, org_id, workspace_id, name, description, base_snapshot_id)
-             VALUES ($1,$2,$3,$4,$5,$6)`,
-            [id, ctx.workspace.orgId, ctx.workspace.id, p.name, p.description ?? null, snap.id],
+            `INSERT INTO history_branches(branch_id, org_id, workspace_id, name, description, base_snapshot_id, input_version_map)
+             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+            [
+              id,
+              ctx.workspace.orgId,
+              ctx.workspace.id,
+              p.name,
+              p.description ?? null,
+              snap.id,
+              // Frozen at fork time: the semantic version map and source snapshot of the base snapshot.
+              JSON.stringify({
+                semanticPins: snap.data_vintage.semanticPins,
+                sourceSnapshot: snap.data_vintage.sourceSnapshot,
+              }),
+            ],
+          );
+          // The branch's agent memory scope receives a snapshot copy of the summaries that existed at the snapshot,
+          // under new ids. It has no live access to the parent's memory after the fork (ch.05).
+          await ctx.tx.query(
+            `INSERT INTO branch_memory_items(id, org_id, workspace_id, branch_id, copied_from, body, source_refs, author_kind)
+             SELECT gen_random_uuid(), org_id, workspace_id, $1, id, body, source_refs, author_kind
+               FROM history_summaries WHERE workspace_id = $2 AND created_at <= $3`,
+            [id, ctx.workspace.id, snap.created_at],
           );
           await ctx.tx.query("RELEASE SAVEPOINT br_ins");
         } catch (e) {
@@ -282,6 +305,14 @@ export class BranchOps {
         const conflicts: Array<MergeConflict & { theirsHash: string }> = [];
         const hashDiffs: Array<{ objectId: string; before: string; after: string }> = [];
         let verdictChange = false;
+        let certifiedVerdictChange = false;
+        const excluded: Array<{
+          objectId: string;
+          reason: string;
+          reasonCode: string;
+          from: string;
+          to: string;
+        }> = [];
         for (const c of diffObjects(base, ours)) {
           const id = c.objectId;
           const b = base[id];
@@ -289,11 +320,31 @@ export class BranchOps {
           const t = theirs.objects[id];
           const th = hashOf(t);
           hashDiffs.push({ objectId: id, before: hashOf(b), after: hashOf(o) });
+          // Policy and semver check (ch.10): a metric version that crosses a major version of the target's current
+          // definition is not appended; it is excluded with its reason and left for a deliberate migration.
+          if (id.startsWith("metric:") && o !== undefined) {
+            const targetV = (t as { version?: string } | undefined)?.version;
+            const ourV = (o as { version?: string }).version;
+            if (targetV && ourV && semverMajor(targetV) !== semverMajor(ourV)) {
+              excluded.push({
+                objectId: id,
+                reasonCode: "SEMVER_INCOMPATIBLE",
+                reason: `metric version ${targetV} -> ${ourV} crosses a major version; not appended`,
+                from: targetV,
+                to: ourV,
+              });
+              continue;
+            }
+          }
           const verdictOf = (v: unknown) =>
             (v as { data?: { verdict?: unknown } } | undefined)?.data?.verdict ?? null;
           const isClaim = (v: unknown) => (v as { kind?: string } | undefined)?.kind === "claim";
-          if ((isClaim(b) || isClaim(o)) && hashOf(verdictOf(b)) !== hashOf(verdictOf(o)))
+          if ((isClaim(b) || isClaim(o)) && hashOf(verdictOf(b)) !== hashOf(verdictOf(o))) {
             verdictChange = true;
+            const certified = (v: unknown) =>
+              (v as { data?: { certified?: unknown } } | undefined)?.data?.certified === true;
+            if (certified(b) || certified(o)) certifiedVerdictChange = true;
+          }
           if (th === hashOf(o)) continue; // target already has this exact value
           if (th === hashOf(b)) changes.push({ ...c, theirsHash: th });
           else
@@ -308,12 +359,13 @@ export class BranchOps {
         }
         const required = ["human_acceptance"];
         if (verdictChange) required.push("verdict_change_acknowledgement");
+        if (certifiedVerdictChange) required.push("certified_verdict_approval");
         if (conflicts.length) required.push("conflict_review");
         const id = p.proposalId ?? idFor(ctx.commandId, "proposal");
         await ctx.tx.query(
           `INSERT INTO history_merge_proposals(id, org_id, workspace_id, source_branch_id, target_branch_id, base_snapshot_id,
-             changes, conflicts, evidence_hash_diffs, upstream, required_approvals, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+             changes, conflicts, evidence_hash_diffs, upstream, required_approvals, created_by, excluded)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
           [
             id,
             ctx.workspace.orgId,
@@ -330,6 +382,7 @@ export class BranchOps {
             }),
             JSON.stringify(required),
             ctx.session.userId,
+            JSON.stringify(excluded),
           ],
         );
         return {
@@ -339,8 +392,14 @@ export class BranchOps {
             proposalId: id,
             conflictCount: conflicts.length,
             changeCount: changes.length,
+            excludedCount: excluded.length,
           },
-          result: { proposalId: id, conflictCount: conflicts.length, changeCount: changes.length },
+          result: {
+            proposalId: id,
+            conflictCount: conflicts.length,
+            changeCount: changes.length,
+            excludedCount: excluded.length,
+          },
         };
       },
     });
@@ -389,6 +448,14 @@ export class BranchOps {
         const pr = await this.proposal(ctx.tx, ctx.workspace.id, proposalId, true);
         if (pr.status !== "open")
           throw new KernelError("DOMAIN_INVARIANT", "PROPOSAL_CLOSED", "Proposal is closed.");
+        const required = pr.required_approvals as string[];
+        // Changing a certified verdict needs a human who holds approval authority (owner or admin).
+        if (required.includes("certified_verdict_approval") && !canAdmin(ctx.session.role))
+          throw new KernelError(
+            "FORBIDDEN",
+            "APPROVAL_AUTHORITY_REQUIRED",
+            "Changing a certified verdict needs an approver (owner or admin).",
+          );
         const conflicts = pr.conflicts as Array<MergeConflict & { theirsHash: string }>;
         const c = conflicts.find((x) => x.objectId === p.objectId);
         if (!c) throw new KernelError("NOT_FOUND", "NO_SUCH_CONFLICT", "No such conflict.");
@@ -450,6 +517,14 @@ export class BranchOps {
         const pr = await this.proposal(ctx.tx, ctx.workspace.id, proposalId, true);
         if (pr.status !== "open")
           throw new KernelError("DOMAIN_INVARIANT", "PROPOSAL_CLOSED", "Proposal is closed.");
+        const required = pr.required_approvals as string[];
+        // Changing a certified verdict needs a human who holds approval authority (owner or admin).
+        if (required.includes("certified_verdict_approval") && !canAdmin(ctx.session.role))
+          throw new KernelError(
+            "FORBIDDEN",
+            "APPROVAL_AUTHORITY_REQUIRED",
+            "Changing a certified verdict needs an approver (owner or admin).",
+          );
         const conflicts = pr.conflicts as Array<MergeConflict & { theirsHash: string }>;
         const unresolved = conflicts.filter((c) => c.resolution === "unresolved");
         if (unresolved.length)
@@ -462,7 +537,6 @@ export class BranchOps {
               nextAction: "Resolve each conflict (ours, theirs or keep_both), then accept.",
             },
           );
-        const required = pr.required_approvals as string[];
         if (required.includes("verdict_change_acknowledgement") && !p.acknowledgeVerdictChange)
           throw new KernelError(
             "APPROVAL_REQUIRED",
@@ -567,12 +641,14 @@ export class BranchOps {
         data?: unknown;
         semanticPins?: unknown;
         tombstone?: boolean;
+        rawObjectHash?: string;
       };
       await tx.query(
-        `INSERT INTO evidence_nodes(id, org_id, workspace_id, kind, label, data, semantic_pins, tombstone)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        `INSERT INTO evidence_nodes(id, org_id, workspace_id, kind, label, data, semantic_pins, tombstone, raw_object_hash)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
          ON CONFLICT (id) DO UPDATE SET kind = EXCLUDED.kind, label = EXCLUDED.label, data = EXCLUDED.data,
-           semantic_pins = EXCLUDED.semantic_pins, tombstone = EXCLUDED.tombstone
+           semantic_pins = EXCLUDED.semantic_pins, tombstone = EXCLUDED.tombstone,
+           raw_object_hash = EXCLUDED.raw_object_hash
          WHERE evidence_nodes.workspace_id = EXCLUDED.workspace_id`,
         [
           rest,
@@ -583,6 +659,7 @@ export class BranchOps {
           JSON.stringify(v.data ?? {}),
           JSON.stringify(v.semanticPins ?? {}),
           v.tombstone ?? false,
+          v.rawObjectHash ?? null,
         ],
       );
       return true;
@@ -691,10 +768,19 @@ export class BranchOps {
       const b = await this.branchRow(tx, workspaceId, branchId);
       const base = await this.baseObjects(tx, workspaceId, b.base_snapshot_id);
       const objects = materialize(base, b.overlay);
+      const meta = (
+        await tx.query<{ base_event_seq: number; input_version_map: unknown }>(
+          `SELECT b.base_event_seq, hb.input_version_map FROM branches b JOIN history_branches hb ON hb.branch_id = b.id
+            WHERE b.id = $1`,
+          [branchId],
+        )
+      ).rows[0]!;
       return {
         branchId,
         name: b.name,
         status: b.status,
+        baseEventSeq: meta.base_event_seq,
+        inputVersionMap: meta.input_version_map,
         baseSnapshotId: b.base_snapshot_id,
         overlayRevision: b.overlay_revision,
         parentBranchId: b.parent,
@@ -702,6 +788,63 @@ export class BranchOps {
         objects,
       };
     });
+  }
+
+  /** Agent memory scope of a branch: a snapshot copy made at fork time. */
+  async memory(session: Session, workspaceId: string, branchId: string) {
+    return this.db.tx(this.tenant(session), async (tx) => {
+      await this.branchRow(tx, workspaceId, branchId);
+      return (
+        await tx.query(
+          `SELECT id, copied_from AS "copiedFrom", body, source_refs AS "sourceRefs", author_kind AS "authorKind"
+             FROM branch_memory_items WHERE branch_id = $1 AND workspace_id = $2 ORDER BY created_at, id`,
+          [branchId, workspaceId],
+        )
+      ).rows;
+    });
+  }
+
+  /**
+   * Execute the branch's panels: base snapshot pin (watermarks, semantic versions) plus the branch overlay, which may
+   * replace a metric version or add exclusion filters. The parent's catalog and results are never consulted or changed.
+   */
+  async executePanels(
+    session: Session,
+    workspaceId: string,
+    branchId: string,
+    executor: import("./pinned.ts").PanelExecutor,
+  ) {
+    const { objects, vintage } = await this.db.tx(this.tenant(session), async (tx) => {
+      const b = await this.branchRow(tx, workspaceId, branchId);
+      const base = await this.baseObjects(tx, workspaceId, b.base_snapshot_id);
+      const v = (
+        await tx.query<{ data_vintage: import("@nearesis/contracts").DataVintage }>(
+          "SELECT data_vintage FROM history_snapshots WHERE id = $1",
+          [b.base_snapshot_id],
+        )
+      ).rows[0]!.data_vintage;
+      return { objects: materialize(base, b.overlay), vintage: v };
+    });
+    const versions: Record<string, string> = { ...vintage.semanticPins };
+    const exclusions: Record<string, unknown> = {};
+    for (const [id, val] of Object.entries(objects)) {
+      if (!id.startsWith("metric:")) continue;
+      const m = val as { version: string; exclusions?: Record<string, unknown> };
+      versions[id.slice(7)] = m.version;
+      Object.assign(exclusions, m.exclusions ?? {});
+    }
+    const out = [];
+    for (const [id, spec] of Object.entries(objects)) {
+      if (!id.startsWith("panel:")) continue;
+      const panel = spec as import("@nearesis/contracts").PanelSpec;
+      const result = await executor.execute(panel, {
+        watermark: vintage.sourceSnapshot?.watermark ?? null,
+        semanticVersions: versions,
+        exclusions,
+      });
+      out.push({ panelId: panel.panelId, result, resultHash: hashOf(result) });
+    }
+    return out;
   }
 
   async diff(session: Session, workspaceId: string, branchId: string, against?: string) {
@@ -747,6 +890,7 @@ export class BranchOps {
         evidenceHashDiffs: r.evidence_hash_diffs,
         upstreamRevisions: r.upstream,
         requiredApprovals: r.required_approvals,
+        excluded: r.excluded,
         createdAt: iso(r.created_at),
         decidedAt: r.decided_at ? iso(r.decided_at) : null,
       };

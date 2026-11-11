@@ -87,6 +87,13 @@ export async function applySemanticChange(
     "INSERT INTO semantic_versions(workspace_id, org_id, metric_id, seq, version, changed_by) VALUES ($1,$2,$3,$4,$5,$6)",
     [workspace.id, workspace.orgId, metricId, (cur?.seq ?? 0) + 1, toVersion, session.userId],
   );
+  // Summaries written against another version of this metric go stale; their sources are not touched (W17).
+  await tx.query(
+    `UPDATE history_summaries SET stale = true, stale_at = now(),
+            stale_reason = $3
+      WHERE workspace_id = $1 AND NOT stale AND metric_pins ? $2 AND metric_pins ->> $2 <> $4`,
+    [workspace.id, metricId, `metric ${metricId} changed to ${toVersion}`, toVersion],
+  );
   const nodes = (
     await tx.query<{ id: string; v: string | null; tombstone: boolean }>(
       "SELECT id, semantic_pins ->> $2 AS v, tombstone FROM evidence_nodes WHERE workspace_id = $1",
@@ -150,9 +157,23 @@ export class GraphOps {
       payload: p,
       handle: async (ctx) => {
         const id = p.nodeId ?? idFor(ctx.commandId, "node");
+        if (p.rawObjectHash) {
+          const ok = (
+            await ctx.tx.query("SELECT 1 FROM raw_objects WHERE org_id = $1 AND hash = $2", [
+              ctx.workspace.orgId,
+              p.rawObjectHash,
+            ])
+          ).rows[0];
+          if (!ok)
+            throw new KernelError(
+              "VALIDATION_FAILED",
+              "RAW_OBJECT_MISSING",
+              "No such raw object in the store.",
+            );
+        }
         await ctx.tx.query(
-          `INSERT INTO evidence_nodes(id, org_id, workspace_id, kind, label, data, semantic_pins)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          `INSERT INTO evidence_nodes(id, org_id, workspace_id, kind, label, data, semantic_pins, raw_object_hash)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
           [
             id,
             ctx.workspace.orgId,
@@ -161,6 +182,7 @@ export class GraphOps {
             p.label,
             JSON.stringify(p.data),
             JSON.stringify(p.semanticPins),
+            p.rawObjectHash ?? null,
           ],
         );
         return {
@@ -169,7 +191,13 @@ export class GraphOps {
             change: "graph.node_added",
             nodeId: id,
             kind: p.kind,
-            node: { kind: p.kind, label: p.label, data: p.data, semanticPins: p.semanticPins },
+            node: {
+              kind: p.kind,
+              label: p.label,
+              data: p.data,
+              semanticPins: p.semanticPins,
+              ...(p.rawObjectHash ? { rawObjectHash: p.rawObjectHash } : {}),
+            },
           },
           result: { nodeId: id },
         };

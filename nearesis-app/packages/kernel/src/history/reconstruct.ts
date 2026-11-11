@@ -169,6 +169,7 @@ export class ReconstructOps {
           data: n.data,
           semanticPins: n.semanticPins,
           tombstone: false,
+          ...(n.rawObjectHash ? { rawObjectHash: n.rawObjectHash } : {}),
         });
       } else if (change === "graph.edge_added") {
         for (const t of pl.tombstones ?? [])

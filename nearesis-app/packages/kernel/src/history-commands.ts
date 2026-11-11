@@ -25,6 +25,7 @@ export function historyService(kernel: Kernel): HistoryService {
       journal: kernel.journal,
       canvas: kernel.canvas,
       graph: kernel.graph,
+      commands: kernel.commands,
     });
     services.set(kernel, s);
   }

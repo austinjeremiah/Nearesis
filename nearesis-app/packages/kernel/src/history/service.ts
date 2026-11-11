@@ -3,6 +3,10 @@ import type { CanvasService } from "../canvas.ts";
 import type { Db } from "../db/pool.ts";
 import type { EvidenceGraphService } from "../graph.ts";
 import type { EventJournal } from "../journal.ts";
+import { CopyOps } from "./copy.ts";
+import { ObjectStore } from "./objects.ts";
+import { SummaryOps } from "./summaries.ts";
+import type { CommandBus } from "../commands.ts";
 import { ReviewOps } from "./reviews.ts";
 import { ReconstructOps } from "./reconstruct.ts";
 import { ImpactOps } from "./impact.ts";
@@ -19,6 +23,7 @@ export interface HistoryDeps {
   journal: EventJournal;
   canvas: CanvasService;
   graph: EvidenceGraphService;
+  commands: CommandBus;
 }
 
 /** Facade over evidence-graph writes, snapshots, branches, merges and Yjs collaboration. */
@@ -30,6 +35,9 @@ export class HistoryService {
   readonly collab: CollabService;
   readonly impact: ImpactOps;
   readonly reviews: ReviewOps;
+  readonly objects: ObjectStore;
+  readonly summaries: SummaryOps;
+  readonly copy: CopyOps;
   readonly reconstruct: ReconstructOps;
   private readonly db: Db;
 
@@ -43,6 +51,9 @@ export class HistoryService {
     this.collab = new CollabService(deps.db);
     this.impact = new ImpactOps(deps.db);
     this.reviews = new ReviewOps(deps.db, this.runner);
+    this.objects = new ObjectStore(deps.db);
+    this.summaries = new SummaryOps(deps.db, this.runner);
+    this.copy = new CopyOps(deps.db, deps.commands);
     this.reconstruct = new ReconstructOps(deps.db);
   }
 

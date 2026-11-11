@@ -38,6 +38,8 @@ export const AddEvidenceNodeRequest = z.strictObject({
   data: z.record(z.string(), z.unknown()).default({}),
   /** metric id -> semantic version this node was computed against (drives impact analysis). */
   semanticPins: SemanticPins.default({}),
+  /** Content-addressed raw payload (sha256 hex) held in the tenant object store; never copied by branching. */
+  rawObjectHash: Sha256Hex.optional(),
 });
 export type AddEvidenceNodeRequest = z.infer<typeof AddEvidenceNodeRequest>;
 
@@ -249,6 +251,18 @@ export const MergeProposal = z.strictObject({
     targetEventSeq: z.number().int(),
   }),
   requiredApprovals: z.array(z.string()),
+  /** Items excluded by policy (e.g. a semver-incompatible metric), each with its reason. */
+  excluded: z
+    .array(
+      z.strictObject({
+        objectId: z.string(),
+        reasonCode: z.string(),
+        reason: z.string(),
+        from: z.string(),
+        to: z.string(),
+      }),
+    )
+    .default([]),
   createdAt: IsoDateTime,
   decidedAt: IsoDateTime.nullable(),
 });
@@ -281,6 +295,17 @@ export const TimelineEntry = z.strictObject({
   documentRevision: z.number().int().nullable(),
 });
 export type TimelineEntry = z.infer<typeof TimelineEntry>;
+
+/** Agent or human summaries are separate from canonical evidence and may go stale (ch.10). */
+export const CreateSummaryRequest = z.strictObject({
+  ...CommandMeta,
+  body: z.string().min(1).max(8000),
+  /** Evidence nodes this summary is derived from. */
+  sourceRefs: z.array(Uuid).max(200).default([]),
+  /** metric id -> semantic version the summary was written against (drives staleness). */
+  metricPins: SemanticPins.default({}),
+});
+export type CreateSummaryRequest = z.infer<typeof CreateSummaryRequest>;
 
 export const AddReviewCommentRequest = z.strictObject({
   ...CommandMeta,

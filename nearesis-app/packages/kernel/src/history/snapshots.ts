@@ -41,8 +41,9 @@ export async function captureLiveObjects(
     data: unknown;
     semantic_pins: unknown;
     tombstone: boolean;
+    raw_object_hash: string | null;
   }>(
-    "SELECT id, kind, label, data, semantic_pins, tombstone FROM evidence_nodes WHERE workspace_id = $1 ORDER BY id",
+    "SELECT id, kind, label, data, semantic_pins, tombstone, raw_object_hash FROM evidence_nodes WHERE workspace_id = $1 ORDER BY id",
     [workspaceId],
   );
   for (const n of nodes.rows)
@@ -52,6 +53,7 @@ export async function captureLiveObjects(
       data: n.data,
       semanticPins: n.semantic_pins,
       tombstone: n.tombstone,
+      ...(n.raw_object_hash ? { rawObjectHash: n.raw_object_hash } : {}),
     };
   const edges = await tx.query<{
     from_node: string;

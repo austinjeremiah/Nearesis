@@ -3,6 +3,9 @@ import type { IncomingMessage, Server } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { ANONYMOUS, createPublicMcpServer } from "./server.ts";
 import type { Principal } from "./server.ts";
+import { parseStrictJson } from "@nearesis/strict-json";
+
+const MAX_BODY = 1_000_000;
 
 /**
  * Stateless streamable-HTTP endpoint (POST /mcp). One server and transport per request. The principal comes from
@@ -36,23 +39,33 @@ export async function startPublicMcpHttp(
         res.writeHead(req.url?.split("?")[0] === "/mcp" ? 405 : 404, { allow: "POST" }).end();
         return;
       }
+      if (String(req.headers["content-encoding"] ?? "identity").toLowerCase() !== "identity") {
+        res.writeHead(400).end();
+        return;
+      }
+      const declared = Number(req.headers["content-length"] ?? 0);
+      if (declared > MAX_BODY) {
+        res.writeHead(413).end();
+        req.resume(); // drain without buffering so the client sees the 413 rather than a reset
+        return;
+      }
       const chunks: Buffer[] = [];
       let size = 0;
       for await (const c of req) {
         size += (c as Buffer).length;
-        if (size > 1_000_000) {
+        if (size > MAX_BODY) {
           res.writeHead(413).end();
+          req.resume();
           return;
         }
         chunks.push(c as Buffer);
       }
-      let body: unknown;
-      try {
-        body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-      } catch {
-        res.writeHead(400).end();
+      const parsed = parseStrictJson(Buffer.concat(chunks), { maxBytes: MAX_BODY });
+      if (!parsed.ok) {
+        res.writeHead(parsed.code === "TOO_LARGE" ? 413 : 400).end();
         return;
       }
+      const body: unknown = parsed.value;
       const mcp = createPublicMcpServer({
         principal: resolve(req),
         ...(o.capsuleRoot ? { capsuleRoot: o.capsuleRoot } : {}),

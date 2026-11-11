@@ -1,5 +1,14 @@
 import { z } from "zod";
+import { parseStrictJson } from "@nearesis/strict-json";
 import { sha256Hex } from "../hash.ts";
+
+/** Frozen parser bounds for one provider page (SEC16). A page above any bound is quarantined, never partially promoted. */
+export const PAGE_LIMITS = {
+  maxBytes: 16 * 1024 * 1024,
+  maxRows: 10_000,
+  maxDepth: 12,
+  maxNodes: 2_000_000,
+} as const;
 
 /** Empty string = provider reports the amount as unknown (REFUNDED swaps); anything else must be a digits-only integer string. */
 const Amount = z.union([z.literal(""), z.string().regex(/^\d+$/, "smallest-unit integer string")]);
@@ -63,7 +72,11 @@ export interface ExplorerCursor {
 
 export type ParsedPage =
   | { ok: true; items: ExplorerTx[]; checksum: "none" | "verified"; warnings: string[] }
-  | { ok: false; reasonCode: "BAD_JSON" | "BAD_SCHEMA" | "NOT_ARRAY" | "CHECKSUM_MISMATCH"; detail: string };
+  | {
+      ok: false;
+      reasonCode: "BAD_JSON" | "BAD_SCHEMA" | "NOT_ARRAY" | "CHECKSUM_MISMATCH" | "PAGE_LIMIT";
+      detail: string;
+    };
 
 /**
  * Parses and validates one Explorer page. The provider documents no body checksum; if a gateway supplies
@@ -77,12 +90,22 @@ export function parseExplorerPage(body: Uint8Array, headers: Record<string, stri
       return { ok: false, reasonCode: "CHECKSUM_MISMATCH", detail: "body sha256 differs from header" };
     checksum = "verified";
   }
-  let json: unknown;
-  try {
-    json = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
-  } catch {
-    return { ok: false, reasonCode: "BAD_JSON", detail: "body is not valid JSON" };
+  // Bounds first, on the raw bytes: size, depth, row count, duplicate keys, pollution keys, invalid UTF-8, huge numbers.
+  const strict = parseStrictJson(body, {
+    maxBytes: PAGE_LIMITS.maxBytes,
+    maxDepth: PAGE_LIMITS.maxDepth,
+    maxNodes: PAGE_LIMITS.maxNodes,
+    maxArrayItems: PAGE_LIMITS.maxRows,
+  });
+  if (!strict.ok) {
+    const limit = ["TOO_LARGE", "TOO_DEEP", "TOO_MANY_NODES", "TOO_MANY_ITEMS"].includes(strict.code);
+    return {
+      ok: false,
+      reasonCode: limit ? "PAGE_LIMIT" : "BAD_JSON",
+      detail: limit ? `${strict.code}: ${strict.detail}` : `body is not valid JSON (${strict.code})`,
+    };
   }
+  const json: unknown = strict.value;
   if (!Array.isArray(json)) return { ok: false, reasonCode: "NOT_ARRAY", detail: "response is not an array" };
   const items: ExplorerTx[] = [];
   const warnings: string[] = [];

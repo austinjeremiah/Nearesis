@@ -1159,7 +1159,7 @@
       "testFiles": ["packages/kernel/test/acceptance/M01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1173,7 +1173,7 @@
       "testFiles": ["packages/workflow/test/acceptance/M02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1187,7 +1187,7 @@
       "testFiles": ["packages/kernel/test/acceptance/M03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1201,7 +1201,7 @@
       "testFiles": ["apps/api/test/acceptance/M04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1215,7 +1215,7 @@
       "testFiles": ["packages/kernel/test/acceptance/M05.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1232,7 +1232,7 @@
       ],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1246,7 +1246,7 @@
       "testFiles": ["apps/web/test/acceptance/M07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1260,7 +1260,7 @@
       "testFiles": ["services/research/test/acceptance/Q01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1274,7 +1274,7 @@
       "testFiles": ["services/research/test/acceptance/Q02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1288,7 +1288,7 @@
       "testFiles": ["services/research/test/acceptance/Q03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1302,7 +1302,7 @@
       "testFiles": ["services/research/test/acceptance/Q04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1316,7 +1316,7 @@
       "testFiles": ["services/research/test/acceptance/Q05.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1330,7 +1330,7 @@
       "testFiles": ["services/research/test/acceptance/Q06.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1344,7 +1344,7 @@
       "testFiles": ["services/research/test/acceptance/Q07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1358,7 +1358,7 @@
       "testFiles": ["services/research/test/acceptance/Q08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1372,7 +1372,7 @@
       "testFiles": ["services/research/test/acceptance/Q09.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1386,7 +1386,7 @@
       "testFiles": ["services/research/test/acceptance/Q10.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1400,7 +1400,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1414,7 +1414,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1428,7 +1428,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1442,7 +1442,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1456,7 +1456,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W05.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1470,7 +1470,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W06.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1624,7 +1624,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1638,7 +1638,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1652,7 +1652,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1666,7 +1666,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1680,7 +1680,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V05.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1694,7 +1694,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V06.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1708,7 +1708,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1722,7 +1722,7 @@
       "testFiles": ["services/mcp-public/test/acceptance/V08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1736,7 +1736,7 @@
       "testFiles": ["tests/integration/B01.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1750,7 +1750,7 @@
       "testFiles": ["tests/integration/B02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1764,7 +1764,7 @@
       "testFiles": ["tests/integration/B03.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1778,7 +1778,7 @@
       "testFiles": ["tests/integration/B04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1792,7 +1792,7 @@
       "testFiles": ["tests/release/N01.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1806,7 +1806,7 @@
       "testFiles": ["tests/release/N02.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1820,7 +1820,7 @@
       "testFiles": ["tests/release/N03.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1834,7 +1834,7 @@
       "testFiles": ["tests/release/N04.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -1862,7 +1862,7 @@
       "testFiles": ["packages/kernel/test/acceptance/M08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["K02", "K03", "K09", "M03"]
     },
     {
@@ -1876,7 +1876,7 @@
       "testFiles": ["packages/kernel/test/acceptance/M09.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["K01", "K04", "C12"]
     },
     {
@@ -1890,7 +1890,7 @@
       "testFiles": ["packages/workflow/test/acceptance/M10.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["C13", "A01", "M09", "K10"]
     },
     {
@@ -1904,7 +1904,7 @@
       "testFiles": ["packages/workflow/test/acceptance/M11.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["M02", "C13", "A01", "A19"]
     },
     {
@@ -1918,7 +1918,7 @@
       "testFiles": ["packages/workflow/test/acceptance/M12.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["K10", "A03", "A05", "A12", "M10"]
     },
     {
@@ -1932,7 +1932,7 @@
       "testFiles": ["packages/kernel/test/acceptance/M13.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["M03", "K09", "A02"]
     },
     {
@@ -1946,7 +1946,7 @@
       "testFiles": ["packages/kernel/test/acceptance/M14.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["M04", "M13"]
     },
     {
@@ -1960,7 +1960,7 @@
       "testFiles": ["packages/kernel/test/acceptance/M15.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["M03", "M05", "S14", "A04"]
     },
     {
@@ -1974,7 +1974,7 @@
       "testFiles": ["packages/kernel/test/acceptance/M16.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["M03", "M06", "M13"]
     },
     {
@@ -1988,7 +1988,7 @@
       "testFiles": ["services/research/test/acceptance/Q11.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["Q03", "Q04", "Q09"]
     },
     {
@@ -2002,7 +2002,7 @@
       "testFiles": ["services/research/test/acceptance/Q12.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["Q01"]
     },
     {
@@ -2016,7 +2016,7 @@
       "testFiles": ["services/research/test/acceptance/Q13.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["Q03", "Q12"]
     },
     {
@@ -2030,7 +2030,7 @@
       "testFiles": ["services/research/test/acceptance/Q14.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["Q01", "Q02", "Q11"]
     },
     {
@@ -2044,7 +2044,7 @@
       "testFiles": ["services/research/test/acceptance/Q15.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["Q01", "Q02", "Q09", "Q16"]
     },
     {
@@ -2058,7 +2058,7 @@
       "testFiles": ["services/research/test/acceptance/Q16.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": []
     },
     {
@@ -2072,7 +2072,7 @@
       "testFiles": ["services/research/test/acceptance/Q17.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["Q03", "Q09", "Q16"]
     },
     {
@@ -2086,7 +2086,7 @@
       "testFiles": ["services/research/test/acceptance/Q18.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["Q05", "Q06", "Q15"]
     },
     {
@@ -2100,7 +2100,7 @@
       "testFiles": ["services/research/test/acceptance/Q19.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["Q10", "Q15", "A04"]
     },
     {
@@ -2114,7 +2114,7 @@
       "testFiles": ["services/research/test/acceptance/Q20.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["Q04", "Q16"]
     },
     {
@@ -2128,7 +2128,7 @@
       "testFiles": ["services/research/test/acceptance/Q21.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["A04"]
     },
     {
@@ -2142,7 +2142,7 @@
       "testFiles": ["services/research/test/acceptance/Q22.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["Q02", "Q10", "Q15"]
     },
     {
@@ -2156,7 +2156,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W03", "K02"]
     },
     {
@@ -2170,7 +2170,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W03", "Q10"]
     },
     {
@@ -2184,7 +2184,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W09.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W02", "W03", "S12"]
     },
     {
@@ -2198,7 +2198,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W10.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W05", "S07", "C04"]
     },
     {
@@ -2212,7 +2212,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W11.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W05", "W10", "C06"]
     },
     {
@@ -2226,7 +2226,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W12.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W05", "W10", "K01"]
     },
     {
@@ -2240,7 +2240,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W13.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W01", "W10", "A17"]
     },
     {
@@ -2254,7 +2254,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W14.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W01", "W06", "K10"]
     },
     {
@@ -2268,7 +2268,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W15.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W04", "K01"]
     },
     {
@@ -2282,7 +2282,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W16.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W04", "W15", "C05"]
     },
     {
@@ -2296,7 +2296,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W17.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["A17", "W08", "Q15"]
     },
     {
@@ -2310,7 +2310,7 @@
       "testFiles": ["packages/kernel/test/acceptance/W18.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W03", "W08"]
     },
     {
@@ -2324,7 +2324,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V09.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["V03", "V04", "A15"]
     },
     {
@@ -2338,7 +2338,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V10.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["V09", "V01"]
     },
     {
@@ -2352,7 +2352,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V11.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["V03", "V09"]
     },
     {
@@ -2366,7 +2366,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V12.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["V01", "V02", "Q20"]
     },
     {
@@ -2380,7 +2380,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V13.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["V05", "Q16", "Q17"]
     },
     {
@@ -2394,7 +2394,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V14.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["D05", "D09", "Q07", "V06"]
     },
     {
@@ -2408,7 +2408,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V15.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["V07", "C08"]
     },
     {
@@ -2422,7 +2422,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V16.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["V06", "V07", "Q10", "Q22"]
     },
     {
@@ -2436,7 +2436,7 @@
       "testFiles": ["services/mcp-public/test/acceptance/V17.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["V08"]
     },
     {
@@ -2450,7 +2450,7 @@
       "testFiles": ["packages/capsule/test/acceptance/V18.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W02", "W09", "S12", "M14"]
     },
     {
@@ -2464,7 +2464,7 @@
       "testFiles": ["tests/integration/B05.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["B01", "B02", "M11", "Q22", "V12"]
     },
     {
@@ -2478,7 +2478,7 @@
       "testFiles": ["tests/integration/B06.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["V01", "C14", "V12", "B02"]
     },
     {
@@ -2492,7 +2492,7 @@
       "testFiles": ["tests/integration/B07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["Q10", "A19", "V06", "B05"]
     },
     {
@@ -2506,7 +2506,7 @@
       "testFiles": ["tests/integration/B08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["Q16", "Q17", "V13"]
     },
     {
@@ -2520,7 +2520,7 @@
       "testFiles": ["tests/integration/B09.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["B03", "D18", "A19", "V14"]
     },
     {
@@ -2534,7 +2534,7 @@
       "testFiles": ["tests/integration/B10.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["V09", "V10", "B05"]
     },
     {
@@ -2548,7 +2548,7 @@
       "testFiles": ["tests/integration/B11.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["K05", "K06", "K12", "B04"]
     },
     {
@@ -2562,7 +2562,7 @@
       "testFiles": ["tests/integration/B12.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["B05", "B07", "A01"]
     },
     {
@@ -2576,7 +2576,7 @@
       "testFiles": ["tests/integration/B13.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["B02", "B07", "D07", "D09"]
     },
     {
@@ -2590,7 +2590,7 @@
       "testFiles": ["tests/integration/B14.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["BOOT01", "BOOT02", "V01", "B06"]
     },
     {
@@ -2604,7 +2604,7 @@
       "testFiles": ["tests/integration/B15.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["W01", "W13", "Q18", "B05"]
     },
     {
@@ -2618,7 +2618,7 @@
       "testFiles": ["tests/security/SEC07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["SEC01", "A04", "A09", "A17"]
     },
     {
@@ -2632,7 +2632,7 @@
       "testFiles": ["tests/security/SEC08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["K01", "K02", "SEC03"]
     },
     {
@@ -2646,7 +2646,7 @@
       "testFiles": ["tests/security/SEC09.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["S03", "S14", "D10"]
     },
     {
@@ -2660,7 +2660,7 @@
       "testFiles": ["tests/security/SEC10.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["SEC05", "SEC01"]
     },
     {
@@ -2674,7 +2674,7 @@
       "testFiles": ["tests/security/SEC11.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["BOOT01", "SEC05"]
     },
     {
@@ -2688,7 +2688,7 @@
       "testFiles": ["tests/security/SEC12.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["K05", "K07", "K08", "SEC18"]
     },
     {
@@ -2702,7 +2702,7 @@
       "testFiles": ["tests/security/SEC13.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["D06", "V02", "K05"]
     },
     {
@@ -2716,7 +2716,7 @@
       "testFiles": ["tests/security/SEC14.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["V09", "A08", "A15", "SEC13"]
     },
     {
@@ -2730,7 +2730,7 @@
       "testFiles": ["tests/security/SEC15.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["SEC04", "A06", "A07"]
     },
     {
@@ -2744,7 +2744,7 @@
       "testFiles": ["tests/security/SEC16.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["C09", "D06", "SEC08"]
     },
     {
@@ -2758,7 +2758,7 @@
       "testFiles": ["tests/security/SEC17.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["A05", "A12", "A18", "K10"]
     },
     {
@@ -2772,7 +2772,7 @@
       "testFiles": ["tests/security/SEC18.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["SEC02", "V17"]
     },
     {
@@ -2786,7 +2786,7 @@
       "testFiles": ["tests/security/SEC19.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["SEC03", "S16", "W04", "A17"]
     },
     {
@@ -2800,7 +2800,7 @@
       "testFiles": ["tests/security/SEC20.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["A03", "D18", "B09"]
     },
     {
@@ -2814,7 +2814,7 @@
       "testFiles": ["tests/security/SEC21.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["SEC10", "V08", "A17"]
     },
     {
@@ -2828,7 +2828,7 @@
       "testFiles": ["tests/security/SEC22.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": [
         "SEC01",
         "SEC02",
@@ -2976,7 +2976,7 @@
       "testFiles": ["tests/release/N06.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["SEC11", "SEC10", "V12", "N01"]
     },
     {
@@ -2990,7 +2990,7 @@
       "testFiles": ["tests/release/N07.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["N06", "N01", "SEC22"]
     },
     {
@@ -3004,7 +3004,7 @@
       "testFiles": ["tests/release/N08.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["N02", "SEC15", "A07"]
     },
     {
@@ -3018,7 +3018,7 @@
       "testFiles": ["tests/release/N09.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["N06", "N08", "N01"]
     },
     {
@@ -3032,7 +3032,7 @@
       "testFiles": ["tests/release/N10.accept.test.ts"],
       "live": false,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["N04", "K03", "A02"]
     },
     {
@@ -3046,7 +3046,7 @@
       "testFiles": ["tests/release/N11.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["N01", "N03", "N08", "N10"]
     },
     {
@@ -3060,7 +3060,7 @@
       "testFiles": ["tests/release/N12.accept.test.ts"],
       "live": true,
       "status": "IMPLEMENTED",
-      "required": false,
+      "required": true,
       "dependsOn": ["N05", "K10", "SEC12", "SEC15"]
     }
   ]

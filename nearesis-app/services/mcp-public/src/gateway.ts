@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { existsSync, readdirSync } from "node:fs";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server } from "node:http";
@@ -37,6 +37,9 @@ export interface GatewayPrincipal {
   kind: "anonymous" | "member";
   /** Set by authentication only. Never taken from request arguments. */
   workspaceId: string | null;
+  /** The org and user the gateway authenticated; carried inside the signed downstream credential. */
+  orgId?: string;
+  userId?: string;
 }
 export const PUBLIC_PRINCIPAL: GatewayPrincipal = { id: "anonymous", kind: "anonymous", workspaceId: null };
 
@@ -100,6 +103,8 @@ export function mintGatewayToken(o: {
   secret: string;
   audience: string;
   scope: string;
+  /** The authenticated principal this call acts for. The API re-checks membership of exactly this org, user and workspace. */
+  actor?: { orgId: string; userId: string; workspaceId: string };
   now?: Date;
   ttlSeconds?: number;
 }): string {
@@ -111,6 +116,7 @@ export function mintGatewayToken(o: {
       sub: "mcp-gateway",
       aud: o.audience,
       scope: o.scope,
+      ...(o.actor ? { org: o.actor.orgId, usr: o.actor.userId, ws: o.actor.workspaceId } : {}),
       iat,
       exp: iat + (o.ttlSeconds ?? 60),
     }),
@@ -126,8 +132,9 @@ export function verifyGatewayToken(
 ): { ok: boolean; scope?: string } {
   const [h, b, s] = token.split(".");
   if (!h || !b || !s) return { ok: false };
-  const want = createHmac("sha256", secret).update(`${h}.${b}`).digest("base64url");
-  if (want !== s) return { ok: false };
+  const want = createHmac("sha256", secret).update(`${h}.${b}`).digest();
+  const got = Buffer.from(s, "base64url");
+  if (got.length !== want.length || !timingSafeEqual(got, want)) return { ok: false };
   const c = JSON.parse(Buffer.from(b, "base64url").toString("utf8")) as {
     aud?: string;
     exp?: number;
@@ -320,12 +327,16 @@ export function createGatewayServer(opts: GatewayOptions): McpServer {
     async ({ runId }) => {
       if (!opts.downstream || !base)
         return err("UNAVAILABLE", "NO_DOWNSTREAM", "No downstream is configured.");
-      const url = new URL(`/v1/runs/${runId}`, base);
+      const p = opts.principal;
+      if (!p.orgId || !p.userId)
+        return err("FORBIDDEN", "PRINCIPAL_INCOMPLETE", "The authenticated principal has no org or user.");
+      const url = new URL(`/v1/gateway/runs/${runId}`, base);
       if (url.origin !== base.origin) return err("FORBIDDEN", "ORIGIN_MISMATCH", "Refused.");
       const token = mintGatewayToken({
         secret: opts.downstream.secret,
         audience: opts.downstream.audience,
         scope: "runs:read",
+        actor: { orgId: p.orgId, userId: p.userId, workspaceId: p.workspaceId! },
       });
       const res = await (opts.downstream.fetch ?? fetch)(url, {
         method: "GET",

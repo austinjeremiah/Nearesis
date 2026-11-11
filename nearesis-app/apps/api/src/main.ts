@@ -42,6 +42,14 @@ kernel.outbox.start();
 const app = await buildApp({
   kernel,
   ...(process.env.NEARESIS_MONITOR_BACKGROUND === "1" ? { monitorBackground: {} } : {}),
+  ...(process.env.NEARESIS_MCP_GATEWAY_SECRET
+    ? {
+        gatewayCredential: {
+          secret: process.env.NEARESIS_MCP_GATEWAY_SECRET,
+          audience: process.env.NEARESIS_MCP_DOWNSTREAM_AUDIENCE ?? "nearesis-api",
+        },
+      }
+    : {}),
   engine: temporalEngine(process.env.TASK_QUEUE ? { taskQueue: process.env.TASK_QUEUE } : {}),
 });
 if (process.env.NEARESIS_MONITOR_BACKGROUND === "1")

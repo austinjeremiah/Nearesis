@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { cpSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { IncomingHttpHeaders } from "node:http";
@@ -8,8 +9,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { expect, it } from "vitest";
 import { observe } from "@nearesis/acceptance";
-import { GATEWAY_TOOLS, startGatewayHttp, verifyGatewayToken } from "../../src/index.ts";
+import { GATEWAY_TOOLS, mintGatewayToken, startGatewayHttp, verifyGatewayToken } from "../../src/index.ts";
 import type { GatewayPrincipal } from "../../src/index.ts";
+import { apiFixture, login, seedOrg } from "../../../../apps/api/test/helpers.ts";
 import { makeRoot, treeHash } from "../helpers.ts";
 
 const PKG = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -17,10 +19,6 @@ const SECRET = "test-only-gateway-secret-not-a-real-key";
 const AUD = "nearesis-api-test";
 const TOK_MEMBER = "tok-member-ws1";
 const TOK_FOREIGN = "tok-member-ws2";
-const tokens: Record<string, GatewayPrincipal> = {
-  [TOK_MEMBER]: { id: "user:alice", kind: "member", workspaceId: "ws-1" },
-  [TOK_FOREIGN]: { id: "user:mallory", kind: "member", workspaceId: "ws-2" },
-};
 
 type Rec = Record<string, unknown> & { result?: { content: Array<{ text: string }>; isError?: boolean } };
 interface Captured {
@@ -40,18 +38,67 @@ it("V17: six read-only operations; no token passthrough; host and URL arguments 
   const { root, capsuleId } = makeRoot();
   const before = treeHash(root);
 
-  // downstream stand-in for the platform API (records every request) and a trap that must never be contacted
-  const captured: Captured[] = [];
-  const downstream = await listen((req, res) => {
-    captured.push({ url: req.url ?? "", headers: req.headers });
-    const auth = /^Bearer (.+)$/.exec(req.headers.authorization ?? "")?.[1] ?? "";
-    if (!verifyGatewayToken(auth, SECRET, AUD).ok) return void res.writeHead(401).end();
-    if (req.url === "/v1/runs/run-00000001" && req.headers["x-workspace-id"] === "ws-1")
-      return void res
-        .writeHead(200, { "content-type": "application/json" })
-        .end(JSON.stringify({ id: "run-00000001", status: "RUNNING", updatedAt: "2026-11-11T00:00:00Z" }));
-    res.writeHead(404).end();
+  // The downstream is the REAL platform API (real kernel, real Postgres RLS, real HTTP on loopback). Every request the
+  // gateway sends is recorded on its way out. Two orgs: alice (member of ws A) and mallory (member of another org's ws B).
+  const api = await apiFixture({
+    runtime: true,
+    appOptions: { gatewayCredential: { secret: SECRET, audience: AUD } },
   });
+  const orgA = await seedOrg(api.db.admin, "v17-a", { alice: "owner" });
+  const orgB = await seedOrg(api.db.admin, "v17-b", { mallory: "owner" });
+  const mkWs = async (subject: string, key: string) => {
+    const tok = await login(api.app, subject);
+    const r = await api.app.inject({
+      method: "POST",
+      url: "/v1/workspaces",
+      headers: { authorization: `Bearer ${tok}`, "idempotency-key": key },
+      payload: { objective: "v17", networkScope: "fixture-only" },
+    });
+    return { tok, id: (r.json() as { workspaceId: string }).workspaceId };
+  };
+  const wsA = await mkWs(orgA.users.alice!.subject, "v17-ws-a-0001");
+  const wsB = await mkWs(orgB.users.mallory!.subject, "v17-ws-b-0001");
+  const RUN = randomUUID();
+  await api.db.admin.query(
+    `INSERT INTO runtime.runs(id, tenant_id, workspace_id, investigation_id, question_id, snapshot_ref, budget_id, workflow_id, state)
+     VALUES ($1,$2,$3,$4,$5,'live',$6,$7,'EXECUTING')`,
+    [
+      RUN,
+      orgA.orgId,
+      wsA.id,
+      randomUUID(),
+      randomUUID(),
+      randomUUID(),
+      `investigation-${randomUUID()}-${randomUUID()}`,
+    ],
+  );
+  const tokens: Record<string, GatewayPrincipal> = {
+    [TOK_MEMBER]: {
+      id: "user:alice",
+      kind: "member",
+      workspaceId: wsA.id,
+      orgId: orgA.orgId,
+      userId: orgA.users.alice!.userId,
+    },
+    [TOK_FOREIGN]: {
+      id: "user:mallory",
+      kind: "member",
+      workspaceId: wsB.id,
+      orgId: orgB.orgId,
+      userId: orgB.users.mallory!.userId,
+    },
+  };
+  await api.app.listen({ host: "127.0.0.1", port: 0 });
+  const apiPort = (api.app.server.address() as { port: number }).port;
+  const captured: Captured[] = [];
+  const recordingFetch: typeof fetch = (input, init) => {
+    captured.push({
+      url: String(input instanceof URL ? input.pathname : input),
+      headers: (init?.headers ?? {}) as IncomingHttpHeaders,
+    });
+    return fetch(input, init);
+  };
+  const downstream = { close: () => api.close() };
   let trapConnections = 0;
   const trap = await listen((_req, res) => {
     trapConnections++;
@@ -61,7 +108,12 @@ it("V17: six read-only operations; no token passthrough; host and URL arguments 
   const gw = await startGatewayHttp({
     capsuleRoot: root,
     tokens,
-    downstream: { baseUrl: `http://127.0.0.1:${downstream.port}`, audience: AUD, secret: SECRET },
+    downstream: {
+      baseUrl: `http://127.0.0.1:${apiPort}`,
+      audience: AUD,
+      secret: SECRET,
+      fetch: recordingFetch,
+    },
   });
   const url = `http://127.0.0.1:${gw.port}/mcp`;
   const call = async (
@@ -144,7 +196,7 @@ it("V17: six read-only operations; no token passthrough; host and URL arguments 
   expect((toolResult(publicOk[2]!).hits as unknown[]).length).toBeGreaterThan(0);
   expect((toolResult(publicOk[3]!).series as unknown[]).length).toBe(2);
   expect(toolResult(publicOk[4]!)).toMatchObject({ scope: "local", status: "reproduced" });
-  const pubStatus = await call(null, "task_status", { runId: "run-00000001" });
+  const pubStatus = await call(null, "task_status", { runId: RUN });
   expect(toolResult(pubStatus)).toMatchObject({
     errorCode: "FORBIDDEN",
     reasonCode: "WORKSPACE_MEMBERSHIP_REQUIRED",
@@ -152,9 +204,9 @@ it("V17: six read-only operations; no token passthrough; host and URL arguments 
   expect(captured.length).toBe(0);
 
   // (b) the member's task_status reaches the downstream with the GATEWAY's credential, never the caller's token
-  const callerHeaders = { "x-workspace-id": "ws-2", cookie: "session=caller-secret" };
-  const memberStatus = await call(TOK_MEMBER, "task_status", { runId: "run-00000001" }, callerHeaders);
-  expect(toolResult(memberStatus)).toMatchObject({ runId: "run-00000001", status: "RUNNING" });
+  const callerHeaders = { "x-workspace-id": wsB.id, cookie: "session=caller-secret" };
+  const memberStatus = await call(TOK_MEMBER, "task_status", { runId: RUN }, callerHeaders);
+  expect(toolResult(memberStatus)).toMatchObject({ runId: RUN, status: "EXECUTING" });
   expect(captured.length).toBe(1);
   const sent = captured[0]!;
   const sentToken = /^Bearer (.+)$/.exec(sent.headers.authorization ?? "")![1]!;
@@ -163,21 +215,64 @@ it("V17: six read-only operations; no token passthrough; host and URL arguments 
   expect(JSON.stringify(sent.headers)).not.toContain("caller-secret");
   expect(verifyGatewayToken(sentToken, SECRET, AUD)).toEqual({ ok: true, scope: "runs:read" });
   expect(verifyGatewayToken(sentToken, SECRET, "some-other-audience").ok).toBe(false);
-  expect(sent.headers["x-workspace-id"]).toBe("ws-1"); // from the authenticated principal, not the caller's header
-  // a foreign member cannot read ws-1's run: the gateway asks as ws-2 and the downstream says not found
-  const foreign = await call(TOK_FOREIGN, "task_status", { runId: "run-00000001" });
+  expect(sent.headers["x-workspace-id"]).toBe(wsA.id); // from the authenticated principal, not the caller's header
+  // a foreign member cannot read ws-1's run: the gateway asks as ws B and the real API answers not found
+  const foreign = await call(TOK_FOREIGN, "task_status", { runId: RUN });
   expect(toolResult(foreign)).toMatchObject({ errorCode: "NOT_FOUND" });
-  expect(captured[1]!.headers["x-workspace-id"]).toBe("ws-2");
+  expect(captured[1]!.headers["x-workspace-id"]).toBe(wsB.id);
+  // the real API verifies the credential itself: the sent credential is accepted, every forgery is refused
+  const apiUrl = `http://127.0.0.1:${apiPort}`;
+  const direct = async (token: string | null, ws: string = wsA.id) =>
+    (
+      await fetch(`${apiUrl}/v1/gateway/runs/${RUN}`, {
+        headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), "x-workspace-id": ws },
+      })
+    ).status;
+  const actor = { orgId: orgA.orgId, userId: orgA.users.alice!.userId, workspaceId: wsA.id };
+  const mint = (o: Partial<Parameters<typeof mintGatewayToken>[0]> = {}) =>
+    mintGatewayToken({ secret: SECRET, audience: AUD, scope: "runs:read", actor, ...o });
+  const now = new Date();
+  const forged: Record<string, number> = {
+    valid: await direct(mint()),
+    noToken: await direct(null),
+    wrongSecret: await direct(mint({ secret: "another-secret" })),
+    wrongAudience: await direct(mint({ audience: "some-other-audience" })),
+    expired: await direct(mint({ now: new Date(now.getTime() - 3_600_000) })),
+    wrongScope: await direct(mint({ scope: "capsule:read" })),
+    noActor: await direct(mintGatewayToken({ secret: SECRET, audience: AUD, scope: "runs:read" })),
+    userSession: await direct(wsA.tok),
+    workspaceHeaderMismatch: await direct(mint(), wsB.id),
+    actorFromAnotherOrg: await direct(
+      mint({ actor: { orgId: orgB.orgId, userId: orgB.users.mallory!.userId, workspaceId: wsA.id } }),
+    ),
+  };
+  expect(forged).toEqual({
+    valid: 200,
+    noToken: 401,
+    wrongSecret: 401,
+    wrongAudience: 401,
+    expired: 401,
+    wrongScope: 401,
+    noActor: 401,
+    userSession: 401,
+    workspaceHeaderMismatch: 404,
+    actorFromAnotherOrg: 404,
+  });
+  // the gateway credential is not a user session: ordinary API routes refuse it
+  const asSession = await fetch(`${apiUrl}/v1/runs/${RUN}`, {
+    headers: { authorization: `Bearer ${mint()}` },
+  });
+  expect(asSession.status).toBe(401);
 
   // (c) token passthrough, host overrides and internal URLs: refused, no outbound connection
   const outboundBefore = captured.length;
   const trapUrl = `http://127.0.0.1:${trap.port}/`;
   const refusals = [
-    await call(TOK_MEMBER, "task_status", { runId: "run-00000001", token: TOK_MEMBER }),
-    await call(TOK_MEMBER, "task_status", { runId: "run-00000001", authorization: `Bearer ${TOK_MEMBER}` }),
-    await call(TOK_MEMBER, "task_status", { runId: "run-00000001", baseUrl: trapUrl }),
-    await call(TOK_MEMBER, "task_status", { runId: "run-00000001", host: `127.0.0.1:${trap.port}` }),
-    await call(TOK_MEMBER, "task_status", { runId: "run-00000001", workspaceId: "ws-2" }),
+    await call(TOK_MEMBER, "task_status", { runId: RUN, token: TOK_MEMBER }),
+    await call(TOK_MEMBER, "task_status", { runId: RUN, authorization: `Bearer ${TOK_MEMBER}` }),
+    await call(TOK_MEMBER, "task_status", { runId: RUN, baseUrl: trapUrl }),
+    await call(TOK_MEMBER, "task_status", { runId: RUN, host: `127.0.0.1:${trap.port}` }),
+    await call(TOK_MEMBER, "task_status", { runId: RUN, workspaceId: "ws-2" }),
     await call(TOK_MEMBER, "task_status", { runId: trapUrl }),
     await call(TOK_MEMBER, "capsule_verify", { capsuleId: trapUrl }),
     await call(TOK_MEMBER, "chart_preview", { capsuleId: "http://169.254.169.254/latest/meta-data" }),
@@ -198,7 +293,7 @@ it("V17: six read-only operations; no token passthrough; host and URL arguments 
   });
   expect(injected.status).toBe(200);
   expect(toolResult(injected).hits).toEqual([]);
-  const stillDenied = await call(null, "task_status", { runId: "run-00000001" });
+  const stillDenied = await call(null, "task_status", { runId: RUN });
   expect(toolResult(stillDenied).errorCode).toBe("FORBIDDEN");
   expect(JSON.stringify((await (await client(null)).listTools()).tools)).toBe(toolsBefore);
   expect(captured.length).toBe(outboundBefore);
@@ -284,9 +379,10 @@ it("V17: six read-only operations; no token passthrough; host and URL arguments 
     expect(treeHash(join(root, capsuleId))).toBeTruthy();
     observe({
       testId: "V17",
-      observed: `Advertised set equals the six operations (${GATEWAY_TOOLS.join(", ")}), each with description, input schema, narrow scope and readOnlyHint, no write-like names. Public principal: 5 operations answered, task_status denied (WORKSPACE_MEMBERSHIP_REQUIRED). Member task_status reached the downstream once with the gateway's HS256 credential (audience ${AUD}, scope runs:read, verified from the request capture), never the caller's token, cookie or workspace header; workspace came from the principal. ${refusals.length} crafted calls (token or authorization argument, baseUrl, host, workspaceId, internal and metadata URLs as ids) refused with ${refusals.map((r) => r.status).join("/")} and 0 outbound connections (trap connections 0; control fetch to the trap counted 1, so the detector works). Prompt-injection text changed neither policy nor tool list; 10000-char argument 422; 200 kB body 413; batch 422. capsule_verify in a child process with network use blocked: valid capsule reproduced, capsule with one flipped result byte mismatch (FILE_HASH_MISMATCH).`,
+      observed: `Advertised set equals the six operations (${GATEWAY_TOOLS.join(", ")}), each with description, input schema, narrow scope and readOnlyHint, no write-like names. Public principal: 5 operations answered, task_status denied (WORKSPACE_MEMBERSHIP_REQUIRED). Downstream is the real API (kernel, Postgres RLS, HTTP). Member task_status reached it once with the gateway's HS256 credential (audience ${AUD}, scope runs:read, verified from the request capture), never the caller's token, cookie or workspace header; workspace came from the principal. ${refusals.length} crafted calls (token or authorization argument, baseUrl, host, workspaceId, internal and metadata URLs as ids) refused with ${refusals.map((r) => r.status).join("/")} and 0 outbound connections (trap connections 0; control fetch to the trap counted 1, so the detector works). Prompt-injection text changed neither policy nor tool list; 10000-char argument 422; 200 kB body 413; batch 422. capsule_verify in a child process with network use blocked: valid capsule reproduced, capsule with one flipped result byte mismatch (FILE_HASH_MISMATCH).`,
       fixtureHash: before,
       evidence: {
+        apiCredentialChecks: forged,
         tools: [...GATEWAY_TOOLS],
         refusalStatuses: refusals.map((r) => r.status),
         trapConnections,

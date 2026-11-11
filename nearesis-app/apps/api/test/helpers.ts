@@ -4,6 +4,7 @@ import type { TestDb } from "@nearesis/kernel/testing";
 import type { Kernel } from "@nearesis/kernel";
 import { makePool, migrate as migrateRuntime } from "@nearesis/workflow";
 import { buildApp } from "../src/app.ts";
+import type { AppOptions } from "../src/app.ts";
 import type { InvestigationEngine } from "../src/runs.ts";
 
 export interface ApiFixture {
@@ -13,7 +14,7 @@ export interface ApiFixture {
   close(): Promise<void>;
 }
 export async function apiFixture(
-  o: { runtime?: boolean; engine?: InvestigationEngine } = {},
+  o: { runtime?: boolean; engine?: InvestigationEngine; appOptions?: Partial<AppOptions> } = {},
 ): Promise<ApiFixture> {
   const db = await createTestDb();
   if (o.runtime) {
@@ -26,7 +27,12 @@ export async function apiFixture(
     }
   }
   const kernel = testKernel(db);
-  const app = await buildApp({ kernel, nodeEnv: "test", ...(o.engine ? { engine: o.engine } : {}) });
+  const app = await buildApp({
+    kernel,
+    nodeEnv: "test",
+    ...(o.engine ? { engine: o.engine } : {}),
+    ...(o.appOptions ?? {}),
+  });
   return {
     db,
     kernel,

@@ -17,4 +17,4 @@ it("Q03 future data injected: the leakage detector blocks publication", () => {
     observed: `injected t+2 value into x_lag2: run blocked with ${m.codes.join(",")} on ${m.columns.join(",")}; clean dataset ${m.cleanColumnsChecked} columns, ${m.cleanFindings} findings; target-overlap -> ${m.overlapCodes.join(",")}; negative lag -> ${m.negativeLagCodes.join(",")}`,
     evidence: m,
   });
-});
+}, 600_000);

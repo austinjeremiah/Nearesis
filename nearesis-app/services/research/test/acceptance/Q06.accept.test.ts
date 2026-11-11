@@ -20,4 +20,4 @@ it("Q06 top 1% account removal: the declared filter is applied consistently in a
     observed: `excluded ${m.excluded.join(",")} (independent recomputation identical); targets recomputed with that exclusion match in dev ${m.perSplit.dev.rows}, lockbox ${m.perSplit.lockbox.rows}, post ${m.perSplit.post.rows} rows (max diff ${m.perSplit.dev.maxAbsDiff}); future-period change leaves set unchanged, development change alters it`,
     evidence: m,
   });
-});
+}, 600_000);

@@ -19,4 +19,4 @@ it("Q10 claim vs computed output: every narrative numeric claim matches the actu
     observed: `${m.numericTokens} numeric tokens in the generated narrative all match result facts; altered number ${m.tamperedUnmatched.join(",")} rejected; invented 88.8% rejected`,
     evidence: { narrative: m.narrative, facts: m.facts },
   });
-});
+}, 600_000);

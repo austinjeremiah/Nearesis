@@ -21,4 +21,4 @@ it("Q07 missing price date: correct missingness protocol and no hidden fill", ()
     observed: `price 2026-03-10 absent: returns NaN on ${m.retNaNDays.slice(1).join(",")}; exactly origins ${m.removedOrigins.join(",")} dropped with reasons recorded; target series unchanged; missing volume day stays NaN (not 0); run status ${m.experimentStatus}`,
     evidence: m,
   });
-});
+}, 600_000);

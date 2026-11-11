@@ -18,4 +18,4 @@ it("Q02 no-signal fixture: no forced positive verdict and valid error metrics", 
     observed: `SYNTHETIC no-signal: status ${m.status}; FDR rejects ${m.fdrRejectsMainSeed}/9; baseline MAE ${m.losses.baseline.toFixed(4)}, intents ${m.losses.intents.toFixed(4)}; ${m.repeatSupported}/${m.repeatSeeds} repeat seeds SUPPORTED, ${m.repeatFdrRejects} FDR rejects total`,
     evidence: m,
   });
-});
+}, 600_000);

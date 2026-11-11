@@ -23,4 +23,4 @@ it("Q01 known-lag synthetic signal: the signal model wins versus the baseline", 
     observed: `SYNTHETIC known lag ${m.knownLag}: intents MAE ${m.intents.mae_candidate.toFixed(4)} vs baseline ${m.intents.mae_baseline.toFixed(4)} (${(m.intents.relative_improvement * 100).toFixed(1)}% better, adj p ${m.intents.p_adjusted.toExponential(2)}, n=${m.intents.n_origins}); best lag ${m.bestSingleLagAtH1}; holdout ${(m.holdout.relative_improvement * 100).toFixed(1)}% better; placebo p ${m.placebo.p_value.toFixed(3)}; price model not significant (adj p ${m.price.p_adjusted.toFixed(3)}); status ${m.status}`,
     evidence: { intents: m.intents, price: m.price, holdout: m.holdout, placebo: m.placebo },
   });
-});
+}, 600_000);

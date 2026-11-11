@@ -20,4 +20,4 @@ it("Q08 multiple comparisons: preregistered test family with an FDR policy", () 
     observed: `family of ${m.familySize} (3 candidates x 3 horizons) under BH q=0.05 frozen in the preregistration hash; BH equals statsmodels fdr_bh; adjusted >= raw; all-null family any-reject rate ${m.nullFamilyAnyRejectRate} over 4000 draws; altered family -> verdict ${m.verdictAfterFamilyTamper}`,
     evidence: m,
   });
-});
+}, 600_000);

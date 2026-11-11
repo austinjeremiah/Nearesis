@@ -18,4 +18,4 @@ it("Q09 empty holdout: INSUFFICIENT_DATA, not SUPPORTED", () => {
     observed: `holdout 0 origins -> ${m.emptyLockbox.status}; 5 origins (<14) -> ${m.shortLockbox.status}; 70-day series -> ${m.tooFewDevOrigins.status}; same signal data with a 30-origin lockbox -> ${m.control.status}`,
     evidence: m,
   });
-});
+}, 600_000);

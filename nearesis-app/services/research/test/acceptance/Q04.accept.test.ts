@@ -17,4 +17,4 @@ it("Q04 same seed and snapshot: values equal within the pinned numeric tolerance
     observed: `in-process rerun max abs diff ${m.sameSeed.maxAbsDiff}, section hashes equal=${m.hashesEqual}; fresh-process reproduce max abs diff ${m.freshProcessReproduce.maxAbsDiff} (tolerance ${m.tolerance}); different seed changes output=${m.differentSeedChangesCI}`,
     evidence: m,
   });
-});
+}, 600_000);

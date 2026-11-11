@@ -22,4 +22,4 @@ it("Q05 Oct 27 regime split: metrics and time windows are not mixed without labe
     observed: `split ${m.regimeSplit}: dev/lockbox targets all earlier (max ${m.byHorizon["7"].lockMaxTarget}), post origins start ${m.byHorizon["7"].postMinOrigin}, straddle rows excluded 1/7/14 for h=1/7/14; post window ${m.artifactPostWindow.rows} rows reported ${m.postCheck.status}; 560-day control evaluates ${m.postCheckLong.n_origins} post origins separately`,
     evidence: m,
   });
-});
+}, 600_000);

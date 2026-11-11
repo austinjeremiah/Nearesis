@@ -12,7 +12,7 @@ import { grantFingerprint } from "./leases.ts";
 import type { LeaseService } from "./leases.ts";
 import type { PluginManager, ResolvedPlugin } from "./plugins/manager.ts";
 import { egressFetchFor } from "./egress.ts";
-import { outsideConfinement, runConfined } from "./plugins/confine.ts";
+import { internalEndpointsOf, outsideConfinement, runConfined } from "./plugins/confine.ts";
 import type { Confinement } from "./plugins/confine.ts";
 import { PluginLimitError } from "./plugins/sandbox-exec.ts";
 import { redact, redactString } from "./redact.ts";
@@ -380,6 +380,15 @@ export class KernelToolGateway implements ToolGateway {
     const timeoutMs = Math.min(capability.timeoutMs, req.deadlineMs);
     const ac = new AbortController();
     let timer: NodeJS.Timeout | undefined;
+    // Platform-internal connectors: a signature-verified manifest that names internal endpoints (loopback or private IP
+    // literals such as the semantic layer) in `networkHosts` is a reviewed first-party module that talks to platform
+    // services through injected adapters (database pools, semantic gateway), so its handler is not network-confined.
+    // `internalPublishers` narrows this to named publishers and `[]` disables the exemption. Everything else is confined.
+    const publishers = this.plugins.config.execution?.internalPublishers;
+    const platformInternal =
+      installation.trust === "production" &&
+      internalEndpointsOf(installation.manifest.networkHosts).size > 0 &&
+      (publishers === undefined || publishers.includes(installation.manifest.publisher));
     const confinement: Confinement = {
       pluginId: installation.pluginId,
       capability: req.capability,
@@ -408,7 +417,7 @@ export class KernelToolGateway implements ToolGateway {
         }
       };
       const run = Promise.resolve(
-        runConfined(confinement, () =>
+        (platformInternal ? (_c: Confinement, f: () => unknown) => f() : runConfined)(confinement, () =>
           handler(req.input, {
             signal: ac.signal,
             requestId: req.requestId,

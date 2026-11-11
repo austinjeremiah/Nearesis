@@ -31,3 +31,4 @@ export {
   transitionMarker,
 } from "./monitoring/commands.ts";
 export * from "./monitoring/tasks.ts";
+export { outsideConfinement as unconfined } from "./plugins/confine.ts";

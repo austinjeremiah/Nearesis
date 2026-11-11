@@ -42,6 +42,12 @@ export interface PluginManagerConfig {
    */
   execution?: {
     isolation?: (manifest: PluginManifest) => "confined" | "sandbox";
+    /**
+     * A signature-verified manifest naming internal platform endpoints (`127.0.0.1:4000`) in `networkHosts` is a
+     * first-party connector and is not network-confined (it reaches platform services through injected adapters).
+     * This list narrows the exemption to named publishers (default: any trusted publisher); `[]` disables it.
+     */
+    internalPublishers?: string[];
     sandbox?: PluginSandboxConfig;
     /** Resolver/dial hooks for `ctx.egress` (tests only; never set in production wiring). */
     egressDeps?: EgressDeps;

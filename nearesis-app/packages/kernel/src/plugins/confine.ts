@@ -1,7 +1,8 @@
 import childProcess from "node:child_process";
 import dgram from "node:dgram";
 import dns from "node:dns";
-import net from "node:net";
+import net, { isIP } from "node:net";
+import { nonPublicReason } from "../egress.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { syncBuiltinESMExports } from "node:module";
 import workerThreads from "node:worker_threads";
@@ -27,6 +28,18 @@ export interface Confinement {
   pluginId: string;
   capability: string;
   violations: Violation[];
+}
+
+/** `ip:port` entries of a manifest's `networkHosts` that name an internal address (`localhost` reads as 127.0.0.1). */
+export function internalEndpointsOf(networkHosts: readonly string[]): Set<string> {
+  const out = new Set<string>();
+  for (const h of networkHosts) {
+    const [name, port] = h.split(":");
+    if (!name || !port) continue;
+    const ip = name === "localhost" ? "127.0.0.1" : name;
+    if (isIP(ip) !== 0 && nonPublicReason(ip) !== null) out.add(`${ip}:${port}`);
+  }
+  return out;
 }
 
 export class ConfinementViolation extends Error {

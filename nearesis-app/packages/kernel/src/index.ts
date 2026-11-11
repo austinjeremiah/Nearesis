@@ -1,6 +1,7 @@
 export * from "./errors.ts";
 export * from "./redact.ts";
 export * from "./egress.ts";
+export * from "./sandbox.ts";
 export * from "./auth.ts";
 export * from "./journal.ts";
 export * from "./workspace.ts";
@@ -20,6 +21,8 @@ export type { Tx, TenantContext } from "./db/pool.ts";
 export { migrate, MIGRATIONS_DIR } from "./db/migrate.ts";
 export * from "./history-commands.ts";
 export * from "./monitoring/condition.ts";
+export * from "./monitoring/catalog.ts";
+export * from "./monitoring/delegation.ts";
 export * from "./monitoring/scheduler.ts";
 export * from "./monitoring/service.ts";
 export {

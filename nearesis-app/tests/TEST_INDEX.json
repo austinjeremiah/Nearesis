@@ -1781,9 +1781,11 @@
       "passCondition": "no host FS/privileged network access",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": [
+        "tests/security/SEC06.accept.test.ts"
+      ],
       "live": false,
-      "status": "UNIMPLEMENTED",
+      "status": "IMPLEMENTED",
       "required": true,
       "dependsOn": []
     },
@@ -2479,9 +2481,11 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b W07, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/W07.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "W03",
@@ -2496,9 +2500,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b W08, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/W08.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "W03",
@@ -2513,9 +2519,11 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b W09, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": [
+        "packages/kernel/test/acceptance/W09.accept.test.ts"
+      ],
       "live": false,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": [
         "W02",

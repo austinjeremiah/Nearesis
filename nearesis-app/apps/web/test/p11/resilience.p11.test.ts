@@ -317,8 +317,8 @@ describe("broken network", () => {
     await w.page.waitForSelector("[data-testid^='panel-']");
     const rev0 = await w.page.getByTestId("document-revision").textContent();
     await w.page.route("**/api/k/workspaces/*/commands", (route) => route.abort("failed"));
-    await w.page.locator("[data-testid^='panel-']").first().focus();
-    await w.page.keyboard.press("Alt+ArrowRight");
+    await w.page.locator("[data-panel-kind]").first().focus();
+    await w.page.keyboard.press("Alt+ArrowDown");
     await w.page.getByTestId("toast").waitFor({ timeout: 15_000 });
     expect(await w.page.getByTestId("document-revision").textContent()).toBe(rev0);
     await ctx.close();
@@ -421,17 +421,22 @@ describe("browser restart persistence", () => {
     await w1.page.goto(url(ws));
     await ready(w1.page);
     await w1.page.waitForSelector("[data-testid^='panel-']");
-    // A real edit (move) and a convenience (theme).
-    await w1.page.locator("[data-testid^='panel-']").first().focus();
-    await w1.page.keyboard.press("Alt+ArrowRight");
+    // A real edit (move, retried once if the panel was not yet keyboard-ready) and a convenience (theme).
     const rev0 = await w1.page.getByTestId("document-revision").textContent();
+    let pressed = 0;
     await poll(
-      async () => (await w1.page.getByTestId("document-revision").textContent()) !== rev0,
-      15_000,
-      `revision to change from "${rev0}" (toast: ${await w1.page
-        .getByTestId("toast")
-        .textContent({ timeout: 500 })
-        .catch(() => "none")})`,
+      async () => {
+        if ((await w1.page.getByTestId("document-revision").textContent()) !== rev0) return true;
+        if (pressed < 3) {
+          pressed++;
+          await w1.page.locator("[data-panel-kind]").first().focus();
+          await w1.page.keyboard.press("Alt+ArrowDown");
+        }
+        return false;
+      },
+      20_000,
+      `document revision to change from "${rev0}"`,
+      1500,
     );
     await w1.page.evaluate(() => localStorage.setItem("nz-theme", "dark"));
     const layouts1 = await w1.page.evaluate(

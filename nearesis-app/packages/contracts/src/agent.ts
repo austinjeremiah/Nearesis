@@ -27,6 +27,8 @@ export const RunState = z.enum([
   "COMPLETE",
   "PARTIAL",
   "BLOCKED",
+  /** v1.5.0 (additive, terminal): a fresh-data run was refused or stopped because a source it reads is not healthy. */
+  "BLOCKED_SOURCE",
   "CANCELLED",
 ]);
 export type RunState = z.infer<typeof RunState>;
@@ -34,14 +36,15 @@ export type RunState = z.infer<typeof RunState>;
 /** ch.05 state machine. */
 export const RUN_TRANSITIONS: Record<RunState, RunState[]> = {
   REQUESTED: ["PLANNING", "CANCELLED"],
-  PLANNING: ["APPROVAL_NEEDED", "EXECUTING", "BLOCKED", "PARTIAL", "CANCELLED"],
+  PLANNING: ["APPROVAL_NEEDED", "EXECUTING", "BLOCKED", "BLOCKED_SOURCE", "PARTIAL", "CANCELLED"],
   APPROVAL_NEEDED: ["EXECUTING", "BLOCKED", "CANCELLED"],
-  EXECUTING: ["EVIDENCE_REVIEW", "APPROVAL_NEEDED", "PARTIAL", "BLOCKED", "CANCELLED"],
+  EXECUTING: ["EVIDENCE_REVIEW", "APPROVAL_NEEDED", "PARTIAL", "BLOCKED", "BLOCKED_SOURCE", "CANCELLED"],
   EVIDENCE_REVIEW: ["CANVAS_PATCH_REVIEW", "COMPLETE", "PARTIAL", "BLOCKED", "CANCELLED"],
   CANVAS_PATCH_REVIEW: ["COMPLETE", "PARTIAL", "BLOCKED", "CANCELLED"],
   COMPLETE: [],
   PARTIAL: [],
   BLOCKED: [],
+  BLOCKED_SOURCE: [],
   CANCELLED: [],
 };
 

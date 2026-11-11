@@ -17,6 +17,8 @@ export interface InvestigationInput {
   scenario?: string;
   /** Delegation grants (marker.assign): when present, every child's leases are narrowed to these capabilities. Absent = role allowlist only. */
   grants?: string[];
+  /** Hash of the frozen preregistration every child must carry (ch.16b B12). Absent = the run is unregistered. */
+  preregistrationHash?: string;
   /** The human on whose behalf leases are issued and the approved canvas command is applied (server-resolved by the API). */
   requestedBy?: { userId: string; role: "owner" | "admin" | "analyst" | "viewer" };
 }
@@ -35,6 +37,30 @@ export interface ChildSpec {
   inputSnapshot: string;
   budget: BudgetAmount;
   maxChildDepth: number;
+  /** The run's dispatch context (four hashes), stamped by the director and verified by `spawnTask` (ch.16b B12). */
+  context?: RunContextHashes;
+}
+
+/** question, snapshot, metric-version-map and preregistration hashes: identical for every child of a run. */
+export interface RunContextHashes {
+  question: string;
+  snapshotId: string;
+  metricVersionMap: string;
+  preregistrationHash: string;
+}
+
+/** What `bindRunContext` freezes for a run, and what the source gate needs to decide. */
+export interface RunContext {
+  hashes: RunContextHashes;
+  /** metric id -> the data sources behind it (empty when the catalog could not be read). */
+  metricSources: Record<string, string[]>;
+}
+
+export interface SourceGateView {
+  gated: boolean;
+  state: "RUN" | "BLOCKED_SOURCE";
+  reasonCode: string | null;
+  sources: Array<{ source: string; status: string; reason: string | null }>;
 }
 
 /** ResearchChildWorkflow input (brief §4) plus server-resolved context. */
@@ -51,6 +77,8 @@ export interface ChildInput {
   hypothesisId: string;
   /** Inherited from the investigation (see InvestigationInput.grants). */
   grants?: string[];
+  /** The run's frozen dispatch context; a child's own children inherit it (ch.16b B12). */
+  context?: RunContextHashes;
 }
 
 export interface ChildOutcome {

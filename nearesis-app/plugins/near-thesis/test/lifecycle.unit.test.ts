@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   Dispatcher,
+  contextDifferences,
+  contextHashes,
+  gateTask,
   SnapshotMismatch,
   StepFailure,
   ThesisLifecycle,
@@ -121,6 +124,31 @@ describe("consistency", () => {
     const d = new Dispatcher(ctx);
     expect(d.dispatch("quant")).toEqual(d.dispatch("skeptic"));
     expect(() => d.dispatch("composer", { snapshotId: "s2" })).toThrow(SnapshotMismatch);
+  });
+  it("names every field in which a child's context differs from the run's frozen context", () => {
+    const run = contextHashes(ctx);
+    expect(contextDifferences(run, run)).toEqual([]);
+    expect(contextDifferences(run, contextHashes({ ...ctx, question: "other" }))).toEqual(["question"]);
+    expect(contextDifferences(run, contextHashes({ ...ctx, preregistrationHash: "q" }))).toEqual([
+      "preregistrationHash",
+    ]);
+    expect(contextDifferences(run, contextHashes({ ...ctx, metricVersionMap: { a: "1.0.1" } }))).toEqual([
+      "metricVersionMap",
+    ]);
+    // a child that carries no context at all differs in all four
+    expect(contextDifferences(run, undefined)).toHaveLength(4);
+  });
+  it("gates fresh-data work on a supplied health lookup, and never gates frozen-data work", () => {
+    const bad = (id: string) =>
+      id === "near-explorer"
+        ? { status: "degraded" as const, reason: "AUTH_REJECTED", lastGoodWatermark: null, since: "t" }
+        : undefined;
+    expect(gateTask("fresh", ["near-explorer:intents_swaps"], bad)).toMatchObject({
+      state: "BLOCKED_SOURCE",
+      reason_code: "source_degraded:AUTH_REJECTED",
+    });
+    expect(gateTask("fresh", ["coingecko:price_candles"], bad).state).toBe("RUN");
+    expect(gateTask("frozen", ["near-explorer:intents_swaps"], bad).state).toBe("RUN");
   });
   it("reconciles counts exactly and derived values within tolerance, excluding mismatched snapshots", () => {
     const h = (source: string, value: string, snapshotId = "s1") => ({

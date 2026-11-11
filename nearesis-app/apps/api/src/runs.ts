@@ -22,6 +22,7 @@ export interface InvestigationEngine {
     runId: string;
     question: string;
     source?: "fixture" | "live";
+    preregistrationHash?: string;
     grants?: string[];
   }): Promise<{ runId: string; workflowId: string }>;
   /** Signal names are the workflow's: `approve`, `reject`, `cancel`. */
@@ -32,7 +33,7 @@ export interface InvestigationEngine {
   ): Promise<void>;
 }
 
-const TERMINAL_STATES = new Set(["COMPLETE", "PARTIAL", "BLOCKED", "CANCELLED"]);
+const TERMINAL_STATES = new Set(["COMPLETE", "PARTIAL", "BLOCKED", "BLOCKED_SOURCE", "CANCELLED"]);
 
 export const notFound = (): KernelError => new KernelError("NOT_FOUND", "NOT_FOUND", "Not found.");
 
@@ -66,6 +67,10 @@ interface RunRow {
   workflow_id: string;
   budget_id?: string;
   state: string;
+  /** Which semantic layer the run's agents query: the SYNTHETIC fixture cubes or the LIVE real-data layer. */
+  source?: string;
+  /** The run's frozen dispatch hashes (question, snapshot, metric-version map, preregistration), once bound. */
+  context?: { hashes?: Record<string, string> } | null;
   failure: unknown;
   result: unknown;
   created_at: Date;
@@ -224,6 +229,7 @@ export class RunsService {
         runId: ids.runId,
         question: body.question,
         source: body.source,
+        ...(body.preregistrationHash ? { preregistrationHash: body.preregistrationHash } : {}),
         ...(body.grants ? { grants: body.grants } : {}),
       });
     } catch (e) {
@@ -378,6 +384,9 @@ export class RunsService {
         workflowId: run.workflow_id,
         state: run.state,
         terminal: TERMINAL_STATES.has(run.state),
+        /** Provenance of every number in this run: `live` real data or `fixture` (SYNTHETIC) data (ch.16 G10 B02). */
+        source: run.source === "live" ? "live" : "fixture",
+        context: run.context?.hashes ?? null,
         version: await this.version(tx, runId),
         failure: run.failure ?? null,
         result: run.result === null ? null : redact(run.result),

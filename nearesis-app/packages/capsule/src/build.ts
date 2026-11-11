@@ -51,6 +51,8 @@ export interface BuildOptions {
   metricVersions?: Record<string, string>;
   /** Extra author prose appended to THESIS.md. It is subject to the same publication check as generated text. */
   extraThesisNotes?: string[];
+  /** Label shown on the static dashboard when the preregistration order is not honest (`post-hoc registration`). */
+  registrationLabel?: string;
 }
 
 export const fileEntry = (root: string, rel: string): CapsuleFileEntry => {
@@ -451,6 +453,7 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
       })),
       rebuildCommand,
       dataLines: metricLines,
+      ...(opts.registrationLabel ? { registrationLabel: opts.registrationLabel } : {}),
     }),
   );
 

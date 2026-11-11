@@ -62,6 +62,11 @@ export const SubmitQuestionRequest = z.strictObject({
   question: z.string().min(1).max(4000),
   snapshotPolicy: z.enum(["live", "pinned"]),
   source: QuestionSource.default("fixture"),
+  /** Additive: hash of the frozen preregistration the run's children must all carry (ch.16b B12). Absent = unregistered. */
+  preregistrationHash: z
+    .string()
+    .regex(/^sha256:[0-9a-f]{64}$/)
+    .optional(),
   budget: z.strictObject({
     tokens: z.number().int().positive(),
     toolCalls: z.number().int().positive().max(24),

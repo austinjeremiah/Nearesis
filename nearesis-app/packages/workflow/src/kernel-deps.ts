@@ -6,7 +6,7 @@
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import { createProviderFromEnv, loadEnvVar, resolveProviderMode } from "@nearesis/inference";
-import { composeCanvas, registerRunSource } from "@nearesis/near-thesis";
+import { composeCanvas, registerRunSource, type SourceHealth } from "@nearesis/near-thesis";
 import { DEFAULT_ENGINE_INTERFACES, Db, Kernel, type Session } from "@nearesis/kernel";
 import type { ExecutionRequest, InferenceProvider, ToolGateway } from "@nearesis/contracts";
 import {
@@ -85,6 +85,34 @@ export function withRunSource(inner: ToolGateway, pool: pg.Pool): ToolGateway {
       }
       return inner.invoke(principal, request);
     },
+  };
+}
+
+/**
+ * Health of a data source as the collector recorded it (`ingestion.source_health`, worst stream wins). Returns undefined
+ * when there is no record, or when the table is unreadable from this role: the gate refuses on evidence of a fault.
+ */
+export function ingestionSourceHealth(
+  pool: pg.Pool,
+): (sourceId: string) => Promise<SourceHealth | undefined> {
+  return async (sourceId) => {
+    try {
+      const r = await pool.query<{ health: string; detail: { reason?: string } | null; updated_at: Date }>(
+        "SELECT health, detail, updated_at FROM ingestion.source_health WHERE provider_id = $1",
+        [sourceId],
+      );
+      const bad =
+        r.rows.find((x) => x.health === "unavailable") ?? r.rows.find((x) => x.health === "degraded");
+      if (!bad) return undefined;
+      return {
+        status: bad.health === "unavailable" ? "unavailable" : "degraded",
+        reason: bad.detail?.reason ?? null,
+        lastGoodWatermark: null,
+        since: bad.updated_at.toISOString(),
+      };
+    } catch {
+      return undefined;
+    }
   };
 }
 
@@ -196,6 +224,7 @@ export function buildKernelDeps(a: {
     canvas: new KernelCanvas({ pool: a.pool, kernel: a.kernel, gateway, requesterOf }),
     localTools: { "canvas.patch@1": canvasPatchProposalTool(leases) },
     kernelMode: true,
+    sourceHealth: ingestionSourceHealth(a.pool),
     provider: a.provider ?? createRuntimeProvider(),
     ...(a.model ? { model: a.model } : live ? { model: liveModelFromEnv() } : {}),
     ...(live

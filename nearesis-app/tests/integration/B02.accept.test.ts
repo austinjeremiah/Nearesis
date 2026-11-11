@@ -36,6 +36,9 @@ it("B02: every output shows its provenance and whether it came from a fixture or
     const f = await runFlow(s);
     const ws = f.workspaceId;
     expect(f.trace.steps.every((x) => ["fixture", "recorded", "live", "mock"].includes(x.mode))).toBe(true);
+    // the run's source mode is part of the public run read model (not only a database column)
+    const runApi = (await s.owner.call("GET", `/v1/runs/${f.runId}`)).json as { source: string };
+    expect(runApi.source).toBe("fixture");
     const src = await q<{ source: string }>(s.env, s.env.tenantId, "SELECT source FROM runs WHERE id=$1", [
       f.runId,
     ]);
@@ -82,19 +85,17 @@ it("B02: every output shows its provenance and whether it came from a fixture or
     const lws = await s.env.kernel!.newWorkspace("B02 live source");
     const lr = await ask(s, lws, "A20-P", "Are Intents flows economically durable?", { source: "live" });
     const lsrc = await waitFor(async () => {
-      const r = await q<{ source: string }>(s.env, s.env.tenantId, "SELECT source FROM runs WHERE id=$1", [
-        lr.runId,
-      ]);
-      return r.length ? r : null;
+      const r = await s.owner.call("GET", `/v1/runs/${lr.runId}`);
+      return r.status === 200 ? (r.json as { source: string }) : null;
     }, 30_000);
-    expect(lsrc[0]!.source).toBe("live");
+    expect(lsrc.source).toBe("live");
     const end = await waitFor(async () => {
       const r = (await runRow(s, lr.runId))!;
       if (r.state === "APPROVAL_NEEDED") {
         await approve(s, lr.runId);
         return null;
       }
-      return ["COMPLETE", "PARTIAL", "FAILED", "BLOCKED"].includes(r.state) ? r : null;
+      return ["COMPLETE", "PARTIAL", "FAILED", "BLOCKED", "BLOCKED_SOURCE"].includes(r.state) ? r : null;
     }, 120_000).catch(async () => (await runRow(s, lr.runId))!);
     const lcanvas = (await s.owner.call("GET", `/v1/workspaces/${lws}/canvas`)).json as {
       panels: Array<{ queryRef: { hash: string } }>;
@@ -113,7 +114,7 @@ it("B02: every output shows its provenance and whether it came from a fixture or
     observe({
       testId: "B02",
       fixtureHash: createHash("sha256").update(JSON.stringify(panelModes)).digest("hex"),
-      observed: `fixture flow: all ${f.trace.steps.length} trace steps carry a mode, runs.source=fixture, ${panelModes.length} panel(s) resolve to registered queries served by the fixture layer (${panelModes.map((m) => m.hash.slice(0, 10)).join(",")}), capsule and THESIS/DATA labelled SYNTHETIC with snapshot ${manifest.snapshot.snapshotId}, ${finds.length} agent artifacts labelled unattested_dev; live question: runs.source=live, run ended ${end.state}, ${liveLayers.length} panel(s) all served by the live layer (no fixture substitution); a mixed-layer panel is classified mixed. Limitation: the panel spec itself has no source-mode field; the mode is derived from the metric registry of the panel's registered query, and the web route renders the badge.`,
+      observed: `fixture flow: all ${f.trace.steps.length} trace steps carry a mode, GET /v1/runs/:id source=fixture, ${panelModes.length} panel(s) resolve to registered queries served by the fixture layer (${panelModes.map((m) => m.hash.slice(0, 10)).join(",")}), capsule and THESIS/DATA labelled SYNTHETIC with snapshot ${manifest.snapshot.snapshotId}, ${finds.length} agent artifacts labelled unattested_dev; live question: GET /v1/runs/:id source=live, run ended ${end.state}, ${liveLayers.length} panel(s) all served by the live layer (no fixture substitution); a mixed-layer panel is classified mixed. Limitation: the panel spec itself has no source-mode field; the mode is derived from the metric registry of the panel's registered query, and the web route renders the badge.`,
       evidence: {
         panelModes,
         liveRun: { state: end.state, panels: liveLayers.length },

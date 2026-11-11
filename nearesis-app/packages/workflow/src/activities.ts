@@ -36,7 +36,23 @@ import {
   type Policy,
   type RoleResult,
 } from "@nearesis/agent-runtime";
-import type { ChildOutcome, ChildSpec, InvestigationInput, PlanView, PolicyView } from "./types.ts";
+import {
+  contextDifferences,
+  contextHashes,
+  gateTask,
+  sourceHealthOf,
+  sourceKey,
+  type SourceHealth,
+} from "@nearesis/near-thesis";
+import type {
+  ChildOutcome,
+  ChildSpec,
+  InvestigationInput,
+  PlanView,
+  PolicyView,
+  RunContext,
+  SourceGateView,
+} from "./types.ts";
 
 /**
  * Executes the owner-approved privileged action. The kernel implementation previews the proposal as the composer
@@ -97,6 +113,11 @@ export interface ActivityDeps {
   model?: string;
   /** Capabilities the investigation may delegate (root task grant). */
   investigationGrant: string[];
+  /**
+   * Health of a data source (collector provider id) for the fresh-data gate. Absent = the near-thesis health registry
+   * only. A source with no record is treated as healthy: the gate refuses on evidence of a fault, never on silence.
+   */
+  sourceHealth?: (sourceId: string) => Promise<SourceHealth | undefined> | SourceHealth | undefined;
   /** Test-only transient fault points: returns true once for (point, scenario). */
   faultAt?: (point: string, scenario: string | undefined) => boolean;
   now?: () => number;
@@ -613,6 +634,119 @@ export function createActivities(d: ActivityDeps) {
       });
     },
 
+    /**
+     * Freezes the run's dispatch context (ch.16b B12): the question, snapshot, metric-version map and preregistration
+     * hashes every child must carry. Idempotent: a replayed or retried call returns the stored context.
+     */
+    async bindRunContext(i: {
+      tenantId: string;
+      workspaceId: string;
+      runId: string;
+      directorTaskId: string;
+      question: string;
+      preregistrationHash?: string;
+    }): Promise<RunContext> {
+      return guarded(async () => {
+        const row = await withTenant(d.pool, i.tenantId, async (c) => {
+          const r = await c.query<{ snapshot_ref: string; context: RunContext | null }>(
+            "SELECT snapshot_ref, context FROM runs WHERE id=$1",
+            [i.runId],
+          );
+          return r.rows[0];
+        });
+        if (!row) throw new AgentRuntimeError("TOOL_NOT_GRANTED", "unknown run", {});
+        if (row.context) return row.context;
+        const versions: Record<string, string> = {};
+        const metricSources: Record<string, string[]> = {};
+        if (d.kernelMode) {
+          const validator = validatorActorId(i.runId);
+          await d.leases.ensureChild({
+            tenantId: i.tenantId,
+            workspaceId: i.workspaceId,
+            runId: i.runId,
+            parentTaskId: i.directorTaskId,
+            taskId: validator,
+            role: "semantic_analyst",
+            capabilities: ["semantic.discover@1"],
+          });
+          const r = await d.gateway.invoke(
+            { kind: "agent", actorId: validator, orgId: i.tenantId, parentRunId: i.runId },
+            {
+              requestId: randomUUID(),
+              idempotencyKey: `${i.runId}:bind-context`,
+              tenantId: i.tenantId,
+              workspaceId: i.workspaceId,
+              actor: { kind: "agent", actorId: validator, parentRunId: i.runId },
+              capability: "semantic.discover@1",
+              input: {},
+              deadlineMs: 60_000,
+              trace: { traceId: `${i.runId}/${validator}`, researchRunId: i.runId },
+            },
+          );
+          if (r.state === "ok" || r.state === "partial") {
+            const p = r.payload as {
+              semanticVersion?: string;
+              metrics?: Array<{ id?: string; certifiedVersion?: string; sources?: string[] }>;
+            } | null;
+            for (const m of p?.metrics ?? []) {
+              if (!m.id) continue;
+              versions[m.id] = m.certifiedVersion ?? p?.semanticVersion ?? "unversioned";
+              metricSources[m.id] = [...new Set((m.sources ?? []).map(sourceKey))];
+            }
+          }
+        }
+        const ctx: RunContext = {
+          hashes: contextHashes({
+            question: i.question,
+            snapshotId: row.snapshot_ref,
+            metricVersionMap: versions,
+            preregistrationHash: i.preregistrationHash ?? "unregistered",
+          }),
+          metricSources,
+        };
+        await withTenant(d.pool, i.tenantId, (c) =>
+          c.query("UPDATE runs SET context=$2::jsonb WHERE id=$1 AND context IS NULL", [
+            i.runId,
+            JSON.stringify(ctx),
+          ]),
+        );
+        return ctx;
+      });
+    },
+
+    /**
+     * Fresh-data gate: a `live` run (real data) whose sources are degraded or unavailable is `BLOCKED_SOURCE` before any
+     * child starts. A fixture run reads frozen data and is never gated. The decision comes from source health the
+     * collector recorded, never from a guess; a source with no health record is not a reason to refuse.
+     */
+    async gateRun(i: {
+      tenantId: string;
+      runId: string;
+      requiredMetrics: string[];
+    }): Promise<SourceGateView> {
+      return guarded(async () => {
+        const row = await withTenant(d.pool, i.tenantId, async (c) => {
+          const r = await c.query<{ source: string; context: RunContext | null }>(
+            "SELECT source, context FROM runs WHERE id=$1",
+            [i.runId],
+          );
+          return r.rows[0];
+        });
+        if (!row || row.source !== "live")
+          return { gated: false, state: "RUN", reasonCode: null, sources: [] };
+        const by = row.context?.metricSources ?? {};
+        // the sources behind the metrics the plan needs; a plan naming no metric the live catalog knows (or none at all)
+        // reads the whole live layer, so every live source counts
+        const named = i.requiredMetrics.filter((m) => by[m]);
+        const wanted = named.length ? named : Object.keys(by);
+        const sources = [...new Set(wanted.flatMap((m) => by[m] ?? []))];
+        const known = new Map<string, SourceHealth | undefined>();
+        for (const s of sources) known.set(s, (await d.sourceHealth?.(s)) ?? sourceHealthOf(s));
+        const g = gateTask("fresh", sources, (s) => known.get(s));
+        return { gated: true, state: g.state, reasonCode: g.reason_code, sources: g.sources };
+      });
+    },
+
     /** Server-enforced spawn (depth, fan-out, capability subset, budget reserve, dedup). Rejections are typed failures. */
     async spawnTask(i: {
       tenantId: string;
@@ -650,6 +784,33 @@ export function createActivities(d: ActivityDeps) {
             detail: { role: parent.role },
           });
           throw new AgentRuntimeError("TOOL_NOT_GRANTED", `role ${parent.role} may not spawn`, {});
+        }
+        // Dispatch enforcement (ch.16b B12): a run that froze a context lets only children carrying exactly that
+        // question, snapshot, metric-version-map and preregistration hash start; anything else is refused and audited.
+        const runCtx = await withTenant(d.pool, i.tenantId, async (c) => {
+          const r = await c.query<{ context: RunContext | null }>("SELECT context FROM runs WHERE id=$1", [
+            i.runId,
+          ]);
+          return r.rows[0]?.context ?? null;
+        });
+        if (runCtx) {
+          const differs = contextDifferences(runCtx.hashes, i.child.context);
+          if (differs.length) {
+            await d.audit.write({
+              tenantId: i.tenantId,
+              workspaceId: i.workspaceId,
+              runId: i.runId,
+              taskId: i.parentTaskId,
+              kind: "spawn.rejected",
+              reasonCode: "CONTEXT_MISMATCH",
+              detail: { task: i.child.task, role: i.child.role, differs },
+            });
+            throw new AgentRuntimeError(
+              "CONTEXT_MISMATCH",
+              `child ${i.child.role} context differs from the run's frozen context: ${differs.join(", ")}`,
+              { differs },
+            );
+          }
         }
         const hypothesisId = `${i.child.task}|${i.child.inputSnapshot}`;
         // Delegation grants narrow (never widen) what the role and the parent would allow: a tool the role permits but the
@@ -696,6 +857,13 @@ export function createActivities(d: ActivityDeps) {
           role: i.child.role,
           capabilities,
         });
+        if (runCtx)
+          await withTenant(d.pool, i.tenantId, (c) =>
+            c.query("UPDATE tasks SET context=$2::jsonb WHERE id=$1 AND context IS NULL", [
+              r.taskId,
+              JSON.stringify(i.child.context),
+            ]),
+          );
         return { taskId: r.taskId, depth: r.depth, created: r.created, status: r.status, hypothesisId };
       });
     },

@@ -54,7 +54,12 @@ it("B08: freeze, then lockbox evaluation, then publication, with any deviation l
   expect(capOf(late)).toBe("exploratory"); // evidence strength is capped below pre_registered
   expect(late.texts["THESIS.md"]).toContain("exploratory");
   const site = readFileSync(join(late.capsuleDir!, "exports", "site", "index.html"), "utf8");
-  const dashboardShowsLabel = site.includes(LABEL);
+  // the static dashboard has a slot for the label and fills it (and only it) when the order was not honest
+  expect(site).toContain(`data-registration-label="${LABEL}"`);
+  const dashboardShowsLabel = true;
+  const goodSite = readFileSync(join(good.capsuleDir!, "exports", "site", "index.html"), "utf8");
+  expect(goodSite).not.toContain("data-registration-label");
+  expect(goodSite).not.toContain(LABEL);
 
   // (c) without owner approval the freeze does not occur and publication is blocked
   const noApproval = await runFlow(s, { order: "no_approval" });
@@ -83,20 +88,16 @@ it("B08: freeze, then lockbox evaluation, then publication, with any deviation l
   expect(ctl.label).toBe(LABEL);
   expect(ctl.label === "pre_registered").toBe(false);
 
-  const blocked = dashboardShowsLabel
-    ? undefined
-    : "the static dashboard (packages/capsule/src/site.ts, owned by V2) has no registration-label slot, so criterion (b) is verified on THESIS.md and memo.pdf but not on exports/site/index.html; the research bundle cannot carry the label either, because the capsule's offline reproduction compares the whole artifact structure and rejects a bundle with a registration section; request queued";
   observe({
     testId: "B08",
     fixtureHash: createHash("sha256")
       .update(JSON.stringify([order, kinds(late), kinds(noApproval)]))
       .digest("hex"),
-    observed: `correct order ${order.slice(0, 4).join(" < ")} (owner-approved freeze, hash recorded; label pre_registered); late evaluation ${kinds(late).slice(0, 4).join(" < ")} published only with "${LABEL}" in THESIS.md and memo.pdf, evidence strength capped at ${capOf(late)}; without owner approval freeze refused (${kinds(noApproval)[0]}), preregister failed, publish blocked, lifecycle.publish() throws ${"NO_OWNER_APPROVED_FREEZE"}; chain adapter log has 0 writes in all three flows and refuses a mainnet write when asked. ${blocked ? `Dashboard half: ${blocked}` : "Static dashboard shows the label."}`,
+    observed: `correct order ${order.slice(0, 4).join(" < ")} (owner-approved freeze, hash recorded; label pre_registered); late evaluation ${kinds(late).slice(0, 4).join(" < ")} published only with "${LABEL}" in THESIS.md, memo.pdf and the static dashboard, evidence strength capped at ${capOf(late)}; without owner approval freeze refused (${kinds(noApproval)[0]}), preregister failed, publish blocked, lifecycle.publish() throws ${"NO_OWNER_APPROVED_FREEZE"}; chain adapter log has 0 writes in all three flows and refuses a mainnet write when asked. the static dashboard (exports/site/index.html) shows the label in the late-evaluation capsule and has no label in the pre-registered one`,
     evidence: {
       orders: { correct: kinds(good), late: kinds(late), noApproval: kinds(noApproval) },
       labels: { correct: good.publication, late: late.publication, noApproval: noApproval.publication },
       dashboardShowsLabel,
     },
-    ...(blocked ? { blocked } : {}),
   });
 }, 900_000);

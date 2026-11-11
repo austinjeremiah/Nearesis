@@ -9,6 +9,7 @@ import {
   defineQuery,
   defineSignal,
   isCancellation,
+  patched,
   proxyActivities,
   setHandler,
   sleep,
@@ -26,6 +27,7 @@ import type {
   ChildSpec,
   InvestigationInput,
   InvestigationResult,
+  RunContext,
   RunFailureView,
 } from "./types.ts";
 
@@ -46,6 +48,7 @@ const NON_RETRYABLE = [
   "BUDGET_EXCEEDED",
   "CAPABILITY_ESCALATION",
   "ILLEGAL_TRANSITION",
+  "CONTEXT_MISMATCH",
 ];
 
 const quick = proxyActivities<Activities>({
@@ -216,6 +219,30 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
         return result(failureFor(reason, wfId, `thread:${directorTaskId}`));
       }
       await note("plan.validated", { stages: plan.stages.length, missingMetrics: plan.missingMetrics });
+      // Freeze the dispatch context and gate fresh-data runs on source health. `patched` keeps histories recorded before
+      // this existed replayable (A13); new runs always take the new path.
+      let runContext: RunContext | null = null;
+      if (patched("run-context-1")) {
+        runContext = await quick.bindRunContext({
+          tenantId,
+          workspaceId,
+          runId,
+          directorTaskId,
+          question: input.question ?? "investigate",
+          ...(input.preregistrationHash ? { preregistrationHash: input.preregistrationHash } : {}),
+        });
+        const gate = await quick.gateRun({ tenantId, runId, requiredMetrics: plan.requiredMetrics });
+        if (gate.state === "BLOCKED_SOURCE") {
+          const f = failureFor(gate.reasonCode ?? "SOURCE_UNAVAILABLE", wfId, `thread:${directorTaskId}`);
+          await note("source.blocked", { reasonCode: gate.reasonCode, sources: gate.sources });
+          await transition(
+            "BLOCKED_SOURCE",
+            { stage: "source_gate", reasonCode: gate.reasonCode, sources: gate.sources },
+            { ...f, retryability: "retryable" },
+          );
+          return result({ ...f, retryability: "retryable" });
+        }
+      }
       await transition("EXECUTING", { children: plan.stages.reduce((n, s) => n + s.length, 0) });
 
       // ---- run stages; children of one stage run in parallel ----
@@ -242,6 +269,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
           taskId,
           hypothesisId,
           ...(input.grants ? { grants: input.grants } : {}),
+          ...(runContext ? { context: runContext.hashes } : {}),
         };
         let handle: ChildWorkflowHandle<typeof ResearchChildWorkflow>;
         try {
@@ -314,7 +342,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
                 investigationId: input.investigationId,
                 parentTaskId: directorTaskId,
                 modelVersion: plan.modelVersion,
-                child: spec,
+                child: runContext ? { ...spec, context: runContext.hashes } : spec,
                 ...(input.grants ? { grants: input.grants } : {}),
               });
             } catch (e) {
@@ -568,7 +596,7 @@ export async function ResearchChildWorkflow(input: ChildInput): Promise<ChildOut
           investigationId: input.dedupKey.investigationId,
           parentTaskId: input.taskId,
           modelVersion: input.dedupKey.modelVersion,
-          child: req,
+          child: input.context ? { ...req, context: input.context } : req,
           ...(input.grants ? { grants: input.grants } : {}),
         });
         const key: DedupKey = {

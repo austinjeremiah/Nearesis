@@ -3,13 +3,8 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { observe } from "@nearesis/acceptance";
-import {
-  Dispatcher,
-  SnapshotMismatch,
-  contextHashes,
-  reconcile,
-  type Headline,
-} from "../../plugins/near-thesis/src/index.ts";
+import { createActivities } from "../../packages/workflow/src/index.ts";
+import { h, reconcile, type Headline } from "../../plugins/near-thesis/src/index.ts";
 import { runFlow } from "./lib/flow.ts";
 import { openStack, q, stopIfBlocked, type Stack } from "./lib/stack.ts";
 
@@ -22,16 +17,32 @@ afterAll(async () => s?.close(), 120_000);
 it("B12: every agent works from the same question, snapshot, metric catalog and preregistration, and the headline number agrees across artifacts", async () => {
   if (await stopIfBlocked(s, "B12", "the real-stack flow")) return;
   const f = await runFlow(s);
-  const d = f.dispatcher!;
+  const d = f.dispatch!;
   const ws = f.workspaceId;
   const read = (rel: string) => readFileSync(join(f.capsuleDir!, rel), "utf8");
 
-  // (a) all child contexts carry equal question, snapshot, metric map and preregistration hashes
-  expect(d.dispatched.length).toBeGreaterThanOrEqual(3);
-  const first = d.dispatched[0]!.hashes;
-  for (const x of d.dispatched) expect(x.hashes, x.child).toEqual(first);
-  expect(first.preregistrationHash).toMatch(/^sha256:[0-9a-f]{64}$/);
-  expect(first.snapshotId).toBeTruthy();
+  // (a) the real workflow froze the run's context and stamped every child task it dispatched with exactly that context
+  expect(d.children.length).toBeGreaterThanOrEqual(3);
+  for (const c of d.children) expect(c.context, c.role).toEqual(d.run);
+  expect(d.run.question).toBe(h(f.postedQuestion));
+  expect(d.run.preregistrationHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+  expect(d.run.preregistrationHash).toBe(
+    f.events.find((e) => e.kind === "preregistration.frozen")!.data.preregistrationHash,
+  );
+  const runRow = (
+    await q<{ snapshot_ref: string }>(s.env, s.env.tenantId, "SELECT snapshot_ref FROM runs WHERE id=$1", [
+      f.runId,
+    ])
+  )[0]!;
+  expect(d.run.snapshotId).toBe(runRow.snapshot_ref);
+  expect(d.run.metricVersionMap).toMatch(/^[0-9a-f]{64}$/);
+  const first = d.run;
+  // the same context is exposed on the run API
+  const api = (await s.owner.call("GET", `/v1/runs/${f.runId}`)).json as {
+    source: string;
+    context: Record<string, string> | null;
+  };
+  expect(api.context).toEqual(d.run);
   // and the runtime's own child identities agree on the snapshot and model version (real tasks rows)
   const kids = await q<{
     dedup_key: { inputSnapshot: string; modelVersion: string; investigationId: string; workspaceId: string };
@@ -134,9 +145,67 @@ it("B12: every agent works from the same question, snapshot, metric catalog and 
   expect(ok.included).toHaveLength(heads.length);
   expect(site.length).toBeGreaterThan(0);
 
-  // (c) a child handed a different snapshot is rejected at dispatch, or flagged snapshot_mismatch and excluded
-  expect(() => d.dispatch("composer", { snapshotId: "snap-other" })).toThrow(SnapshotMismatch);
-  expect(d.dispatched.at(-1)!.accepted).toBe(false);
+  // (c) a child handed a different question, snapshot, metric map or preregistration is refused by the real dispatch path
+  // (the same `spawnTask` activity the workflow calls); its attempt is audited and no task row is created
+  const acts = createActivities(s.worker.deps);
+  const base = (
+    await q<{ id: string; budget_id: string; investigation_id: string }>(
+      s.env,
+      s.env.tenantId,
+      "SELECT t.id, r.budget_id, r.investigation_id FROM tasks t JOIN runs r ON r.id=t.run_id WHERE t.run_id=$1 AND t.depth=0",
+      [f.runId],
+    )
+  )[0]!;
+  const taskCount = async () =>
+    Number(
+      (
+        await q<{ n: string }>(s.env, s.env.tenantId, "SELECT count(*)::text n FROM tasks WHERE run_id=$1", [
+          f.runId,
+        ])
+      )[0]!.n,
+    );
+  const before = await taskCount();
+  const refused: Array<{ field: string; reason: unknown }> = [];
+  for (const field of ["question", "snapshotId", "metricVersionMap", "preregistrationHash"] as const) {
+    const bad = { ...first, [field]: field === "snapshotId" ? "snap-other" : "sha256:" + "0".repeat(64) };
+    const err = await acts
+      .spawnTask({
+        tenantId: s.env.tenantId,
+        workspaceId: ws,
+        runId: f.runId!,
+        budgetId: base.budget_id,
+        investigationId: base.investigation_id,
+        parentTaskId: base.id,
+        modelVersion: "scripted-1",
+        child: {
+          task: `rogue-${field}`,
+          role: "composer",
+          objective: "uses a different input",
+          capabilities: [],
+          inputSnapshot: "snap-other",
+          budget: { tokens: 1, toolCalls: 1, usd: 0 },
+          maxChildDepth: 0,
+          context: bad,
+        },
+      })
+      .then(
+        () => null,
+        (e: unknown) => e as { type?: string; message?: string },
+      );
+    expect(err, field).not.toBeNull();
+    expect(err!.type).toBe("CONTEXT_MISMATCH");
+    expect(err!.message).toContain(field);
+    refused.push({ field, reason: err!.type });
+  }
+  expect(await taskCount()).toBe(before);
+  const audited = await q<{ n: string }>(
+    s.env,
+    s.env.tenantId,
+    "SELECT count(*)::text n FROM agent_audit WHERE run_id=$1 AND kind='spawn.rejected' AND reason_code='CONTEXT_MISMATCH'",
+    [f.runId],
+  );
+  expect(Number(audited[0]!.n)).toBe(4);
+  // an artifact tagged with another snapshot is flagged and excluded from the thesis
   const stray = reconcile(
     [
       ...heads,
@@ -172,13 +241,11 @@ it("B12: every agent works from the same question, snapshot, metric catalog and 
   expect(cached.conflicts).toHaveLength(1);
   expect(cached.conflicts[0]).toMatchObject({ metric: "delta_mae" });
   expect(cached.conflicts[0]!.values.map((v) => v.source)).toContain("composer (cached older result)");
-  void Dispatcher;
-  void contextHashes;
 
   observe({
     testId: "B12",
     fixtureHash: createHash("sha256").update(JSON.stringify(first)).digest("hex"),
-    observed: `${d.dispatched.length - 1} children dispatched by one dispatcher with identical question hash, snapshot ${snapId}, metric-version-map hash and preregistration hash; the runtime's ${kids.length} child task identities share inputSnapshot, modelVersion and investigation; headline verdict "${status}" and delta MAE ${delta} agree across ${heads.length} reads of 6 artifacts (engine output, research_run.json, capsule results, evidence graph node, THESIS.md, memo.pdf); a child asking for another snapshot was refused (snapshot_mismatch) and a stale artifact is excluded; a cached older delta MAE produced an explicit conflict record naming its source. Scope: the director's own task identity (5-tuple) does not carry the question and preregistration hashes, so the four-hash context is enforced by the dispatcher in the integration layer.`,
-    evidence: { dispatched: d.dispatched, heads, conflicts: cached.conflicts },
+    observed: `the real workflow froze one context for the run (question hash, snapshot ${snapId}, metric-version-map hash, preregistration hash) and stamped all ${d.children.length} dispatched children with exactly it (read back from the runtime tables and GET /v1/runs/:id); the runtime's ${kids.length} child task identities share inputSnapshot, modelVersion and investigation; headline verdict "${status}" and delta MAE ${delta} agree across ${heads.length} reads of 6 artifacts (engine output, research_run.json, capsule results, evidence graph node, THESIS.md, memo.pdf); the real spawnTask dispatch refused a child whose question, snapshot, metric-version-map or preregistration hash differed (4 of 4 refused with CONTEXT_MISMATCH, 4 audit rows, 0 task rows created) and a stale artifact is excluded; a cached older delta MAE produced an explicit conflict record naming its source.`,
+    evidence: { dispatch: d, refused, heads, conflicts: cached.conflicts },
   });
 }, 900_000);

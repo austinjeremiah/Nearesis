@@ -6,7 +6,6 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  Dispatcher,
   FreezeRefused,
   NEAR_THESIS_DESCRIPTOR,
   PublicationBlocked,
@@ -18,6 +17,7 @@ import {
   type StepMode,
   type StepName,
 } from "../../../plugins/near-thesis/src/index.ts";
+import type { RunContextHashes } from "../../../packages/workflow/src/types.ts";
 import { buildCapsule, loadSnapshot, verifyCapsule } from "../../../packages/capsule/src/index.ts";
 import { execReq, giveLease, grant } from "../../../packages/kernel/test/helpers/index.ts";
 import { ExplorerFixtureServer } from "../../../services/ingestion/src/testing/servers.ts";
@@ -55,7 +55,13 @@ export interface FlowResult {
   artifact?: Record<string, unknown>;
   publication?: { label: string; cap?: string; blockedReason?: string };
   proof?: ProofOutcome;
-  dispatcher?: Dispatcher;
+  /** What the real workflow froze for the run and dispatched to each child (read back from the runtime tables). */
+  dispatch?: {
+    run: RunContextHashes;
+    children: Array<{ taskId: string; role: string; context: RunContextHashes | null }>;
+  };
+  /** The question text exactly as the API received it (its hash is the run's question hash). */
+  postedQuestion?: string;
   headline?: { status: string; deltaMae: number | null };
   texts: Record<string, string>;
 }
@@ -202,7 +208,14 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
       input: { question, preregHash },
     },
     async () => {
-      const r = await ask(s, ws, "A20-P", question);
+      const r = await ask(
+        s,
+        ws,
+        "A20-P",
+        question,
+        preregHash && /^sha256:[0-9a-f]{64}$/.test(preregHash) ? { preregistrationHash: preregHash } : {},
+      );
+      out.postedQuestion = `[scenario=A20-P] ${question}`;
       runId = r.runId;
       workflowId = r.workflowId;
       out.runId = runId;
@@ -227,21 +240,24 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
     { component: { id: "inference.scripted.roles", version: "scripted-1" }, mode: "mock", input: { runId } },
     async () => {
       await waitState(s, runId, ["APPROVAL_NEEDED"]);
-      const tasks = await q<{ id: string; role: string; status: string }>(
+      const tasks = await q<{ id: string; role: string; status: string; context: RunContextHashes | null }>(
         s.env,
         s.env.tenantId,
-        "SELECT id, role, status FROM tasks WHERE run_id=$1 AND depth=1 ORDER BY role",
+        "SELECT id, role, status, context FROM tasks WHERE run_id=$1 AND depth=1 ORDER BY role",
         [runId],
       );
-      // every child receives the same context from one dispatcher; a child asking for another snapshot is refused
-      const dispatcher = new Dispatcher({
-        question,
-        snapshotId,
-        metricVersionMap: metricVersions,
-        preregistrationHash: preregHash ?? "",
-      });
-      for (const t of tasks) dispatcher.dispatch(t.role);
-      out.dispatcher = dispatcher;
+      // the real workflow froze the run's context and stamped every child it dispatched with it (read back, not recomputed)
+      const runRow = await q<{ context: { hashes: RunContextHashes } | null }>(
+        s.env,
+        s.env.tenantId,
+        "SELECT context FROM runs WHERE id=$1",
+        [runId],
+      );
+      if (!runRow[0]?.context) throw new StepFailure("NO_RUN_CONTEXT", "the run froze no dispatch context");
+      out.dispatch = {
+        run: runRow[0].context.hashes,
+        children: tasks.map((t) => ({ taskId: t.id, role: t.role, context: t.context })),
+      };
       const { artifact, meta } = evaluate(bundleDir);
       out.artifact = artifact;
       out.headline = {
@@ -405,6 +421,7 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
         snapshotDir: SNAPSHOT_DIR,
         outDir: capsuleDir,
         researchBundleDir: bundle,
+        ...(lc.label === "pre_registered" ? {} : { registrationLabel: lc.label }),
         extraThesisNotes: [...postHocNotes(lc), ...proofNotes, ...(o.extraNotes ?? [])],
       });
       const rep = await verifyCapsule(capsuleDir, { research: "reproduce", wasm: "skip" });

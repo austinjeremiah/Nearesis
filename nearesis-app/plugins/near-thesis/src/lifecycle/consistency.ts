@@ -24,6 +24,19 @@ export class SnapshotMismatch extends Error {
   readonly reason_code = "snapshot_mismatch";
 }
 
+export type ContextHashes = ReturnType<typeof contextHashes>;
+
+/**
+ * The single enforcement rule behind both the in-memory `Dispatcher` and the runtime's real dispatch path
+ * (`spawnTask`): a child's four hashes (question, snapshot, metric-version map, preregistration) must equal the run's
+ * frozen context exactly. Returns the differing fields; empty means the child may run.
+ */
+export function contextDifferences(run: ContextHashes, child: Partial<ContextHashes> | undefined): string[] {
+  if (!child) return ["question", "snapshotId", "metricVersionMap", "preregistrationHash"];
+  const keys = ["question", "snapshotId", "metricVersionMap", "preregistrationHash"] as const;
+  return keys.filter((k) => child[k] !== run[k]);
+}
+
 export class Dispatcher {
   readonly dispatched: Array<{ child: string; hashes: ReturnType<typeof contextHashes>; accepted: boolean }> =
     [];
@@ -33,7 +46,7 @@ export class Dispatcher {
     const ctx = { ...this.ctx, ...requested };
     const hashes = contextHashes(ctx);
     const want = contextHashes(this.ctx);
-    const accepted = JSON.stringify(hashes) === JSON.stringify(want);
+    const accepted = contextDifferences(want, hashes).length === 0;
     this.dispatched.push({ child, hashes, accepted });
     if (!accepted) throw new SnapshotMismatch(`${child}: context differs from the run's frozen context`);
     return hashes;

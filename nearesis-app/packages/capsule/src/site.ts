@@ -15,6 +15,12 @@ export interface SiteInput {
   thesisLines: Array<{ claimId: string; claimClass: string; text: string; cites: string[] }>;
   rebuildCommand: string;
   dataLines: string[];
+  /**
+   * Registration label slot (ch.02 "Preregistration protocol", ch.16b B08): set only when the order of freeze and final
+   * evaluation cannot be shown to be honest, e.g. `post-hoc registration`. Absent means the result is pre-registered and
+   * the page shows no label.
+   */
+  registrationLabel?: string;
 }
 
 /** Indexed (first day = 100) integer-safe polyline. Floats are used only for pixel coordinates. */
@@ -61,6 +67,9 @@ export function renderSite(s: SiteInput): string {
     m.label === "SYNTHETIC"
       ? `<p class="banner" role="note"><strong>SYNTHETIC DATA.</strong> This page describes a test fixture, not NEAR production activity.</p>`
       : "";
+  const registration = s.registrationLabel
+    ? `<p class="banner registration" role="note" data-registration-label="${esc(s.registrationLabel)}"><strong>${esc(s.registrationLabel)}.</strong> The final evaluation ran before the preregistration was frozen, so this result is exploratory and not pre-registered.</p>`
+    : "";
   const resultRows = m.results
     .map(
       (r) =>
@@ -99,7 +108,7 @@ svg{max-width:100%;height:auto}
 <a class="skip" href="#main">Skip to content</a>
 <main id="main">
 <h1>${esc(m.title)}</h1>
-${banner}
+${banner}${registration}
 <p>Evidence status: local recomputation only. This static page contains no scripts and makes no network requests.</p>
 <h2 id="claims">Claims</h2>
 <ul>${claims}</ul>

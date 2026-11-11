@@ -60,9 +60,13 @@ export interface GateDecision {
   sources: Array<{ source: string; status: SourceStatus; reason: string | null }>;
 }
 /** A task that needs fresh data is `BLOCKED_SOURCE` while a source it reads is not ok; a frozen-data task runs. */
-export function gateTask(needs: TaskNeeds, sources: string[]): GateDecision {
+export function gateTask(
+  needs: TaskNeeds,
+  sources: string[],
+  lookup: (sourceId: string) => SourceHealth | undefined = sourceHealthOf,
+): GateDecision {
   const st = sources.map((s) => {
-    const h = sourceHealthOf(sourceKey(s));
+    const h = lookup(sourceKey(s));
     return { source: sourceKey(s), status: (h?.status ?? "ok") as SourceStatus, reason: h?.reason ?? null };
   });
   const bad = st.filter((x) => x.status !== "ok");

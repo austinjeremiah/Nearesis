@@ -14,7 +14,15 @@ import { panelSpec } from "../../packages/workflow/test/acceptance/m-marker-help
 import { execReq, giveLease, grant } from "../../packages/kernel/test/helpers/index.ts";
 import { ExplorerFixtureServer } from "../../services/ingestion/src/testing/servers.ts";
 import { loadPages, setupEnv as setupIngestion } from "../../services/ingestion/test/helpers/env.ts";
-import { ask, markerCommand, openStack, q, stopIfBlocked, waitRunDone, type Stack } from "./lib/stack.ts";
+import {
+  ask,
+  markerCommand,
+  openStack,
+  stopIfBlocked,
+  waitFor,
+  waitRunDone,
+  type Stack,
+} from "./lib/stack.ts";
 
 let s: Stack;
 beforeAll(async () => {
@@ -87,6 +95,13 @@ it("B09: an Explorer credential failure degrades the source, blocks only depende
       lastGoodWatermark,
       since: new Date(ing.clock.now()).toISOString(),
     });
+    // the same fault under the id the live registry and the Explorer collector use for the swaps source
+    registerSourceHealth("near-explorer", {
+      status: "degraded",
+      reason: "AUTH_REJECTED",
+      lastGoodWatermark,
+      since: new Date(ing.clock.now()).toISOString(),
+    });
     // (a) source degraded with a reason; 0 zero-filled days; the semantic response reports the stale window
     const gap = await ing.tdb.db.query<{ state: string; reason_code: string }>(
       "SELECT state, reason_code FROM ingestion.quality_gaps",
@@ -119,26 +134,30 @@ it("B09: an Explorer credential failure degrades the source, blocks only depende
     expect(envBefore.certification).not.toBe("stale");
 
     // (b) a fresh-data analysis is BLOCKED_SOURCE (no workflow starts); the frozen-data analysis completes
-    const runsBefore = (
-      await q<{ n: string }>(
-        s.env,
-        s.env.tenantId,
-        "SELECT count(*)::text n FROM runs WHERE workspace_id=$1",
-        [ws],
-      )
-    )[0]!.n;
-    const fresh = gateTask("fresh", [SOURCE]);
-    expect(fresh).toMatchObject({ state: "BLOCKED_SOURCE", reason_code: "source_degraded:AUTH_REJECTED" });
-    expect(
-      (
-        await q<{ n: string }>(
-          s.env,
-          s.env.tenantId,
-          "SELECT count(*)::text n FROM runs WHERE workspace_id=$1",
-          [ws],
-        )
-      )[0]!.n,
-    ).toBe(runsBefore);
+    // a fresh-data (live) question goes through the real API and workflow: the run is BLOCKED_SOURCE before any child starts
+    const freshRun = await ask(s, ws, "basic", "Fresh-data analysis of swap activity", { source: "live" });
+    const fresh = await waitFor(async () => {
+      const r = (await s.owner.call("GET", `/v1/runs/${freshRun.runId}`)).json as {
+        state: string;
+        terminal: boolean;
+        source: string;
+        children: unknown[];
+        failure: { reasonCode: string; retryability: string } | null;
+      };
+      return r.terminal ? r : null;
+    }, 120_000);
+    expect(fresh).toMatchObject({
+      state: "BLOCKED_SOURCE",
+      terminal: true,
+      source: "live",
+      children: [],
+      failure: { reasonCode: "source_degraded:AUTH_REJECTED", retryability: "retryable" },
+    });
+    // the gate's own decision: the same rule, evaluated on the registered health
+    expect(gateTask("fresh", [SOURCE])).toMatchObject({
+      state: "BLOCKED_SOURCE",
+      reason_code: "source_degraded:AUTH_REJECTED",
+    });
     const frozen = gateTask("frozen", [SOURCE]);
     expect(frozen.state).toBe("RUN");
     const run = await ask(s, ws, "basic", "Frozen-window analysis of swap activity");
@@ -195,7 +214,7 @@ it("B09: an Explorer credential failure degrades the source, blocks only depende
     observe({
       testId: "B09",
       fixtureHash: createHash("sha256").update(JSON.stringify(pages)).digest("hex"),
-      observed: `Explorer 401 from page 3: collector auth_blocked, health ${h.health}, quality gap AUTH_REJECTED, 0 zero-filled rows, no coverage row; kernel-served semantic.query@1 envelope went ${envBefore.certification} -> ${env.certification} with a gap from last good watermark ${lastGoodWatermark} (reason source_degraded:AUTH_REJECTED); fresh-data task ${fresh.state} (${fresh.reason_code}) with no workflow started, frozen-data task run ${res.state}; canvas panel kept its query binding and now carries the DEGRADED banner with the watermark; current-date claim held with downgrade to ${held.downgrade?.window.to}; over 120 s of simulated time the collector issued ${rejected.length} rejected probe(s) (circuit ${c.breaker.state}) and wrote blocker record ${r.blocker!.reason_code}. Limitation: the run API has no BLOCKED_SOURCE state, so the gate sits in the integration layer (plugin lifecycle).`,
+      observed: `Explorer 401 from page 3: collector auth_blocked, health ${h.health}, quality gap AUTH_REJECTED, 0 zero-filled rows, no coverage row; kernel-served semantic.query@1 envelope went ${envBefore.certification} -> ${env.certification} with a gap from last good watermark ${lastGoodWatermark} (reason source_degraded:AUTH_REJECTED); a fresh-data (source=live) question submitted through the real API ended ${fresh.state} (${fresh.failure!.reasonCode}) with ${fresh.children.length} child tasks, a frozen-data (fixture) question ran to ${res.state}; canvas panel kept its query binding and now carries the DEGRADED banner with the watermark; current-date claim held with downgrade to ${held.downgrade?.window.to}; over 120 s of simulated time the collector issued ${rejected.length} rejected probe(s) (circuit ${c.breaker.state}) and wrote blocker record ${r.blocker!.reason_code}.`,
       evidence: {
         requests: server.requests.map((x) => ({ s: x.status, t: Math.round((x.atMs - t0) / 1000) })),
         fresh,

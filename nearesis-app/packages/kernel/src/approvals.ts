@@ -48,6 +48,17 @@ export class ApprovalService {
     );
   }
 
+  /** Revoke unused approvals of a run (all, or one action hash); effective on the next consume. Returns the count. */
+  async revoke(tx: Tx, a: { workspaceId: string; runId: string; actionHash?: string }): Promise<number> {
+    const r = await tx.query(
+      `UPDATE command_approvals SET revoked_at = now()
+        WHERE workspace_id = $1 AND run_id = $2 AND used_at IS NULL AND revoked_at IS NULL
+          AND ($3::text IS NULL OR action_hash = $3)`,
+      [a.workspaceId, a.runId, a.actionHash ?? null],
+    );
+    return r.rowCount ?? 0;
+  }
+
   /**
    * Find the approval of this run whose hash `matches` the exact action, verify it is unexpired and unused, and mark it
    * used. Rows are locked, so two concurrent executions cannot both consume it.
@@ -68,8 +79,8 @@ export class ApprovalService {
     };
     if (!a.runId) return deny("APPROVAL_MISSING", "A privileged action by an agent needs an approved run.");
     const rows = (
-      await tx.query<{ id: string; action_hash: string; live: boolean; used: boolean }>(
-        `SELECT id, action_hash, (expires_at > now()) AS live, (used_at IS NOT NULL) AS used
+      await tx.query<{ id: string; action_hash: string; live: boolean; used: boolean; revoked: boolean }>(
+        `SELECT id, action_hash, (expires_at > now()) AS live, (used_at IS NOT NULL) AS used, (revoked_at IS NOT NULL) AS revoked
            FROM command_approvals WHERE workspace_id = $1 AND run_id = $2 FOR UPDATE`,
         [a.workspaceId, a.runId],
       )
@@ -78,13 +89,15 @@ export class ApprovalService {
     const hit = rows.filter((r) => a.matches(r.action_hash));
     if (hit.length === 0)
       return deny("APPROVAL_HASH_MISMATCH", "The action does not match any approved action hash.");
-    const usable = hit.find((r) => !r.used && r.live);
+    const usable = hit.find((r) => !r.used && r.live && !r.revoked);
     if (!usable) {
+      if (hit.some((r) => r.revoked && !r.used))
+        return deny("APPROVAL_REVOKED", "This approval was revoked.");
       if (hit.some((r) => r.used)) return deny("APPROVAL_REUSED", "This approval was already used.");
       return deny("APPROVAL_EXPIRED", "This approval has expired.");
     }
     const upd = await tx.query(
-      "UPDATE command_approvals SET used_at = now(), used_by = $2 WHERE id = $1 AND used_at IS NULL AND expires_at > now()",
+      "UPDATE command_approvals SET used_at = now(), used_by = $2 WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > now()",
       [usable.id, a.usedBy],
     );
     if (upd.rowCount !== 1) return deny("APPROVAL_REUSED", "This approval was already used.");

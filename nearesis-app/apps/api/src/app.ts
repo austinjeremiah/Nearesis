@@ -147,6 +147,14 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     });
   }
 
+  // Sign-out / incident response: the presented token stops working on the next request.
+  app.post("/v1/session/revoke", async (req, reply) => {
+    await authenticate(req);
+    const h = req.headers.authorization as string;
+    await kernel.identity.revoke(h.slice(7).trim());
+    return reply.status(204).send();
+  });
+
   app.post("/v1/workspaces", async (req, reply) => {
     const session = await authenticate(req);
     const hdr = req.headers["idempotency-key"];
@@ -248,7 +256,9 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
           return null;
         } catch (e) {
           if (e instanceof KernelError && e.code === "UNAUTHENTICATED")
-            return e.reasonCode === "NO_MEMBERSHIP" ? "SESSION_REVOKED" : "TOKEN_EXPIRED";
+            return e.reasonCode === "NO_MEMBERSHIP" || e.reasonCode === "SESSION_REVOKED"
+              ? "SESSION_REVOKED"
+              : "TOKEN_EXPIRED";
           return null; // transient infrastructure error: do not drop the stream on a blip
         }
       };

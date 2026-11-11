@@ -12,7 +12,7 @@ export interface Session {
 
 /** Pluggable authentication. OIDC adapter is NOT yet implemented; DevAuthProvider is non-production only. */
 export interface AuthProvider {
-  authenticate(token: string): Promise<{ userId: string; orgId: string }>;
+  authenticate(token: string): Promise<{ userId: string; orgId: string; jti?: string }>;
 }
 
 const ISSUER = "nearesis-kernel";
@@ -54,7 +54,7 @@ export class DevAuthProvider implements AuthProvider {
       .sign(this.secret);
   }
 
-  async authenticate(token: string): Promise<{ userId: string; orgId: string }> {
+  async authenticate(token: string): Promise<{ userId: string; orgId: string; jti?: string }> {
     try {
       const { payload } = await jwtVerify(token, this.secret, {
         issuer: ISSUER,
@@ -62,7 +62,11 @@ export class DevAuthProvider implements AuthProvider {
         algorithms: ["HS256"],
       });
       if (typeof payload.sub !== "string" || typeof payload.org !== "string") throw new Error("claims");
-      return { userId: payload.sub, orgId: payload.org };
+      return {
+        userId: payload.sub,
+        orgId: payload.org,
+        ...(typeof payload.jti === "string" ? { jti: payload.jti } : {}),
+      };
     } catch {
       throw new KernelError("UNAUTHENTICATED", "INVALID_SESSION", "Invalid or expired session.");
     }
@@ -76,19 +80,46 @@ export class IdentityPolicy {
     private readonly provider: AuthProvider,
   ) {}
 
+  revoke(token: string, reason?: string): Promise<void> {
+    return revokeSession(this.db, this.provider, token, reason);
+  }
+
   async resolveSession(token: string | undefined): Promise<Session> {
     if (!token) throw new KernelError("UNAUTHENTICATED", "MISSING_SESSION", "Authentication required.");
-    const { userId, orgId } = await this.provider.authenticate(token);
+    const { userId, orgId, jti } = await this.provider.authenticate(token);
     const role = await this.db.tx({ orgId, userId }, async (tx) => {
+      if (jti) {
+        const rv = await tx.query("SELECT 1 FROM revoked_sessions WHERE jti = $1", [jti]);
+        if (rv.rowCount) return "revoked" as const;
+      }
       const r = await tx.query<{ role: Role }>(
         "SELECT role FROM memberships WHERE org_id = $1 AND user_id = $2",
         [orgId, userId],
       );
       return r.rows[0]?.role;
     });
+    if (role === "revoked")
+      throw new KernelError("UNAUTHENTICATED", "SESSION_REVOKED", "Invalid or expired session.");
     if (!role) throw new KernelError("UNAUTHENTICATED", "NO_MEMBERSHIP", "Invalid or expired session.");
     return { principal: { kind: "human", actorId: userId, orgId }, role, userId };
   }
+}
+
+/** Revokes the presented session token (logout, incident response); effective on the very next request. */
+export async function revokeSession(
+  db: Db,
+  provider: AuthProvider,
+  token: string,
+  reason = "logout",
+): Promise<void> {
+  const { userId, orgId, jti } = await provider.authenticate(token);
+  if (!jti) throw new KernelError("VALIDATION_FAILED", "NO_SESSION_ID", "Token has no session id.");
+  await db.tx({ orgId, userId }, (tx) =>
+    tx.query(
+      "INSERT INTO revoked_sessions(jti, org_id, user_id, reason) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+      [jti, orgId, userId, reason],
+    ),
+  );
 }
 
 /** Server-side session for background work done on a user's behalf (scheduler tasks). Null when they can no longer write. */

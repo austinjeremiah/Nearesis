@@ -886,7 +886,7 @@ describe("monitoring read-model fields on the real kernel", () => {
           .waitFor()
           .then(() => bp.getByTestId("scope-error"))
       ).innerText(),
-    ).toMatch(/INSUFFICIENT_ROLE|HTTP 405/); // 405 until the web server forwards PUT (queued)
+    ).toMatch(/INSUFFICIENT_ROLE/); // the web server forwards PUT (route.ts)
     expect((await tasks()).find((t) => t.markerId === target)).toBeUndefined();
 
     // The owner grants the scope. Writing scopes is `PUT .../delegation-scopes`, which the same-origin web server does

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { SemanticQuery } from "@nearesis/contracts";
 import type { ExecutionRequest, ExecutionResponse, Principal, ToolGateway } from "@nearesis/contracts";
@@ -92,13 +92,26 @@ export const TOOL_CATALOG: ToolSpec[] = [
 ];
 export const TOOL_BY_ID = new Map(TOOL_CATALOG.map((t) => [t.id, t]));
 
-/** A09: tool results and source text are DATA. Delimiters inside the content are neutralised. */
-export function wrapAsData(origin: string, content: unknown): string {
-  const text = (typeof content === "string" ? content : JSON.stringify(content)).replaceAll(
-    "</untrusted_data",
-    "<\\/untrusted_data",
-  );
-  return `<untrusted_data origin="${origin}" instruction_authority="none">\n${text}\n</untrusted_data>`;
+/** Longest untrusted text shown to a model in one block; the full bytes stay hashed in the archive (ch.12, SEC07). */
+export const MAX_UNTRUSTED_DISPLAY_BYTES = 16_384;
+
+/**
+ * A09: tool results and source text are DATA. Delimiters inside the content are neutralised and an oversized field is
+ * cut for display with a marker carrying the sha256 of the full text (the full result remains hashed in the ledger).
+ */
+export function wrapAsData(origin: string, content: unknown, maxBytes = MAX_UNTRUSTED_DISPLAY_BYTES): string {
+  const full = typeof content === "string" ? content : JSON.stringify(content);
+  let shown = full;
+  let note = "";
+  if (Buffer.byteLength(full) > maxBytes) {
+    shown = Buffer.from(full)
+      .subarray(0, maxBytes)
+      .toString("utf8")
+      .replace(/\uFFFD$/, "");
+    note = `\n[truncated for display: ${Buffer.byteLength(shown)} of ${Buffer.byteLength(full)} bytes shown; sha256:${createHash("sha256").update(full).digest("hex")}]`;
+  }
+  const text = shown.replaceAll("</untrusted_data", "<\\/untrusted_data");
+  return `<untrusted_data origin="${origin}" instruction_authority="none">\n${text}${note}\n</untrusted_data>`;
 }
 
 /** Atomic, replay-safe per-hypothesis tool-call meter (A12 c). */

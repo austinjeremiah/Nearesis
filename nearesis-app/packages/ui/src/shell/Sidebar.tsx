@@ -69,7 +69,7 @@ export interface SidebarProps {
   onNavigate: (key: string) => void;
   /** When set, a Monitoring entry is shown; `unread` is the notification count. */
   monitoring?: { unread: number };
-  /** When true, the Research group (thesis, evidence graph, time machine, capsules) is shown; keys are `page:<name>`. */
+  /** When true, the Research group (thesis, evidence graph, time machine, capsules, shared layout) is shown; keys are `page:<name>`. */
   research?: boolean;
   /** Called with the chosen workspace id from the switcher menu. The current workspace is a no-op. */
   onSwitchWorkspace?: (workspaceId: string) => void;
@@ -259,6 +259,7 @@ export function Sidebar({
                 ["evidence", "Evidence graph", <IconLink key="i" />],
                 ["history", "Time machine", <IconBranch key="i" />],
                 ["capsule", "Research capsules", <IconShield key="i" />],
+                ["collab", "Shared layout", <IconCanvas key="i" />],
               ] as const
             ).map(([k, label, icon]) => (
               <Item

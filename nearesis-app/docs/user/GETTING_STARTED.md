@@ -34,7 +34,8 @@ The **Research** group in the sidebar opens:
 
 - **Investment thesis.** The research question, observed series with coverage, and the research engine's published results.
 - **Evidence graph.** Hypotheses, claims, results, queries and sources, with their relations.
-- **Time machine.** Snapshots, comparisons, branches and merges.
+- **Time machine.** Snapshots, comparisons, branches, merges and event-log reconstruction.
+- **Shared layout.** Panel positions and a shared note, edited together in real time.
 - **Research capsules.** The reproducible package behind a result and its verification status.
 
 See [Reading the research pages](RESEARCH_PAGES.md).

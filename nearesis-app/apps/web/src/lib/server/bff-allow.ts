@@ -4,6 +4,8 @@
  */
 const UUID = "[0-9a-f-]{36}";
 const CAPSULE = "[A-Za-z0-9][A-Za-z0-9._-]{0,119}";
+/** Metric ids such as `prices.daily_close_price_usd`; no slashes, so no traversal. */
+const METRIC = "[A-Za-z0-9][A-Za-z0-9._:-]{0,199}";
 export const ALLOWED = [
   /^workspaces$/, // GET lists the caller's workspaces (sidebar); POST creates one
   new RegExp(`^workspaces/${UUID}$`),
@@ -31,6 +33,14 @@ export const ALLOWED = [
   new RegExp(`^workspaces/${UUID}/branches/${UUID}(/(diff|changes))?$`),
   new RegExp(`^workspaces/${UUID}/merge-proposals$`),
   new RegExp(`^workspaces/${UUID}/merge-proposals/${UUID}(/(resolve|accept|reject))?$`),
+  // Publication eligibility (W08), impact (W09), event-log reconstruction (W11), evidence dereference (W18).
+  new RegExp(`^workspaces/${UUID}/(publication-eligibility|revalidation)$`),
+  new RegExp(`^workspaces/${UUID}/impact/${METRIC}$`),
+  new RegExp(`^workspaces/${UUID}/revisions/\\d{1,12}(/export)?$`),
+  new RegExp(`^workspaces/${UUID}/evidence/${UUID}$`),
+  // Scoped collaboration over HTTP (W15/W16): layout and notes only; PUT presence.
+  new RegExp(`^workspaces/${UUID}/collab/(layout|notes)/(state|updates|presence)$`),
+  new RegExp(`^workspaces/${UUID}/collab/layout/reconcile$`),
   // Research capsules (apps/api capsule-routes.ts). Export paths are matched by the API against the manifest.
   /^capsules$/,
   new RegExp(`^capsules/${CAPSULE}(/verify)?$`),

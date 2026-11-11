@@ -10,7 +10,8 @@ This page lists what the product does not do yet, or does only partially. It is 
   - Live volume counts only swaps whose USD value is known.
 - **Explorer covers 1Click only**, not all NEAR Intents activity. After the private-settlement change (2026-10-27), public transaction hashes are shield and unshield boundaries, not swaps.
 - **Research results available today come from labelled synthetic fixtures** (claim scope: no live claim). They demonstrate the method and are not evidence about NEAR. Live research runs are capped at `INSUFFICIENT_DATA` until complete organic-activity data exists.
-- **Research results are read from a published capsule's run file.** The API does not yet serve the run file directly, so the web server reads the same capsule directory and checks the run against the capsule manifest hash.
+- **Research results are read from a published capsule's run file**, served by the API for the capsule's own organisation and workspace and checked against the capsule manifest hash.
+- **Runs published before the inference amendment carry no inference record.** They show "no inference record: no statistical conclusion" rather than a conclusion.
 
 ## Verification
 
@@ -25,7 +26,9 @@ This page lists what the product does not do yet, or does only partially. It is 
 - **Reviewer comments attach to evidence nodes**, not to merge proposals. They are read and added in the evidence graph's node inspector.
 - **Metric version changes that cross a major version are excluded from merges by policy** (`SEMVER_INCOMPATIBLE`) and listed on the proposal, not merged.
 - **Snapshot staleness is based on canvas revisions and semantic versions.** A snapshot taken before new evidence was added may not be marked stale, but its view still shows the snapshot as captured.
-- **Collaboration presence** is single-process and is not shown in the interface.
+- **Shared layout syncs by polling** (about twice a second) over HTTP rather than a push connection. Presence is held in one API process and expires after a short idle time.
+- **Shared layout covers panel positions and one shared note.** The canvas's own grid layout is still changed through canvas commands; the two are reconciled, not merged.
+- **Reconstruction replays evidence and canvas events only.** Merges, restrictions, retention deletions and resolved rechecks are listed as not replayable and mark the result as not an exact reproduction.
 
 ## Interface
 

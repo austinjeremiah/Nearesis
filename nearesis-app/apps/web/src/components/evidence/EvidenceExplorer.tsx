@@ -34,6 +34,7 @@ import {
   upstream,
 } from "./graph-model.ts";
 import e from "./evidence.module.css";
+import { EvidenceRecord, ImpactPanel, PublicationPanel } from "./Panels.tsx";
 
 type Mode = { kind: "current" } | { kind: "snapshot"; id: string } | { kind: "branch"; id: string };
 interface Vintage {
@@ -495,6 +496,16 @@ export function EvidenceExplorer({ workspaceId }: { workspaceId: string }) {
                 {loaded.rechecks.length} node(s) need a recheck after a semantic-version change.
               </div>
             ) : null}
+            {mode.kind === "current" ? (
+              <>
+                <PublicationPanel
+                  workspaceId={workspaceId}
+                  graphVersion={loaded.graph.version}
+                  onPick={focusNode}
+                />
+                <ImpactPanel workspaceId={workspaceId} graph={loaded.graph} onPick={focusNode} />
+              </>
+            ) : null}
           </aside>
           <section className={e.canvas} aria-label="Evidence graph canvas" data-testid="graph-canvas">
             {view.nodes.length ? (
@@ -534,6 +545,7 @@ export function EvidenceExplorer({ workspaceId }: { workspaceId: string }) {
                 n={sel as GraphNode}
                 g={loaded.graph}
                 workspaceId={workspaceId}
+                live={mode.kind === "current"}
                 onPick={focusNode}
               />
             ) : (
@@ -579,19 +591,24 @@ function NodeInspector({
   n,
   g,
   workspaceId,
+  live,
   onPick,
 }: {
   n: GraphNode;
   g: GraphProjection;
   workspaceId: string;
+  /** Current graph (not a snapshot or branch view): the stored item can be dereferenced. */
+  live: boolean;
   onPick: (id: string) => void;
 }) {
   const st = nodeState(n);
   const up = upstream(n.id, g);
   const inEdges = g.edges.filter((x) => x.target === n.id);
   const outEdges = g.edges.filter((x) => x.source === n.id);
-  const missing =
-    n.type === "claim" && (st === "unsupported" || st === "support_unknown")
+  // The server's provenance check (W08) is authoritative; the client-side path check covers views without it.
+  const missing = n.missing?.length
+    ? n.missing
+    : n.type === "claim" && (st === "unsupported" || st === "support_unknown")
       ? missingProvenance(n.id, g)
       : [];
   return (
@@ -606,10 +623,22 @@ function NodeInspector({
             ? ": a semantic-version change affects this node; results must be revalidated."
             : null}
           {st === "tombstone"
-            ? ": an endpoint was removed or never persisted; kept visible, never silently dropped."
+            ? ": removed (payload deleted, or an endpoint never persisted); kept visible, never silently dropped."
             : null}
         </div>
       ) : null}
+      {n.evidenceUnavailable ? (
+        <div className={e.stateBox} data-state="unsupported" data-testid="evidence-unavailable">
+          Evidence unavailable: a payload this claim relies on was deleted under retention. Its hash is kept;
+          the content cannot be re-read.
+        </div>
+      ) : null}
+      {n.confidenceTier ? (
+        <p data-testid="confidence-tier">
+          Confidence tier: <strong>{n.confidenceTier}</strong>
+        </p>
+      ) : null}
+      {live ? <EvidenceRecord workspaceId={workspaceId} nodeId={n.id} /> : null}
       {missing.length ? (
         <div data-testid="missing-provenance">
           <h3 className={e.h3}>Missing provenance</h3>

@@ -67,4 +67,32 @@ describe("BFF allowlist", () => {
     ])
       expect(isAllowed(p), p).toBe(false);
   });
+
+  it("admits eligibility, impact, reconstruction, dereference and scoped collaboration; refuses other shapes", () => {
+    for (const p of [
+      `workspaces/${ws}/publication-eligibility`,
+      `workspaces/${ws}/revalidation`,
+      `workspaces/${ws}/impact/prices.daily_close_price_usd`,
+      `workspaces/${ws}/revisions/42`,
+      `workspaces/${ws}/revisions/42/export`,
+      `workspaces/${ws}/evidence/${run}`,
+      `workspaces/${ws}/collab/layout/state`,
+      `workspaces/${ws}/collab/notes/updates`,
+      `workspaces/${ws}/collab/layout/presence`,
+      `workspaces/${ws}/collab/layout/reconcile`,
+    ])
+      expect(isAllowed(p), p).toBe(true);
+    for (const p of [
+      `workspaces/${ws}/impact/../capsules`,
+      `workspaces/${ws}/impact/a/b`,
+      `workspaces/${ws}/revisions/-1`,
+      `workspaces/${ws}/revisions/abc/export`,
+      `workspaces/${ws}/evidence/not-a-uuid`,
+      `workspaces/${ws}/collab/access_policy/state`,
+      `workspaces/${ws}/collab/notes/reconcile`,
+      `workspaces/${ws}/retention/delete`,
+      `workspaces/${ws}/claims/tier`,
+    ])
+      expect(isAllowed(p), p).toBe(false);
+  });
 });

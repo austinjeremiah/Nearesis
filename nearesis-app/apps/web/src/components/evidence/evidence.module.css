@@ -326,3 +326,20 @@
   font-size: var(--text-2xs);
   color: var(--warn);
 }
+.record {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 8px 0;
+}
+.record dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.actor {
+  font-size: 11px;
+  padding: 0 4px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  margin-right: 4px;
+}

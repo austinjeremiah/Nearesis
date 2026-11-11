@@ -1,7 +1,7 @@
 /**
  * P11 harness: disposable Postgres DB + the real Kernel + Fastify API (restartable, to test SSE recovery) + the real web
  * app (`next build` + `next start`, or `next dev` when NEARESIS_P11_DEV=1) + Playwright Chromium.
- * Two orgs: org A (alice owner, carol viewer) and org B (bob owner). Ports/dist: 3622 / 4742 / .next-b4 by default.
+ * Two orgs: org A (alice owner, dave analyst, carol viewer) and org B (bob owner). Ports/dist: 3622 / 4742 / .next-b4 by default.
  * Panel data is the SYNTHETIC fixture data route; persistence, auth, ACLs, revisions and events are the real kernel.
  */
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
@@ -32,12 +32,16 @@ const DIST = process.env.NEARESIS_WEB_DIST ?? ".next-b4";
 export const DEV = process.env.NEARESIS_P11_DEV === "1";
 
 type App = Awaited<ReturnType<typeof buildApp>>;
+type Org = Awaited<ReturnType<typeof seedOrg>>;
+export type Who = "alice" | "carol" | "bob" | "dave";
 
 export interface Env {
   db: TestDb;
   kernel: Kernel;
   browser: Browser;
-  subjects: { alice: string; carol: string; bob: string };
+  subjects: { alice: string; carol: string; bob: string; dave: string };
+  /** Seeded orgs (ids and users), for in-process sessions such as an agent principal. */
+  orgs: { a: Org; b: Org };
   /** Workspace of org A (owner alice) and of org B (owner bob). */
   wsA: string;
   wsB: string;
@@ -72,7 +76,7 @@ export async function poll<T>(
 export async function startEnv(): Promise<Env> {
   mkdirSync(SHOTS, { recursive: true });
   const db = await createTestDb();
-  const orgA = await seedOrg(db.admin, "p11a", { alice: "owner", carol: "viewer" });
+  const orgA = await seedOrg(db.admin, "p11a", { alice: "owner", carol: "viewer", dave: "analyst" });
   const orgB = await seedOrg(db.admin, "p11b", { bob: "owner" });
   const kernel = testKernel(db);
   await kernel.boot();
@@ -136,7 +140,9 @@ export async function startEnv(): Promise<Env> {
       alice: orgA.users.alice!.subject,
       carol: orgA.users.carol!.subject,
       bob: orgB.users.bob!.subject,
+      dave: orgA.users.dave!.subject,
     },
+    orgs: { a: orgA, b: orgB },
     wsA,
     wsB,
     capsuleDir,
@@ -186,7 +192,7 @@ export const contentCsp = (v: unknown[]) =>
 
 export async function loggedIn(
   env: Env,
-  who: "alice" | "carol" | "bob",
+  who: Who,
   opts: { width?: number; height?: number } = {},
 ): Promise<BrowserContext> {
   // The API rate-limits dev login; sign in once per user and reuse the session cookie for further contexts.
@@ -273,7 +279,7 @@ export async function seedPanels(
 }
 
 /** Kernel HTTP API helper for the given user (bearer token), used to seed graph nodes etc. */
-export async function apiFor(env: Env, who: "alice" | "bob" | "carol", workspaceId: string) {
+export async function apiFor(env: Env, who: Who, workspaceId: string) {
   const token = await env.kernel.devAuth!.login(env.subjects[who]);
   const base = `${API}/v1/workspaces/${workspaceId}`;
   const h = { authorization: `Bearer ${token}`, "content-type": "application/json" };

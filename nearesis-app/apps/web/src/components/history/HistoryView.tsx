@@ -3,6 +3,7 @@ import "../../lib/zod-config.ts"; // jitless zod: no eval probe under the strict
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, EmptyState, ErrorState, HonestyBanner } from "@nearesis/ui";
 import { ApiError, getJson, historyApi, mutate } from "./client.ts";
+import { Reconstruction } from "./Reconstruction.tsx";
 import e from "../evidence/evidence.module.css";
 
 interface TimelineEntry {
@@ -13,6 +14,8 @@ interface TimelineEntry {
   ref: string | null;
   summary: string;
   documentRevision: number | null;
+  /** W12: who made the change. Older API responses omit it; shown as "unknown", never guessed. */
+  actorKind?: "human" | "agent" | "service";
 }
 interface Vintage {
   capturedAt: string;
@@ -161,6 +164,8 @@ export function HistoryView({ workspaceId }: { workspaceId: string }) {
   const [kinds, setKinds] = useState<Set<string>>(
     new Set(["snapshot", "branch", "merge", "semantic_version", "event"]),
   );
+  const [actors, setActors] = useState<Set<string>>(new Set(["human", "agent", "service", "unknown"]));
+  const [reconstructAt, setReconstructAt] = useState<number | null>(null);
   const [snapshots, setSnapshots] = useState<SnapshotSummary[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [proposals, setProposals] = useState<
@@ -339,6 +344,26 @@ export function HistoryView({ workspaceId }: { workspaceId: string }) {
               </label>
             ))}
           </div>
+          <div className={e.kinds} data-testid="actor-filter">
+            {["human", "agent", "service", "unknown"].map((k) => (
+              <label key={k}>
+                <input
+                  type="checkbox"
+                  checked={actors.has(k)}
+                  onChange={(ev) =>
+                    setActors((s) => {
+                      const n = new Set(s);
+                      if (ev.target.checked) n.add(k);
+                      else n.delete(k);
+                      return n;
+                    })
+                  }
+                  data-testid={`actor-${k}`}
+                />{" "}
+                by {k}
+              </label>
+            ))}
+          </div>
           {!timeline ? (
             <div className="nz-state" role="status" aria-busy="true">
               Loading timeline…
@@ -347,14 +372,36 @@ export function HistoryView({ workspaceId }: { workspaceId: string }) {
             <ol className={e.timeline} data-testid="timeline">
               {[...timeline]
                 .reverse()
-                .filter((t) => kinds.has(t.kind))
+                .filter((t) => kinds.has(t.kind) && actors.has(t.actorKind ?? "unknown"))
                 .map((t, i) => (
-                  <li key={`${t.at}-${i}`} className={e.tlItem} data-kind={t.kind}>
+                  <li
+                    key={`${t.at}-${i}`}
+                    className={e.tlItem}
+                    data-kind={t.kind}
+                    data-actor={t.actorKind ?? "unknown"}
+                    data-testid="tl-entry"
+                  >
                     <span className={e.mono}>{t.at.slice(5, 16).replace("T", " ")}</span>
                     <span>
+                      <span className={e.actor} data-testid="tl-actor" title="Who made this change">
+                        {t.actorKind ?? "unknown"}
+                      </span>
                       <strong>{t.kind.replace("_", " ")}</strong> · {t.summary}
                       {t.documentRevision !== null ? (
                         <span className={e.muted}> · rev {t.documentRevision}</span>
+                      ) : null}
+                      {t.kind === "event" && t.seq !== null ? (
+                        <>
+                          {" "}
+                          <button
+                            type="button"
+                            className={e.linkBtn}
+                            onClick={() => setReconstructAt(t.seq)}
+                            data-testid="tl-reconstruct"
+                          >
+                            reconstruct #{t.seq}
+                          </button>
+                        </>
                       ) : null}
                       {t.kind === "snapshot" && t.ref ? (
                         <>
@@ -374,6 +421,8 @@ export function HistoryView({ workspaceId }: { workspaceId: string }) {
             </ol>
           )}
         </section>
+
+        <Reconstruction workspaceId={workspaceId} revision={reconstructAt} />
 
         <section className={e.card} aria-labelledby="h-snap">
           <h2 className={e.h2} id="h-snap">

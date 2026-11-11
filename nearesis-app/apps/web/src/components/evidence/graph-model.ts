@@ -26,7 +26,14 @@ export const RELATIONS = [
   "supersedes",
 ] as const;
 
-export type NodeState = "ok" | "unsupported" | "contradicted" | "support_unknown" | "recheck" | "tombstone";
+export type NodeState =
+  | "ok"
+  | "unsupported"
+  | "contradicted"
+  | "support_unknown"
+  | "recheck"
+  | "tombstone"
+  | "evidence_unavailable";
 
 /**
  * Display state. Claims without a supporting path are `unsupported` (W08); a claim whose support was not computed
@@ -48,6 +55,7 @@ export function secondaryFlags(n: GraphNode): NodeState[] {
   const p = nodeState(n);
   const out: NodeState[] = [];
   if (n.recheckRequired && p !== "recheck") out.push("recheck");
+  if (n.evidenceUnavailable) out.push("evidence_unavailable");
   return out;
 }
 
@@ -58,6 +66,7 @@ export const STATE_LABEL: Record<NodeState, string> = {
   support_unknown: "Support unknown",
   recheck: "Recheck required",
   tombstone: "Tombstone (missing endpoint)",
+  evidence_unavailable: "Evidence unavailable (payload deleted)",
 };
 
 /**

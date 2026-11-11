@@ -230,6 +230,9 @@ importers:
       '@nearesis/semantic-gateway':
         specifier: workspace:*
         version: link:../../packages/semantic-gateway
+      '@nearesis/strict-json':
+        specifier: workspace:*
+        version: link:../../packages/strict-json
       '@nearesis/workflow':
         specifier: workspace:*
         version: link:../../packages/workflow
@@ -361,6 +364,9 @@ importers:
       react-dom:
         specifier: 19.3.1
         version: 19.3.1(react@19.3.1)
+      yjs:
+        specifier: 13.6.33
+        version: 13.6.33
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -556,6 +562,8 @@ importers:
         specifier: 8.23.1
         version: 8.23.1
 
+  packages/strict-json: {}
+
   packages/test-fixtures: {}
 
   packages/ui:
@@ -738,6 +746,9 @@ importers:
       '@nearesis/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@nearesis/strict-json':
+        specifier: workspace:*
+        version: link:../../packages/strict-json
       '@nearesis/test-fixtures':
         specifier: workspace:*
         version: link:../../packages/test-fixtures
@@ -769,6 +780,9 @@ importers:
       '@nearesis/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@nearesis/strict-json':
+        specifier: workspace:*
+        version: link:../../packages/strict-json
       zod:
         specifier: 4.6.7
         version: 4.6.7

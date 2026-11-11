@@ -23,6 +23,7 @@
     "@google-cloud/bigquery": "9.6.0",
     "@nearesis/acceptance": "workspace:*",
     "@nearesis/contracts": "workspace:*",
+    "@nearesis/strict-json": "workspace:*",
     "@nearesis/test-fixtures": "workspace:*",
     "ajv": "8.20.0",
     "ioredis": "6.0.0",

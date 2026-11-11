@@ -20,6 +20,7 @@
     "@nearesis/kernel": "workspace:*",
     "@nearesis/plugin-sdk": "workspace:*",
     "@nearesis/semantic-gateway": "workspace:*",
+    "@nearesis/strict-json": "workspace:*",
     "@nearesis/workflow": "workspace:*",
     "fastify": "5.12.8",
     "ioredis": "6.0.0",

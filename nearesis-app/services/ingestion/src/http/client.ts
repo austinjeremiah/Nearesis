@@ -237,7 +237,10 @@ export class HttpClient {
         ...(wireBody !== undefined ? { body: wireBody } : {}),
         signal: ctl.signal,
       });
-      const buf = new Uint8Array(await res.arrayBuffer());
+      // A provider that echoes a request header or debug field must not put a credential into any archive or log.
+      const buf = this.#o.credentials
+        ? this.#o.credentials.redactBytes(new Uint8Array(await res.arrayBuffer())).bytes
+        : new Uint8Array(await res.arrayBuffer());
       const rh: Record<string, string> = {};
       res.headers.forEach((v, k) => {
         rh[k.toLowerCase()] = v;

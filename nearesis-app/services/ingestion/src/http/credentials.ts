@@ -100,6 +100,47 @@ export class CredentialSource {
     return { totalReads: this.readCount, byName: Object.fromEntries(this.#reads) };
   }
 
+  /**
+   * Removes every secret value (and its base64, base64url, hex and URL-encoded forms) from `bytes`, so a provider that
+   * echoes a request header or a debug field cannot put a credential into an archive, quarantine or log. Only values of
+   * credential-like names (KEY, TOKEN, JWT, SECRET, PASSWORD, CREDENTIAL) of 12 or more characters are considered, so
+   * ordinary environment values never mask data. Returns the input unchanged when nothing matched.
+   */
+  redactBytes(bytes: Uint8Array): { bytes: Uint8Array; hits: number } {
+    if (this.#denied) return { bytes, hits: 0 };
+    let buf = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    let hits = 0;
+    for (const [name, v] of this.#values) {
+      if (v.length < 12 || !/(KEY|TOKEN|JWT|SECRET|PASSWORD|CREDENTIAL)/i.test(name)) continue;
+      const raw = Buffer.from(v, "utf8");
+      const forms = new Set<string>([
+        v,
+        raw.toString("base64"),
+        raw.toString("base64url"),
+        raw.toString("hex"),
+        encodeURIComponent(v),
+        raw.toString("base64").replace(/=+$/, ""),
+      ]);
+      for (const f of forms) {
+        if (f.length < 12 && f !== v) continue;
+        const needle = Buffer.from(f, "utf8");
+        let at = buf.indexOf(needle);
+        if (at < 0) continue;
+        const parts: Buffer[] = [];
+        let from = 0;
+        while (at >= 0) {
+          parts.push(buf.subarray(from, at), Buffer.from("[REDACTED]"));
+          hits++;
+          from = at + needle.length;
+          at = buf.indexOf(needle, from);
+        }
+        parts.push(buf.subarray(from));
+        buf = Buffer.concat(parts);
+      }
+    }
+    return hits === 0 ? { bytes, hits: 0 } : { bytes: new Uint8Array(buf), hits };
+  }
+
   toJSON(): string {
     return "[CredentialSource]";
   }

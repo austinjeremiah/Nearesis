@@ -3,6 +3,7 @@ import "../lib/zod-config.ts";
 import type {
   DomainEvent,
   GridLayout,
+  Lens,
   Marker,
   MarkerSpec,
   PanelSpec,
@@ -116,6 +117,10 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
   const [mobileNav, setMobileNav] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [connection, setConnection] = useState<ConnectionState>("live");
+  const connRef = useRef<ConnectionState>("live");
+  const [denied, setDenied] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [sourceFeedError, setSourceFeedError] = useState(false);
   const [entering, setEntering] = useState<Set<string>>(new Set());
   const [sources, setSources] = useState<SidebarData["sources"]>([]);
   const [user, setUser] = useState<{ name: string }>({ name: "Signed out" });
@@ -194,7 +199,15 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
         );
         return;
       }
-      const d = await b.fetchData(p.queryRef.hash);
+      let d: PanelData | null;
+      try {
+        d = await b.fetchData(p.queryRef.hash);
+      } catch (e) {
+        setState(p.panelId, "ERROR", {
+          error: { code: "QUERY_FAILED", message: `data request failed: ${(e as Error).message}` },
+        });
+        return;
+      }
       if (!d) {
         setState(p.panelId, "ERROR", {
           error: { code: "QUERY_UNRESOLVED", message: "query result not available" },
@@ -210,6 +223,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
 
   useEffect(() => {
     let srcTimer: ReturnType<typeof setInterval> | null = null;
+    let cancelled = false;
     const search = new URLSearchParams(window.location.search);
     void devLoginAvailable().then(setDevLogin);
     const readHash = () => {
@@ -227,7 +241,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     // Signed-in users get the kernel-backed workspace on the semantic layer by default.
     if (!search.has("backend") && /^[0-9a-f-]{36}$/.test(workspaceId))
       void fetch("/api/session", { cache: "no-store" }).then((r) => {
-        if (r.ok) window.location.replace(kernelWorkspaceUrl(workspaceId));
+        if (r.ok) window.location.replace(kernelWorkspaceUrl(workspaceId) + window.location.hash);
       });
     const b = createBackend(new URLSearchParams(window.location.search), workspaceId);
     backendRef.current = b;
@@ -250,6 +264,20 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
           : "light",
     );
     if (b instanceof KernelBackend) {
+      b.onConnection = (st) => {
+        if (st === "denied") {
+          setDenied(true);
+          connRef.current = "offline";
+          setConnection("offline");
+        } else {
+          setDenied(false);
+          const prev = connRef.current;
+          connRef.current = st;
+          setConnection(st);
+          // After an outage events were replayed from the cursor; resync the document so nothing stale lingers.
+          if (st === "live" && prev !== "live") void loadDoc();
+        }
+      };
       b.onReload = () => {
         setConnection("reload_required");
         void loadDoc().then(() => setConnection("live"));
@@ -273,8 +301,12 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
               cache: "no-store",
             },
           )
-            .then((r) => (r.ok ? r.json() : null))
+            .then((r) => {
+              if (!r.ok) throw new Error(`watermarks ${r.status}`);
+              return r.json();
+            })
             .then((w: Record<string, { state: string; newestEventTime: string | null }> | null) => {
+              setSourceFeedError(false);
               if (w)
                 setSources(
                   Object.entries(w).map(([id, v]) => ({
@@ -286,26 +318,44 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
                   })),
                 );
             })
-            .catch(() => undefined);
+            .catch(() => {
+              // A broken feed means freshness is unknown: never keep showing the last "fresh" state.
+              setSourceFeedError(true);
+              setSources((cur) => cur.map((x) => ({ ...x, freshness: "unavailable" as const })));
+            });
         void loadSources();
         srcTimer = setInterval(() => void loadSources(), 5000);
       }
     }
-    const goOffline = () => setConnection("offline");
-    const goOnline = () => setConnection("live");
+    const goOffline = () => {
+      connRef.current = "offline";
+      setConnection("offline");
+    };
+    const goOnline = () => {
+      // The stream reports "live" itself once it is open again; until then do not claim it.
+      if (b instanceof KernelBackend) b.retryStream();
+      else setConnection("live");
+    };
     window.addEventListener("offline", goOffline);
     window.addEventListener("online", goOnline);
     setChatOpen(window.innerWidth > 900);
     let unsub = () => {};
     void (async () => {
-      const d = await loadDoc();
-      if (b.mode === "kernel") setChatOpen(window.innerWidth > 900 && d.panels.length === 0);
-      else setChatOpen(false);
-      await Promise.all(d.panels.map(loadPanel));
-      unsub = b.subscribe(onEvent);
+      try {
+        const d = await loadDoc();
+        if (b.mode === "kernel") setChatOpen(window.innerWidth > 900 && d.panels.length === 0);
+        else setChatOpen(false);
+        await Promise.all(d.panels.map(loadPanel));
+        // A superseded mount (React strict-mode remount, route change) must not leave a second event stream open.
+        if (!cancelled) unsub = b.subscribe(onEvent);
+      } catch (e) {
+        hooks().lastError = String(e);
+        setLoadError(e instanceof Error ? e.message : String(e));
+      }
       hooks().ready = true;
     })();
     return () => {
+      cancelled = true;
       unsub();
       if (srcTimer) clearInterval(srcTimer);
       window.removeEventListener("hashchange", readHash);
@@ -368,6 +418,12 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       if (e.type === "snapshot.finalized" && e.data.kind === "watermark") {
         const provider = String(e.data.providerId);
         const state = String(e.data.state) as PanelData["chart"]["freshness"];
+        // The sidebar must not keep saying "fresh" until the next poll: apply the transition immediately.
+        setSources((cur) =>
+          cur.map((x) =>
+            x.id === provider ? { ...x, freshness: state as SidebarData["sources"][number]["freshness"] } : x,
+          ),
+        );
         setData((m) => {
           const next = { ...m };
           for (const [h, pd] of Object.entries(m))
@@ -409,7 +465,13 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
       const b = backendRef.current;
       const d = docRef.current;
       if (!b || !d) return false;
-      const r = await b.apply(ops, d.revision, kind);
+      let r: Awaited<ReturnType<typeof b.apply>>;
+      try {
+        r = await b.apply(ops, d.revision, kind);
+      } catch (e) {
+        setToast(`Not saved: the request failed (${(e as Error).message}). The document is unchanged.`);
+        return false;
+      }
       if (!r.ok) {
         setToast(
           `${r.status === 409 ? "Conflict" : "Rejected"}: ${r.message}${r.report ? ` (${r.report.issues.map((i) => i.code).join(", ")})` : ""}`,
@@ -682,6 +744,11 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     )
       void applyLens(monUi.lensId);
   }, [mon.status, mon.data.lenses, monUi.lensId, lens, applyLens]);
+  /** Lens filters the canvas panels cannot apply (they filter by time only); listed on every affected panel. */
+  const unappliedFilters = (f: Lens["filter"]): string[] => [
+    ...(f.segment ? [`segment ${f.segment.dimension} in ${f.segment.values.join(", ")}`] : []),
+    ...(f.route ? [`route ${f.route}`] : []),
+  ];
   const panelMonitoring = (p: PanelSpec): PanelMonitoring | undefined => {
     if (!mon.api) return undefined;
     const l = lens ? mon.data.lenses.find((x) => x.lensId === lens.lensId) : null;
@@ -714,7 +781,8 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
                 ? (res.reason ?? "incompatible")
                 : res.appliedFilter?.timeRange
                   ? null
-                  : "the lens has no date range; segment filters are not applied on the canvas yet",
+                  : "the lens has no date range",
+              unapplied: res.compatible ? unappliedFilters(res.appliedFilter ?? l.filter) : [],
             }
           : null,
     };
@@ -856,6 +924,7 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
             data={sidebar}
             active={view}
             monitoring={mon.api ? { unread: mon.unread } : undefined}
+            research={kernel}
             onSwitchWorkspace={(id) => window.location.assign(kernelWorkspaceUrl(id, source))}
             collapsed={navCollapsed}
             onToggleCollapsed={() => setNavCollapsed((c) => !c)}
@@ -868,6 +937,13 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
             }
             onNavigate={(key) => {
               setMobileNav(false);
+              if (key.startsWith("page:")) {
+                // Research pages are separate routes of the same workspace (kernel workspaces only).
+                window.location.assign(
+                  `/w/${workspaceId}/${key.slice(5)}${source === "live" ? "?source=live" : ""}`,
+                );
+                return;
+              }
               if (key.startsWith("inv:")) {
                 const id = key.slice(4);
                 setChatOpen(true);
@@ -999,6 +1075,47 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
             layer.
           </HonestyBanner>
         )}
+        {connection !== "live" && view === "canvas" && (
+          <HonestyBanner data-testid="connection-banner">
+            {denied
+              ? "Live updates stopped: this session no longer has access to the workspace. Sign in again."
+              : connection === "reconnecting"
+                ? "Live updates paused: reconnecting. The data shown may be out of date."
+                : connection === "reload_required"
+                  ? "Live updates were interrupted; reloading the latest state."
+                  : "Offline: live updates stopped. The data shown may be out of date."}{" "}
+            {connection === "offline" && !denied && backendRef.current instanceof KernelBackend && (
+              <button
+                type="button"
+                className="nz-btn"
+                data-testid="stream-retry"
+                onClick={() => (backendRef.current as KernelBackend).retryStream()}
+              >
+                Retry now
+              </button>
+            )}
+          </HonestyBanner>
+        )}
+        {sourceFeedError && (
+          <HonestyBanner data-testid="source-feed-error">
+            The source freshness feed is unavailable. Freshness of the data shown is unknown, not fresh.
+          </HonestyBanner>
+        )}
+        {loadError && (
+          <div className="nz-state" role="alert" data-testid="workspace-error">
+            <p>
+              Could not load this workspace ({loadError}). Nothing is shown rather than stale or partial data.
+            </p>
+            <button
+              type="button"
+              className="nz-btn"
+              data-testid="workspace-retry"
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </button>
+          </div>
+        )}
         {mode === "fixture" && (
           <HonestyBanner data-testid="mode-badge">fixture mode · SYNTHETIC data</HonestyBanner>
         )}
@@ -1032,10 +1149,8 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
               setTimeout(() => focusPanel(id), 80);
             }}
             onOpenEvidence={(id) => {
-              navigateView("canvas");
-              setToast(
-                `Evidence ${id.slice(0, 8)} is linked to this marker; open the evidence graph panel to follow it.`,
-              );
+              // The evidence graph page; `node` carries the linked node id so the explorer can select it.
+              window.location.assign(`/w/${workspaceId}/evidence?node=${encodeURIComponent(id)}`);
             }}
             onNotice={setToast}
             onBack={() => navigateView("canvas")}
@@ -1069,7 +1184,15 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
                 panel={p}
                 runtime={runtimes[p.panelId] ?? initialRuntime()}
                 data={data[p.queryRef.hash] ?? null}
-                markers={markersByPanel[p.panelId] ?? []}
+                markers={
+                  // A marker the monitoring store already draws (same id) is not drawn a second time from the canvas
+                  // document: the kernel returns the same marker through both reads after a reload.
+                  mon.api
+                    ? (markersByPanel[p.panelId] ?? []).filter(
+                        (m) => !mon.data.markers.some((x) => x.markerId === m.markerId),
+                      )
+                    : (markersByPanel[p.panelId] ?? [])
+                }
                 monitoring={panelMonitoring(p)}
                 graph={p.kind === "evidenceGraph" ? graph : null}
                 entering={entering.has(p.panelId)}

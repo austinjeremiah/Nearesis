@@ -72,6 +72,7 @@ export function describeAnchor(a: Marker["anchor"]): string {
 const OP: Record<string, string> = { gt: ">", gte: ">=", lt: "<", lte: "<=", eq: "=", ne: "!=" };
 export function describeCondition(c: Condition): string {
   if (c.kind === "compare") return `${c.metricId} ${OP[c.op]} ${c.value}`;
+  if (c.kind === "zscore") return `|z(${c.metricId}, ${c.windowDays} d)| > ${c.absoluteGt}`;
   if (c.kind === "not") return `not (${describeCondition(c.term)})`;
   return c.terms.map((t) => `(${describeCondition(t)})`).join(c.kind === "and" ? " and " : " or ");
 }

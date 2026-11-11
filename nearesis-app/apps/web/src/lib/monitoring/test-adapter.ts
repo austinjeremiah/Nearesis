@@ -85,6 +85,8 @@ export class TestMonitoringAdapter implements MonitoringApi {
       status: "DRAFT",
       version: 1,
       selection: p.selection ?? null,
+      mode: "live",
+      reasonCode: null,
     };
     this.markers.push(m);
     return ok({ markerId: m.markerId });
@@ -120,6 +122,9 @@ export class TestMonitoringAdapter implements MonitoringApi {
       mode: "live",
       agents: p.agents,
       createdAt: new Date().toISOString(),
+      triggerId: null,
+      reasonCode: null,
+      grants: [],
     });
     return ok();
   }
@@ -196,6 +201,9 @@ export class TestMonitoringAdapter implements MonitoringApi {
       version: 1,
       createdBy: null,
       createdAt: new Date().toISOString(),
+      semanticVersion: null,
+      dataMaturity: p.dataMaturity ?? "finalized_only",
+      maxRunsPerDay: p.maxRunsPerDay ?? null,
     });
     return ok();
   }

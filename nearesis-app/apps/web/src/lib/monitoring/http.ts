@@ -50,37 +50,41 @@ export class HttpMonitoringApi implements MonitoringApi {
     }
   }
 
+  /**
+   * One command envelope. A concurrent canvas patch (for example the selection saved just before "Monitor selection")
+   * can advance the workspace version between our read and write: STALE_VERSION is retried with a fresh version and the
+   * same commandId (idempotent), at most 3 times. Every other rejection is returned as is.
+   */
   private async command(commandType: string, payload: unknown): Promise<CommandResult> {
-    const ws = await fetch(this.url(""), { cache: "no-store" }).catch(() => null);
-    if (!ws?.ok)
-      return {
-        ok: false,
-        status: ws?.status ?? 0,
-        reasonCode: "WORKSPACE_UNAVAILABLE",
-        message: "workspace not accessible",
-      };
-    const { version } = (await ws.json()) as { version: number };
-    const r = await fetch(this.url("/commands"), {
-      method: "POST",
-      headers: { "content-type": "application/json", "if-match": String(version) },
-      body: JSON.stringify({
-        apiVersion: "v1",
-        commandId: crypto.randomUUID(),
-        commandType,
-        payload,
-        expectedVersion: version,
-      }),
-    }).catch(() => null);
-    if (!r) return { ok: false, status: 0, reasonCode: "NETWORK", message: "network error" };
-    const body = (await r.json().catch(() => ({}))) as { reasonCode?: string; message?: string };
-    if (!r.ok)
-      return {
+    const commandId = crypto.randomUUID();
+    let last: CommandResult = { ok: false, status: 0, reasonCode: "NETWORK", message: "network error" };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const ws = await fetch(this.url(""), { cache: "no-store" }).catch(() => null);
+      if (!ws?.ok)
+        return {
+          ok: false,
+          status: ws?.status ?? 0,
+          reasonCode: "WORKSPACE_UNAVAILABLE",
+          message: "workspace not accessible",
+        };
+      const { version } = (await ws.json()) as { version: number };
+      const r = await fetch(this.url("/commands"), {
+        method: "POST",
+        headers: { "content-type": "application/json", "if-match": String(version) },
+        body: JSON.stringify({ apiVersion: "v1", commandId, commandType, payload, expectedVersion: version }),
+      }).catch(() => null);
+      if (!r) return last;
+      const body = (await r.json().catch(() => ({}))) as { reasonCode?: string; message?: string };
+      if (r.ok) return { ok: true, value: body };
+      last = {
         ok: false,
         status: r.status,
         reasonCode: body.reasonCode ?? "REJECTED",
         message: body.message ?? `HTTP ${r.status}`,
       };
-    return { ok: true, value: body };
+      if (!(r.status === 409 && body.reasonCode === "STALE_VERSION")) return last;
+    }
+    return last;
   }
 
   createMarker = (p: object) => this.command("marker.create", p);

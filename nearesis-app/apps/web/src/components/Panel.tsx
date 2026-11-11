@@ -104,7 +104,13 @@ export interface PanelMonitoring {
   onMonitorSelection: () => void;
   onOpenMonitoring: () => void;
   /** Lens window applied to this panel, or why the lens could not be applied. */
-  lens: { name: string; range: { start: string; end: string } | null; skipped: string | null } | null;
+  lens: {
+    name: string;
+    range: { start: string; end: string } | null;
+    skipped: string | null;
+    /** Lens filters this panel cannot apply (segment, route): always shown, never silently ignored. */
+    unapplied?: string[];
+  } | null;
 }
 
 export function Panel(props: {
@@ -354,6 +360,12 @@ export function Panel(props: {
               {lens.skipped
                 ? `Lens "${lens.name}" not applied: ${lens.skipped}`
                 : `Lens "${lens.name}" applied${lens.range ? ` (${lens.range.start.slice(0, 10)} to ${lens.range.end.slice(0, 10)})` : ""}.`}
+              {lens.unapplied?.length ? (
+                <span data-testid="lens-unapplied">
+                  {" "}
+                  Not applied on this panel: {lens.unapplied.join("; ")}.
+                </span>
+              ) : null}
             </PanelNotice>
           )}
           {runtime.state === "STALE" && (

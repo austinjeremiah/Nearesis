@@ -38,3 +38,12 @@ Zod contract: `ResearchRunArtifact` in `packages/contracts/src/research-artifact
 `narrative.render_narrative` / `verify_narrative` build and check sentences from the computed facts; any numeric token not present in the facts is rejected.
 
 Reproduction tolerance: 1e-9 absolute on float leaves; canonical-JSON section hashes are exact when floats agree to 10 decimals.
+
+## G07 tests Q11 to Q22 (ch.16b)
+
+All analysis parameters live in the frozen block of `docs/research/PREREGISTRATION.md`; `docs/research/PREREGISTRATION.freeze.json` records its canonical hash (CRLF to LF, NFC, UTF-8, trailing whitespace kept) and the freeze time. Code reads values only through `nearesis_research.frozen.load_frozen().get(path)`. Evaluation results are appended to `.data/research/audit/<hash>.jsonl`; the freeze must precede the first entry. A document that differs from its freeze record makes a result `post-hoc registration` with `exploratory` strength.
+
+- `rolling.py` (Q11), `targets.py` (Q12), `overlap.py` and `publication.py` (Q13), `inference.py` `dm_paired` and `paired_comparison` (Q14), `verdict.py` (Q15), `registration.py` (Q16), `lockbox_protocol.py` (Q17, including the audit-replay path), `robustness.py` (Q18), `adversarial.py` (Q19, scripted branches), `manifest.py` and `cli g07-run` (Q20), `quant_supervisor.py` with `quant_worker/worker.mjs` (Q21), `thesis.py` (Q22). `negative_controls.py` holds deliberately wrong implementations used only by tests.
+- Measurements: `PYTHONPATH=services/research uv run python -m nearesis_research.accept_cases_g07 Q14`. Verdicts: `pnpm accept --id Q14 --session <agent>`.
+- Q21 needs Docker and the local `node:24-bookworm-slim` image; Q20 needs `uv sync --frozen --offline` to work from the local cache.
+- Audit replay of the holdout: `HoldoutProtocol.audit_replay` (same configuration hash, seeds and data digest; counted separately, never raises strength). `cli g07-run --audit-replay-of <configHash>` for a clean-environment rerun.

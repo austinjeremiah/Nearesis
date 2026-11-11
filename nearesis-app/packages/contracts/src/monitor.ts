@@ -60,7 +60,22 @@ export const TaskStatus = z.enum([
 export const BoardTask = z.strictObject({
   id: z.string().regex(/^T-[A-Z0-9-]+$/),
   title: z.string(),
-  phase: z.enum(["P00", "P01", "P02", "P03", "P04", "P05", "INT"]),
+  phase: z.enum([
+    "P00",
+    "P01",
+    "P02",
+    "P03",
+    "P04",
+    "P05",
+    "P06",
+    "P07",
+    "P08",
+    "P09",
+    "P10",
+    "P11",
+    "P12",
+    "INT",
+  ]),
   owner: z.string(),
   status: TaskStatus,
   dependsOn: z.array(z.string()),
@@ -103,7 +118,7 @@ export type CoordinationEvent = z.infer<typeof CoordinationEvent>;
 /** ch.16 PASS evidence per test (templates/TEST_RESULT.json). */
 export const TestVerdict = z.enum(["PASS", "FAIL", "BLOCKED_DEPENDENCY", "NOT_RUN"]);
 export const TestResult = z.strictObject({
-  testId: z.string().regex(/^(BOOT|K|D|S|A|C)\d{2}$/),
+  testId: z.string().regex(/^(BOOT|K|D|S|A|C|M|Q|W|V|B|SEC|PERF|N)\d{2}$/),
   phase: z.string(),
   runId: z.string().min(1),
   executedAt: IsoDateTime,

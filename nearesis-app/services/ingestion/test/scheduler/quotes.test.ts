@@ -9,7 +9,8 @@ import { ALLOW_ONECLICK, HttpClient } from "../../src/http/client.ts";
 import { CredentialSource } from "../../src/http/credentials.ts";
 import { loadConfig } from "../../src/scheduler/config.ts";
 import { DEFAULT_ROUTES } from "../../src/scheduler/plan.ts";
-import { runQuoteRound, ScheduledQuoteSampler, type QuoteRow } from "../../src/scheduler/quotes.ts";
+import { OneClickQuoteSampler } from "../../src/adapters/oneclick.ts";
+import { runQuoteRound, type QuoteRow } from "../../src/scheduler/quotes.ts";
 import { SchedulerStateStore } from "../../src/scheduler/state.ts";
 import { FixtureServer, type FakeResponse, type ServedRequest } from "../../src/testing/servers.ts";
 
@@ -79,7 +80,7 @@ function rig(
   const server = new OneClickFake(clock);
   const http = new HttpClient({ allow: [ALLOW_ONECLICK], fetchImpl: server.fetchImpl, clock });
   const archive = new RawArchive(new FsObjectStore(join(tmp, name, "raw")), null);
-  const sampler = new ScheduledQuoteSampler({ http, archive, clock, sourceEnvironment: "live" });
+  const sampler = new OneClickQuoteSampler({ http, archive, clock, sourceEnvironment: "live" });
   const store = new SchedulerStateStore(join(tmp, name, "state.json"));
   const cfg = { ...loadConfig({}), quotePaceMs: 0, quoteNotionalsUsd: [10, 100], ...over };
   const rows: QuoteRow[] = [];

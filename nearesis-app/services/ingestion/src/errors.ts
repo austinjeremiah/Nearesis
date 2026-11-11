@@ -3,6 +3,7 @@ export type IngestionErrorCode =
   | "EGRESS_DENIED"
   | "ENDPOINT_NOT_ALLOWLISTED"
   | "DRY_REQUIRED"
+  | "QUOTE_ONLY_WIRE_VIOLATION"
   | "BQ_REJECTED"
   | "AUTH_REJECTED"
   | "RATE_LIMITED"

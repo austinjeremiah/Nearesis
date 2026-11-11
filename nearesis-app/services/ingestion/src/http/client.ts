@@ -2,6 +2,7 @@ import type { Clock } from "../clock.ts";
 import { systemClock } from "../clock.ts";
 import { IngestionError } from "../errors.ts";
 import type { CredentialSource } from "./credentials.ts";
+import { assertQuoteOnlyWire } from "./quote-wire-guard.ts";
 import { redactHeaders, redactUrl } from "./redact.ts";
 
 export interface AllowRule {
@@ -119,6 +120,9 @@ export class HttpClient {
       const v = this.#o.credentials?.get(r.auth.credential);
       if (v) headers[r.auth.header] = r.auth.scheme === "" ? v : `${r.auth.scheme ?? "Bearer"} ${v}`;
     }
+    const wireBody = r.body !== undefined ? JSON.stringify(r.body) : undefined;
+    // Final-transport guard: independent of the allowlist and of whoever built this client.
+    assertQuoteOnlyWire(r.method, r.url, wireBody);
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), r.timeoutMs ?? this.#o.defaultTimeoutMs ?? 30_000);
     const entry: RequestLogEntry = {
@@ -135,7 +139,7 @@ export class HttpClient {
       const res = await f(redactNothing(r.url), {
         method: r.method,
         headers,
-        ...(r.body !== undefined ? { body: JSON.stringify(r.body) } : {}),
+        ...(wireBody !== undefined ? { body: wireBody } : {}),
         signal: ctl.signal,
       });
       const buf = new Uint8Array(await res.arrayBuffer());

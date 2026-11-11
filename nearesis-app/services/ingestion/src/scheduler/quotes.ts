@@ -1,10 +1,5 @@
 import { IngestionError } from "../errors.ts";
-import {
-  OneClickQuoteSampler,
-  type QuoteRequestBody,
-  type SamplerAttemptResult,
-  type SlotSpec,
-} from "../adapters/oneclick.ts";
+import { OneClickQuoteSampler, type SamplerAttemptResult } from "../adapters/oneclick.ts";
 import type { CredentialSource } from "../http/credentials.ts";
 import { quoteAddress, type SchedulerConfig } from "./config.ts";
 import {
@@ -19,18 +14,6 @@ import {
 import type { SchedulerStateStore } from "./state.ts";
 
 export type QuoteRow = Record<string, unknown>;
-
-/**
- * The live API only accepts lowercase confidentiality values (`public`, `basic`, `advanced`; HTTP 400 otherwise, observed
- * 2026-11-11), while the shared adapter sends them upper-case. The scheduler corrects the body here, without touching the
- * adapter; public keeps the field out of the request, as the adapter does. Everything else (dry:true, allowlist) is unchanged.
- */
-export class ScheduledQuoteSampler extends OneClickQuoteSampler {
-  override buildBody(s: SlotSpec): QuoteRequestBody {
-    const { confidentiality: _upper, ...body } = super.buildBody(s);
-    return s.privacyMode === "public" ? body : { ...body, confidentiality: s.privacyMode };
-  }
-}
 
 export interface QuoteRoundDeps {
   sampler: OneClickQuoteSampler;

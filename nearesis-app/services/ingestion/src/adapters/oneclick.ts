@@ -273,6 +273,7 @@ export class OneClickQuoteSampler {
     return { tokens, objectHash: a.observation.payloadObjectHash };
   }
 
+  /** Official OpenAPI (1click.chaindefuser.com/docs/v0/openapi.yaml): confidentiality enum is lowercase `public|basic|advanced`; public is the default and is omitted. */
   buildBody(s: SlotSpec): QuoteRequestBody {
     return {
       dry: true,
@@ -287,7 +288,7 @@ export class OneClickQuoteSampler {
       recipientType: "DESTINATION_CHAIN",
       amount: s.amountBaseUnits,
       deadline: new Date(this.d.clock.now() + 10 * 60_000).toISOString(),
-      ...(s.privacyMode === "public" ? {} : { confidentiality: s.privacyMode.toUpperCase() }),
+      ...(s.privacyMode === "public" ? {} : { confidentiality: s.privacyMode }),
     };
   }
 

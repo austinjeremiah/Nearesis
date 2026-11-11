@@ -24,7 +24,8 @@ import {
 import { runBqDaily, runPriceDaily } from "./daily.ts";
 import { runExplorerForward } from "./explorer-forward.ts";
 import { backoffMs, dueTasks, pendingBqDays, pendingPriceDays, type Facts } from "./plan.ts";
-import { runQuoteRound, ScheduledQuoteSampler } from "./quotes.ts";
+import { runQuoteRound } from "./quotes.ts";
+import { OneClickQuoteSampler } from "../adapters/oneclick.ts";
 import type { SchedulerStateStore } from "./state.ts";
 import { emitWatermarks } from "./watermarks.ts";
 
@@ -169,7 +170,7 @@ export class Scheduler {
       }
       case "quotes": {
         const http = new HttpClient({ allow: [ALLOW_ONECLICK], credentials: this.creds, clock: this.clock });
-        const sampler = new ScheduledQuoteSampler({
+        const sampler = new OneClickQuoteSampler({
           http,
           archive,
           clock: this.clock,

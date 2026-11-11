@@ -243,13 +243,22 @@ export function buildClaims(
       text: `With a lag of ${r.value} days, the correlation of ${names.x} with ${names.y} is ${v(`lag-${k}-pearson`)}.`,
     });
   }
-  if (research)
+  if (research) {
+    // Amendment 002: an observed lower forecast error is not a statistical-significance claim. When the research run
+    // carries an inference summary that does not support the primary claim, the thesis says so explicitly.
+    const inferenceSummary = get(research, "estimates", "inferenceSummary") as
+      Record<string, unknown> | undefined;
+    const significanceNote =
+      inferenceSummary && inferenceSummary.primaryStatisticalClaim !== "supported"
+        ? " Statistical significance is not claimed: the forecast-comparison inference is not validated for this comparison, so lower observed error is not evidence of a meaningful difference."
+        : "";
     claims.push({
       id: "c-hypothesis",
       claimClass: "hypothesis",
       resultIds: ["research-status"],
-      text: `Pre-registered hypothesis that ${names.x} improves forecasts of the target beyond a baseline: the research run verdict is ${v("research-status")}. This is a fixture run and makes no live claim.`,
+      text: `Pre-registered hypothesis that ${names.x} improves forecasts of the target beyond a baseline: the research run verdict is ${v("research-status")}. This is a fixture run and makes no live claim.${significanceNote}`,
     });
+  }
   claims.push({
     id: "c-no-causal",
     claimClass: "agent_interpretation",

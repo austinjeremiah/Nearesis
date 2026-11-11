@@ -24,12 +24,15 @@ export const CLAIM_LABEL: Record<ClaimClass, string> = {
  */
 export interface ThesisSeriesDef {
   key: string;
+  /** Certified metric id (the gateway resolves measures by metric id). */
   member: string;
   timeField: string;
   group: "intents" | "adoption" | "price";
   label: string;
   definition: string;
   limitation: string;
+  /** Member mapping on the LIVE real-data layer (its own certified registry). */
+  live: { member: string; timeField: string; definition?: string; limitation?: string };
 }
 export const THESIS_SERIES: readonly ThesisSeriesDef[] = [
   {
@@ -41,6 +44,7 @@ export const THESIS_SERIES: readonly ThesisSeriesDef[] = [
     definition: "Explorer-reported 1Click swaps with status SUCCESS, by UTC creation day.",
     limitation:
       "Explorer covers 1Click only, not all Intents activity; private-settlement swaps (from 2026-10-27) are partner-reported.",
+    live: { member: "live.oneclick_completed_swap_count", timeField: "intents_swaps_live.day" },
   },
   {
     key: "volume",
@@ -51,26 +55,36 @@ export const THESIS_SERIES: readonly ThesisSeriesDef[] = [
     definition: "Sum of provider-reported amountInUsd for completed 1Click swaps, by UTC day.",
     limitation:
       "USD values are the provider's conversion at swap time; in-flight swaps report 0 and are excluded.",
+    live: {
+      member: "live.oneclick_volume_usd_known",
+      timeField: "intents_swaps_live.day",
+      definition:
+        "Sum of provider-reported amountInUsd for completed 1Click swaps whose USD value is known, by UTC day.",
+      limitation:
+        "Swaps with an unknown USD value are excluded, not counted as zero; see the USD-completeness ratio on the live layer. Explorer covers 1Click only.",
+    },
   },
   {
     key: "tx",
-    member: "near_usage.daily_successful_tx_count",
+    member: "near.daily_successful_tx_count",
     timeField: "near_usage.day",
     group: "adoption",
     label: "Successful NEAR transactions",
     definition: "Confirmed successful transactions per UTC block_date from the NEAR BigQuery public dataset.",
     limitation:
       "Transaction counts include bots and protocol activity; they are an adoption proxy, not users.",
+    live: { member: "live.near_tx_count", timeField: "near_daily_tx_live.day" },
   },
   {
     key: "signers",
-    member: "near_usage.distinct_signer_proxy",
+    member: "near.distinct_signer_proxy",
     timeField: "near_usage.day",
     group: "adoption",
     label: "Daily distinct signers (proxy)",
     definition: "Distinct signer accounts per UTC day. Not unique humans; never summed across days.",
     limitation:
       "Signer accounts are a proxy: one person can control many accounts and many accounts are automated.",
+    live: { member: "live.near_distinct_signer_proxy", timeField: "near_daily_tx_live.day" },
   },
   {
     key: "price",
@@ -80,6 +94,7 @@ export const THESIS_SERIES: readonly ThesisSeriesDef[] = [
     label: "NEAR close price (USD)",
     definition: "CoinGecko daily close for NEAR/USD, by UTC day; missing days stay gaps.",
     limitation: "A single market aggregator; prices are not volume-weighted across venues.",
+    live: { member: "live.price_close_usd", timeField: "price_candles_live.day" },
   },
 ];
 

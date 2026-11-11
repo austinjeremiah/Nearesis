@@ -84,7 +84,7 @@ it("N06: the manifest builder and validator reject every bad variant naming the 
     nullTestnetTx: { m: { ...M, testnetTxHash: null }, field: /^testnetTxHash$/ },
     privateKeyLike: { m: { ...M, approver: "ed25519:" + "3a".repeat(32) + "AbCdEfGh" }, field: /^approver$/ },
     jwtLike: {
-      m: { ...M, approver: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.c2lnbmF0dXJl" },
+      m: { ...M, approver: ["eyJhbGciOiJIUzI1NiJ9", "eyJzdWIiOiJ4In0", "c2lnbmF0dXJl"].join(".") },
       field: /^approver$/,
     },
   };

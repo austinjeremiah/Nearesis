@@ -2,7 +2,6 @@ import { registerHistoryCommands } from "./history-commands.ts";
 import { registerMonitoringCommands } from "./monitoring/commands.ts";
 import {
   CommandType,
-  MarkerAnchor,
   WorkspaceCommand as ContractWorkspaceCommand,
   CommandAccepted as CommandAcceptedSchema,
 } from "@nearesis/contracts";

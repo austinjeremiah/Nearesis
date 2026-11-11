@@ -14,7 +14,7 @@ services:
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       { test: ["CMD-SHELL", "pg_isready -U nearesis -d nearesis"], interval: 3s, timeout: 3s, retries: 30 }
-    mem_limit: 768m
+    mem_limit: 2g
   redis:
     image: redis:8.6.8@sha256:8b30009c0de4fdb3fb67deb8afab050fe454e9b233c6a2c142ec34fcc51fa7f5
     ports: ["127.0.0.1:56379:6379"]

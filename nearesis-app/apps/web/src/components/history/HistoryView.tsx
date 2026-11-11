@@ -215,8 +215,8 @@ export function HistoryView({ workspaceId }: { workspaceId: string }) {
           id: string;
           sourceBranchId: string;
           status: string;
-          conflicts: number;
-          changes: number;
+          conflictCount: number;
+          changeCount: number;
         }>;
       }>(`${api}/merge-proposals`),
     ]);

@@ -146,7 +146,7 @@ export async function runSandboxed(spec: SandboxSpec): Promise<SandboxResult> {
         PATH: process.env.PATH ?? "",
         HOME: process.env.HOME ?? "",
         DOCKER_HOST: process.env.DOCKER_HOST ?? "",
-      },
+      } as unknown as NodeJS.ProcessEnv,
       stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "";

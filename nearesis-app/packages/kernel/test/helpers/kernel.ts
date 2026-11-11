@@ -103,6 +103,8 @@ export function testKernel(
       pluginRoot: FIXTURE_ROOT,
       engineInterfaces: DEFAULT_ENGINE_INTERFACES,
       quarantineAfterFailures: 3,
+      // fixtures from the test publisher stand in for the platform's first-party connectors
+      execution: { internalPublishers: [TEST_PUBLISHER] },
       ...over,
     },
     sessionSecret: extra.sessionSecret ?? "test-session-secret-0123456789abcdef",

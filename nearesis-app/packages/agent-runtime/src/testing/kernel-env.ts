@@ -68,6 +68,7 @@ export async function makeKernelEnv(opts: { rtdb?: TestDatabase } = {}): Promise
       pluginRoot: APP_ROOT,
       engineInterfaces: DEFAULT_ENGINE_INTERFACES,
       quarantineAfterFailures: 1000,
+      execution: { internalPublishers: [TEST_PUBLISHER] },
     },
     sessionSecret: "a6-test-session-secret-0123456789abcdef",
     nodeEnv: "test",

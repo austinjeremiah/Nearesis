@@ -1,7 +1,7 @@
 import net from "node:net";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { rig } from "../../../tests/security/_plugin-harness.ts";
+import { hostileManifest, rig } from "../../../tests/security/_plugin-harness.ts";
 import type { Rig } from "../../../tests/security/_plugin-harness.ts";
 
 let r: Rig;
@@ -63,5 +63,73 @@ describe("plugin confinement on the real execution path", () => {
       s.on("error", rej);
     });
     s.destroy();
+  });
+});
+
+describe("internal endpoints are exact grants, never an exemption", () => {
+  let a: net.Server;
+  let b: net.Server;
+  let portA = 0;
+  let portB = 0;
+  let hitsB = 0;
+  const serve = (count?: () => void) =>
+    net.createServer((s) => {
+      count?.();
+      s.end("HTTP/1.1 200 OK\r\ncontent-length: 2\r\nconnection: close\r\n\r\nhi");
+    });
+  beforeAll(async () => {
+    a = serve();
+    b = serve(() => hitsB++);
+    await new Promise<void>((res) => a.listen(0, "127.0.0.1", res));
+    await new Promise<void>((res) => b.listen(0, "127.0.0.1", res));
+    portA = (a.address() as AddressInfo).port;
+    portB = (b.address() as AddressInfo).port;
+  });
+  afterAll(async () => {
+    a?.close();
+    b?.close();
+  });
+  const revive = (x: Rig) =>
+    x.db.admin.query("UPDATE plugin_installations SET state = 'enabled', consecutive_failures = 0");
+
+  it("a trusted plugin reaches only its declared internal ip:port; public egress and other ports are refused", async () => {
+    const t = await rig({
+      prefix: "conf-int",
+      manifest: hostileManifest({ networkHosts: [`127.0.0.1:${portA}`] }),
+      execution: { internalPublishers: ["nearesis-test"] },
+    });
+    try {
+      await revive(t);
+      const ok = await t.invoke({ action: "bare-fetch", url: `http://127.0.0.1:${portA}/` });
+      expect(ok.state).toBe("ok");
+      for (const attack of [
+        { action: "bare-fetch", url: `http://127.0.0.1:${portB}/` },
+        { action: "net-connect", host: "127.0.0.1", port: portB },
+        { action: "bare-fetch", url: "http://93.184.216.34/" },
+        { action: "bare-fetch", url: "https://example.org/" },
+        { action: "dns-lookup", host: "example.org" },
+        { action: "spawn-curl", url: `http://127.0.0.1:${portA}/` },
+      ]) {
+        await revive(t);
+        const res = await t.invoke(attack);
+        expect(res.reasonCode, JSON.stringify(attack)).toBe("PLUGIN_EGRESS_VIOLATION");
+      }
+      expect(hitsB).toBe(0);
+    } finally {
+      await t.drop();
+    }
+  });
+
+  it("an untrusted plugin that declares the same internal endpoint stays fully confined", async () => {
+    const u = await rig({
+      prefix: "conf-unt",
+      manifest: hostileManifest({ networkHosts: [`127.0.0.1:${portA}`] }),
+    });
+    try {
+      const res = await u.invoke({ action: "bare-fetch", url: `http://127.0.0.1:${portA}/` });
+      expect(res.reasonCode).toBe("PLUGIN_EGRESS_VIOLATION");
+    } finally {
+      await u.drop();
+    }
   });
 });

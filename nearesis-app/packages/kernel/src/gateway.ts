@@ -380,19 +380,18 @@ export class KernelToolGateway implements ToolGateway {
     const timeoutMs = Math.min(capability.timeoutMs, req.deadlineMs);
     const ac = new AbortController();
     let timer: NodeJS.Timeout | undefined;
-    // Platform-internal connectors: a signature-verified manifest that names internal endpoints (loopback or private IP
-    // literals such as the semantic layer) in `networkHosts` is a reviewed first-party module that talks to platform
-    // services through injected adapters (database pools, semantic gateway), so its handler is not network-confined.
-    // `internalPublishers` narrows this to named publishers and `[]` disables the exemption. Everything else is confined.
-    const publishers = this.plugins.config.execution?.internalPublishers;
-    const platformInternal =
-      installation.trust === "production" &&
-      internalEndpointsOf(installation.manifest.networkHosts).size > 0 &&
-      (publishers === undefined || publishers.includes(installation.manifest.publisher));
+    // Internal endpoints: only a signature-verified manifest from a publisher named in `internalPublishers` (default
+    // none) gets direct access, and only to the exact internal ip:port pairs it declares. Everything else is refused.
+    const publishers = this.plugins.config.execution?.internalPublishers ?? [];
+    const internal =
+      installation.trust === "production" && publishers.includes(installation.manifest.publisher)
+        ? internalEndpointsOf(installation.manifest.networkHosts)
+        : new Set<string>();
     const confinement: Confinement = {
       pluginId: installation.pluginId,
       capability: req.capability,
       violations: [],
+      ...(internal.size > 0 ? { internalEndpoints: internal } : {}),
     };
     let lastError: unknown;
     const TIMEOUT = Symbol("timeout");
@@ -417,7 +416,7 @@ export class KernelToolGateway implements ToolGateway {
         }
       };
       const run = Promise.resolve(
-        (platformInternal ? (_c: Confinement, f: () => unknown) => f() : runConfined)(confinement, () =>
+        runConfined(confinement, () =>
           handler(req.input, {
             signal: ac.signal,
             requestId: req.requestId,

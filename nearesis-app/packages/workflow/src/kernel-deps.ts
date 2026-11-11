@@ -227,6 +227,8 @@ export async function bootKernel(cfg: {
       pluginRoot: cfg.pluginRoot,
       engineInterfaces: DEFAULT_ENGINE_INTERFACES,
       quarantineAfterFailures: 1000,
+      // first-party connectors from the trusted publishers reach only the internal endpoints their manifests declare
+      execution: { internalPublishers: Object.keys(cfg.trustedKeys) },
     },
     authProvider: {
       authenticate: async () => {

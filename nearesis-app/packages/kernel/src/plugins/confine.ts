@@ -28,6 +28,19 @@ export interface Confinement {
   pluginId: string;
   capability: string;
   violations: Violation[];
+  /**
+   * Exact internal `ip:port` endpoints this plugin may connect to directly (declared in the `networkHosts` of a
+   * signature-verified manifest from an explicitly named publisher). Nothing else is reachable: not another port on the
+   * same address, not the public internet, not DNS.
+   */
+  internalEndpoints?: ReadonlySet<string>;
+}
+
+function allowedInternal(host: unknown, port: unknown): boolean {
+  const c = store.getStore();
+  if (!c?.internalEndpoints || typeof host !== "string") return false;
+  if (typeof port !== "number" && typeof port !== "string") return false;
+  return c.internalEndpoints.has(`${host === "localhost" ? "127.0.0.1" : host}:${Number(port)}`);
 }
 
 /** `ip:port` entries of a manifest's `networkHosts` that name an internal address (`localhost` reads as 127.0.0.1). */
@@ -89,12 +102,46 @@ export function installConfinement(): void {
     globalThis.fetch = function (this: unknown, ...args: Parameters<typeof fetch>) {
       if (store.getStore()) {
         const a = args[0];
-        refuse("fetch", typeof a === "string" ? a : a instanceof URL ? a.toString() : "");
+        const raw = typeof a === "string" ? a : a instanceof URL ? a.toString() : ((a as Request)?.url ?? "");
+        let ok = false;
+        try {
+          const u = new URL(raw);
+          ok =
+            (u.protocol === "http:" || u.protocol === "https:") &&
+            !u.username &&
+            !u.password &&
+            allowedInternal(
+              u.hostname.replace(/^\[|\]$/g, ""),
+              u.port || (u.protocol === "https:" ? 443 : 80),
+            );
+        } catch {
+          /* unparseable: refused below */
+        }
+        if (!ok) refuse("fetch", raw);
       }
       return Reflect.apply(nativeFetch, globalThis, args);
     } as typeof fetch;
   }
-  guard(net.Socket.prototype, "connect", "net.connect");
+  const realConnect = net.Socket.prototype.connect as unknown as AnyFn;
+  net.Socket.prototype.connect = function (this: unknown, ...args: unknown[]) {
+    if (store.getStore()) {
+      // net normalises its arguments into an array whose first element is the options object
+      const first = Array.isArray(args[0]) ? (args[0] as unknown[])[0] : args[0];
+      let host: unknown;
+      let port: unknown;
+      if (first && typeof first === "object") {
+        const o = first as { host?: unknown; port?: unknown; path?: unknown };
+        if (o.path !== undefined && o.path !== null) refuse("net.connect", "unix socket");
+        host = o.host ?? "127.0.0.1";
+        port = o.port;
+      } else if (typeof first === "number" || (typeof first === "string" && /^\d+$/.test(first))) {
+        port = first;
+        host = typeof args[1] === "string" ? args[1] : "127.0.0.1";
+      } else refuse("net.connect", "unix socket");
+      if (!allowedInternal(host, port)) refuse("net.connect", `${String(host)}:${String(port)}`);
+    }
+    return Reflect.apply(realConnect, this, args);
+  } as typeof net.Socket.prototype.connect;
   guard(dgram.Socket.prototype, "send", "dgram.send");
   guard(dgram.Socket.prototype, "connect", "dgram.connect");
   guard(dns, "lookup", "dns.lookup");

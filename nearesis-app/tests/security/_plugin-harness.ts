@@ -81,7 +81,8 @@ export async function rig(opts: {
   const db = await createTestDb();
   const k = testKernel(db, {
     pluginRoot: FIXTURES,
-    ...(opts.execution ? { execution: opts.execution } : {}),
+    // no internal-endpoint grant unless the caller names the publisher
+    execution: { internalPublishers: [], ...opts.execution },
   });
   const org = await seedOrg(db.admin, opts.prefix, { alice: "owner" });
   const human = await loginSession(k, org.users.alice!.subject);

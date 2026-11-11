@@ -31,6 +31,8 @@ const kernel = new Kernel({
     trustedKeys: loadTrustedKeys(),
     pluginRoot: process.env.NEARESIS_PLUGIN_ROOT ?? process.cwd(),
     engineInterfaces: DEFAULT_ENGINE_INTERFACES,
+    // The near-thesis connector may reach the internal endpoints its signed manifest declares, and nothing else.
+    execution: { internalPublishers: ["nearesis"] },
   },
   // The real semantic catalog, required: metric, unit, version and range checks are enforced (fail closed if unavailable).
   monitoring: productionMonitoringConfig(),

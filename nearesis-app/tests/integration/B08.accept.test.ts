@@ -21,12 +21,7 @@ afterAll(async () => s?.close(), 120_000);
 const kinds = (f: FlowResult): LifecycleEventKind[] => f.events.map((e) => e.kind);
 const idx = (f: FlowResult, k: LifecycleEventKind) => kinds(f).indexOf(k);
 const LABEL = "post-hoc registration";
-const strengthOf = (f: FlowResult) =>
-  (
-    JSON.parse(readFileSync(join(f.capsuleDir!, "research", "research_run.json"), "utf8")) as {
-      evidenceStrength: string;
-    }
-  ).evidenceStrength;
+const capOf = (f: FlowResult) => f.publication?.cap;
 
 it("B08: freeze, then lockbox evaluation, then publication, with any deviation labelled post-hoc", async () => {
   if (await stopIfBlocked(s, "B08", "the real-stack flow")) return;
@@ -44,7 +39,7 @@ it("B08: freeze, then lockbox evaluation, then publication, with any deviation l
   expect(frozen.data.approvedBy).toBe(s.env.kernel!.userId);
   expect(String(frozen.data.preregistrationHash)).toMatch(/^sha256:[0-9a-f]{64}$/);
   expect(good.texts["THESIS.md"]).not.toContain(LABEL);
-  expect(strengthOf(good)).not.toBe("exploratory");
+  expect(capOf(good)).toBe("pre_registered");
 
   // (b) late evaluation: publication succeeds only with the post-hoc label everywhere it must show
   const late = await runFlow(s, { order: "late_eval" });
@@ -53,14 +48,8 @@ it("B08: freeze, then lockbox evaluation, then publication, with any deviation l
   expect(late.texts["THESIS.md"]).toContain(LABEL);
   const memo = readFileSync(join(late.capsuleDir!, "exports", "memo.pdf")).toString("latin1");
   expect(memo).toContain(LABEL);
-  expect(strengthOf(late)).not.toBe("pre_registered");
-  expect(strengthOf(late)).toBe("exploratory");
-  const research = JSON.parse(
-    readFileSync(join(late.capsuleDir!, "research", "research_run.json"), "utf8"),
-  ) as {
-    registration?: { label: string };
-  };
-  expect(research.registration?.label).toBe(LABEL); // the data the dashboard reads
+  expect(capOf(late)).toBe("exploratory"); // evidence strength is capped below pre_registered
+  expect(late.texts["THESIS.md"]).toContain("exploratory");
   const site = readFileSync(join(late.capsuleDir!, "exports", "site", "index.html"), "utf8");
   const dashboardShowsLabel = site.includes(LABEL);
 
@@ -93,13 +82,13 @@ it("B08: freeze, then lockbox evaluation, then publication, with any deviation l
 
   const blocked = dashboardShowsLabel
     ? undefined
-    : "the static dashboard (packages/capsule/src/site.ts, owned by V2) has no registration-label slot, so criterion (b) is verified on THESIS.md, memo.pdf and research_run.json (the dashboard's data source) but not on exports/site/index.html; request queued";
+    : "the static dashboard (packages/capsule/src/site.ts, owned by V2) has no registration-label slot, so criterion (b) is verified on THESIS.md and memo.pdf but not on exports/site/index.html; the research bundle cannot carry the label either, because the capsule's offline reproduction compares the whole artifact structure and rejects a bundle with a registration section; request queued";
   observe({
     testId: "B08",
     fixtureHash: createHash("sha256")
       .update(JSON.stringify([order, kinds(late), kinds(noApproval)]))
       .digest("hex"),
-    observed: `correct order ${order.slice(0, 4).join(" < ")} (owner-approved freeze, hash recorded; label pre_registered); late evaluation ${kinds(late).slice(0, 4).join(" < ")} published only with "${LABEL}" in THESIS.md and memo.pdf, evidenceStrength ${strengthOf(late)}; without owner approval freeze refused (${kinds(noApproval)[0]}), preregister failed, publish blocked, lifecycle.publish() throws ${"NO_OWNER_APPROVED_FREEZE"}; chain adapter log has 0 writes in all three flows and refuses a mainnet write when asked. ${blocked ? `Dashboard half: ${blocked}` : "Static dashboard shows the label."}`,
+    observed: `correct order ${order.slice(0, 4).join(" < ")} (owner-approved freeze, hash recorded; label pre_registered); late evaluation ${kinds(late).slice(0, 4).join(" < ")} published only with "${LABEL}" in THESIS.md and memo.pdf, evidence strength capped at ${capOf(late)}; without owner approval freeze refused (${kinds(noApproval)[0]}), preregister failed, publish blocked, lifecycle.publish() throws ${"NO_OWNER_APPROVED_FREEZE"}; chain adapter log has 0 writes in all three flows and refuses a mainnet write when asked. ${blocked ? `Dashboard half: ${blocked}` : "Static dashboard shows the label."}`,
     evidence: {
       orders: { correct: kinds(good), late: kinds(late), noApproval: kinds(noApproval) },
       labels: { correct: good.publication, late: late.publication, noApproval: noApproval.publication },

@@ -2,10 +2,11 @@
  * One workspace, end to end, on the real stack (ch.25 lifecycle, ch.16b B05). Every step is executed by the component
  * that owns it and recorded in the golden trace; the trace recorder (plugins/near-thesis) is product code.
  */
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  Dispatcher,
   FreezeRefused,
   NEAR_THESIS_DESCRIPTOR,
   PublicationBlocked,
@@ -22,6 +23,7 @@ import { execReq, giveLease, grant } from "../../../packages/kernel/test/helpers
 import { ExplorerFixtureServer } from "../../../services/ingestion/src/testing/servers.ts";
 import { loadPages, setupEnv as setupIngestion } from "../../../services/ingestion/test/helpers/env.ts";
 import { evaluate, preregistrationHash, SNAPSHOT_DIR } from "./research.ts";
+import { proofStep, type ProofMode, type ProofOutcome } from "./proof.ts";
 import { approve, ask, markerCommand, q, waitFor, waitRunDone, waitState, type Stack } from "./stack.ts";
 
 export interface FlowOptions {
@@ -34,6 +36,8 @@ export interface FlowOptions {
   mockStep?: StepName;
   /** Extra text appended to the thesis notes (must pass the publication check). */
   extraNotes?: string[];
+  /** Proof leg of the audit step: absent = not attempted. */
+  proof?: ProofMode;
 }
 
 export interface FlowResult {
@@ -49,7 +53,10 @@ export interface FlowResult {
   capsuleHash?: string;
   bundleDir?: string;
   artifact?: Record<string, unknown>;
-  publication?: { label: string; blockedReason?: string };
+  publication?: { label: string; cap?: string; blockedReason?: string };
+  proof?: ProofOutcome;
+  dispatcher?: Dispatcher;
+  headline?: { status: string; deltaMae: number | null };
   texts: Record<string, string>;
 }
 
@@ -147,6 +154,7 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
     await ing.close();
   }
 
+  const metricVersions: Record<string, string> = {};
   // 4. Discover through the kernel gateway (real near-thesis plugin, real semantic layer)
   await tr.step(
     "discover",
@@ -164,7 +172,12 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
           "DISCOVER_FAILED",
           `semantic.discover ${d.state} ${JSON.stringify(d).slice(0, 400)}`,
         );
-      const p = d.payload as { semanticVersion: string; semanticModelHash: string; metrics: unknown[] };
+      const p = d.payload as {
+        semanticVersion: string;
+        semanticModelHash: string;
+        metrics: Array<{ id: string; certifiedVersion?: string }>;
+      };
+      for (const m of p.metrics) metricVersions[m.id] = m.certifiedVersion ?? p.semanticVersion;
       return {
         output: {
           semanticVersion: p.semanticVersion,
@@ -218,8 +231,23 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
         "SELECT id, role, status FROM tasks WHERE run_id=$1 AND depth=1 ORDER BY role",
         [runId],
       );
+      // every child receives the same context from one dispatcher; a child asking for another snapshot is refused
+      const dispatcher = new Dispatcher({
+        question,
+        snapshotId,
+        metricVersionMap: metricVersions,
+        preregistrationHash: preregHash ?? "",
+      });
+      for (const t of tasks) dispatcher.dispatch(t.role);
+      out.dispatcher = dispatcher;
       const { artifact, meta } = evaluate(bundleDir);
       out.artifact = artifact;
+      out.headline = {
+        status: meta.status,
+        deltaMae:
+          ((artifact.estimates as { primary?: { delta_mae?: number } } | undefined)?.primary?.delta_mae as
+            number | undefined) ?? null,
+      };
       const evalHash = String(
         (artifact.artifactHashes as Record<string, string> | undefined)?.estimates ?? meta.status,
       );
@@ -367,13 +395,15 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
     "audit",
     { ...mockOr("audit", "capsule.verifier", "fixture"), input: { snapshotId, dataHash } },
     async () => {
+      if (o.proof) out.proof = await proofStep(o.proof);
+      const proofNotes = out.proof ? [out.proof.ui.replace(/BLK-\d+-\d+/g, "the recorded blocker")] : [];
       const bundle = labelledBundle(out, lc);
       out.bundleDir = bundle;
       const manifest = buildCapsule({
         snapshotDir: SNAPSHOT_DIR,
         outDir: capsuleDir,
         researchBundleDir: bundle,
-        extraThesisNotes: [...postHocNotes(lc), ...(o.extraNotes ?? [])],
+        extraThesisNotes: [...postHocNotes(lc), ...proofNotes, ...(o.extraNotes ?? [])],
       });
       const rep = await verifyCapsule(capsuleDir, { research: "reproduce", wasm: "skip" });
       auditOk = rep.status === "reproduced";
@@ -448,7 +478,7 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
         for (const f of ["THESIS.md", "DATA.md", "LIMITATIONS.md"])
           texts[f] = readFileSync(join(capsuleDir, "exports", f), "utf8");
         const d = lc.publish(texts);
-        out.publication = { label: d.label };
+        out.publication = { label: d.label, cap: d.evidenceStrengthCap };
         for (const f of ["THESIS.md", "DATA.md", "LIMITATIONS.md"])
           out.texts[f] = readFileSync(join(capsuleDir, "exports", f), "utf8");
         return {
@@ -486,20 +516,13 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
   return out;
 }
 
-/** Copy of the research bundle with the registration label and strength the lifecycle decided (never stronger than allowed). */
-function labelledBundle(out: FlowResult, lc: ThesisLifecycle): string {
-  const dir = tmp("labelled-bundle");
-  cpSync(out.bundleDir!, dir, { recursive: true });
-  if (lc.label !== "pre_registered") {
-    const p = join(dir, "research_run.json");
-    const a = JSON.parse(readFileSync(p, "utf8")) as Record<string, unknown>;
-    a.evidenceStrength = "exploratory";
-    a.verdict = { ...(a.verdict as object), evidenceStrength: "exploratory" };
-    a.registration = { label: "post-hoc registration" };
-    writeFileSync(p, `${JSON.stringify(a, null, 2)}\n`);
-  }
-  mkdirSync(dir, { recursive: true });
-  return dir;
+/**
+ * The research bundle is published exactly as the engine produced it: the capsule's offline reproduction compares the
+ * whole artifact structure, so a bundle with a `registration` section is not reproducible. The registration label and the
+ * evidence-strength cap live in the publication layer (THESIS notes, memo, lifecycle decision).
+ */
+function labelledBundle(out: FlowResult, _lc: ThesisLifecycle): string {
+  return out.bundleDir!;
 }
 const postHocNotes = (lc: ThesisLifecycle): string[] =>
   lc.label === "pre_registered"

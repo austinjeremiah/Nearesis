@@ -25,6 +25,7 @@ import {
 import { createGateway, DEFAULT_POLICY, type Session } from "@nearesis/semantic-gateway";
 import { definePlugin, type InvocationContext } from "@nearesis/plugin-sdk";
 import { PreviewInput } from "./capabilities.ts";
+import { annotateEnvelope } from "./lifecycle/degradation.ts";
 
 type Gateway = ReturnType<typeof createGateway>;
 /** Which semantic layer a run's agents query: fixture cubes (:4000) or the LIVE real-data layer (cube-live, :4001). */
@@ -195,10 +196,20 @@ export default definePlugin({
       };
     },
     "semantic.query@1": async (input, ctx) => {
-      const r = await gateway(sourceOf(ctx)).gateway.query(sessionOf(ctx), input);
-      return r.ok
-        ? { ok: true, queryHash: r.queryHash, cache: r.cache, envelope: r.envelope }
-        : { ok: false, status: r.status, error: r.error };
+      const w = gateway(sourceOf(ctx));
+      const r = await w.gateway.query(sessionOf(ctx), input);
+      if (!r.ok) return { ok: false, status: r.status, error: r.error };
+      // a degraded source (credential loss, outage) makes the window stale and visible instead of silently complete
+      const measures = ((input as { measures?: string[] }).measures ?? []) as string[];
+      const sources = (w.registry.metrics as unknown as MetricMetadata[])
+        .filter((m) => measures.includes(m.id))
+        .flatMap((m) => m.sources ?? []);
+      return {
+        ok: true,
+        queryHash: r.queryHash,
+        cache: r.cache,
+        envelope: annotateEnvelope(r.envelope, sources),
+      };
     },
     /**
      * Pure preview for the composer: run each request's semantic query (read-only, cached path), compile the chart

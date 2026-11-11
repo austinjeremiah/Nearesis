@@ -47,3 +47,19 @@ export function evaluate(out: string, fixture: "signal" | "nosignal" = "signal",
 }
 
 export const SNAPSHOT_DIR = join(APP_ROOT, "packages/capsule/fixtures/snapshot-synthetic");
+
+/** The frozen Q18 sign-flip rule, evaluated by the research engine itself (robustness.apply_sign_flip_rule). */
+export function signFlipRule(primaryDelta: number, variantDelta: number, status = "SUPPORTED") {
+  const rows = JSON.stringify({
+    top_1pct_accounts_removed: { status: "OK", estimates: [{ name: "all", delta_mae: variantDelta }] },
+  });
+  const out = run([
+    "-c",
+    `import json; from nearesis_research.robustness import apply_sign_flip_rule as r; print(json.dumps(r(${primaryDelta}, json.loads('${rows}'), '${status}')))`,
+  ]);
+  return JSON.parse(out.split("\n").pop()!) as {
+    flips: string[];
+    headlineBefore: string;
+    headlineAfter: string;
+  };
+}

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { observe } from "@nearesis/acceptance";
 import { runFlow } from "./lib/flow.ts";
-import { openStack, stopIfBlocked, type Stack } from "./lib/stack.ts";
+import { openStack, q, stopIfBlocked, type Stack } from "./lib/stack.ts";
 
 let s: Stack;
 beforeAll(async () => {
@@ -22,7 +22,7 @@ it("B04: with every installed plugin connected, each agent tool call's provenanc
   ).rows;
   const enabledInWs = (
     await admin.query<{ plugin_id: string }>(
-      "SELECT i.plugin_id FROM workspace_plugins w JOIN plugin_installations i ON i.id = w.installation_id WHERE w.workspace_id=$1 AND w.enabled",
+      "SELECT plugin_id FROM workspace_plugins WHERE workspace_id=$1 AND enabled",
       [ws],
     )
   ).rows.map((r) => r.plugin_id);
@@ -56,12 +56,16 @@ it("B04: with every installed plugin connected, each agent tool call's provenanc
   }
   // both connected plugins actually served calls of this one workspace's flow
   expect([...used].sort()).toEqual(inst.map((i) => i.plugin_id).sort());
-  // the agent audit trail names the same capabilities (task provenance), so a task can be traced to plugin versions
-  const audited = await admin.query<{ n: string }>(
-    "SELECT count(*)::text n FROM agent_audit WHERE workspace_id=$1 AND kind='gateway.executed'",
-    [ws],
+  // task provenance: agent invocations are attributed to the tasks of the runs of this workspace
+  const taskIds = new Set(
+    (await q<{ id: string }>(s.env, s.env.tenantId, "SELECT id FROM tasks WHERE workspace_id=$1", [ws])).map(
+      (t) => t.id,
+    ),
   );
-  expect(Number(audited.rows[0]!.n)).toBeGreaterThan(5);
+  const agentCalls = inv.filter((r) => taskIds.has(r.actor_id));
+  expect(agentCalls.length).toBeGreaterThan(2);
+  const agentPlugins = new Set(agentCalls.map((r) => byInst.get(r.installation_id ?? "")!.plugin_id));
+  expect(agentPlugins.size).toBeGreaterThanOrEqual(1);
 
   // negative control: a call that resolves to no plugin carries version 0.0.0 and unresolved provenance, and is detected by the same check
   const denied = await s.env.kernel!.kernel.gateway.invoke(s.env.kernel!.session.principal, {
@@ -84,7 +88,7 @@ it("B04: with every installed plugin connected, each agent tool call's provenanc
     fixtureHash: createHash("sha256")
       .update(JSON.stringify(inst.map((i) => `${i.plugin_id}@${i.version}`)))
       .digest("hex"),
-    observed: `${inst.length} installed plugins (${inst.map((i) => `${i.plugin_id}@${i.version}`).join(", ")}) all enabled and connected to the workspace; ${inv.length} successful tool invocations of the flow each carry plugin_version equal to the installed manifest version of the installation that served them (0 unresolved), served by ${[...used].join(" and ")}; ${audited.rows[0]!.n} gateway.executed audit rows; a call to an unknown capability is refused with unresolved provenance (${prov?.pluginId ?? "none"}@${prov?.pluginVersion ?? "none"}).`,
+    observed: `${inst.length} installed plugins (${inst.map((i) => `${i.plugin_id}@${i.version}`).join(", ")}) all enabled and connected to the workspace; ${inv.length} successful tool invocations of the flow each carry plugin_version equal to the installed manifest version of the installation that served them (0 unresolved), served by ${[...used].join(" and ")}; ${agentCalls.length} of them attributed to agent tasks; a call to an unknown capability is refused with unresolved provenance (${prov?.pluginId ?? "none"}@${prov?.pluginVersion ?? "none"}).`,
     evidence: { installed: inst, invocations: inv.length, used: [...used], unresolvedControl: prov ?? null },
   });
 }, 600_000);

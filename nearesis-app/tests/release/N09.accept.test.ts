@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, expect, it } from "vitest";
 import { observe } from "@nearesis/acceptance";
+import { LiveTestnetPreflightChain } from "../../scripts/release/near-live-chain.ts";
 import { buildManifest } from "../../scripts/release/manifest.ts";
 import { preflight, runRelease } from "../../scripts/release/release.ts";
 import { PAYLOAD, policy, request, rig } from "./_rig.ts";
@@ -105,6 +106,52 @@ it("N09: the pre-flight reads chain id and balance from the RPC, enforces ceilin
     reason: "CHAIN_ID_MISMATCH",
   });
 
+  if (process.env.NEARESIS_ACCEPT_LIVE === "1") {
+    const live = new LiveTestnetPreflightChain();
+    const lp = policy({
+      allowlist: { contracts: ["commit.majorlynx5104.testnet"], methods: ["commit_hash"] },
+      signer: "majorlynx5104.testnet",
+      balanceCeiling: 10n * 10n ** 24n,
+      feeCeiling: 10n ** 22n,
+    });
+    const lreq = request("testnet", {
+      contract: "commit.majorlynx5104.testnet",
+      method: "commit_hash",
+      maxCost: (10n ** 22n).toString(),
+    });
+    const good = await preflight(live, lreq, lp);
+    expect(good.ok).toBe(true);
+    if (!good.ok) throw new Error("live pre-flight failed: " + good.reason);
+    expect(good.record.chainId).toBe("testnet");
+    const faults = {
+      wrongExpectedChain:
+        (
+          await preflight(live, lreq, {
+            ...lp,
+            expectedChainId: { ...lp.expectedChainId, testnet: "mainnet" },
+          })
+        ).ok === false,
+      balanceAboveCeiling: await preflight(live, lreq, { ...lp, balanceCeiling: 1n }),
+      feeAboveCeiling: await preflight(live, lreq, { ...lp, feeCeiling: 1n }),
+      notAllowlisted: await preflight(live, { ...lreq, contract: "evil.testnet" }, lp),
+      payloadNotHash: await preflight(live, { ...lreq, payloadHash: "x" }, lp),
+      mainnetRequestOnTestnetChain: await preflight(live, { ...lreq, network: "mainnet" }, lp),
+    };
+    expect(faults.wrongExpectedChain).toBe(true);
+    expect(faults.balanceAboveCeiling).toEqual({ ok: false, reason: "BALANCE_ABOVE_CEILING" });
+    expect(faults.feeAboveCeiling).toEqual({ ok: false, reason: "FEE_ABOVE_CEILING" });
+    expect(faults.notAllowlisted).toEqual({ ok: false, reason: "NOT_ALLOWLISTED" });
+    expect(faults.payloadNotHash).toEqual({ ok: false, reason: "PAYLOAD_NOT_HASH" });
+    expect(faults.mainnetRequestOnTestnetChain).toEqual({ ok: false, reason: "NETWORK_MISMATCH" });
+    observe({
+      testId: "N09",
+      observed: `LIVE NEAR testnet pre-flight (read-only RPC, no transaction): chain id read from the RPC = ${good.record.chainId}, signer balance ${good.record.balance} yocto, fee estimate ${good.record.feeEstimate} yocto (gas price x 30 Tgas), contract ${good.record.contract}, method ${good.record.method}; live faults abort with reason codes (wrong expected chain id, balance ceiling, fee ceiling, not allowlisted, payload not a hash, network mismatch) before any signing; the adapter has no broadcast. FIXTURE half passed criteria (a) to (e). The operator's read-only MAINNET pre-flight is HUMAN and was not run.`,
+      fixtureHash: PAYLOAD,
+      evidence: { reasons: observed, okRecord: ok.record, liveRecord: good.record, liveFaults: faults },
+    });
+    return;
+  }
+
   observe({
     testId: "N09",
     blocked:
@@ -113,4 +160,4 @@ it("N09: the pre-flight reads chain id and balance from the RPC, enforces ceilin
     fixtureHash: PAYLOAD,
     evidence: { reasons: observed, okRecord: ok.record },
   });
-});
+}, 60_000);

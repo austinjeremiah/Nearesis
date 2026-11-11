@@ -14,6 +14,9 @@ import type { PluginModule } from "@nearesis/plugin-sdk";
 import type { Db, Tx } from "../db/pool.ts";
 import { KernelError } from "../errors.ts";
 import { writeAudit } from "../journal.ts";
+import type { PluginSandboxConfig } from "./sandbox-exec.ts";
+import { sandboxedModule } from "./sandbox-exec.ts";
+import type { EgressDeps } from "../egress.ts";
 import type { CommandContext, HandlerResult, PluginWorkspaceOps } from "../commands.ts";
 
 export type PluginState = "installed" | "enabled" | "disabled" | "degraded" | "quarantined";
@@ -32,6 +35,19 @@ export interface PluginManagerConfig {
   supportedApiVersions?: number[];
   quarantineAfterFailures?: number;
   healthTimeoutMs?: number;
+  /**
+   * Plugin execution policy. `isolation` decides per manifest: "confined" (default; in-process, network and process
+   * primitives blocked outside `ctx.egress`) or "sandbox" (container without network, `sandbox-exec.ts`; the entrypoint
+   * must be a self-contained ES module and is never imported into the kernel).
+   */
+  execution?: {
+    isolation?: (manifest: PluginManifest) => "confined" | "sandbox";
+    sandbox?: PluginSandboxConfig;
+    /** Resolver/dial hooks for `ctx.egress` (tests only; never set in production wiring). */
+    egressDeps?: EgressDeps;
+    /** Extra policy for `ctx.egress` (tests only, e.g. `allowInsecureHttp` against a local server). */
+    egressPolicy?: { allowInsecureHttp?: boolean; timeoutMs?: number };
+  };
 }
 
 export interface InstallationRow {
@@ -203,12 +219,17 @@ export class PluginManager implements PluginWorkspaceOps {
       );
     }
     let mod: PluginModule;
-    try {
-      const imported = (await import(/* @vite-ignore */ entry)) as { default?: unknown };
-      if (!isPluginModule(imported.default)) throw new Error("default export is not a plugin module");
-      mod = imported.default;
-    } catch (e) {
-      throw await reject("PLUGIN_LOAD_FAILED", `Plugin failed to load: ${(e as Error).message}`);
+    if (this.isolationOf(manifest) === "sandbox") {
+      // Never import untrusted code into the kernel process; the handlers run in a container.
+      mod = sandboxedModule(manifest, entry, this.config.execution?.sandbox);
+    } else {
+      try {
+        const imported = (await import(/* @vite-ignore */ entry)) as { default?: unknown };
+        if (!isPluginModule(imported.default)) throw new Error("default export is not a plugin module");
+        mod = imported.default;
+      } catch (e) {
+        throw await reject("PLUGIN_LOAD_FAILED", `Plugin failed to load: ${(e as Error).message}`);
+      }
     }
     const missing = manifest.capabilities
       .filter((c) => typeof mod.handlers[c.id] !== "function")
@@ -318,11 +339,20 @@ export class PluginManager implements PluginWorkspaceOps {
     if (sha256Hex(readFileSync(entry)) !== inst.manifest.artifactSha256) {
       throw new KernelError("FORBIDDEN", "ARTIFACT_HASH_MISMATCH", "Plugin artifact changed on disk.");
     }
+    if (this.isolationOf(inst.manifest) === "sandbox") {
+      const boxed = sandboxedModule(inst.manifest, entry, this.config.execution?.sandbox);
+      this.modules.set(inst.id, boxed);
+      return boxed;
+    }
     const imported = (await import(/* @vite-ignore */ entry)) as { default?: unknown };
     if (!isPluginModule(imported.default))
       throw new KernelError("INTERNAL", "PLUGIN_LOAD_FAILED", "Plugin failed to load.");
     this.modules.set(inst.id, imported.default);
     return imported.default;
+  }
+
+  isolationOf(manifest: PluginManifest): "confined" | "sandbox" {
+    return this.config.execution?.isolation?.(manifest) ?? "confined";
   }
 
   // ---------------------------------------------------------------- lifecycle

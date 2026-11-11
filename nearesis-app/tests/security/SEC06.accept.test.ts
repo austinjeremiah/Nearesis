@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { observe } from "@nearesis/acceptance";
 import { SandboxPolicyError, runSandboxed, sandboxArgs } from "../../packages/kernel/src/sandbox.ts";
+import { hostileManifest, rig } from "./_plugin-harness.ts";
 
 const IMAGE = "node:24-bookworm-slim";
 const docker = (...a: string[]) => spawnSync("docker", a, { encoding: "utf8" });
@@ -258,10 +259,67 @@ it("SEC06: a hostile job inside the read-only sandbox reaches no host file, host
   });
   expect(ok.stdout.trim()).toBe("2");
 
+  // ---- REAL EXECUTION PATH: the same hostile plugin installed with isolation "sandbox" and run by the kernel's tool
+  // gateway. The plugin module is never imported into this process; each invocation is one container from the runner.
+  const hitsBeforePlugin = hits;
+  const prng = await rig({
+    prefix: "sec06",
+    manifest: hostileManifest({ resourceLimits: { memoryMb: 64, cpuMs: 3000, concurrency: 2 } }),
+    execution: { isolation: () => "sandbox", sandbox: { image: imageId } },
+  });
+  const pluginRuns: Record<string, unknown> = {};
+  try {
+    const revive = () =>
+      prng.db.admin.query("UPDATE plugin_installations SET state = 'enabled', consecutive_failures = 0");
+    const run = async (input: Record<string, unknown>) => {
+      await revive();
+      return prng.invoke(input);
+    };
+    const control = await run({ action: "ok", text: "through-the-sandbox" });
+    expect(control.state).toBe("ok");
+    expect((control.payload as { text: string }).text).toBe("through-the-sandbox");
+    pluginRuns.control = control.state;
+    // network: no packets, canary untouched
+    for (const a of [
+      { action: "bare-fetch", url: `http://host.docker.internal:${hostPort}/` },
+      { action: "net-connect", host: "host.docker.internal", port: hostPort },
+      { action: "http-request", url: `http://172.17.0.1:${hostPort}/` },
+    ]) {
+      const res = await run(a);
+      expect(res.state, a.action).toBe("failed");
+    }
+    // filesystem and environment: the host canary file and env are invisible
+    const rf = await run({ action: "read-file", path: canaryFile });
+    expect(JSON.stringify(rf.payload)).not.toContain(CANARY_TEXT);
+    const ev = await run({ action: "env", name: "SEC06_CANARY_SECRET" });
+    expect((ev.payload as { canary: string | null }).canary).toBeNull();
+    expect(JSON.stringify(ev.payload)).not.toContain(CANARY_ENV);
+    // limits: each is a defined reason code and the host keeps running
+    const memRes = await run({ action: "alloc" });
+    const spinRes = await run({ action: "spin" });
+    const bombRes = await run({ action: "fork-bomb" });
+    const diskRes = await run({ action: "fill-disk" });
+    pluginRuns.alloc = memRes.reasonCode;
+    pluginRuns.spin = spinRes.reasonCode;
+    pluginRuns.forkBomb = [bombRes.state, bombRes.reasonCode];
+    pluginRuns.disk = diskRes.reasonCode;
+    expect(memRes.reasonCode).toBe("PLUGIN_MEMORY_LIMIT");
+    expect(spinRes.reasonCode).toBe("PLUGIN_CPU_LIMIT");
+    expect(diskRes.reasonCode).toBe("PLUGIN_DISK_LIMIT");
+    expect(bombRes.state === "failed" || (bombRes.payload as { kids?: number }).kids! <= 200).toBe(true);
+    // no orphan containers from the plugin runs
+    await new Promise((res) => setTimeout(res, 1500));
+    expect(docker("ps", "-q", "--filter", "name=nearesis-sbx-").stdout.trim()).toBe("");
+    // the plugin never ran in this process: the hostile module's env/FS views are the container's
+    expect(hits).toBe(hitsBeforePlugin);
+  } finally {
+    await prng.drop();
+  }
+
   const probes = Object.keys(p).length;
   observe({
     testId: "SEC06",
-    observed: `hostile job in a --network none, read-only, cap-drop ALL, no-new-privileges, uid 65534 container (${probes} probe results): host canary file, docker socket, /proc/1/root and host env read attempts all denied (canary text and env value never in output); writes to root fs, /etc, the read-only snapshot mount and exec from scratch denied (snapshot hash unchanged); mount/chroot/unshare/su/nsenter failed; effective capabilities 0; network interfaces besides lo: 0; host canary listener connections ${hardenedHits} (an unhardened control container reaches it: ${hits - hardenedHits}); metadata, host-gateway, external IP and DNS all failed; processes capped at ${p.fork_children_started}/200 (limit 64); ${refused.length} forbidden specs refused by policy; memory bomb exit ${mem.exitCode}, endless loop killed at timeout, honest control job read the mounted input`,
+    observed: `hostile job in a --network none, read-only, cap-drop ALL, no-new-privileges, uid 65534 container (${probes} probe results): host canary file, docker socket, /proc/1/root and host env read attempts all denied (canary text and env value never in output); writes to root fs, /etc, the read-only snapshot mount and exec from scratch denied (snapshot hash unchanged); mount/chroot/unshare/su/nsenter failed; effective capabilities 0; network interfaces besides lo: 0; host canary listener connections ${hardenedHits} (an unhardened control container reaches it: ${hits - hardenedHits}); metadata, host-gateway, external IP and DNS all failed; processes capped at ${p.fork_children_started}/200 (limit 64); ${refused.length} forbidden specs refused by policy; memory bomb exit ${mem.exitCode}, endless loop killed at timeout, honest control job read the mounted input; real path: a hostile plugin installed with isolation "sandbox" and invoked through the kernel tool gateway ran only in containers (never imported into the kernel), reached no canary, saw neither the host canary file nor env, and was stopped with reason codes ${JSON.stringify(pluginRuns)}`,
     fixtureHash: createHash("sha256").update(PROBE(0, "")).digest("hex"),
     evidence: {
       imageId,
@@ -270,6 +328,7 @@ it("SEC06: a hostile job inside the read-only sandbox reaches no host file, host
       memExit: mem.exitCode,
       spinTimedOut: spin.timedOut,
       canaryConnections: hits,
+      pluginRealPath: pluginRuns,
     },
   });
 }, 300_000);

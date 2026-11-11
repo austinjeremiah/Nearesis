@@ -35,6 +35,8 @@ export interface SandboxSpec {
   tmpfsMb?: number;
   timeoutMs?: number;
   maxOutputBytes?: number;
+  /** Keep stdin open (line protocol with the host) instead of writing `stdin` once and closing. */
+  interactive?: boolean;
   /** Docker CLI binary (tests only). */
   docker?: string;
 }
@@ -129,7 +131,7 @@ export function sandboxArgs(spec: SandboxSpec, name: string): string[] {
       throw new SandboxPolicyError("SANDBOX_ENV", "Invalid environment entry.");
     args.push("--env", `${k}=${v}`);
   }
-  if (spec.stdin !== undefined) args.push("-i");
+  if (spec.stdin !== undefined || spec.interactive) args.push("-i");
   args.push(spec.image, ...spec.command);
   return args;
 }
@@ -171,4 +173,80 @@ export async function runSandboxed(spec: SandboxSpec): Promise<SandboxResult> {
     child.stdin.on("error", () => undefined);
     child.stdin.end(spec.stdin ?? "");
   });
+}
+
+export interface SandboxSession {
+  containerName: string;
+  /** Write one line to the job's stdin. */
+  send(line: string): void;
+  /** Resolves when the container exits (or is killed by the timeout). */
+  done: Promise<SandboxResult>;
+  kill(): void;
+}
+
+/**
+ * Interactive variant of `runSandboxed`: the job's stdout is delivered line by line to `onLine` while it runs and the host
+ * can answer on stdin. The container still has no network and the same policy; this is the channel a sandboxed plugin
+ * uses to ask the host's egress proxy for an outbound call.
+ */
+export function startSandboxed(spec: SandboxSpec, onLine: (line: string) => void): SandboxSession {
+  const name = `nearesis-sbx-${randomBytes(6).toString("hex")}`;
+  const docker = spec.docker ?? "docker";
+  const args = sandboxArgs({ ...spec, interactive: true }, name);
+  const cap = spec.maxOutputBytes ?? 1024 * 1024;
+  const child = spawn(docker, args, {
+    env: {
+      PATH: process.env.PATH ?? "",
+      HOME: process.env.HOME ?? "",
+      DOCKER_HOST: process.env.DOCKER_HOST ?? "",
+    } as unknown as NodeJS.ProcessEnv,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  let timedOut = false;
+  let buf = "";
+  child.stdout.on("data", (c: Buffer) => {
+    const t = c.toString("utf8");
+    if (stdout.length < cap) stdout += t.slice(0, cap - stdout.length);
+    buf += t;
+    let i: number;
+    while ((i = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, i);
+      buf = buf.slice(i + 1);
+      if (line) onLine(line);
+    }
+    if (buf.length > cap) buf = ""; // an unterminated flood is dropped, never buffered without bound
+  });
+  child.stderr.on("data", (c: Buffer) => {
+    if (stderr.length < cap) stderr += c.toString("utf8").slice(0, cap - stderr.length);
+  });
+  const kill = () => {
+    spawn(docker, ["kill", name], { stdio: "ignore" }).on("error", () => undefined);
+  };
+  const timer = setTimeout(() => {
+    timedOut = true;
+    kill();
+  }, spec.timeoutMs ?? 20_000);
+  child.stdin.on("error", () => undefined);
+  if (spec.stdin !== undefined) child.stdin.write(spec.stdin);
+  const done = new Promise<SandboxResult>((resolve, reject) => {
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      reject(e);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ exitCode: code, stdout, stderr, timedOut, containerName: name });
+    });
+  });
+  done.catch(() => undefined);
+  return {
+    containerName: name,
+    send: (line) => {
+      if (!child.stdin.destroyed) child.stdin.write(line + "\n");
+    },
+    done,
+    kill,
+  };
 }

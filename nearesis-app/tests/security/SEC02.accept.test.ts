@@ -11,6 +11,8 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { observe } from "@nearesis/acceptance";
 import { EgressDenied, guardedFetch, nonPublicReason } from "../../packages/kernel/src/egress.ts";
+import { rig } from "./_plugin-harness.ts";
+import type { Rig } from "./_plugin-harness.ts";
 
 let canary4: net.Server;
 let canary6: net.Server | null = null;
@@ -219,11 +221,82 @@ it("SEC02: metadata and internal addresses are refused before any connection", a
   await new Promise((r) => ctl.close(r));
   expect(controlStatus).toBe(200);
 
+  // ---- REAL EXECUTION PATH: a hostile plugin handler run by the kernel's tool gateway (signed manifest, plugin manager,
+  // leases, audit). The plugin tries bare network primitives and the sanctioned proxy against the same canaries.
+  const realPathHits0 = hits;
+  const planted: string[] = [];
+  const svc = http.createServer((_q, res) => res.end("served-by-allowlisted-host"));
+  await new Promise<void>((r) => svc.listen(0, "127.0.0.1", r));
+  const svcPort = (svc.address() as AddressInfo).port;
+  const hrig: Rig = await rig({
+    prefix: "sec02",
+    manifest: (await import("./_plugin-harness.ts")).hostileManifest({
+      networkHosts: [PUBLIC_HOST, "rebind.example.org"],
+    }),
+    execution: {
+      egressDeps: {
+        resolve: async (h: string) => {
+          const r = resolveMap[h];
+          if (!r) throw new Error("NXDOMAIN");
+          return r;
+        },
+        dialOverride: (ip: string, p: number) =>
+          ip === PUBLIC_IP ? { ip: "127.0.0.1", port: svcPort } : { ip, port: p },
+        onDial: (ip: string) => planted.push(ip),
+      },
+      egressPolicy: { allowInsecureHttp: true, timeoutMs: 3000 },
+    },
+  });
+  const revive = () =>
+    hrig.db.admin.query("UPDATE plugin_installations SET state = 'enabled', consecutive_failures = 0");
+  let realAttempts = 0;
+  const realOutcomes: Array<{ action: string; state: string; reason: string | null }> = [];
+  try {
+    const bare: Array<Record<string, unknown>> = [
+      { action: "bare-fetch", url: `http://127.0.0.1:${port4}/` },
+      { action: "bare-fetch", url: `http://169.254.169.254/latest/meta-data/` },
+      { action: "bare-fetch", url: `http://[::1]:${port6 || port4}/` },
+      { action: "http-request", url: `http://localhost:${port4}/` },
+      { action: "net-connect", host: "127.0.0.1", port: port4 },
+      { action: "dns-lookup", host: "rebind.example.org" },
+      { action: "spawn-curl", url: `http://127.0.0.1:${port4}/` },
+      { action: "worker", port: port4 },
+    ];
+    const viaProxy: Array<Record<string, unknown>> = [
+      { action: "swallowed-egress", url: `http://${PUBLIC_HOST}:${port4}/` },
+      { action: "swallowed-egress", url: "http://169.254.169.254/latest/meta-data/" },
+      { action: "swallowed-egress", url: `http://rebind.example.org:${port4}/` },
+      { action: "swallowed-egress", url: `http://127.0.0.1:${port4}/` },
+      { action: "swallowed-egress", url: "http://other.example.net/" },
+    ];
+    for (const a of [...bare, ...viaProxy]) {
+      realAttempts++;
+      await revive();
+      const res = await hrig.invoke(a);
+      realOutcomes.push({ action: String(a.action), state: res.state, reason: res.reasonCode ?? null });
+      expect(res.state, JSON.stringify(a)).toBe("failed");
+      expect(res.reasonCode, JSON.stringify(a)).toBe("PLUGIN_EGRESS_VIOLATION");
+    }
+    // the plugin could not make the kernel dial a canary either: no dial hook call for any blocked target
+    expect(planted).toEqual([]);
+    expect(hits - realPathHits0).toBe(0);
+    // positive control: the sanctioned path to an allowlisted public name works end to end
+    await revive();
+    const good = await hrig.invoke({ action: "egress", url: `http://${PUBLIC_HOST}/ok` });
+    expect(good.state).toBe("ok");
+    expect((good.payload as { body: string }).body).toBe("served-by-allowlisted-host");
+    expect(planted).toEqual([PUBLIC_IP]);
+    expect(await hrig.auditCount("plugin.violation")).toBeGreaterThanOrEqual(realAttempts);
+  } finally {
+    await hrig.drop();
+    await new Promise((r) => svc.close(r));
+  }
+
   const byCode: Record<string, number> = {};
   for (const r of results) byCode[r.code] = (byCode[r.code] ?? 0) + 1;
   observe({
     testId: "SEC02",
-    observed: `${attempts.length} SSRF attempts (metadata IPs in decimal/hex/octal/IPv4-mapped/NAT64/6to4 forms, loopback spellings, DNS-rebinding answers, scheme tricks) plus ${redirectTargets.length} redirect-to-internal probes: all refused (${JSON.stringify(byCode)}); dial hook calls for blocked targets ${dials}; TCP connections accepted by 127.0.0.1/::1 canaries ${hits}; permitted public control fetch status ${controlStatus}`,
+    observed: `${attempts.length} SSRF attempts (metadata IPs in decimal/hex/octal/IPv4-mapped/NAT64/6to4 forms, loopback spellings, DNS-rebinding answers, scheme tricks) plus ${redirectTargets.length} redirect-to-internal probes: all refused (${JSON.stringify(byCode)}); dial hook calls for blocked targets ${dials}; TCP connections accepted by 127.0.0.1/::1 canaries ${hits}; permitted public control fetch status ${controlStatus}; real path (hostile plugin through the tool gateway): ${realAttempts} bare-primitive and proxy attempts, all failed with PLUGIN_EGRESS_VIOLATION and audited, 0 dials to blocked targets, 0 canary connections, allowlisted control via ctx.egress ok`,
     fixtureHash: createHash("sha256")
       .update(JSON.stringify(attempts.map((a) => a.url)))
       .digest("hex"),
@@ -234,7 +307,9 @@ it("SEC02: metadata and internal addresses are refused before any connection", a
       dials,
       canaryConnections: hits,
       controlStatus,
+      realPathAttempts: realAttempts,
+      realPathOutcomes: realOutcomes.length,
       ipv6Canary: port6 !== 0,
     },
   });
-}, 60_000);
+}, 120_000);

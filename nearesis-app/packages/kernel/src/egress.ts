@@ -298,8 +298,12 @@ export async function guardedFetch(
 }
 
 /** Bind a plugin's manifest allowlist; this is what the tool proxy hands to plugin handlers. */
-export function egressFetchFor(networkHosts: readonly string[], deps: EgressDeps = {}) {
-  const policy: EgressPolicy = { allowHosts: networkHosts };
+export function egressFetchFor(
+  networkHosts: readonly string[],
+  deps: EgressDeps = {},
+  extra: Partial<Omit<EgressPolicy, "allowHosts">> = {},
+) {
+  const policy: EgressPolicy = { ...extra, allowHosts: networkHosts };
   return (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) =>
     guardedFetch(url, init, policy, deps);
 }

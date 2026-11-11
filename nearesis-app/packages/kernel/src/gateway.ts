@@ -12,6 +12,9 @@ import { grantFingerprint } from "./leases.ts";
 import type { LeaseService } from "./leases.ts";
 import type { PluginManager, ResolvedPlugin } from "./plugins/manager.ts";
 import { egressFetchFor } from "./egress.ts";
+import { outsideConfinement, runConfined } from "./plugins/confine.ts";
+import type { Confinement } from "./plugins/confine.ts";
+import { PluginLimitError } from "./plugins/sandbox-exec.ts";
 import { redact, redactString } from "./redact.ts";
 import { zodDetails } from "./workspace.ts";
 
@@ -377,20 +380,44 @@ export class KernelToolGateway implements ToolGateway {
     const timeoutMs = Math.min(capability.timeoutMs, req.deadlineMs);
     const ac = new AbortController();
     let timer: NodeJS.Timeout | undefined;
+    const confinement: Confinement = {
+      pluginId: installation.pluginId,
+      capability: req.capability,
+      violations: [],
+    };
+    let lastError: unknown;
     const TIMEOUT = Symbol("timeout");
     let outcome: { ok: true; value: unknown } | { ok: false; timeout: boolean; error: string };
     try {
       const handler = module.handlers[req.capability]!;
+      const proxy = egressFetchFor(
+        installation.manifest.networkHosts,
+        this.plugins.config.execution?.egressDeps,
+        this.plugins.config.execution?.egressPolicy,
+      );
+      // ch.12 tool proxy: the only sanctioned way for a plugin to reach the network (allowlist + SSRF filter). It leaves
+      // the confinement scope before opening a socket; a denial is itself recorded as a violation of the plugin's policy.
+      const egress: Parameters<typeof handler>[1]["egress"] = async (url, init) => {
+        try {
+          return await outsideConfinement(() => proxy(url, init));
+        } catch (e) {
+          const code = (e as { reasonCode?: string }).reasonCode;
+          if (code && code.startsWith("EGRESS_") && code !== "EGRESS_TIMEOUT")
+            confinement.violations.push({ kind: "egress.denied", detail: code });
+          throw e;
+        }
+      };
       const run = Promise.resolve(
-        handler(req.input, {
-          signal: ac.signal,
-          requestId: req.requestId,
-          workspaceId: req.workspaceId,
-          principal,
-          capability: req.capability,
-          // ch.12 tool proxy: the only sanctioned way for a plugin to reach the network (allowlist + SSRF filter).
-          egress: egressFetchFor(installation.manifest.networkHosts),
-        } as Parameters<typeof handler>[1]),
+        runConfined(confinement, () =>
+          handler(req.input, {
+            signal: ac.signal,
+            requestId: req.requestId,
+            workspaceId: req.workspaceId,
+            principal,
+            capability: req.capability,
+            egress,
+          }),
+        ),
       );
       run.catch(() => undefined); // a late rejection after timeout must not be unhandled
       const value = await Promise.race([
@@ -404,6 +431,7 @@ export class KernelToolGateway implements ToolGateway {
           ? { ok: false, timeout: true, error: `timed out after ${timeoutMs}ms` }
           : { ok: true, value };
     } catch (e) {
+      lastError = e;
       outcome = {
         ok: false,
         timeout: false,
@@ -413,6 +441,15 @@ export class KernelToolGateway implements ToolGateway {
       clearTimeout(timer);
     }
     if (!outcome.ok && outcome.timeout) ac.abort();
+    // Any attempt to leave the sanctioned network path voids the result, whatever the handler returned.
+    if (confinement.violations.length > 0 && !(outcome.ok === false && outcome.timeout))
+      outcome = {
+        ok: false,
+        timeout: false,
+        error: `egress violation: ${confinement.violations.map((v) => v.kind).join(",")}`,
+      };
+    const limitCode = lastError instanceof PluginLimitError ? lastError.reasonCode : undefined;
+    const violated = confinement.violations.length > 0;
 
     // ---- Phase C: validate/redact, commit fingerprint + final audit.
     let response: ExecutionResponse;
@@ -420,16 +457,28 @@ export class KernelToolGateway implements ToolGateway {
     if (!outcome.ok) {
       response = this.respond(req, prov, req.capability, {
         state: "failed",
-        reasonCode: outcome.timeout ? "PLUGIN_TIMEOUT" : "PLUGIN_ERROR",
-        message: outcome.timeout
-          ? `Plugin exceeded its ${timeoutMs}ms time limit.`
-          : "Plugin raised an error.",
+        reasonCode: violated
+          ? "PLUGIN_EGRESS_VIOLATION"
+          : (limitCode ?? (outcome.timeout ? "PLUGIN_TIMEOUT" : "PLUGIN_ERROR")),
+        message: violated
+          ? "Plugin attempted network or process access outside the egress proxy."
+          : limitCode
+            ? `Plugin exceeded a sandbox resource limit (${limitCode}).`
+            : outcome.timeout
+              ? `Plugin exceeded its ${timeoutMs}ms time limit.`
+              : "Plugin raised an error.",
         warnings: a.warnings,
       });
       incident = {
-        kind: outcome.timeout ? "timeout" : "plugin_error",
+        kind: violated
+          ? "egress_violation"
+          : limitCode
+            ? "resource_limit"
+            : outcome.timeout
+              ? "timeout"
+              : "plugin_error",
         detail: outcome.error,
-        degradeNow: outcome.timeout,
+        degradeNow: violated || !!limitCode || outcome.timeout,
       };
     } else {
       const vout = this.validator(capability.outputSchema);
@@ -482,6 +531,15 @@ export class KernelToolGateway implements ToolGateway {
           JSON.stringify(response),
         ],
       );
+      for (const v of confinement.violations)
+        await writeAudit(tx, {
+          ...auditBase,
+          action: "plugin.violation",
+          subject: req.capability,
+          outcome: "denied",
+          reasonCode: v.kind,
+          detail: { requestId: req.requestId, pluginId: installation.pluginId, what: v.detail },
+        });
       await writeAudit(tx, {
         ...auditBase,
         action: "tool.invoke.completed",

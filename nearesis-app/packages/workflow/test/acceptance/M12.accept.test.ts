@@ -26,6 +26,9 @@ const ws = () => env.workspaceId;
 const G = ["research.run_model@1", "semantic.query@1"]; // the parent grant set granted to the editor's delegation scope
 const EXPAND = "M12-expand";
 const REVOKE = "M12-revoke";
+const GRANT_CTL = "M12-grant-ctl";
+// A tool the quant ROLE permits (stats.read@1) but the marker's grant set G excludes.
+const ROLE_ONLY_TOOL = "stats.read@1";
 const has = (p: string, ...n: string[]) => n.every((x) => p.includes(x));
 const quantOk = {
   action: "finish",
@@ -48,13 +51,26 @@ const plan = (scn: string): ScriptRule => ({
 const rules: ScriptRule[] = [
   plan(EXPAND),
   plan(REVOKE),
-  // M12-expand: one valid call, then a tool outside the child's grant, then finish
+  plan(GRANT_CTL),
+  // M12-expand: one valid call, then a tool the ROLE permits but the grant set G excludes, then a tool outside the role
+  // as well, then finish
   { match: (r) => has(r.prompt, tag(EXPAND), "[role=quant]", "[step=0]"), respond: () => runModel },
   {
     match: (r) => has(r.prompt, tag(EXPAND), "[role=quant]", "[step=1]"),
+    respond: () => ({ action: "tool", tool: ROLE_ONLY_TOOL, input: { metric: "swap_count" } }),
+  },
+  {
+    match: (r) => has(r.prompt, tag(EXPAND), "[role=quant]", "[step=2]"),
     respond: () => ({ action: "tool", tool: "registry.read@1", input: { key: "all-sources" } }),
   },
-  { match: (r) => has(r.prompt, tag(EXPAND), "[role=quant]", "[step=2]"), respond: () => quantOk },
+  { match: (r) => has(r.prompt, tag(EXPAND), "[role=quant]", "[step=3]"), respond: () => quantOk },
+  // M12-grant-ctl (negative control): identical script, but the assigner's grant set INCLUDES the role-only tool
+  { match: (r) => has(r.prompt, tag(GRANT_CTL), "[role=quant]", "[step=0]"), respond: () => runModel },
+  {
+    match: (r) => has(r.prompt, tag(GRANT_CTL), "[role=quant]", "[step=1]"),
+    respond: () => ({ action: "tool", tool: ROLE_ONLY_TOOL, input: { metric: "swap_count" } }),
+  },
+  { match: (r) => has(r.prompt, tag(GRANT_CTL), "[role=quant]", "[step=2]"), respond: () => quantOk },
   // M12-revoke: the kernel lease is revoked between turns, then the model re-emits the same cached call
   { match: (r) => has(r.prompt, tag(REVOKE), "[role=quant]", "[step=0]"), respond: () => runModel },
   {
@@ -213,6 +229,47 @@ it("M12: a marker-spawned child holds only a subset of its parent's grants, is d
     );
     // 0 executions: the out-of-scope tool never reached an executed state in the kernel
     expect(inv.filter((r) => r.capability === "registry.read@1" && r.state === "ok")).toHaveLength(0);
+    // the case under test: permitted by the quant role, excluded by the marker's grant set G: denied, 0 executions
+    const roleOnly = inv.filter((r) => r.capability === ROLE_ONLY_TOOL);
+    expect(roleOnly.length).toBeGreaterThanOrEqual(1);
+    expect(roleOnly.filter((r) => r.state === "ok")).toHaveLength(0);
+    expect(roleOnly.every((r) => r.state === "blocked" && r.reason_code === "TOOL_NOT_GRANTED")).toBe(true);
+    const grantAudit = await kq<{ reason_code: string }>(
+      "SELECT reason_code FROM audit_events WHERE actor_id=$1 AND action='tool.invoke.denied' AND subject=$2",
+      [childId, ROLE_ONLY_TOOL],
+    );
+    expect(grantAudit.length).toBeGreaterThanOrEqual(1); // audited
+    // the child's lease set is exactly role-allowlist INTERSECT G (a subset of G), never wider
+    const leased = await kq<{ capability: string }>(
+      "SELECT DISTINCT capability FROM capability_leases WHERE holder_actor_id=$1",
+      [childId],
+    );
+    const leasedCaps = leased.map((l) => l.capability);
+    expect(leasedCaps).toContain("research.run_model@1");
+    expect(leasedCaps).not.toContain(ROLE_ONLY_TOOL);
+    expect(leasedCaps.every((c) => G.includes(c))).toBe(true);
+    // negative control: with the role-only tool INCLUDED in the assigner's grants (owner, unbounded scope), the same call
+    // executes, so the denial above is caused by G and not by the role or the fixture
+    const grantCtlMarker = await createMarker(owner, ws(), panel.panelId, `[scenario=${GRANT_CTL}] control`);
+    expect(
+      (
+        await command(owner, ws(), "marker.assign", {
+          markerId: grantCtlMarker,
+          agents: ["quant"],
+          grants: [...G, ROLE_ONLY_TOOL],
+        })
+      ).status,
+    ).toBe(200);
+    await runUntil(grantCtlMarker, finished);
+    const ctlRun = (await taskOf(grantCtlMarker)).runId;
+    const ctlKid = (
+      await q<{ id: string }>(env, env.tenantId, "SELECT id FROM tasks WHERE run_id=$1 AND depth>0", [ctlRun])
+    )[0]!.id;
+    const ctlInv = await kq<{ capability: string; state: string }>(
+      "SELECT capability, state FROM tool_invocations WHERE actor_id=$1 AND capability=$2",
+      [ctlKid, ROLE_ONLY_TOOL],
+    );
+    expect(ctlInv.map((r) => r.state)).toEqual(["ok"]);
     expect(inv.filter((r) => r.capability === "research.run_model@1" && r.state === "ok")).toHaveLength(1);
     // denied and audited (runtime decision trace; the kernel audits denials that reach the gateway)
     const raudit = await q<{ kind: string; reason_code: string | null; detail: unknown }>(

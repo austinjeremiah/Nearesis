@@ -22,6 +22,7 @@ export interface InvestigationEngine {
     runId: string;
     question: string;
     source?: "fixture" | "live";
+    grants?: string[];
   }): Promise<{ runId: string; workflowId: string }>;
   /** Signal names are the workflow's: `approve`, `reject`, `cancel`. */
   signal(
@@ -223,6 +224,7 @@ export class RunsService {
         runId: ids.runId,
         question: body.question,
         source: body.source,
+        ...(body.grants ? { grants: body.grants } : {}),
       });
     } catch (e) {
       if ((e as { name?: string } | null)?.name === "WorkflowExecutionAlreadyStartedError" && seed)

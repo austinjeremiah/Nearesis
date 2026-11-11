@@ -623,6 +623,8 @@ export function createActivities(d: ActivityDeps) {
       parentTaskId: string;
       modelVersion: string;
       child: ChildSpec;
+      /** Delegation grants of the run (marker.assign): the child's capabilities are narrowed to these. */
+      grants?: string[];
     }): Promise<{ taskId: string; depth: number; created: boolean; status: string; hypothesisId: string }> {
       return guarded(async () => {
         const parent = await withTenant(d.pool, i.tenantId, async (c) => {
@@ -650,12 +652,18 @@ export function createActivities(d: ActivityDeps) {
           throw new AgentRuntimeError("TOOL_NOT_GRANTED", `role ${parent.role} may not spawn`, {});
         }
         const hypothesisId = `${i.child.task}|${i.child.inputSnapshot}`;
+        // Delegation grants narrow (never widen) what the role and the parent would allow: a tool the role permits but the
+        // grant set excludes is simply not leased, so the kernel denies and audits it at invocation.
+        const granted = i.grants ? new Set(i.grants) : undefined;
+        const capabilities = granted
+          ? i.child.capabilities.filter((c) => granted.has(c))
+          : i.child.capabilities;
         const r = await supervisor.spawn(
           {
             role: i.child.role as never,
             objective: i.child.objective,
             workspaceId: i.workspaceId,
-            allowedCapabilities: i.child.capabilities,
+            allowedCapabilities: capabilities,
             maxChildDepth: i.child.maxChildDepth,
             budget: i.child.budget,
           },
@@ -686,7 +694,7 @@ export function createActivities(d: ActivityDeps) {
           parentTaskId: i.parentTaskId,
           taskId: r.taskId,
           role: i.child.role,
-          capabilities: i.child.capabilities,
+          capabilities,
         });
         return { taskId: r.taskId, depth: r.depth, created: r.created, status: r.status, hypothesisId };
       });

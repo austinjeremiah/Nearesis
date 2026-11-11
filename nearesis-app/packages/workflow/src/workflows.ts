@@ -241,6 +241,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
           budgetId: input.budgetId,
           taskId,
           hypothesisId,
+          ...(input.grants ? { grants: input.grants } : {}),
         };
         let handle: ChildWorkflowHandle<typeof ResearchChildWorkflow>;
         try {
@@ -314,6 +315,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
                 parentTaskId: directorTaskId,
                 modelVersion: plan.modelVersion,
                 child: spec,
+                ...(input.grants ? { grants: input.grants } : {}),
               });
             } catch (e) {
               if (isCancellation(e)) throw e;
@@ -567,6 +569,7 @@ export async function ResearchChildWorkflow(input: ChildInput): Promise<ChildOut
           parentTaskId: input.taskId,
           modelVersion: input.dedupKey.modelVersion,
           child: req,
+          ...(input.grants ? { grants: input.grants } : {}),
         });
         const key: DedupKey = {
           workspaceId: input.workspaceId,

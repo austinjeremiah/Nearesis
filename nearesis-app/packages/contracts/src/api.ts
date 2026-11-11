@@ -67,6 +67,8 @@ export const SubmitQuestionRequest = z.strictObject({
     toolCalls: z.number().int().positive().max(24),
     usd: z.number().nonnegative(),
   }),
+  /** Additive: delegation grants (marker.assign). Narrows every child's capability leases; it can never widen them. */
+  grants: z.array(z.string().min(1).max(100)).max(64).optional(),
 });
 export const SubmitQuestionResponse = z.strictObject({ runId: Uuid, workflowId: z.string() });
 

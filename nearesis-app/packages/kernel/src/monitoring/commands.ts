@@ -20,6 +20,7 @@ import type { CommandBus, CommandContext, HandlerResult } from "../commands.ts";
 import { KernelError } from "../errors.ts";
 import { zodDetails } from "../workspace.ts";
 import { canAdmin } from "../auth.ts";
+import { resolveCatalog } from "./catalog.ts";
 import type { MonitoringConfig } from "./catalog.ts";
 import { assertConditionBounds, conditionMetrics } from "./condition.ts";
 
@@ -130,7 +131,7 @@ const utc = (t: string): boolean => /(Z|[+-]00:?00)$/.test(t);
 
 /** Rejects metrics, units and semantic versions the catalog does not certify (only when a catalog is configured). */
 function assertCatalogMetrics(cfg: MonitoringConfig, c: Condition, semanticVersion?: string): void {
-  const cat = cfg.catalog;
+  const cat = resolveCatalog(cfg);
   if (!cat) return;
   for (const id of conditionMetrics(c))
     if (!Object.hasOwn(cat.metrics, id))
@@ -169,7 +170,8 @@ async function assertAnchorValid(
       throw bad("NON_UTC_TIMESTAMP", "Marker timestamps must be absolute UTC.", "anchor", `${t} is not UTC`);
   if (a.kind === "time_range" && Date.parse(a.end) <= Date.parse(a.start))
     throw bad("INVALID_RANGE", "Range end must be after start.", "anchor", "end <= start");
-  const range = cfg.catalog?.accessibleRange;
+  const catalog = resolveCatalog(cfg);
+  const range = catalog?.accessibleRange;
   if (range)
     for (const t of times)
       if (Date.parse(t) < Date.parse(range.start) || Date.parse(t) > Date.parse(range.end))
@@ -179,9 +181,9 @@ async function assertAnchorValid(
           "anchor",
           `${t} outside ${range.start}..${range.end}`,
         );
-  if (a.kind === "threshold" && cfg.catalog) {
-    const m = cfg.catalog.metrics[a.metricId];
-    if (!m || !Object.hasOwn(cfg.catalog.metrics, a.metricId))
+  if (a.kind === "threshold" && catalog) {
+    const m = catalog.metrics[a.metricId];
+    if (!m || !Object.hasOwn(catalog.metrics, a.metricId))
       throw bad(
         "UNKNOWN_METRIC",
         "Metric is not in the semantic catalog.",
@@ -558,7 +560,7 @@ export function registerMonitoringCommands(bus: CommandBus, cfg: MonitoringConfi
           p.action,
           p.enabled,
           ctx.session.userId,
-          p.semanticVersion ?? cfg.catalog?.semanticVersion ?? null,
+          p.semanticVersion ?? resolveCatalog(cfg)?.semanticVersion ?? null,
           p.dataMaturity,
           p.maxRunsPerDay ?? null,
         ],

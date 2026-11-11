@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { DEFAULT_ENGINE_INTERFACES, Db, Kernel, loadTrustedKeys, migrate } from "@nearesis/kernel";
 import { buildApp } from "./app.ts";
 import { temporalEngine } from "./temporal-engine.ts";
+import { productionMonitoringConfig } from "./monitoring-config.ts";
 
 /** Minimal .env loader (server-side only; values are never logged). */
 function loadEnv(): void {
@@ -31,6 +32,8 @@ const kernel = new Kernel({
     pluginRoot: process.env.NEARESIS_PLUGIN_ROOT ?? process.cwd(),
     engineInterfaces: DEFAULT_ENGINE_INTERFACES,
   },
+  // The real semantic catalog, required: metric, unit, version and range checks are enforced (fail closed if unavailable).
+  monitoring: productionMonitoringConfig(),
 });
 await kernel.boot();
 kernel.outbox.start();

@@ -13,6 +13,8 @@ export function runsPort(runs: RunsService): RunPort {
           // A replay never claims to read today's live data: it is pinned to the recorded snapshot.
           snapshotPolicy: input.mode === "replay" ? "pinned" : "live",
           budget: input.budget,
+          // The assigner's delegation grants narrow the child's kernel leases (a tool outside them is denied and audited).
+          ...(input.grants.length ? { grants: input.grants } : {}),
         },
         { idempotencyKey: input.idempotencyKey },
       );

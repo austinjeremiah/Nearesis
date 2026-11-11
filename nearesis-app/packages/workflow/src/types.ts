@@ -15,6 +15,8 @@ export interface InvestigationInput {
   /** Semantic layer the run's agents query (contracts 1.4.0 `source`). Absent = fixture. */
   source?: "fixture" | "live";
   scenario?: string;
+  /** Delegation grants (marker.assign): when present, every child's leases are narrowed to these capabilities. Absent = role allowlist only. */
+  grants?: string[];
   /** The human on whose behalf leases are issued and the approved canvas command is applied (server-resolved by the API). */
   requestedBy?: { userId: string; role: "owner" | "admin" | "analyst" | "viewer" };
 }
@@ -47,6 +49,8 @@ export interface ChildInput {
   budgetId: string;
   taskId: string;
   hypothesisId: string;
+  /** Inherited from the investigation (see InvestigationInput.grants). */
+  grants?: string[];
 }
 
 export interface ChildOutcome {

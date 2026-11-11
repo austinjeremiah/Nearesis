@@ -208,11 +208,20 @@ it("M10: no agent, workflow or paid call starts from unsaved selections or draft
       300,
     );
     expect(wf).toBe(1);
-    const runsForMarker = await q<{ id: string; state: string }>(
-      env,
-      env.tenantId,
-      "SELECT id, state FROM runs WHERE workspace_id=$1",
-      [ws()],
+    // The `runs` row is written by the worker's first activity (eventually consistent with Temporal visibility under CI
+    // load): poll with a deadline for it, then assert the exact count.
+    const runsForMarker = await waitFor(
+      async () => {
+        const r = await q<{ id: string; state: string }>(
+          env,
+          env.tenantId,
+          "SELECT id, state FROM runs WHERE workspace_id=$1",
+          [ws()],
+        );
+        return r.length > 0 ? r : null;
+      },
+      30_000,
+      300,
     );
     expect(runsForMarker).toHaveLength(1);
     expect(runsForMarker[0]!.id).toBe(tasks[0]!.runId);

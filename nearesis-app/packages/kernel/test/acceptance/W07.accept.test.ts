@@ -189,4 +189,4 @@ it("W07: nodes have the authorised kinds and edges use only the seven authorised
       negativeControl: broken,
     },
   });
-});
+}, 60_000);

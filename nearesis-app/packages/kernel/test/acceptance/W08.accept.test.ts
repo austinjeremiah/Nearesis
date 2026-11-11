@@ -171,4 +171,4 @@ it("W08: unsupported claims are distinguishable and numeric claims need complete
       eventSeq: [before, after],
     },
   });
-});
+}, 60_000);

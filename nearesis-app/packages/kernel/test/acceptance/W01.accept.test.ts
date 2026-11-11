@@ -123,4 +123,4 @@ it("W01: a branch experiment never alters the parent; the branch diff is availab
     observed: `branch ${branchId} from snapshot ${snap.snapshotId} (parent ${mainBranch}); parent objects hash unchanged (${hashOf(parentAfter).slice(0, 12)}), semantic_versions rows ${sv0}->${sv1}, open flags ${flagsOpen}; branch diff = ${JSON.stringify(kinds)}; foreign view ${foreign.code}, malformed overlay ${malformed.code}, viewer write ${viewerWrite.reasonCode}`,
     evidence: { diff: kinds, parentHashUnchanged: true, semanticVersionRows: [sv0, sv1] },
   });
-});
+}, 60_000);

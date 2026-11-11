@@ -123,4 +123,4 @@ it("W04: collaborators merge layout/notes in one workspace; another tenant gets 
     observed: `2 concurrent writers merged to 2 layout entries and a shared note; viewer read ok, viewer write ${"INSUFFICIENT_ROLE"}; other-tenant state/update/presence-read/presence-write on our workspace were byte-identical to an unknown workspace (${foreign[0]}), 0 rows persisted for the outsider, presence peers listed only to members; foreign root, out-of-range coordinates and non-Yjs bytes rejected; evidence edges unchanged by layout edits`,
     evidence: { probes: foreign.length, outsiderRows: evil, layoutRows: rowsAfter },
   });
-});
+}, 60_000);

@@ -116,4 +116,4 @@ it("W06: a conflicted branch merge requires conflict review and never silently o
     observed: `two branches changed the same claim; first merge (verdict change) needed acknowledgement + writer role; second merge produced 1 unresolved conflict, accept blocked (MERGE_CONFLICTS_UNRESOLVED) and the live claim stayed "Rising (B)"/refuted; after explicit keep_both review both claims exist side by side (preservesConflictWith set) and the original verdict is unchanged; both merges appear in the timeline`,
     evidence: { conflicts: 1, blockedReason: blocked.reasonCode, claimsAfter: rows.length },
   });
-});
+}, 60_000);

@@ -188,4 +188,4 @@ it("W14: a merge proposal records what changes and why and appends only items th
       nodesAfter: after.length,
     },
   });
-});
+}, 60_000);

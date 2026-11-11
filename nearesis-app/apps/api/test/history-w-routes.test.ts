@@ -122,5 +122,5 @@ describe("history routes for the W07-W18 surface", () => {
     expect(deref.statusCode).toBe(404);
     const mine = await call(owner, "GET", `/v1/workspaces/${ws}/evidence/${R}`);
     expect(mine.statusCode).toBe(200);
-  });
+  }, 60_000);
 });

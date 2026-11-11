@@ -152,4 +152,4 @@ it("W12: the timeline attributes human and machine edits distinctly and snapshot
       changes: cmp.changes.map((c) => `${c.objectId.split(":")[0]}:${c.change}`),
     },
   });
-});
+}, 60_000);

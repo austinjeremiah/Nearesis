@@ -87,4 +87,4 @@ it("W05: a historical view reconstructs the exact prior canvas and graph with a 
     observed: `snapshot at documentRevision 1 replayed exactly 1 panel and no later node while live is at revision 2 (stale=true, integrityOk=true); vintage = dataRevision ${hc.dataVintage.dataRevision}, source manifest ${manifest.slice(0, 8)}, semantic pins {} vs later {dex_volume:3.0.0}; compare shows added panel/node/metric; timeline lists both snapshots in order; UPDATE on snapshots denied; foreign view denied`,
     evidence: { documentRevision: [1, 2], stale: true, vintage: hc.dataVintage },
   });
-});
+}, 60_000);

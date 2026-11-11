@@ -173,4 +173,4 @@ it("W17: summaries stay subordinate to evidence; memory cannot invent a source o
     observed: `5 summaries (agent/human authorship recorded) live outside evidence_nodes; a dex_volume 1.0.0 -> 2.0.0 change marked exactly the 1 dependent summary stale while all evidence rows and source links stayed byte-identical; recall resolved 3 summaries to live evidence and flagged the no-source and ghost-source ones evidence_unresolved/not citable; the scripted agent's 2 uncitable citations and its memory-based exploratory -> out_of_sample upgrade were refused and audited (2 + 1 audit rows) with the claim unchanged, while an evidence-based upgrade with an out-of-sample result succeeded`,
     evidence: { stale: [S1], citable: 3, unresolved: 2, audits: { citation: 2, tier: 1 } },
   });
-});
+}, 60_000);

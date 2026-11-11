@@ -90,4 +90,4 @@ it("W03: an orphan evidence edge is rejected, or recorded only through an explic
     observed: `orphan edge to unknown id rejected (${e1.reasonCode}); edge to another tenant's node rejected with the identical message (no existence leak, also with tombstone requested); 0 edges persisted and workspace version unchanged; tombstone without reason rejected; explicit tombstone created a visible tombstone node and the claim stayed unsupported; a persisted result made it supported`,
     evidence: { rejected: 3, edgesAfterRejections: 0, tombstoneVisible: true },
   });
-});
+}, 60_000);

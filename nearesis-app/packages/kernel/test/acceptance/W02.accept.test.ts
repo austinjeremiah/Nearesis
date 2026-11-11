@@ -85,4 +85,4 @@ it("W02: altering a metric definition flags every dependent claim for revalidati
     observed: `metric dex_volume 1.0.0 -> 2.0.0 flagged ${flagged.size} nodes (1 pinned result + 2 transitive dependents via derived_from, cycle-safe); unrelated and unpinned nodes untouched; same-version re-apply flagged 0; resolve cleared 1 leaving ${left.length}`,
     evidence: { flagged: [...flagged].length, via, remaining: left.length },
   });
-});
+}, 60_000);

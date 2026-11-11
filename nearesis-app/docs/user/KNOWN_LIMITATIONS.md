@@ -1,0 +1,33 @@
+# Known limitations
+
+This page lists what the product does not do yet, or does only partially. It is updated with each release. Nothing here is hidden in the interface: each item below also shows up on screen where it applies.
+
+## Data and research
+
+- **Live coverage is partial.**
+  - On the live layer, NEAR transactions, signers and price are mostly complete for recent months.
+  - Over long windows, the 1Click swap and volume series can be refused by the semantic gateway's cost cap. The thesis page shows the refusal (`COST_CAP`); it does not show an empty or zero series.
+  - Live volume counts only swaps whose USD value is known.
+- **Explorer covers 1Click only**, not all NEAR Intents activity. After the private-settlement change (2026-10-27), public transaction hashes are shield and unshield boundaries, not swaps.
+- **Research results available today come from labelled synthetic fixtures** (claim scope: no live claim). They demonstrate the method and are not evidence about NEAR. Live research runs are capped at `INSUFFICIENT_DATA` until complete organic-activity data exists.
+- **Research results are read from a published capsule's run file.** The API does not yet serve the run file directly, so the web server reads the same capsule directory and checks the run against the capsule manifest hash.
+
+## Verification
+
+- **No OutLayer proof exists for any capsule yet.** Capsules show local reproducibility separately and are never shown as cryptographically verified without a job id and check time.
+
+## Evidence graph and time machine
+
+- **Snapshots cover the main branch only.**
+- **Branch views show claim support as "unknown"**, because the API does not compute support for branches.
+- **Merges into main apply evidence and metric changes.** Panel changes and edge deletions are deferred and listed, not applied.
+- **Branch editing in the interface is limited to relabelling a node.** Other branch operations exist in the API only.
+- **Merge proposals have no reviewer comments yet.**
+- **Snapshot staleness is based on canvas revisions and semantic versions.** A snapshot taken before new evidence was added may not be marked stale, but its view still shows the snapshot as captured.
+- **Collaboration presence** is single-process and is not shown in the interface.
+
+## Interface
+
+- **Canvas panels show data only for queries the semantic layer has recorded.** A panel whose query hash is unknown shows `QUERY_UNRESOLVED` instead of guessing.
+- **Lens segment and route filters are listed on affected panels as not applied on the canvas.** Lenses filter by time only.
+- **Production builds require all packages to type-check.** While another package fails, browser tests run against the development server.

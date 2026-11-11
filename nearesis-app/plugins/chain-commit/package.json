@@ -14,6 +14,7 @@
   "dependencies": {
     "@near-js/crypto": "2.5.1",
     "@near-js/transactions": "2.5.1",
+    "@near-js/utils": "2.5.1",
     "@nearesis/contracts": "workspace:*",
     "@nearesis/plugin-sdk": "workspace:*"
   }

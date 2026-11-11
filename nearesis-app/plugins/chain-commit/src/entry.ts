@@ -54,6 +54,56 @@ async function post(url: string, body: string, ctx: InvocationContext): Promise<
   });
 }
 
+/** Live testnet path: real nonce and block hash from the RPC, borsh transaction signed by the signer process, broadcast. */
+async function commitLive(tx: CommitTx, signer: string, rpc: string, ctx: InvocationContext) {
+  const json = async (r: Reply) => JSON.parse(Buffer.from(r.body).toString("utf8")) as any;
+  const pk = await json(await post(signer, JSON.stringify({ op: "pubkey" }), ctx));
+  const key = await json(
+    await post(
+      rpc,
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: ctx.requestId,
+        method: "query",
+        params: {
+          request_type: "view_access_key",
+          finality: "final",
+          account_id: pk.signerId,
+          public_key: pk.publicKey,
+        },
+      }),
+      ctx,
+    ),
+  );
+  if (!key.result) throw new Error("RPC_NO_ACCESS_KEY");
+  const s = await post(
+    signer,
+    JSON.stringify({ tx, nonce: String(BigInt(key.result.nonce) + 1n), blockHash: key.result.block_hash }),
+    ctx,
+  );
+  if (s.status !== 200) throw new Error(`SIGNER_REFUSED_${s.status}`);
+  const { digest, signedTx } = await json(s);
+  const sent = await json(
+    await post(
+      rpc,
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: ctx.requestId,
+        method: "broadcast_tx_commit",
+        params: [signedTx],
+      }),
+      ctx,
+    ),
+  );
+  if (!sent.result) throw new Error(`RPC_FAILED_${JSON.stringify(sent.error ?? {}).slice(0, 200)}`);
+  return {
+    committed: sent.result.status && "SuccessValue" in sent.result.status,
+    network: tx.network,
+    digest,
+    txHash: sent.result.transaction?.hash ?? null,
+  };
+}
+
 export default definePlugin({
   handlers: {
     [CAPABILITY]: async (input: unknown, ctx: InvocationContext) => {
@@ -61,6 +111,7 @@ export default definePlugin({
       if (violation) throw new Error(violation); // defence in depth: the schema already refused this
       const tx = input as CommitTx;
       const { signer, rpc } = endpoints();
+      if (process.env.CHAIN_COMMIT_LIVE === "1") return commitLive(tx, signer, rpc, ctx);
       const signed = await post(signer, JSON.stringify({ tx }), ctx);
       if (signed.status !== 200) throw new Error(`SIGNER_REFUSED_${signed.status}`);
       const { digest, signature } = JSON.parse(Buffer.from(signed.body).toString("utf8")) as {

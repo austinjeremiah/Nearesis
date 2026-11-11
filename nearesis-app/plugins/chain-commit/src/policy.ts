@@ -5,7 +5,9 @@
  * There is no transfer, swap or withdrawal path: the allowlist names exactly one method and a deny pattern backs it.
  */
 export const NETWORK = "near-testnet" as const;
-export const ALLOWED_CONTRACT = "commit.nearesis.testnet";
+/** ADR-20261111-006: owned subaccount, deployed from contract/commit.wat (wasm sha256 in contract/README via build.sh). */
+export const ALLOWED_CONTRACT = "commit.majorlynx5104.testnet";
+export const SIGNER_ACCOUNT = "majorlynx5104.testnet";
 export const ALLOWED_METHOD = "commit_hash";
 /** Deposit is strictly below 1e21 yoctoNEAR (0.001 NEAR); gas is at most 30 Tgas. */
 export const MAX_DEPOSIT_DIGITS = 21;

@@ -687,6 +687,9 @@ importers:
       '@near-js/transactions':
         specifier: 2.5.1
         version: 2.5.1(@near-js/crypto@2.5.1(@near-js/types@2.5.1)(@near-js/utils@2.5.1(@near-js/types@2.5.1)))(@near-js/types@2.5.1)(@near-js/utils@2.5.1(@near-js/types@2.5.1))
+      '@near-js/utils':
+        specifier: 2.5.1
+        version: 2.5.1(@near-js/types@2.5.1)
       '@nearesis/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

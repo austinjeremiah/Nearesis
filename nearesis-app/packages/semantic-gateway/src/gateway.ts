@@ -6,6 +6,7 @@ import {
   cubeLoad,
   saveQuery,
   signCubeToken,
+  CUBES,
   type Registry,
 } from "@nearesis/analytics";
 import type { DataFrameEnvelope } from "@nearesis/contracts";
@@ -20,8 +21,9 @@ import {
   type CoverageState,
 } from "./coverage.ts";
 import { fail } from "./errors.ts";
+import { ReadCache } from "./read-cache.ts";
 import { DAY_MS, bucketStart, cubeTime, daysBetween, isoDay, nextBucket, type Grain } from "./time.ts";
-import { validateQuery, INDEX_UNIT, type Plan } from "./validate.ts";
+import { validateQuery, INDEX_UNIT, SAFE_FILTER_VALUE, type Plan } from "./validate.ts";
 import type {
   AuditRecord,
   CatalogResult,
@@ -40,6 +42,36 @@ const OPS: Record<string, string> = {
   lt: "lt",
   lte: "lte",
 };
+
+/**
+ * Filter values outside the conservative charset (legitimate punctuation such as brackets or quotes in an asset label)
+ * are passed on only if they exist verbatim in the dimension's stored domain. The membership check binds them as a
+ * typed ClickHouse query parameter (data, never SQL text). Returns the path of the first unknown value, or undefined.
+ */
+async function verifyPunctuatedValues(
+  ch: ReturnType<typeof createCh>,
+  filters: { member: string; values: unknown[] }[],
+): Promise<string | undefined> {
+  for (const [i, f] of filters.entries()) {
+    const odd = f.values.filter((x): x is string => typeof x === "string" && !SAFE_FILTER_VALUE.test(x));
+    if (odd.length === 0) continue;
+    const [view, name] = f.member.split(".");
+    const cube = CUBES.find((c) => c.view === view);
+    const dim = cube?.dimensions.find((d) => d.name === name);
+    if (!cube || !dim) return `filters[${i}].member`;
+    const rows = await (
+      await ch.query({
+        query: `SELECT DISTINCT toString(${dim.sql}) AS v FROM ${cube.table} FINAL WHERE toString(${dim.sql}) IN {vals:Array(String)}`,
+        query_params: { vals: odd },
+        format: "JSONEachRow",
+      })
+    ).json<{ v: string }>();
+    const known = new Set(rows.map((r) => r.v));
+    const j = f.values.findIndex((x) => typeof x === "string" && !SAFE_FILTER_VALUE.test(x) && !known.has(x));
+    if (j >= 0) return `filters[${i}].values[${j}]`;
+  }
+  return undefined;
+}
 
 export function queryHashOf(ast: unknown): string {
   return createHash("sha256").update(canonicalJson(ast)).digest("hex");
@@ -66,6 +98,8 @@ export function createGateway(opts: GatewayOptions) {
   const reg: Registry = opts.registry;
   const stats: GatewayStats = { executions: 0, cacheHits: 0, cacheMisses: 0, rejected: 0, coverageProbes: 0 };
   const audit: AuditRecord[] = [];
+  const reads = new ReadCache(opts.readCacheMs ?? 5000);
+  const srcKey = (xs: string[]) => [...new Set(xs)].sort().join("|");
   const metricById = new Map(reg.metrics.map((m) => [m.id, m]));
 
   const record = (a: Omit<AuditRecord, "at">) => audit.push({ at: opts.clock().toISOString(), ...a });
@@ -108,13 +142,20 @@ export function createGateway(opts: GatewayOptions) {
       if (!v.ok) return rejectAudit(v);
       const plan = v.plan;
       const ast = plan.ast;
+      const unknownValue = await verifyPunctuatedValues(ch, ast.filters);
+      if (unknownValue)
+        return rejectAudit(
+          fail("VALIDATION_FAILED", "INVALID_VALUE", "Filter value is not a known value of the dimension.", {
+            details: [{ path: unknownValue, issue: "INVALID_VALUE" }],
+          }),
+        );
       const fromMs = Date.parse(ast.time.from);
       const toMs = Date.parse(ast.time.to);
       const sources = [...new Set(plan.metrics.flatMap((m) => m.sources))];
 
       // Cost gate before any Cube/ClickHouse fact load (S06).
       stats.coverageProbes++;
-      const perDay = await rowsPerDay(ch, sources);
+      const perDay = await reads.get(`rpd:${srcKey(sources)}`, () => rowsPerDay(ch, sources));
       const est = estimateRows(perDay, (toMs - fromMs) / DAY_MS);
       if (est > policy.maxEstimatedRows)
         return rejectAudit(
@@ -131,11 +172,17 @@ export function createGateway(opts: GatewayOptions) {
 
       const fromDay = isoDay(fromMs);
       const toDay = isoDay(toMs - 1);
-      const coverage = await loadCoverage(ch, sources, fromDay, toDay);
-      const gapsRaw = await loadQualityGaps(ch, sources, ast.time.from, ast.time.to);
-      const watermarks = await loadWatermarks(
-        ch,
-        sources.map((s) => s.slice(0, s.indexOf(":"))),
+      const coverage = await reads.get(`cov:${srcKey(sources)}:${fromDay}:${toDay}`, () =>
+        loadCoverage(ch, sources, fromDay, toDay),
+      );
+      const gapsRaw = await reads.get(`gap:${srcKey(sources)}:${ast.time.from}:${ast.time.to}`, () =>
+        loadQualityGaps(ch, sources, ast.time.from, ast.time.to),
+      );
+      const watermarks = await reads.get(`wm:${srcKey(sources)}`, () =>
+        loadWatermarks(
+          ch,
+          sources.map((s) => s.slice(0, s.indexOf(":"))),
+        ),
       );
 
       // Refuse before executing when policy says incomplete windows are refused.
@@ -156,7 +203,7 @@ export function createGateway(opts: GatewayOptions) {
       }
 
       const queryHash = queryHashOf(ast);
-      const vintage = await sourceVintage(ch, sources);
+      const vintage = await reads.get(`vin:${srcKey(sources)}`, () => sourceVintage(ch, sources));
       const cacheKey = buildCacheKey({
         tenantId: session.tenantId,
         workspaceId: session.workspaceId,
@@ -274,7 +321,13 @@ export function createGateway(opts: GatewayOptions) {
     };
   }
 
-  return { query, discover, stats: () => ({ ...stats }), audit: () => audit.map((a) => ({ ...a })) };
+  return {
+    query,
+    discover,
+
+    stats: () => ({ ...stats }),
+    audit: () => audit.map((a) => ({ ...a })),
+  };
 }
 
 /** Days with no available data for any selected source (explicit unavailable, or missing record with no data). */

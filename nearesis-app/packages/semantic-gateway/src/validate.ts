@@ -5,7 +5,10 @@ import { fail, type ReasonCode } from "./errors.ts";
 import type { Policy, QueryErr } from "./types.ts";
 
 /** Letters, digits, space and `_ . : @ / + -` (asset ids, chain names, addresses, symbols). */
-const SAFE_FILTER_VALUE = /^[\p{L}\p{N} _.:@/+-]{1,200}$/u;
+export const SAFE_FILTER_VALUE = /^[\p{L}\p{N} _.:@/+-]{1,200}$/u;
+/** Any printable text (no control or format characters) up to 200 characters. Punctuation beyond SAFE_FILTER_VALUE is
+ * allowed only for equals/in and only when the value is verified against the dimension's stored domain (gateway.ts). */
+const PRINTABLE_FILTER_VALUE = /^[^\p{C}]{1,200}$/u;
 
 export const INDEX_UNIT = "index_100";
 
@@ -141,10 +144,14 @@ export function validateQuery(
     if (!d || d.kind !== "dimension") return unknown(`filters[${i}].member`);
     if (d.visibility === "restricted" && !granted.has(d.id)) return hidden(`filters[${i}].member`);
     filterDims.push(d);
-    // Cube inlines filter values into the SQL it sends to ClickHouse (escaped), so a value may not carry SQL syntax:
-    // quotes, backslashes, comment markers, statement separators, brackets or control characters never reach Cube.
-    for (const [j, v] of f.values.entries())
-      if (typeof v === "string" && !SAFE_FILTER_VALUE.test(v))
+    // Values are data. Cube inlines them into its SQL (escaped), so a value outside the conservative charset may reach
+    // Cube only if it is verified against the dimension's stored domain by a parameterized lookup (gateway.ts).
+    for (const [j, v] of f.values.entries()) {
+      if (typeof v !== "string") continue;
+      const bad =
+        !PRINTABLE_FILTER_VALUE.test(v) ||
+        (!SAFE_FILTER_VALUE.test(v) && f.operator !== "equals" && f.operator !== "in");
+      if (bad)
         return fail(
           "VALIDATION_FAILED",
           "INVALID_VALUE",
@@ -153,6 +160,7 @@ export function validateQuery(
             details: [{ path: `filters[${i}].values[${j}]`, issue: "INVALID_VALUE" }],
           },
         );
+    }
   }
   for (const [i, o] of ast.order.entries()) {
     const known =

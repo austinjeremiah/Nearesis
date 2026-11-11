@@ -44,6 +44,13 @@ export interface GatewayOptions {
   ch?: ClickHouseClient;
   /** Optional Postgres pool: when set, every successful query AST is saved by hash to analytics_meta.query_registry. */
   pg?: import("pg").Pool;
+  /**
+   * How long (ms) source vintage, coverage, quality-gap, watermark and cost-rate reads are reused in-process (default
+   * 5000, 0 disables). They only change on ingestion, so a Redis cache hit then costs one Redis read instead of about six
+   * ClickHouse queries (FND-017). The cache key still embeds the vintage, so a result is never served across a vintage
+   * change that this gateway has observed.
+   */
+  readCacheMs?: number;
 }
 
 export interface AuditRecord {

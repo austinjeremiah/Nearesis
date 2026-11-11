@@ -9,6 +9,7 @@ import { RunsService } from "./runs.ts";
 import type { InvestigationEngine } from "./runs.ts";
 import { historyRoutes } from "./history-routes.ts";
 import { monitoringRoutes } from "./monitoring-routes.ts";
+import { capsuleRoutes } from "./capsule-routes.ts";
 
 const Uuid = z.uuid();
 
@@ -358,6 +359,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   );
 
   await app.register(historyRoutes, { kernel });
+  await app.register(capsuleRoutes, { kernel });
   await app.register(monitoringRoutes, { kernel, runs, authenticate, background: opts.monitorBackground });
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.

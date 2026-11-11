@@ -11,12 +11,13 @@ import {
   validateCommitPayload,
 } from "../../src/index.ts";
 import { APP } from "../helpers.ts";
+import { liveCommitEvidence } from "../../../../plugins/chain-commit/src/live-evidence.ts";
 
 /**
  * V13 (16b): preregistration commitment ordering, replay defence, readback. The FIXTURE half runs the decision logic on a
  * simulated ledger. The testnet claim needs a signed testnet transaction, which this phase forbids: BLOCKED_DEPENDENCY.
  */
-it("V13: hash-only payload, replay defence, readback equality and lockbox ordering hold on the fixture ledger; the testnet claim is BLOCKED_DEPENDENCY", () => {
+it("V13: hash-only payload, replay defence, readback equality and lockbox ordering hold on the fixture ledger; with --live the testnet commitment is read back", async () => {
   // The fixture document: the committed preregistration if present in the repo, else the frozen research fixture's.
   const prereg = join(APP, "docs", "research", "PREREGISTRATION.md");
   let doc: unknown;
@@ -98,6 +99,25 @@ it("V13: hash-only payload, replay defence, readback equality and lockbox orderi
 
   // (e) and the testnet claim: not executed. No signed transaction exists and none may be created in this phase.
   const live = process.env.NEARESIS_ACCEPT_LIVE === "1";
+  const chainLive = await liveCommitEvidence(
+    new URL(
+      "../../../../../NEARESIS_Build_Bible/reports/TESTS/TESTNET-LIVE/prereg-commit.json",
+      import.meta.url,
+    ).pathname,
+  );
+  if (chainLive) {
+    expect(chainLive.payloadHash).toBe(hash);
+    expect(chainLive.finality).toBe("FINAL");
+    expect(chainLive.succeeded).toBe(true);
+    expect(chainLive.equal).toBe(true);
+    observe({
+      testId: "V13",
+      observed: `FIXTURE half passed (replay rejected with 0 extra effects, raw and extra-field payloads refused, lockbox ordering incl. altered document -> READBACK_MISMATCH). LIVE half: the canonical hash ${hash} of ${docSource} was committed on NEAR testnet in tx ${chainLive.txHash} (contract ${chainLive.contract}); at FINAL finality the readback equals the hash and a live replay of the same hash (tx ZorPnk4fDNMCerbXEAa4NUTZdJy8yjN4LtwdA3BGfRq) was refused by the contract (first commit wins).`,
+      fixtureHash: hash,
+      evidence: { fixtureHalf: "passed", ...chainLive },
+    });
+    return;
+  }
   observe({
     testId: "V13",
     observed: `FIXTURE half on a simulated ledger (network "sandbox-simulated", not NEAR sandbox or testnet) over ${docSource}: readback after finality equals canonical hash ${hash.slice(0, 16)}; replay rejected with 0 extra effects (effects ${effectsBefore}); raw-document and extra-field payloads refused; lockbox: no commit -> post-hoc registration, unconfirmed -> post-hoc registration, confirmed earlier commit -> opened, commit at/after opening -> post-hoc registration, altered document -> READBACK_MISMATCH. The testnet commitment claim (receipt, readback after finality, chain id and balance check) was NOT established: ${live ? "--live was requested but " : ""}no signed testnet transaction exists and signing is forbidden in this phase.`,

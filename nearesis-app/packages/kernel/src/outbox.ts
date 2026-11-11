@@ -1,6 +1,7 @@
 import type { DomainEvent } from "@nearesis/contracts";
 import type { Db, Tx } from "./db/pool.ts";
 import { canonicalJson, sha256Hex } from "@nearesis/plugin-sdk";
+import { fanoutEvent } from "./classification.ts";
 import { IntegrityGuard } from "./integrity.ts";
 import { redactString } from "./redact.ts";
 
@@ -69,8 +70,15 @@ export class OutboxPublisher {
     );
   }
 
-  register(name: string, consumer: Consumer): void {
+  private readonly broad = new Set<string>();
+
+  /**
+   * `broad` consumers sit outside the workspace (telemetry, cross-tenant fan-out): they receive `fanoutEvent(event)`,
+   * identifiers and enums only, never labels, notes or data bodies (SEC21).
+   */
+  register(name: string, consumer: Consumer, opts: { broad?: boolean } = {}): void {
     this.consumers.set(name, consumer);
+    if (opts.broad) this.broad.add(name);
   }
 
   /** Deliver one event to every consumer. Returns the number of consumers whose effect actually ran. */
@@ -85,7 +93,7 @@ export class OutboxPublisher {
             [name, event.eventId, event.orgId],
           );
           if (r.rowCount === 0) return false; // duplicate delivery: no second effect
-          await consumer({ tx, event });
+          await consumer({ tx, event: this.broad.has(name) ? fanoutEvent(event) : event });
           return true;
         },
       );

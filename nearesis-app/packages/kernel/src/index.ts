@@ -13,6 +13,7 @@ export * from "./approvals.ts";
 export * from "./outbox.ts";
 export * from "./integrity.ts";
 export * from "./verified-state.ts";
+export * from "./classification.ts";
 export * from "./leases.ts";
 export * from "./gateway.ts";
 export * from "./kernel.ts";

@@ -39,6 +39,8 @@ const app = await buildApp({
   ...(process.env.NEARESIS_MONITOR_BACKGROUND === "1" ? { monitorBackground: {} } : {}),
   engine: temporalEngine(process.env.TASK_QUEUE ? { taskQueue: process.env.TASK_QUEUE } : {}),
 });
+if (process.env.NEARESIS_MONITOR_BACKGROUND === "1")
+  (await import("./monitor-feeder-live.ts")).startLiveMonitorFeeder(kernel, app);
 const port = Number(process.env.PORT ?? 4100);
 await app.listen({ host: "127.0.0.1", port });
 console.log(`nearesis api listening on 127.0.0.1:${port}`);

@@ -12,12 +12,16 @@
     "dev": "tsx src/main.ts"
   },
   "dependencies": {
+    "@clickhouse/client": "1.25.0",
     "@nearesis/acceptance": "workspace:*",
+    "@nearesis/analytics": "workspace:*",
     "@nearesis/contracts": "workspace:*",
     "@nearesis/kernel": "workspace:*",
     "@nearesis/plugin-sdk": "workspace:*",
+    "@nearesis/semantic-gateway": "workspace:*",
     "@nearesis/workflow": "workspace:*",
     "fastify": "5.12.8",
+    "ioredis": "6.0.0",
     "zod": "4.6.7"
   }
 }

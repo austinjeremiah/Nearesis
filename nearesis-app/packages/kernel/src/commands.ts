@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { registerHistoryCommands } from "./history-commands.ts";
 import {
   CommandType,
   MarkerAnchor,
@@ -143,6 +144,7 @@ export class CommandBus {
       minRole: "admin",
       handle: (ctx, payload) => plugins.disableInWorkspace(ctx, parsePayload(PluginRef, payload).pluginId),
     });
+    registerHistoryCommands(this);
   }
 
   register(commandType: string, handler: CommandHandler): void {

@@ -12,3 +12,6 @@ export * from "./monitor.ts";
 export * from "./ports.ts";
 export * from "./graph.ts";
 export * from "./ui.ts";
+export * from "./monitoring.ts";
+export * from "./history.ts";
+export * from "./research-artifacts.ts";

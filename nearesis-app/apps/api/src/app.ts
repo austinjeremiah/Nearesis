@@ -7,6 +7,7 @@ import { KernelError, noWorkspaceAccess, toErrorResponse, workspaceNotFound } fr
 import type { Kernel, Session } from "@nearesis/kernel";
 import { RunsService } from "./runs.ts";
 import type { InvestigationEngine } from "./runs.ts";
+import { historyRoutes } from "./history-routes.ts";
 
 const Uuid = z.uuid();
 
@@ -352,6 +353,8 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       return reply.status(202).send(res);
     },
   );
+
+  await app.register(historyRoutes, { kernel });
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.
   void HTTP_STATUS_FOR;

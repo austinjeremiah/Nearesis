@@ -240,6 +240,13 @@ export class MonitorScheduler {
     const wm = Date.parse(ev.watermark);
     await this.onRuleSelected?.(r.rule_id);
     return this.db.tx({ orgId: r.org_id, userId: r.created_by, actorKind: "service" }, async (tx) => {
+      // Already evaluated for this (rule, watermark, mode)? Answer without taking any lock, so competing workers and
+      // redeliveries do not queue behind fresh evaluations on the workspace row (PERF03).
+      const seen = await tx.query(
+        "SELECT 1 FROM monitor_triggers WHERE rule_id = $1 AND watermark = $2 AND mode = $3",
+        [r.rule_id, ev.watermark, ev.mode],
+      );
+      if (seen.rows.length > 0) return { ruleId: r.rule_id, outcome: "duplicate" as const };
       // Lock order matches the command bus: workspace, then rule. Disable/enable commands hold the same locks, so a rule
       // disabled before this point is seen as disabled here and never executes.
       const ws = (

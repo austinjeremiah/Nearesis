@@ -4,6 +4,9 @@ import type { Registry, RegistryDimension } from "@nearesis/analytics";
 import { fail, type ReasonCode } from "./errors.ts";
 import type { Policy, QueryErr } from "./types.ts";
 
+/** Letters, digits, space and `_ . : @ / + -` (asset ids, chain names, addresses, symbols). */
+const SAFE_FILTER_VALUE = /^[\p{L}\p{N} _.:@/+-]{1,200}$/u;
+
 export const INDEX_UNIT = "index_100";
 
 /** Unit compatibility: only identical units share an axis; mixing needs the explicit indexed transform. */
@@ -138,6 +141,18 @@ export function validateQuery(
     if (!d || d.kind !== "dimension") return unknown(`filters[${i}].member`);
     if (d.visibility === "restricted" && !granted.has(d.id)) return hidden(`filters[${i}].member`);
     filterDims.push(d);
+    // Cube inlines filter values into the SQL it sends to ClickHouse (escaped), so a value may not carry SQL syntax:
+    // quotes, backslashes, comment markers, statement separators, brackets or control characters never reach Cube.
+    for (const [j, v] of f.values.entries())
+      if (typeof v === "string" && !SAFE_FILTER_VALUE.test(v))
+        return fail(
+          "VALIDATION_FAILED",
+          "INVALID_VALUE",
+          "Filter value contains characters that are not allowed.",
+          {
+            details: [{ path: `filters[${i}].values[${j}]`, issue: "INVALID_VALUE" }],
+          },
+        );
   }
   for (const [i, o] of ast.order.entries()) {
     const known =

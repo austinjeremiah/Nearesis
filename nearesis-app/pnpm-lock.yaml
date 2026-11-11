@@ -433,6 +433,25 @@ importers:
         specifier: workspace:*
         version: link:../acceptance
 
+  packages/capsule:
+    dependencies:
+      '@nearesis/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@nearesis/acceptance':
+        specifier: workspace:*
+        version: link:../acceptance
+      playwright:
+        specifier: 1.65.0
+        version: 1.65.0
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(jsdom@31.0.0(@noble/hashes@2.4.0))(vite@8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/contracts:
     dependencies:
       zod:

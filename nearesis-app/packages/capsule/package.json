@@ -1,0 +1,25 @@
+{
+  "name": "@nearesis/capsule",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --exclude 'test/acceptance/**'",
+    "research:rebuild": "tsx src/cli.ts rebuild",
+    "research:verify": "tsx src/cli.ts verify",
+    "capsule:build": "tsx src/cli.ts build"
+  },
+  "dependencies": {
+    "@nearesis/contracts": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@nearesis/acceptance": "workspace:*",
+    "playwright": "1.65.0",
+    "vitest": "5.1.0"
+  }
+}

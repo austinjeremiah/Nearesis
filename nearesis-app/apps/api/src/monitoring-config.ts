@@ -1,6 +1,7 @@
-import { loadLiveRegistry, loadRegistry } from "@nearesis/analytics";
+import { latestRegistryFile, LIVE_REGISTRY_FILE } from "@nearesis/analytics";
 import type { Registry } from "@nearesis/analytics";
-import type { MetricCatalog, MonitoringConfig } from "@nearesis/kernel";
+import type { IntegrityGuard, MetricCatalog, MonitoringConfig } from "@nearesis/kernel";
+import { checkRegistryFile } from "./verified-registry.ts";
 
 /** NEAR mainnet genesis (UTC): no source holds data before it, so an earlier anchor is outside the accessible range. */
 export const SOURCE_RANGE_START = "2020-07-22T00:00:00Z";
@@ -31,12 +32,33 @@ export function catalogFromRegistries(
  * `CATALOG_UNAVAILABLE`; validation is never silently skipped. A successful load is cached, a failure is retried.
  */
 export function productionMonitoringConfig(
-  load: () => readonly Registry[] = () => [loadRegistry(), loadLiveRegistry()],
+  load?: () => readonly Registry[],
+  guard?: IntegrityGuard,
 ): MonitoringConfig {
   let cached: readonly Registry[] | undefined;
   return {
     requireCatalog: true,
     catalog: () => {
+      if (!load) {
+        // Default path: the registry files are re-hashed on every read, never cached, so a byte changed after start is
+        // caught before the catalog is used. A failure quarantines the model (record plus audit event) and fails closed.
+        try {
+          const registries: Registry[] = [];
+          for (const file of [latestRegistryFile(), LIVE_REGISTRY_FILE]) {
+            const c = checkRegistryFile(file);
+            if (!c.ok) {
+              void guard
+                ?.violation({ orgId: null, userId: null }, "semantic_model", c.ref, c.expected, c.actual)
+                .catch(() => undefined);
+              return undefined;
+            }
+            registries.push(c.registry);
+          }
+          return catalogFromRegistries(registries);
+        } catch {
+          return undefined;
+        }
+      }
       try {
         cached ??= load();
       } catch {

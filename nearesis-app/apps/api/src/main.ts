@@ -1,7 +1,14 @@
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_ENGINE_INTERFACES, Db, Kernel, loadTrustedKeys, migrate } from "@nearesis/kernel";
+import {
+  DEFAULT_ENGINE_INTERFACES,
+  Db,
+  IntegrityGuard,
+  Kernel,
+  loadTrustedKeys,
+  migrate,
+} from "@nearesis/kernel";
 import { buildApp } from "./app.ts";
 import { temporalEngine } from "./temporal-engine.ts";
 import { productionMonitoringConfig } from "./monitoring-config.ts";
@@ -19,8 +26,9 @@ loadEnv();
 
 const nodeEnv = process.env.NODE_ENV;
 if (process.env.DATABASE_URL) await migrate(process.env.DATABASE_URL);
+const db = Db.connect();
 const kernel = new Kernel({
-  db: Db.connect(),
+  db,
   plugins: {
     trustMode:
       nodeEnv === "production"
@@ -35,7 +43,7 @@ const kernel = new Kernel({
     execution: { internalPublishers: ["nearesis"] },
   },
   // The real semantic catalog, required: metric, unit, version and range checks are enforced (fail closed if unavailable).
-  monitoring: productionMonitoringConfig(),
+  monitoring: productionMonitoringConfig(undefined, new IntegrityGuard(db)),
 });
 await kernel.boot();
 kernel.outbox.start();

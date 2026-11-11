@@ -10,6 +10,7 @@ import type { InvestigationEngine } from "./runs.ts";
 import { historyRoutes } from "./history-routes.ts";
 import { monitoringRoutes } from "./monitoring-routes.ts";
 import { capsuleRoutes } from "./capsule-routes.ts";
+import { integrityRoutes } from "./integrity-routes.ts";
 import { gatewayRoutes } from "./gateway-routes.ts";
 import type { GatewayCredentialConfig } from "./gateway-routes.ts";
 import { requestGuards } from "./request-guards.ts";
@@ -434,6 +435,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
 
   await app.register(historyRoutes, { kernel });
   await app.register(capsuleRoutes, { kernel });
+  await app.register(integrityRoutes, { kernel });
   if (opts.gatewayCredential)
     await app.register(gatewayRoutes, { kernel, credential: opts.gatewayCredential });
   await app.register(monitoringRoutes, { kernel, runs, authenticate, background: opts.monitorBackground });

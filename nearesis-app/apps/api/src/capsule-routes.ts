@@ -135,6 +135,14 @@ export const capsuleRoutes: FastifyPluginAsync<CapsuleRoutesOptions> = async (ap
     // Only files listed in the manifest are served; the lookup is by exact published path, never by a joined user path.
     const entry = m?.publication.files.find((f) => f.path === `exports/${req.params["*"]}`);
     if (!d || !entry) throw new KernelError("NOT_FOUND", "EXPORT_NOT_FOUND", "Export not found.");
+    const bytes = readFileSync(join(d, entry.path));
+    await kernel.integrity.verify(
+      { orgId: s.principal.orgId, userId: s.userId },
+      "capsule",
+      `${req.params.id}/${entry.path}`,
+      entry.sha256,
+      createHash("sha256").update(bytes).digest("hex"),
+    );
     const ext = entry.path.slice(entry.path.lastIndexOf("."));
     void reply
       .header("content-type", TYPES[ext] ?? "application/octet-stream")
@@ -144,6 +152,6 @@ export const capsuleRoutes: FastifyPluginAsync<CapsuleRoutesOptions> = async (ap
         "content-security-policy",
         "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
       );
-    return reply.send(readFileSync(join(d, entry.path)));
+    return reply.send(bytes);
   });
 };

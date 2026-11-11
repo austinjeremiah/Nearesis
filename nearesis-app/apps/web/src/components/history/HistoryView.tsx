@@ -162,7 +162,7 @@ export function HistoryView({ workspaceId }: { workspaceId: string }) {
   const [snapshots, setSnapshots] = useState<SnapshotSummary[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [proposals, setProposals] = useState<
-    Array<{ id: string; sourceBranchId: string; status: string; conflicts: number; changes: number }>
+    Array<{ id: string; sourceBranchId: string; status: string; conflictCount: number; changeCount: number }>
   >([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -702,7 +702,7 @@ export function HistoryView({ workspaceId }: { workspaceId: string }) {
                   {branches.find((b) => b.id === p.sourceBranchId)?.name ?? p.sourceBranchId} → main
                 </button>{" "}
                 <span className={e.muted}>
-                  {p.status} · {p.changes} change(s), {p.conflicts} conflict(s)
+                  {p.status} · {p.changeCount} change(s), {p.conflictCount} conflict(s)
                 </span>
               </li>
             ))}
@@ -729,8 +729,8 @@ export function HistoryView({ workspaceId }: { workspaceId: string }) {
                     <tr>
                       <th>Object</th>
                       <th>Base</th>
-                      <th>Main (ours)</th>
-                      <th>Branch (theirs)</th>
+                      <th>Branch (ours)</th>
+                      <th>Main (theirs)</th>
                       <th>Resolution</th>
                     </tr>
                   </thead>
@@ -761,7 +761,7 @@ export function HistoryView({ workspaceId }: { workspaceId: string }) {
                                     })
                                   }
                                 >
-                                  {r.replace("_", " ")}
+                                  {r === "ours" ? "keep branch" : r === "theirs" ? "keep main" : "keep both"}
                                 </Button>
                               ))
                             : c.resolution}

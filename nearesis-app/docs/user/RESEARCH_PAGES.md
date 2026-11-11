@@ -54,7 +54,7 @@ Nodes are typed: hypothesis, claim, statistical result, observation, query, mode
 | Amber             | Recheck required after a semantic-version change.              |
 | Struck-through    | Tombstone: an endpoint was removed or never persisted.         |
 
-Use the node list on the left for keyboard navigation. Filter by kind, state or text.
+Use the node list on the left for keyboard navigation. The inspector also shows **reviewer comments** on the node and lets you add one. Filter by kind, state or text.
 
 Dragging a node saves its position only and never changes evidence relations. The **View** menu opens a snapshot (read-only, with its data vintage) or a branch.
 
@@ -68,7 +68,7 @@ Dragging a node saves its position only and never changes evidence relations. Th
   - the changes, with panel changes and edge deletions marked "will be deferred, not applied";
   - the conflicts, with "keep branch / keep main / keep both".
 
-  Accept stays disabled until every conflict is resolved. After accepting, the page lists what was actually deferred.
+  Items excluded by policy (for example a metric version that crosses a major version) are listed separately and are not merged. Accept stays disabled until every conflict is resolved. After accepting, the page lists what was actually deferred.
 
 ## Research capsules (`/w/<workspace>/capsule`)
 

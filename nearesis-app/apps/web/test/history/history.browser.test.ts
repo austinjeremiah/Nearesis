@@ -16,6 +16,7 @@ const contentCsp = (v: unknown[]) =>
     ? v.filter((x) => !String((x as { source?: string }).source ?? "").includes("next-devtools"))
     : v;
 const METRIC = "intents.oneclick_completed_swap_count";
+const METRIC2 = "prices.daily_close_price_usd";
 const PANEL = (loadScenario("baseline").document as { panels: PanelSpec[] }).panels[0]!;
 type H = {
   __history: {
@@ -51,8 +52,13 @@ beforeAll(async () => {
   claimId = await a.node("claim", "Swaps lead transactions by 7 days", {
     semanticPins: { [METRIC]: "1.0.0" },
   });
-  const sc = await a.post("/graph/semantic-changes", { metricId: METRIC, toVersion: "1.1.0" });
-  if (sc.status >= 300) throw new Error(`semantic change: ${sc.status} ${JSON.stringify(sc.body)}`);
+  for (const [m, v] of [
+    [METRIC, "1.1.0"],
+    [METRIC2, "1.0.0"],
+  ] as const) {
+    const sc = await a.post("/graph/semantic-changes", { metricId: m, toVersion: v });
+    if (sc.status >= 300) throw new Error(`semantic change: ${sc.status} ${JSON.stringify(sc.body)}`);
+  }
 }, 600_000);
 afterAll(async () => {
   await env?.close();
@@ -72,9 +78,7 @@ describe("time machine", () => {
 
     await expect(page.getByTestId("timeline").textContent()).resolves.toMatch(/snapshot/);
     await page.getByTestId("open-snapshot-S1 baseline").click();
-    await expect(page.getByTestId("snapshot-vintage").textContent()).resolves.toMatch(
-      new RegExp(`semantic pins ${METRIC.replace(/\./g, "\\.")}@1\\.1\\.0`),
-    );
+    await expect(page.getByTestId("snapshot-vintage").textContent()).resolves.toMatch(`${METRIC}@1.1.0`);
     await expect(page.getByTestId("snapshot-panels").textContent()).resolves.toContain(PANEL.title);
 
     const snaps = (await a.get<{ snapshots: Array<{ id: string; label: string }> }>("/snapshots")).snapshots;
@@ -122,14 +126,17 @@ describe("time machine", () => {
     const bid = branches.find((b) => b.name === "alt-lag")!.id;
     const ch = await a.post(`/branches/${bid}/changes`, {
       ops: [
-        { op: "set", objectId: `metric:${METRIC}`, value: { version: "9.9.9" } },
+        // Same major as main's concurrent change -> a conflict to resolve.
+        { op: "set", objectId: `metric:${METRIC}`, value: { version: "1.9.0" } },
+        // Crosses a major version of main's definition -> excluded by policy (SEMVER_INCOMPATIBLE), never merged.
+        { op: "set", objectId: `metric:${METRIC2}`, value: { version: "5.0.0" } },
         { op: "set", objectId: `panel:${PANEL.panelId}`, value: { ...PANEL, title: "Renamed on branch" } },
       ],
     });
     expect(ch.status).toBeLessThan(300);
     // Main moves the same metric concurrently -> conflict.
     expect(
-      (await a.post("/graph/semantic-changes", { metricId: METRIC, toVersion: "2.0.0" })).status,
+      (await a.post("/graph/semantic-changes", { metricId: METRIC, toVersion: "1.2.0" })).status,
     ).toBeLessThan(300);
 
     await page.reload();
@@ -139,6 +146,9 @@ describe("time machine", () => {
     await page.getByTestId("proposal-view").waitFor({ timeout: 30_000 });
     await expect(page.getByTestId("proposal-changes").textContent()).resolves.toContain(
       "will be deferred, not applied",
+    );
+    await expect(page.getByTestId("proposal-excluded").textContent()).resolves.toMatch(
+      /metric:prices\.daily_close_price_usd.*SEMVER_INCOMPATIBLE/s,
     );
     const conflicts = await page.getByTestId("conflicts").locator("tbody tr").count();
     expect(conflicts).toBeGreaterThanOrEqual(1);

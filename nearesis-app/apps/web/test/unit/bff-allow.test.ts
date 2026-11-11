@@ -43,6 +43,7 @@ describe("BFF allowlist", () => {
       `workspaces/${ws}/snapshots/compare`,
       `workspaces/${ws}/snapshots/${run}/graph`,
       `workspaces/${ws}/timeline`,
+      `workspaces/${ws}/comments`,
       `workspaces/${ws}/branches/${run}/diff`,
       `workspaces/${ws}/merge-proposals/${run}/accept`,
       `capsules`,

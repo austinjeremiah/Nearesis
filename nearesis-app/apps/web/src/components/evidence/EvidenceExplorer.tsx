@@ -17,7 +17,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GraphEdge, GraphNode, GraphProjection } from "@nearesis/contracts";
 import { Badge, EmptyState, HonestyBanner } from "@nearesis/ui";
-import { ApiError, evidenceApi, getJson, historyApi, saveLayout } from "../history/client.ts";
+import { ApiError, evidenceApi, getJson, historyApi, mutate, saveLayout } from "../history/client.ts";
 import {
   applyFilter,
   autoLayout,
@@ -654,6 +654,7 @@ function NodeInspector({
           </li>
         ))}
       </ul>
+      <Comments nodeId={n.id} workspaceId={workspaceId} />
       {n.data && Object.keys(n.data).length ? (
         <details>
           <summary>Recorded data</summary>
@@ -686,6 +687,97 @@ function EdgeInspector({ x, g, onPick }: { x: GraphEdge; g: GraphProjection; onP
           : "Stored evidence edge."}
       </p>
       <code className={e.mono}>{x.id}</code>
+    </div>
+  );
+}
+
+interface ReviewComment {
+  id: string;
+  nodeId: string;
+  authorId: string;
+  authorKind: string;
+  body: string;
+  createdAt: string;
+}
+
+/** Reviewer comments on one evidence node (kernel `comments`). Text is rendered as text, never markup. */
+function Comments({ nodeId, workspaceId }: { nodeId: string; workspaceId: string }) {
+  const [items, setItems] = useState<ReviewComment[] | null>(null);
+  const [draft, setDraft] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try {
+      setItems(
+        (
+          await getJson<{ comments: ReviewComment[] }>(
+            `${evidenceApi(workspaceId)}/comments?nodeId=${nodeId}`,
+          )
+        ).comments,
+      );
+    } catch (x) {
+      setErr(x instanceof ApiError ? `${x.code}: ${x.message}` : String(x));
+    }
+  }, [nodeId, workspaceId]);
+  useEffect(() => {
+    setItems(null);
+    void load();
+  }, [load]);
+  return (
+    <div data-testid="node-comments">
+      <h3 className={e.h3}>Reviewer comments</h3>
+      {items === null ? (
+        <p className={e.muted}>Loading…</p>
+      ) : items.length ? (
+        <ul className={e.links}>
+          {items.map((c) => (
+            <li key={c.id} data-testid="comment">
+              <span className={e.muted}>
+                {c.authorKind} · {c.createdAt.slice(0, 16).replace("T", " ")}
+              </span>
+              <div>{c.body}</div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className={e.muted}>No comments yet.</p>
+      )}
+      <form
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          const body = draft.trim();
+          if (!body) return;
+          void (async () => {
+            try {
+              setErr(null);
+              await mutate(workspaceId, `${evidenceApi(workspaceId)}/comments`, { nodeId, body });
+              setDraft("");
+              await load();
+            } catch (x) {
+              setErr(x instanceof ApiError ? `${x.code}: ${x.message}` : String(x));
+            }
+          })();
+        }}
+      >
+        <label className={e.field}>
+          Add a comment
+          <textarea
+            className="nz-input"
+            rows={2}
+            maxLength={4000}
+            value={draft}
+            onChange={(ev) => setDraft(ev.target.value)}
+            data-testid="comment-input"
+          />
+        </label>
+        <button type="submit" className="nz-btn" disabled={!draft.trim()} data-testid="comment-submit">
+          Comment
+        </button>
+      </form>
+      {err ? (
+        <p className={e.warn} role="alert">
+          {err}
+        </p>
+      ) : null}
     </div>
   );
 }

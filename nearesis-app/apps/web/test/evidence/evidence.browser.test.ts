@@ -140,6 +140,17 @@ describe("evidence graph explorer", () => {
       "Intents is the better leading indicator",
     );
     await expect(page.getByTestId(`list-node-${ids.C2}`).getAttribute("aria-pressed")).resolves.toBe("true");
+    // Reviewer comments on the node: add one through the UI and read it back from the API.
+    await page.getByTestId("comment-input").fill("Needs a source before publication. <b>not markup</b>");
+    await page.getByTestId("comment-submit").click();
+    await page.getByTestId("comment").first().waitFor({ timeout: 30_000 });
+    await expect(page.getByTestId("comment").first().textContent()).resolves.toContain("<b>not markup</b>");
+    const stored = await a.get<{ comments: Array<{ nodeId: string; body: string }> }>(
+      `/comments?nodeId=${ids.C2}`,
+    );
+    expect(stored.comments.map((c) => c.body)).toContain(
+      "Needs a source before publication. <b>not markup</b>",
+    );
     await ctx.close();
   }, 300_000);
 

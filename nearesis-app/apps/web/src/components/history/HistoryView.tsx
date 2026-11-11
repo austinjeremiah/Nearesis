@@ -65,6 +65,7 @@ interface Proposal {
   conflicts: Array<{ objectId: string; base: unknown; ours: unknown; theirs: unknown; resolution: string }>;
   evidenceHashDiffs: Array<{ objectId: string; before: string; after: string }>;
   requiredApprovals: string[];
+  excluded?: Array<{ objectId: string; reasonCode: string; reason: string; from: string; to: string }>;
   createdAt: string;
   decidedAt: string | null;
 }
@@ -722,6 +723,19 @@ export function HistoryView({ workspaceId }: { workspaceId: string }) {
                   {proposal.evidenceHashDiffs.map((d) => d.objectId).join(", ")}
                 </p>
               ) : null}
+              {proposal.excluded?.length ? (
+                <div data-testid="proposal-excluded">
+                  <h3 className={e.h3}>Excluded by policy (not merged)</h3>
+                  <ul className={e.links}>
+                    {proposal.excluded.map((x) => (
+                      <li key={x.objectId}>
+                        <code className={e.mono}>{short(x.objectId)}</code>{" "}
+                        <span className={e.deferred}>{x.reasonCode}</span>: {x.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <h3 className={e.h3}>Conflicts ({unresolved} unresolved)</h3>
               {proposal.conflicts.length ? (
                 <table className={e.table} data-testid="conflicts">
@@ -830,9 +844,9 @@ export function HistoryView({ workspaceId }: { workspaceId: string }) {
                   )}
                 </div>
               ) : null}
-              <p className={e.muted} data-testid="comments-unsupported">
-                Reviewer comments: not supported by the history API yet (requested); decisions are recorded on
-                the proposal.
+              <p className={e.muted} data-testid="comments-note">
+                Reviewer comments are attached to evidence nodes: open a node in the{" "}
+                <a href={`/w/${workspaceId}/evidence`}>evidence graph</a> to read or add them.
               </p>
             </div>
           ) : null}

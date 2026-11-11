@@ -22,7 +22,8 @@ This page lists what the product does not do yet, or does only partially. It is 
 - **Branch views show claim support as "unknown"**, because the API does not compute support for branches.
 - **Merges into main apply evidence and metric changes.** Panel changes and edge deletions are deferred and listed, not applied.
 - **Branch editing in the interface is limited to relabelling a node.** Other branch operations exist in the API only.
-- **Merge proposals have no reviewer comments yet.**
+- **Reviewer comments attach to evidence nodes**, not to merge proposals. They are read and added in the evidence graph's node inspector.
+- **Metric version changes that cross a major version are excluded from merges by policy** (`SEMVER_INCOMPATIBLE`) and listed on the proposal, not merged.
 - **Snapshot staleness is based on canvas revisions and semantic versions.** A snapshot taken before new evidence was added may not be marked stale, but its view still shows the snapshot as captured.
 - **Collaboration presence** is single-process and is not shown in the interface.
 

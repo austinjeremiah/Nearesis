@@ -22,6 +22,7 @@ export const ALLOWED = [
   new RegExp(`^workspaces/${UUID}/snapshots(/compare)?$`),
   new RegExp(`^workspaces/${UUID}/snapshots/${UUID}(/(canvas|graph|layout))?$`),
   new RegExp(`^workspaces/${UUID}/timeline$`),
+  new RegExp(`^workspaces/${UUID}/comments$`), // reviewer comments on evidence nodes (GET ?nodeId=, POST)
   new RegExp(`^workspaces/${UUID}/branches$`),
   new RegExp(`^workspaces/${UUID}/branches/${UUID}(/(diff|changes))?$`),
   new RegExp(`^workspaces/${UUID}/merge-proposals$`),

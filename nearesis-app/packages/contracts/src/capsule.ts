@@ -87,6 +87,23 @@ export const CapsuleManifest = z.strictObject({
     resultManifestHash: Sha256Hex,
   }),
   limitations: z.array(z.string().max(500)).max(30),
+  /** ch.20: attestation and chain-commitment state. Never filled with invented values: null fields mean not done. */
+  attestation: z
+    .strictObject({
+      status: z.enum(["unverified", "verified", "blocked"]),
+      evidenceSource: z.enum(["fixture", "live"]).nullable(),
+      jobId: z.string().max(200).nullable(),
+      reason: z.string().max(300).nullable(),
+    })
+    .optional(),
+  chainCommitment: z
+    .strictObject({
+      status: z.enum(["unverified", "committed", "blocked"]),
+      network: z.enum(["testnet", "mainnet"]).nullable(),
+      txHash: z.string().max(100).nullable(),
+      reason: z.string().max(300).nullable(),
+    })
+    .optional(),
   /** SHA-256 of the canonical manifest with this field removed. */
   capsuleHash: Sha256Hex,
 });
@@ -176,6 +193,10 @@ export const AttestationPolicy = z.strictObject({
   allowedSigners: z.array(z.string().min(1)),
   allowedNetworks: z.array(z.enum(["testnet", "mainnet"])),
   maxAgeSeconds: z.number().int().positive(),
+  /** Approved TD measurements (MRTD, 96 hex chars). Empty list rejects every quote-backed attestation. */
+  allowedMeasurements: z.array(z.string().regex(/^[0-9a-f]{96}$/)).default([]),
+  /** SHA-256 of the DER of each pinned production quote-chain root certificate. Empty: no live proof is reachable. */
+  quoteTrustRootSha256: z.array(Sha256Hex).default([]),
 });
 export type AttestationPolicy = z.infer<typeof AttestationPolicy>;
 
@@ -184,6 +205,47 @@ export const AttestationDecision = z.strictObject({
   /** Machine-readable reasons; every rejection carries at least one. */
   reasons: z.array(z.string()),
   /** `outlayer_attested` only with real provenance AND an accepting quote verifier. Otherwise a policy-only label. */
-  proofLabel: z.enum(["outlayer_attested", "policy_checked_synthetic", "none"]),
+  proofLabel: z.enum(["outlayer_attested", "fixture_attested", "policy_checked_synthetic", "none"]),
+  /** `live` only when a quote chained to a pinned production root; otherwise `fixture`. Never upgraded afterwards. */
+  evidenceSource: z.enum(["fixture", "live"]).optional(),
+  /** First (highest priority) rejection reason, or null on accept. */
+  reasonCode: z.string().nullable().optional(),
+  /** MRTD of the quoted TD, hex. Present when a quote was verified. */
+  measurement: z.string().nullable().optional(),
 });
 export type AttestationDecision = z.infer<typeof AttestationDecision>;
+
+const Hex64 = Sha256Hex;
+/**
+ * Stored proof record (ch.12 "OutLayer proof layer"). A completed record has all seven fields non-null and every hash is
+ * the SHA-256 of the artifact it names. A blocked record has `jobId: null`, status `unverified`, a reason, and `null`
+ * (never a placeholder hash) for anything that does not exist.
+ */
+export const ProofRecord = z.discriminatedUnion("status", [
+  z.strictObject({
+    status: z.literal("verified"),
+    evidenceSource: z.enum(["fixture", "live"]),
+    sourceArtifactSha256: Hex64,
+    exactInputs: z.strictObject({ path: z.string().min(1).max(300), sha256: Hex64 }),
+    wasmSha256: Hex64,
+    outputSha256: Hex64,
+    approvedMeasurements: z.array(z.string().regex(/^[0-9a-f]{96}$/)).min(1),
+    quoteVerification: z.strictObject({ ok: z.literal(true), reasonCode: z.null(), measurement: z.string() }),
+    jobId: z.string().min(1).max(200),
+  }),
+  z.strictObject({
+    status: z.literal("unverified"),
+    evidenceSource: z.enum(["fixture", "live"]).nullable(),
+    sourceArtifactSha256: Hex64.nullable(),
+    exactInputs: z.strictObject({ path: z.string().min(1).max(300), sha256: Hex64 }).nullable(),
+    wasmSha256: Hex64.nullable(),
+    outputSha256: Hex64.nullable(),
+    approvedMeasurements: z.array(z.string().regex(/^[0-9a-f]{96}$/)),
+    quoteVerification: z
+      .strictObject({ ok: z.literal(false), reasonCode: z.string().nullable(), measurement: z.null() })
+      .nullable(),
+    jobId: z.null(),
+    reason: z.string().min(1).max(500),
+  }),
+]);
+export type ProofRecord = z.infer<typeof ProofRecord>;

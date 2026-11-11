@@ -12,6 +12,8 @@ import { computeResults, inputDigest, resultsDigest } from "./verifier-ref.ts";
 
 export type FailureKind =
   | "MANIFEST_INVALID"
+  | "RESULT_MANIFEST_HASH_MISMATCH"
+  | "SOURCE_SNAPSHOT_HASH_MISMATCH"
   | "CAPSULE_HASH_MISMATCH"
   | "FILE_MISSING"
   | "RAW_HASH_MISMATCH"
@@ -34,6 +36,8 @@ export interface VerifyOptions {
   wasmPath?: string;
   policy?: AttestationPolicy;
   quoteVerifier?: QuoteVerifier;
+  /** The attestation job the caller expects; evidence for any other job is rejected. */
+  expectedJobId?: string;
   now?: Date;
 }
 export interface VerifyReport {
@@ -44,6 +48,8 @@ export interface VerifyReport {
   checks: string[];
   notes: string[];
   checkedAt: string;
+  /** The hash chain the verification walked, printed by `research:verify`. Null when the manifest is unreadable. */
+  hashChain: Record<string, string | null> | null;
   attestation:
     | { present: false }
     | {
@@ -53,6 +59,16 @@ export interface VerifyReport {
         reasons: string[];
         jobId: string | null;
       };
+}
+
+/** Names the schema paths that make a manifest invalid, e.g. `hashes.preregistrationHash`. */
+export function manifestProblems(dir: string): string[] {
+  try {
+    const m = CapsuleManifest.safeParse(JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")));
+    return m.success ? [] : m.error.issues.map((i) => i.path.join(".") || "(root)").slice(0, 10);
+  } catch {
+    return ["manifest.json"];
+  }
 }
 
 export function readManifest(dir: string): CapsuleManifest | null {
@@ -77,7 +93,7 @@ export function scrubbedEnv(extra: Record<string, string> = {}): Record<string, 
   return { ...env, ...extra };
 }
 
-function findWasmtime(): string | null {
+export function findWasmtime(): string | null {
   const c = process.env.NEARESIS_WASMTIME;
   if (c && existsSync(c)) return c;
   const r = spawnSync("wasmtime", ["--version"], { encoding: "utf8" });
@@ -90,6 +106,7 @@ export async function verifyCapsule(dir: string, opts: VerifyOptions = {}): Prom
   const checks: string[] = [];
   const notes: string[] = [];
   const fail = (kind: FailureKind, detail: string) => failures.push({ kind, detail });
+  let hashChain: Record<string, string | null> | null = null;
   const done = (attestation: VerifyReport["attestation"] = { present: false }): VerifyReport => ({
     status: failures.length ? "mismatch" : "reproduced",
     reportStatus: failures.length ? "UNVERIFIED" : "VERIFIED_LOCAL",
@@ -97,18 +114,38 @@ export async function verifyCapsule(dir: string, opts: VerifyOptions = {}): Prom
     checks,
     notes,
     checkedAt,
+    hashChain,
     attestation,
   });
 
   const m = readManifest(dir);
   if (!m) {
-    fail("MANIFEST_INVALID", "manifest.json is missing or does not match the capsule schema");
+    const bad = manifestProblems(dir);
+    fail(
+      "MANIFEST_INVALID",
+      `manifest.json is missing or does not match the capsule schema: ${bad.join(", ") || "unknown field"}`,
+    );
     return done();
   }
+  hashChain = {
+    capsuleHash: m.capsuleHash,
+    sourceSnapshotHash: m.hashes.sourceSnapshotHash,
+    semanticModelHash: m.hashes.semanticModelHash,
+    inputSha256: m.computation.inputSha256,
+    resultsSha256: m.computation.resultsSha256,
+    resultManifestHash: m.hashes.resultManifestHash,
+    preregistrationHash: m.hashes.preregistrationHash,
+    wasmSha256: m.computation.verifier.wasmSha256,
+  };
   const { capsuleHash, ...body } = m;
   if (canonicalSha256(body) !== capsuleHash)
     fail("CAPSULE_HASH_MISMATCH", "manifest content does not match capsuleHash");
   else checks.push("capsuleHash");
+
+  if (canonicalSha256(m.results) !== m.hashes.resultManifestHash)
+    fail("RESULT_MANIFEST_HASH_MISMATCH", "hashes.resultManifestHash does not equal the hash of the results");
+  if (m.hashes.sourceSnapshotHash !== m.snapshot.dataHash)
+    fail("SOURCE_SNAPSHOT_HASH_MISMATCH", "hashes.sourceSnapshotHash does not equal snapshot.dataHash");
 
   const fileChecks: Array<[string, "RAW_HASH_MISMATCH" | "FILE_HASH_MISMATCH"]> = [
     ...m.snapshot.files.map((f) => [f.path, "RAW_HASH_MISMATCH"] as [string, "RAW_HASH_MISMATCH"]),
@@ -259,6 +296,7 @@ export async function verifyCapsule(dir: string, opts: VerifyOptions = {}): Prom
     expectedOutputSha256: m.computation.resultsSha256,
     now: opts.now ?? new Date(),
     ...(opts.quoteVerifier ? { quoteVerifier: opts.quoteVerifier } : {}),
+    ...(opts.expectedJobId ? { expectedJobId: opts.expectedJobId } : {}),
   });
   return done({
     present: true,
@@ -298,10 +336,16 @@ export async function loadCapsuleView(
       : att.decision === "accept"
         ? {
             status: "unverified",
-            method: "Proof policy on synthetic evidence",
+            method:
+              att.proofLabel === "fixture_attested"
+                ? "Proof policy on fixture evidence (test trust root)"
+                : "Proof policy on synthetic evidence",
             jobId: null,
             checkedAt: at,
-            detail: "Synthetic evidence passed the policy; this is not an OutLayer proof.",
+            detail:
+              att.proofLabel === "fixture_attested"
+                ? "Fixture evidence, not OutLayer-backed: the quote chained to a test trust root."
+                : "Synthetic evidence passed the policy; fixture evidence, not OutLayer-backed.",
           }
         : {
             status: "failed",

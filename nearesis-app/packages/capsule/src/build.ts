@@ -460,6 +460,19 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
       resultManifestHash,
     },
     limitations,
+    attestation: {
+      status: "unverified" as const,
+      evidenceSource: null,
+      jobId: null,
+      reason: "No OutLayer job has been submitted for this capsule.",
+    },
+    chainCommitment: {
+      status: "blocked" as const,
+      network: null,
+      txHash: null,
+      reason:
+        "No chain commitment was made: signing and chain writes are not permitted in this build (BLK-20261110-003).",
+    },
   };
   const manifest = CapsuleManifest.parse({ ...body, capsuleHash: canonicalSha256(body) });
   write(out, "manifest.json", `${JSON.stringify(manifest, null, 2)}\n`);

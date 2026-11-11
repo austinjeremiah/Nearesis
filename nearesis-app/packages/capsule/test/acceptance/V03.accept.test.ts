@@ -28,7 +28,7 @@ it("V03: an altered WASM binary is rejected by the attestation policy", async ()
     policy,
     ctx(goodHash),
   );
-  expect(control).toEqual({ decision: "accept", reasons: [], proofLabel: "policy_checked_synthetic" });
+  expect(control).toMatchObject({ decision: "accept", reasons: [], proofLabel: "policy_checked_synthetic" });
 
   // tamper: flip one byte of a copy of the real binary
   const tampered = Buffer.from(goodBytes);

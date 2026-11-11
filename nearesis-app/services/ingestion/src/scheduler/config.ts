@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CredentialSource } from "../http/credentials.ts";
 import { APP_ROOT } from "../backfill/env.ts";
@@ -7,6 +8,7 @@ export const SCHEDULER_STATE_PATH = join(SCHEDULER_DIR, "state.json");
 export const SCHEDULER_BQ_STATE_PATH = join(SCHEDULER_DIR, "bq-state.json");
 export const SCHEDULER_LOAD_STATE_PATH = join(SCHEDULER_DIR, "explorer-load.json");
 export const SCHEDULER_RAW_DIR = join(SCHEDULER_DIR, "raw");
+export const SCHEDULER_CONTROL_PATH = join(SCHEDULER_DIR, "control.json");
 export const SCHEDULER_LEASE_KEY = "ingestion:lease:scheduler";
 
 /** First day the scheduler owns: the backfill window ends 2026-11-09 (ADR-20261110-005). */
@@ -84,4 +86,26 @@ export function quoteAddress(
   for (const name of [`NEARESIS_QUOTE_${kind.toUpperCase()}_${c}`, `NEARESIS_QUOTE_ADDRESS_${c}`])
     if (creds.has(name)) return creds.get(name) ?? null;
   return null;
+}
+
+const TRUE = /^(1|true|yes|on)$/i;
+
+/**
+ * Loop-mode switch for the quote sampler. Default OFF. Enabled by NEARESIS_QUOTE_ENABLED=1 or, without a restart, by
+ * `{"quotesEnabled": true}` in .data/scheduler/control.json (re-read every tick; the file wins when it sets the flag).
+ * `--once --force --only quotes` is an explicit operator action and does not consult this switch.
+ */
+export function quotesEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+  controlPath: string = SCHEDULER_CONTROL_PATH,
+): boolean {
+  try {
+    if (existsSync(controlPath)) {
+      const j = JSON.parse(readFileSync(controlPath, "utf8")) as { quotesEnabled?: unknown };
+      if (typeof j.quotesEnabled === "boolean") return j.quotesEnabled;
+    }
+  } catch {
+    // unreadable control file: fall back to the environment (default off)
+  }
+  return TRUE.test(env.NEARESIS_QUOTE_ENABLED ?? "");
 }

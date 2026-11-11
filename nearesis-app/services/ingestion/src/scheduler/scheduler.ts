@@ -37,6 +37,8 @@ export interface SchedulerDeps {
   creds?: CredentialSource;
   clock?: Clock;
   only?: readonly TaskName[];
+  /** Loop-mode gate for the quote task; absent means enabled (explicit operator runs). */
+  quotesEnabled?: () => boolean;
   shouldStop?: () => boolean;
   log?: (m: string) => void;
 }
@@ -64,7 +66,10 @@ export class Scheduler {
   }
 
   due(): TaskName[] {
-    return dueTasks(this.clock.now(), this.d.sched.state, this.d.cfg, this.facts(), this.d.only ?? ALL_TASKS);
+    const tasks = (this.d.only ?? ALL_TASKS).filter(
+      (t) => t !== "quotes" || (this.d.quotesEnabled?.() ?? true),
+    );
+    return dueTasks(this.clock.now(), this.d.sched.state, this.d.cfg, this.facts(), tasks);
   }
 
   /** One pass over the due tasks. Returns the tasks that ran. */

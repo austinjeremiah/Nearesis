@@ -14,6 +14,7 @@ import {
   FORWARD_FROM_DAY,
   loadConfig,
   quoteAddress,
+  quotesEnabled,
   SCHEDULER_BQ_STATE_PATH,
   SCHEDULER_LEASE_KEY,
   SCHEDULER_RAW_DIR,
@@ -146,9 +147,13 @@ try {
     sched,
     creds,
     only,
+    ...(values.once ? {} : { quotesEnabled: () => quotesEnabled() }),
     shouldStop: () => stop || lease.lost,
     log,
   });
+  log(
+    `quote sampler: ${values.once || quotesEnabled() ? "enabled" : "DISABLED (NEARESIS_QUOTE_ENABLED unset; control.json can enable it)"}`,
+  );
   log(`started (tasks: ${only.join(",")}; ${values.once ? "once" : `tick ${cfg.tickMs / 1000}s`})`);
   if (values.once && values.force) {
     for (const t of only) {

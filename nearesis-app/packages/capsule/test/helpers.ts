@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { AttestationPolicy } from "@nearesis/contracts";
 import type { AttestationEvidence } from "@nearesis/contracts";
 import { attestationPayload, sha256Hex } from "../src/index.ts";
+import { ensureWasm } from "../../../scripts/tests/ensure-wasm.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const PKG = join(here, "..");
@@ -14,7 +15,8 @@ export const SNAPSHOT = join(PKG, "fixtures", "snapshot-synthetic");
 /** Pre-Amendment-002 research bundle (method revision a001), kept to prove a rebuild reports a method-version mismatch. */
 export const LEGACY_RESEARCH_BUNDLE = join(APP, "packages", "test-fixtures", "research", "signal-bundle");
 export const RESEARCH_BUNDLE = join(APP, "packages", "test-fixtures", "research", "signal-bundle-a002");
-export const WASM = join(APP, "services", "outlayer-verifier", "out", "nearesis-verifier.wasm");
+/** The pinned verifier artifact; built reproducibly when a fresh clone lacks it (gitignored build output). */
+export const WASM = ensureWasm();
 export const POLICY_FILE = join(APP, "services", "outlayer-verifier", "policy", "attestation-policy.json");
 
 export const tmp = (p = "capsule-"): string => mkdtempSync(join(tmpdir(), p));

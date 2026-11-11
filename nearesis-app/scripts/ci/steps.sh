@@ -12,7 +12,7 @@ APP="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$APP"
 NEARESIS_APP_ROOT="$APP"; export NEARESIS_APP_ROOT
 
-STEPS="toolchain install-js install-py playwright services-up db-roles migrate typecheck lint format test e2e pytest security boot deps accept-fixture"
+STEPS="toolchain install-js install-py wasm playwright services-up db-roles migrate typecheck lint format test e2e pytest security boot deps accept-fixture"
 
 compose() {
   set -- -f infrastructure/compose/docker-compose.yml -f infrastructure/compose/analytics.yml \
@@ -28,6 +28,9 @@ case "$step" in
   toolchain) sh scripts/bootstrap-toolchain.sh ;;
   install-js) env_on; pnpm install --frozen-lockfile ;;
   install-py) env_on; uv sync --frozen ;;
+  # The verifier wasm is gitignored build output that capsule and integration tests read. Reproducible build with the pinned
+  # Rust toolchain (installed here with rustup when absent; GitHub runners ship rustup); the result must match the policy pin.
+  wasm) env_on; pnpm exec tsx scripts/tests/ensure-wasm.ts ;;
   playwright) env_on; pnpm --filter @nearesis/web exec playwright install --with-deps chromium ;;
   services-up)
     # Compose (not job `services:`): Temporal needs a command and Cube mounts repo files.

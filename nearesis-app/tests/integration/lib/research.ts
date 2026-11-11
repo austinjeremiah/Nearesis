@@ -2,8 +2,11 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureWasm } from "../../../scripts/tests/ensure-wasm.ts";
 
 export const APP_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+/** Capsule manifests record the verifier wasm hash, so integration tests need the pinned artifact present. */
+ensureWasm();
 const run = (args: string[]) => {
   const r = spawnSync("uv", ["run", "python", ...args], {
     cwd: APP_ROOT,

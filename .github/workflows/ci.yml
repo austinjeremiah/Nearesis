@@ -47,6 +47,8 @@ jobs:
         run: sh scripts/ci/steps.sh install-js
       - name: Install Python dependencies
         run: sh scripts/ci/steps.sh install-py
+      - name: Build the pinned OutLayer verifier wasm (Rust 1.99.1, wasm32-wasip2)
+        run: sh scripts/ci/steps.sh wasm
       - name: Install Playwright Chromium
         run: sh scripts/ci/steps.sh playwright
       - name: Start services (Postgres, Redis, ClickHouse, Temporal, Cube)

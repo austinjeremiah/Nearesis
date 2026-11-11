@@ -48,7 +48,7 @@ const OPS: Record<string, string> = {
  * are passed on only if they exist verbatim in the dimension's stored domain. The membership check binds them as a
  * typed ClickHouse query parameter (data, never SQL text). Returns the path of the first unknown value, or undefined.
  */
-async function verifyPunctuatedValues(
+export async function verifyPunctuatedValues(
   ch: ReturnType<typeof createCh>,
   filters: { member: string; values: unknown[] }[],
 ): Promise<string | undefined> {

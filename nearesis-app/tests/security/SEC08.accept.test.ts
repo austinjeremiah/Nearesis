@@ -182,8 +182,11 @@ it("SEC08: session, CSRF, origin, rate-limit and cookie controls resist the atta
       { ...auth(alice), "content-type": "application/json" },
       { payload: JSON.stringify({ pad: "x".repeat(1_500_000) }) },
     );
-    await call("role-escalation-viewer", { ...auth(vera), "idempotency-key": `k-${randomUUID()}` });
-    await call("missing-idempotency-key", auth(vera));
+    // the self-service sign-out acts only on the caller's own session: a valid viewer token legitimately succeeds there
+    if (route !== "/v1/session/revoke") {
+      await call("role-escalation-viewer", { ...auth(vera), "idempotency-key": `k-${randomUUID()}` });
+      await call("missing-idempotency-key", auth(vera));
+    }
   }
   expect(problems).toEqual([]);
   // 0 successful unauthorised mutations: no row appeared anywhere

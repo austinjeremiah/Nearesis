@@ -47,7 +47,10 @@ const signed = new SignedTransaction({
   transaction: tx,
   signature: new Signature({ keyType: KeyType.ED25519, data: sig.signature }),
 });
-const out = await rpc<any>("broadcast_tx_commit", [Buffer.from(signed.encode()).toString("base64")]);
+const out = await rpc<{ transaction: { hash: string }; status: unknown; final_execution_status: string }>(
+  "broadcast_tx_commit",
+  [Buffer.from(signed.encode()).toString("base64")],
+);
 console.log(
   JSON.stringify({
     txHash: out.transaction.hash,

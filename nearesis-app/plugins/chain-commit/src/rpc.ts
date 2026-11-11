@@ -1,7 +1,7 @@
 /** Minimal testnet JSON-RPC helpers used by the release scripts. Testnet only; nothing here prints or returns a key. */
 export const TESTNET_RPC = "https://rpc.testnet.near.org";
 
-export async function rpc<T = any>(method: string, params: unknown): Promise<T> {
+export async function rpc<T = unknown>(method: string, params: unknown): Promise<T> {
   const r = await fetch(TESTNET_RPC, {
     method: "POST",
     headers: { "content-type": "application/json" },

@@ -51,7 +51,9 @@ export async function commitHashLive(envFile: string, payloadHash: string) {
     });
     if (r.status !== 200) throw new Error(`signer refused: ${r.status}`);
     const { signedTx } = (await r.json()) as { signedTx: string };
-    const out = await rpc<any>("broadcast_tx_commit", [signedTx]);
+    const out = await rpc<{ transaction: { hash: string }; status: unknown }>("broadcast_tx_commit", [
+      signedTx,
+    ]);
     return { txHash: out.transaction.hash as string, status: out.status, signer: SIGNER_ACCOUNT };
   } finally {
     signer.stop();
@@ -60,12 +62,20 @@ export async function commitHashLive(envFile: string, payloadHash: string) {
 
 /** Reads the transaction at FINAL finality and the contract view at FINAL; both must agree with the expected hash. */
 export async function readbackLive(txHash: string, payloadHash: string) {
-  const st = await rpc<any>("tx", {
+  const st = await rpc<{
+    final_execution_status: string;
+    status: Record<string, unknown>;
+    transaction: {
+      receiver_id: string;
+      actions: Array<{ FunctionCall: { args: string; method_name: string; deposit: string } }>;
+    };
+  }>("tx", {
     tx_hash: txHash,
     sender_account_id: SIGNER_ACCOUNT,
     wait_until: "FINAL",
   });
-  const fc = st.transaction.actions[0].FunctionCall;
+  const fc = st.transaction.actions[0]?.FunctionCall;
+  if (!fc) throw new Error("TX_HAS_NO_FUNCTION_CALL");
   const args = JSON.parse(Buffer.from(fc.args, "base64").toString("utf8")) as { hash?: string };
   const view = await viewCommitment(ALLOWED_CONTRACT, payloadHash);
   return {

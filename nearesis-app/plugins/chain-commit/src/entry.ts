@@ -56,9 +56,16 @@ async function post(url: string, body: string, ctx: InvocationContext): Promise<
 
 /** Live testnet path: real nonce and block hash from the RPC, borsh transaction signed by the signer process, broadcast. */
 async function commitLive(tx: CommitTx, signer: string, rpc: string, ctx: InvocationContext) {
-  const json = async (r: Reply) => JSON.parse(Buffer.from(r.body).toString("utf8")) as any;
-  const pk = await json(await post(signer, JSON.stringify({ op: "pubkey" }), ctx));
-  const key = await json(
+  const json = async <T>(r: Reply): Promise<T> => JSON.parse(Buffer.from(r.body).toString("utf8")) as T;
+  type KeyReply = { result?: { nonce: number; block_hash: string } };
+  type SentReply = {
+    result?: { status?: Record<string, unknown>; transaction?: { hash?: string } };
+    error?: unknown;
+  };
+  const pk = await json<{ signerId: string; publicKey: string }>(
+    await post(signer, JSON.stringify({ op: "pubkey" }), ctx),
+  );
+  const key = await json<KeyReply>(
     await post(
       rpc,
       JSON.stringify({
@@ -82,8 +89,8 @@ async function commitLive(tx: CommitTx, signer: string, rpc: string, ctx: Invoca
     ctx,
   );
   if (s.status !== 200) throw new Error(`SIGNER_REFUSED_${s.status}`);
-  const { digest, signedTx } = await json(s);
-  const sent = await json(
+  const { digest, signedTx } = await json<{ digest: string; signedTx: string }>(s);
+  const sent = await json<SentReply>(
     await post(
       rpc,
       JSON.stringify({

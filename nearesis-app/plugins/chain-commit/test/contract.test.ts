@@ -11,9 +11,9 @@ const OWNER = "majorlynx5104.testnet";
 function host(state: Map<string, Buffer>) {
   return (method: string, input: string, predecessor: string, ts = 1234n) => {
     const regs = new Map<bigint, Buffer>();
-    let mem!: WebAssembly.Memory;
+    const ref: { mem?: WebAssembly.Memory } = {};
     let ret: Buffer | null = null;
-    const m = () => Buffer.from(mem.buffer);
+    const m = () => Buffer.from((ref.mem as WebAssembly.Memory).buffer);
     const imports = {
       env: {
         input: (r: bigint) => regs.set(r, Buffer.from(input)),
@@ -57,7 +57,7 @@ function host(state: Map<string, Buffer>) {
       },
     };
     const inst = new WebAssembly.Instance(module, imports);
-    mem = inst.exports.memory as WebAssembly.Memory;
+    ref.mem = inst.exports.memory as WebAssembly.Memory;
     (inst.exports[method] as () => void)();
     return ret as Buffer | null;
   };

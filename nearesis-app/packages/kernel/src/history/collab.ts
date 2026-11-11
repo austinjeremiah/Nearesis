@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import * as Y from "yjs";
 import type { CollabScope } from "@nearesis/contracts";
 import { canWrite } from "../auth.ts";
@@ -11,6 +12,8 @@ const MAX_LAYOUT_KEYS = 5000;
 const MAX_NOTES_CHARS = 200_000;
 const COORD = 1_000_000;
 const PRESENCE_TTL_MS = 30_000;
+/** Declared interval within which a connection of a revoked member is closed (16b W15(d)). */
+export const REVOCATION_CLOSE_MS = 2_000;
 
 /** Y root name per scope. A scope's room may contain only its own root; anything else is rejected. */
 const ROOT: Record<CollabScope, string> = { layout: "layout", notes: "notes" };
@@ -19,6 +22,91 @@ interface PresenceEntry {
   userId: string;
   state: Record<string, unknown>;
   at: number;
+}
+
+export interface CollabFrame {
+  type: "update" | "presence";
+  scope: CollabScope;
+  cursor?: number;
+  update?: string;
+  peers?: Array<{ userId: string; state: Record<string, unknown> }>;
+}
+
+/**
+ * A live collaboration connection. Frames are delivered only while the member's access still checks out against the
+ * database at delivery time; a periodic revalidation closes the connection when membership is revoked.
+ */
+export class CollabConnection {
+  readonly frames: CollabFrame[] = [];
+  closed = false;
+  closedAt: number | null = null;
+  closeReason: string | null = null;
+  readonly opened = Date.now();
+  private timer: NodeJS.Timeout | null = null;
+  private waiters: Array<() => void> = [];
+
+  constructor(
+    readonly id: string,
+    readonly session: Session,
+    readonly workspaceId: string,
+    readonly scope: CollabScope,
+    private readonly svc: CollabService,
+    private readonly onClose: (c: CollabConnection) => void,
+    revalidateMs: number,
+  ) {
+    this.timer = setInterval(() => void this.revalidate(), revalidateMs);
+    this.timer.unref();
+  }
+
+  /** Apply an update from this connection; the server re-authorises on every call and fans out to the room. */
+  async send(b64: string): Promise<{ cursor: number }> {
+    if (this.closed) throw new KernelError("FORBIDDEN", "CONNECTION_CLOSED", "The connection is closed.");
+    try {
+      const r = await this.svc.applyUpdate(this.session, this.workspaceId, this.scope, b64);
+      await this.svc.broadcast(this, { type: "update", scope: this.scope, cursor: r.cursor, update: b64 });
+      return r;
+    } catch (e) {
+      if (e instanceof KernelError && e.reasonCode === "ACCESS_DENIED") this.close("revoked");
+      throw e;
+    }
+  }
+
+  async setPresence(state: Record<string, unknown>) {
+    if (this.closed) throw new KernelError("FORBIDDEN", "CONNECTION_CLOSED", "The connection is closed.");
+    await this.svc.setPresence(this.session, this.workspaceId, this.scope, this.id, state);
+    await this.svc.broadcast(this, {
+      type: "presence",
+      scope: this.scope,
+      peers: (await this.svc.listPresence(this.session, this.workspaceId, this.scope)).peers.map((p) => ({
+        userId: p.userId,
+        state: p.state,
+      })),
+    });
+  }
+
+  /** @internal delivery from the hub */
+  deliver(f: CollabFrame) {
+    if (this.closed) return;
+    this.frames.push(f);
+    for (const w of this.waiters.splice(0)) w();
+  }
+
+  async revalidate(): Promise<boolean> {
+    if (this.closed) return false;
+    const ok = await this.svc.stillAuthorised(this.session, this.workspaceId);
+    if (!ok) this.close("revoked");
+    return ok;
+  }
+
+  close(reason: string) {
+    if (this.closed) return;
+    this.closed = true;
+    this.closedAt = Date.now();
+    this.closeReason = reason;
+    if (this.timer) clearInterval(this.timer);
+    this.onClose(this);
+    for (const w of this.waiters.splice(0)) w();
+  }
 }
 
 const bad = (reason: string, msg: string) => new KernelError("VALIDATION_FAILED", reason, msg);
@@ -32,8 +120,108 @@ const bad = (reason: string, msg: string) => new KernelError("VALIDATION_FAILED"
  */
 export class CollabService {
   private readonly presence = new Map<string, Map<string, PresenceEntry>>();
+  private readonly rooms = new Map<string, Set<CollabConnection>>();
 
   constructor(private readonly db: Db) {}
+
+  /** Does this session still pass the workspace access check (membership, RLS, not archived)? */
+  async stillAuthorised(session: Session, workspaceId: string): Promise<boolean> {
+    try {
+      await this.db.tx(this.tenant(session), (tx) => this.access(tx, workspaceId));
+      return true;
+    } catch (e) {
+      if (e instanceof KernelError) return false;
+      throw e;
+    }
+  }
+
+  /** Open a connection to a scoped room. Fails identically for unknown and foreign workspaces. */
+  async connect(
+    session: Session,
+    workspaceId: string,
+    scope: CollabScope,
+    opts: { revalidateMs?: number } = {},
+  ): Promise<CollabConnection> {
+    await this.db.tx(this.tenant(session), (tx) => this.access(tx, workspaceId));
+    const key = `${workspaceId}:${scope}`;
+    const conn = new CollabConnection(
+      randomUUID(),
+      session,
+      workspaceId,
+      scope,
+      this,
+      (c) => {
+        this.rooms.get(key)?.delete(c);
+        const room = this.presence.get(key);
+        if (room)
+          for (const k of [...room.keys()])
+            if (k.startsWith(`${c.session.userId}:${c.id.slice(0, 64)}`)) room.delete(k);
+      },
+      opts.revalidateMs ?? 500,
+    );
+    const set = this.rooms.get(key) ?? new Set();
+    set.add(conn);
+    this.rooms.set(key, set);
+    return conn;
+  }
+
+  /** Fan a frame out to the other connections of the same room, each re-authorised at delivery time. */
+  async broadcast(from: CollabConnection, f: CollabFrame): Promise<void> {
+    const room = this.rooms.get(`${from.workspaceId}:${from.scope}`);
+    if (!room) return;
+    for (const c of [...room]) {
+      if (c === from || c.closed) continue;
+      if (await this.stillAuthorised(c.session, c.workspaceId)) c.deliver(f);
+      else c.close("revoked");
+    }
+  }
+
+  /**
+   * Reconcile the CRDT layout with the canvas as recorded by the event log. The canvas is authoritative for which
+   * panels exist: a layout entry whose panel is gone (deleted, even if a collaborator moved it concurrently) is
+   * dropped and a notice is recorded. A panel without a layout entry keeps no position (the client lays it out).
+   */
+  async reconcileLayout(session: Session, workspaceId: string) {
+    return this.db.tx(this.tenant(session), async (tx) => {
+      const ws = await this.access(tx, workspaceId);
+      const doc = await this.load(tx, workspaceId, "layout");
+      const crdt = Object.fromEntries(doc.getMap<unknown>("layout").entries()) as Record<
+        string,
+        { x: number; y: number }
+      >;
+      const canvas = (
+        await tx.query<{ revision: number }>(
+          `SELECT d.revision FROM canvas_documents d JOIN workspaces w ON w.id = d.workspace_id AND w.active_branch_id = d.branch_id
+            WHERE d.workspace_id = $1`,
+          [workspaceId],
+        )
+      ).rows[0];
+      const panels = (
+        await tx.query<{ id: string }>(
+          `SELECT ps.id FROM panel_specs ps JOIN canvas_documents d ON d.id = ps.document_id
+            WHERE ps.workspace_id = $1 AND ps.removed_at IS NULL AND d.branch_id = (SELECT active_branch_id FROM workspaces WHERE id = $1)`,
+          [workspaceId],
+        )
+      ).rows.map((p) => p.id);
+      const live = new Set(panels);
+      const dropped = Object.keys(crdt).filter((k) => !live.has(k));
+      const layout = Object.fromEntries(Object.entries(crdt).filter(([k]) => live.has(k)));
+      if (dropped.length)
+        await tx.query(
+          "INSERT INTO collab_notices(org_id, workspace_id, scope, kind, detail) VALUES ($1,$2,'layout','dangling_layout_entry_dropped',$3)",
+          [ws.orgId, workspaceId, JSON.stringify({ dropped, documentRevision: canvas?.revision ?? 0 })],
+        );
+      return {
+        workspaceId,
+        documentRevision: canvas?.revision ?? 0,
+        panelIds: [...panels].sort(),
+        layout,
+        unplaced: panels.filter((p) => !crdt[p]).sort(),
+        dropped: dropped.sort(),
+        rule: "canvas existence (event log) is authoritative; a concurrent layout move never resurrects a deleted panel",
+      };
+    });
+  }
 
   private tenant(s: Session) {
     return { orgId: s.principal.orgId, userId: s.userId };

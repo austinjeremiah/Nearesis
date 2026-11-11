@@ -46,3 +46,12 @@ it("inference record: a significance claim requires VALID status", async () => {
   expect(ResearchInferenceRecord.safeParse({ ...base, significance_claim_allowed: true }).success).toBe(false);
   expect(ResearchInferenceRecord.safeParse({ ...base, status: "VALID", significance_claim_allowed: true }).success).toBe(true);
 });
+
+it("amendment 002 bundles parse and carry a non-valid inference record for the nested primary comparison", () => {
+  for (const name of ["signal-bundle-a002", "nosignal-bundle-a002"]) {
+    const a = ResearchRunArtifact.parse(JSON.parse(readFileSync(resolve(dir, name, "research_run.json"), "utf8")));
+    const inf = (a.estimates.primary as { inference?: { status: string; significance_claim_allowed: boolean } }).inference;
+    expect(inf?.status).toBe("METHOD_NOT_VALIDATED");
+    expect(inf?.significance_claim_allowed).toBe(false);
+  }
+});

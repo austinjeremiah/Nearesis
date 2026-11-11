@@ -1,0 +1,1 @@
+{"deltaMaeCI":{"hi":0.1208023002,"level":0.95,"lo":0.0972076222,"n_boot":500},"holdoutDeltaMaeCI":{"hi":0.1270490307,"level":0.95,"lo":0.0736501803,"n_boot":500},"method":"moving-block bootstrap on absolute-error differential","validOrigins":323}

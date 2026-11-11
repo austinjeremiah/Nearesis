@@ -301,6 +301,8 @@ export class KernelToolGateway implements ToolGateway {
             runId: principal.parentRunId,
             usedBy: req.requestId,
             matches: (h) => h === hash,
+            // ch.12 chain commitment policy: a chain write needs an owner's approval, not any member's
+            ...(capability.sideEffect === "chain_write" ? { approverRoles: ["owner"] as const } : {}),
           });
         } catch (e) {
           if (!(e instanceof KernelError)) throw e;

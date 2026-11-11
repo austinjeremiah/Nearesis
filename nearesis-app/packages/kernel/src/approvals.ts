@@ -70,6 +70,8 @@ export class ApprovalService {
       runId: string | undefined;
       usedBy: string;
       matches: (actionHash: string) => boolean;
+      /** When set, the approver must hold one of these roles in the org at consume time (e.g. ["owner"] for chain writes). */
+      approverRoles?: readonly string[];
     },
   ): Promise<{ approvalId: string; actionHash: string }> {
     const deny = (reason: string, message: string): never => {
@@ -79,9 +81,18 @@ export class ApprovalService {
     };
     if (!a.runId) return deny("APPROVAL_MISSING", "A privileged action by an agent needs an approved run.");
     const rows = (
-      await tx.query<{ id: string; action_hash: string; live: boolean; used: boolean; revoked: boolean }>(
-        `SELECT id, action_hash, (expires_at > now()) AS live, (used_at IS NOT NULL) AS used, (revoked_at IS NOT NULL) AS revoked
-           FROM command_approvals WHERE workspace_id = $1 AND run_id = $2 FOR UPDATE`,
+      await tx.query<{
+        id: string;
+        action_hash: string;
+        live: boolean;
+        used: boolean;
+        revoked: boolean;
+        approver_role: string | null;
+      }>(
+        `SELECT c.id, c.action_hash, (c.expires_at > now()) AS live, (c.used_at IS NOT NULL) AS used,
+                (c.revoked_at IS NOT NULL) AS revoked,
+                (SELECT m.role FROM memberships m WHERE m.org_id = c.org_id AND m.user_id = c.approved_by) AS approver_role
+           FROM command_approvals c WHERE c.workspace_id = $1 AND c.run_id = $2 FOR UPDATE OF c`,
         [a.workspaceId, a.runId],
       )
     ).rows;
@@ -89,8 +100,12 @@ export class ApprovalService {
     const hit = rows.filter((r) => a.matches(r.action_hash));
     if (hit.length === 0)
       return deny("APPROVAL_HASH_MISMATCH", "The action does not match any approved action hash.");
-    const usable = hit.find((r) => !r.used && r.live && !r.revoked);
+    const roleOk = (r: { approver_role: string | null }) =>
+      !a.approverRoles || (r.approver_role !== null && a.approverRoles.includes(r.approver_role));
+    const usable = hit.find((r) => !r.used && r.live && !r.revoked && roleOk(r));
     if (!usable) {
+      if (hit.some((r) => !r.used && r.live && !r.revoked && !roleOk(r)))
+        return deny("APPROVAL_NOT_OWNER", "This approval was not issued by an owner.");
       if (hit.some((r) => r.revoked && !r.used))
         return deny("APPROVAL_REVOKED", "This approval was revoked.");
       if (hit.some((r) => r.used)) return deny("APPROVAL_REUSED", "This approval was already used.");

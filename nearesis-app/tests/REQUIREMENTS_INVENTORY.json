@@ -1,7 +1,7 @@
 {
   "version": 1,
   "purpose": "Machine-readable inventory of every Build Bible requirement (chapters 00-28, 16a/16b test definitions, accepted ADRs, final directive s4-21 and s22-27). Static fields are curated; `snapshot` is the status when this file was generated and is recomputed live by `pnpm conformance`.",
-  "generatedFromHead": "e711a6b925101b31a6e12a324f430ef533c19b5c",
+  "generatedFromHead": "89cad24d36fdcb6a5788736813f4c60a17adfc3b",
   "snapshotTreeClean": false,
   "evidenceRoot": "NEARESIS_Build_Bible/ (local only, never committed); evidencePath is relative to it",
   "registry": {
@@ -19,22 +19,20 @@
   "counts": {
     "requirements": 450,
     "byStatus": {
-      "IMPLEMENTED_UNCERTIFIED": 404,
-      "BLOCKED_EXTERNAL": 16,
-      "PARTIAL": 26,
-      "IMPLEMENTED_UNTESTED": 2,
+      "IMPLEMENTED_UNCERTIFIED": 408,
+      "BLOCKED_EXTERNAL": 17,
+      "PARTIAL": 23,
       "NOT_IMPLEMENTED": 1,
       "CERTIFIED": 1
     },
     "byBlocker": {
-      "STALE_EVIDENCE": 327,
+      "STALE_EVIDENCE": 331,
       "LIVE_EVIDENCE_MISSING": 5,
       "BLOCKED_DEPENDENCY": 42,
-      "EXTERNAL_APPROVAL_OR_DATA": 16,
+      "EXTERNAL_APPROVAL_OR_DATA": 17,
       "NO_EVIDENCE": 21,
-      "PARTIAL_BUILD": 26,
+      "PARTIAL_BUILD": 23,
       "TEST_FAILING": 9,
-      "NO_TEST_MAPPING": 2,
       "NOT_BUILT": 1,
       "NONE": 1
     },
@@ -1602,15 +1600,15 @@
       "declared": {
         "partial": true,
         "external": false,
-        "missingIntegration": "H2 fee reconstruction (gas and fee economics) and H4 route-quality metrics depend on the economics and Intents intelligence work, which is not in the code yet.",
-        "blocker": "Wave 4 economics (final_master_prompt s7) and Intents intelligence (s8) not delivered."
+        "missingIntegration": "Gas and fee metrics (s7) and Intents analytics (s8) exist as code but are not loaded with real data: the billed BigQuery gas/fee load is gated on owner approval and the Intents routes are not committed.",
+        "blocker": "Owner approval for the billed gas/fee BigQuery load; Intents routes pending commit; no research experiment consumes them yet."
       },
       "dependsOnRequirements": [],
       "dependencyChain": ["Q01", "Q02", "Q09", "Q10", "Q15", "Q16"],
       "snapshot": {
         "status": "PARTIAL",
         "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 economics (final_master_prompt s7) and Intents intelligence (s8) not delivered. | H2 fee reconstruction (gas and fee economics) and H4 route-quality metrics depend on the economics and Intents intelligence work, which is not in the code yet.",
+        "blocker": "Owner approval for the billed gas/fee BigQuery load; Intents routes pending commit; no research experiment consumes them yet. | Gas and fee metrics (s7) and Intents analytics (s8) exist as code but are not loaded with real data: the billed BigQuery gas/fee load is gated on owner approval and the Intents routes are not committed.",
         "missingCode": [],
         "missingTestFiles": [],
         "evidence": [
@@ -1825,15 +1823,15 @@
       "declared": {
         "partial": true,
         "external": false,
-        "missingIntegration": "The source-backed, time-versioned ecosystem entity registry with attribution coverage (final_master_prompt s5) is not built.",
-        "blocker": "Wave 4 worker A17 (entity registry) has not delivered."
+        "missingIntegration": "The entity registry and attribution (final s5) exist but research segment labels (live_segments.py) do not yet read them.",
+        "blocker": "Engine B integration of the entity registry into research segmentation."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [],
       "snapshot": {
         "status": "PARTIAL",
         "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A17 (entity registry) has not delivered. | The source-backed, time-versioned ecosystem entity registry with attribution coverage (final_master_prompt s5) is not built.",
+        "blocker": "Engine B integration of the entity registry into research segmentation. | The entity registry and attribution (final s5) exist but research segment labels (live_segments.py) do not yet read them.",
         "missingCode": [],
         "missingTestFiles": [],
         "evidence": [
@@ -6168,7 +6166,7 @@
       "chapterSection": "ch14 Bridge taxonomy and attribution",
       "engine": "ENGINE_B",
       "summary": "Registered bridge and ecosystem attribution with double-count policy.",
-      "code": ["services/ingestion/src/registry"],
+      "code": ["services/ingestion/src/registry", "services/ingestion/src/entities"],
       "tests": ["D08", "D17"],
       "testFiles": [
         "services/ingestion/test/acceptance/D08.accept.test.ts",
@@ -6177,15 +6175,15 @@
       "declared": {
         "partial": true,
         "external": false,
-        "missingIntegration": "Ecosystem entity registry (A17) not delivered.",
-        "blocker": "Wave 4 worker A17."
+        "missingIntegration": "The entity registry is built, but the ingestion registry used by D08/D17 and the entity registry are separate stores; one effective-dated source is not yet unified.",
+        "blocker": "Unify services/ingestion/src/registry with services/ingestion/src/entities."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [],
       "snapshot": {
         "status": "PARTIAL",
         "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A17. | Ecosystem entity registry (A17) not delivered.",
+        "blocker": "Unify services/ingestion/src/registry with services/ingestion/src/entities. | The entity registry is built, but the ingestion registry used by D08/D17 and the entity registry are separate stores; one effective-dated source is not yet unified.",
         "missingCode": [],
         "missingTestFiles": [],
         "evidence": [
@@ -11832,15 +11830,15 @@
       "declared": {
         "partial": true,
         "external": false,
-        "missingIntegration": "Follow-up proposal and saved-investigation artifact for unfamiliar questions are not integrated.",
-        "blocker": "Wave 4 worker A19 (metric authoring) has not delivered this yet."
+        "missingIntegration": "Follow-up proposals and the saved-investigation artifact for unfamiliar questions are not integrated.",
+        "blocker": "Authoring compiler is committed; the HTTP routes, follow-up proposals and saved-investigation artifact are not."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [],
       "snapshot": {
         "status": "PARTIAL",
         "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A19 (metric authoring) has not delivered this yet. | Follow-up proposal and saved-investigation artifact for unfamiliar questions are not integrated.",
+        "blocker": "Authoring compiler is committed; the HTTP routes, follow-up proposals and saved-investigation artifact are not. | Follow-up proposals and the saved-investigation artifact for unfamiliar questions are not integrated.",
         "missingCode": [],
         "missingTestFiles": [],
         "evidence": [
@@ -11884,24 +11882,46 @@
       "chapterSection": "final s4 Governed metric authoring",
       "engine": "ENGINE_A",
       "summary": "Typed metric proposals compile through an allowlisted compiler; no unrestricted SQL.",
-      "code": ["packages/semantic-gateway/src/authoring", "apps/api/src/metric-routes.ts"],
-      "tests": [],
-      "testFiles": ["packages/semantic-gateway/test/authoring.test.ts"],
+      "code": ["packages/semantic-gateway/src/authoring/compiler.ts", "apps/api/src/metric-routes.ts"],
+      "tests": ["S14", "S03"],
+      "testFiles": [
+        "packages/semantic-gateway/test/acceptance/S03.accept.test.ts",
+        "packages/semantic-gateway/test/acceptance/S14.accept.test.ts",
+        "packages/semantic-gateway/test/authoring/compiler.test.ts",
+        "packages/semantic-gateway/test/authoring/economics.test.ts"
+      ],
       "declared": {
         "partial": false,
         "external": false,
-        "missingIntegration": "Authoring compiler and APIs do not exist in the code yet.",
-        "blocker": "Wave 4 worker A19 has not delivered this yet."
+        "missingIntegration": "Compiler, units and cost gate are committed; the versioned HTTP routes (apps/api/src/metric-routes.ts) are not.",
+        "blocker": "Metric authoring routes not committed; no canonical acceptance ID covers the authoring compiler."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [],
       "snapshot": {
-        "status": "PARTIAL",
-        "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A19 has not delivered this yet. | missing code: missing apps/api/src/metric-routes.ts",
-        "missingCode": ["missing apps/api/src/metric-routes.ts"],
-        "missingTestFiles": ["packages/semantic-gateway/test/authoring.test.ts"],
-        "evidence": []
+        "status": "IMPLEMENTED_UNCERTIFIED",
+        "blockerKind": "STALE_EVIDENCE",
+        "blocker": "tests not certified: STALE S14,S03",
+        "missingCode": [],
+        "missingTestFiles": [],
+        "evidence": [
+          {
+            "testId": "S14",
+            "state": "STALE",
+            "verdict": "PASS",
+            "executedAt": "2026-11-11T09:59:56.596Z",
+            "evidencePath": "reports/TESTS/S14/2026-11-11T09-59-53-068Z-28150581.json",
+            "commit": "28150581b451a13908a0212c4030c8efa9a732e1"
+          },
+          {
+            "testId": "S03",
+            "state": "STALE",
+            "verdict": "PASS",
+            "executedAt": "2026-11-11T09:53:25.872Z",
+            "evidencePath": "reports/TESTS/S03/2026-11-11T09-53-23-700Z-28150581.json",
+            "commit": "28150581b451a13908a0212c4030c8efa9a732e1"
+          }
+        ]
       }
     },
     {
@@ -11910,7 +11930,8 @@
       "engine": "ENGINE_A",
       "summary": "DRAFT, VALIDATED, CERTIFIED, DEPRECATED lifecycle; drafts visibly exploratory and excluded from verified artifacts; snapshots pin metric versions.",
       "code": [
-        "services/analytics/src/registry/promotions.ts#approveChange",
+        "services/analytics/src/registry/authored.ts",
+        "packages/semantic-gateway/src/authoring/service.ts",
         "packages/kernel/src/history/pinned.ts"
       ],
       "tests": ["S12", "W02", "W10", "V18"],
@@ -11918,13 +11939,14 @@
         "packages/capsule/test/acceptance/V18.accept.test.ts",
         "packages/kernel/test/acceptance/W02.accept.test.ts",
         "packages/kernel/test/acceptance/W10.accept.test.ts",
+        "packages/semantic-gateway/test/authoring/lifecycle.test.ts",
         "services/analytics/test/acceptance/S12.accept.test.ts"
       ],
       "declared": {
         "partial": true,
         "external": false,
-        "missingIntegration": "Promotion (proposed/approved/rejected) and version pinning exist; the DRAFT/VALIDATED states, exploratory labelling and authoring APIs are not present.",
-        "blocker": "Wave 4 worker A19 has not delivered this yet."
+        "missingIntegration": "Lifecycle service, authored metric store and pinning are committed; the HTTP routes exposing them are not.",
+        "blocker": "Metric authoring routes not committed."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [
@@ -11945,7 +11967,7 @@
       "snapshot": {
         "status": "PARTIAL",
         "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A19 has not delivered this yet. | Promotion (proposed/approved/rejected) and version pinning exist; the DRAFT/VALIDATED states, exploratory labelling and authoring APIs are not present.",
+        "blocker": "Metric authoring routes not committed. | Lifecycle service, authored metric store and pinning are committed; the HTTP routes exposing them are not.",
         "missingCode": [],
         "missingTestFiles": [],
         "evidence": [
@@ -11994,25 +12016,28 @@
         "services/analytics/src/entities",
         "apps/api/src/entity-routes.ts"
       ],
-      "tests": ["D17"],
+      "tests": ["D17", "D08"],
       "testFiles": [
+        "apps/api/test/entity-routes.test.ts",
+        "services/analytics/test/unit/entities.test.ts",
+        "services/ingestion/test/acceptance/D08.accept.test.ts",
         "services/ingestion/test/acceptance/D17.accept.test.ts",
-        "services/ingestion/test/entities.test.ts"
+        "services/ingestion/test/unit/entities-registry.test.ts"
       ],
       "declared": {
         "partial": false,
         "external": false,
-        "missingIntegration": "Registry, entity metrics and routes do not exist.",
-        "blocker": "Wave 4 worker A17 has not delivered this yet."
+        "missingIntegration": null,
+        "blocker": "No canonical acceptance ID covers the entity registry beyond D17; unit tests only."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [],
       "snapshot": {
         "status": "IMPLEMENTED_UNCERTIFIED",
         "blockerKind": "STALE_EVIDENCE",
-        "blocker": "tests not certified: STALE D17",
+        "blocker": "tests not certified: STALE D17,D08",
         "missingCode": [],
-        "missingTestFiles": ["services/ingestion/test/entities.test.ts"],
+        "missingTestFiles": [],
         "evidence": [
           {
             "testId": "D17",
@@ -12020,6 +12045,14 @@
             "verdict": "PASS",
             "executedAt": "2026-11-11T09:58:08.747Z",
             "evidencePath": "reports/TESTS/D17/2026-11-11T09-58-06-991Z-28150581.json",
+            "commit": "28150581b451a13908a0212c4030c8efa9a732e1"
+          },
+          {
+            "testId": "D08",
+            "state": "STALE",
+            "verdict": "PASS",
+            "executedAt": "2026-11-11T09:53:02.329Z",
+            "evidencePath": "reports/TESTS/D08/2026-11-11T09-53-01-249Z-28150581.json",
             "commit": "28150581b451a13908a0212c4030c8efa9a732e1"
           }
         ]
@@ -12030,24 +12063,36 @@
       "chapterSection": "final s5 Attribution without double counting",
       "engine": "ENGINE_A",
       "summary": "No double-counting across overlapping classifications; classified versus unclassified coverage; no LLM-guessed attribution.",
-      "code": ["services/analytics/src/entities"],
-      "tests": [],
-      "testFiles": ["services/analytics/test/entities.test.ts"],
+      "code": ["services/analytics/src/entities/attribution.ts"],
+      "tests": ["D17"],
+      "testFiles": [
+        "services/analytics/test/unit/entities.test.ts",
+        "services/ingestion/test/acceptance/D17.accept.test.ts"
+      ],
       "declared": {
         "partial": false,
         "external": false,
-        "missingIntegration": "Attribution rules and coverage not built.",
-        "blocker": "Wave 4 worker A17 has not delivered this yet."
+        "missingIntegration": null,
+        "blocker": "No canonical acceptance ID covers attribution and coverage; unit tests only."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [],
       "snapshot": {
-        "status": "IMPLEMENTED_UNTESTED",
-        "blockerKind": "NO_TEST_MAPPING",
-        "blocker": "Wave 4 worker A17 has not delivered this yet.",
+        "status": "IMPLEMENTED_UNCERTIFIED",
+        "blockerKind": "STALE_EVIDENCE",
+        "blocker": "tests not certified: STALE D17",
         "missingCode": [],
-        "missingTestFiles": ["services/analytics/test/entities.test.ts"],
-        "evidence": []
+        "missingTestFiles": [],
+        "evidence": [
+          {
+            "testId": "D17",
+            "state": "STALE",
+            "verdict": "PASS",
+            "executedAt": "2026-11-11T09:58:08.747Z",
+            "evidencePath": "reports/TESTS/D17/2026-11-11T09-58-06-991Z-28150581.json",
+            "commit": "28150581b451a13908a0212c4030c8efa9a732e1"
+          }
+        ]
       }
     },
     {
@@ -12106,21 +12151,24 @@
       "summary": "Gas, receipts, burnt gas, fees, percentiles, contract intensity with exact arithmetic and explicit conversions.",
       "code": ["services/ingestion/src/economics", "services/analytics/src/economics"],
       "tests": [],
-      "testFiles": ["services/ingestion/test/economics.test.ts"],
+      "testFiles": [
+        "services/analytics/src/economics/economics.test.ts",
+        "services/ingestion/src/economics/economics.test.ts"
+      ],
       "declared": {
         "partial": false,
-        "external": false,
-        "missingIntegration": "No gas or fee metrics in the code (only chain-write gas in release scripts).",
-        "blocker": "Wave 4 worker A18 has not delivered this yet. Any billed BigQuery run needs owner approval."
+        "external": true,
+        "missingIntegration": null,
+        "blocker": "Gas and fee SQL, loader and metric proposals are committed with free dry runs; the billed BigQuery load needs owner approval, so no real economics data is loaded."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [],
       "snapshot": {
-        "status": "IMPLEMENTED_UNTESTED",
-        "blockerKind": "NO_TEST_MAPPING",
-        "blocker": "Wave 4 worker A18 has not delivered this yet. Any billed BigQuery run needs owner approval.",
+        "status": "BLOCKED_EXTERNAL",
+        "blockerKind": "EXTERNAL_APPROVAL_OR_DATA",
+        "blocker": "Gas and fee SQL, loader and metric proposals are committed with free dry runs; the billed BigQuery load needs owner approval, so no real economics data is loaded.",
         "missingCode": [],
-        "missingTestFiles": ["services/ingestion/test/economics.test.ts"],
+        "missingTestFiles": [],
         "evidence": []
       }
     },
@@ -12132,24 +12180,25 @@
       "code": ["services/analytics/src/intents", "apps/api/src/intents-routes.ts"],
       "tests": ["D01", "D09"],
       "testFiles": [
-        "services/analytics/test/intents.test.ts",
+        "services/analytics/src/intents/analytics.test.ts",
+        "services/analytics/src/intents/stats.test.ts",
         "services/ingestion/test/acceptance/D01.accept.test.ts",
         "services/ingestion/test/acceptance/D09.accept.test.ts"
       ],
       "declared": {
         "partial": false,
         "external": false,
-        "missingIntegration": "Intents intelligence metrics and routes do not exist.",
-        "blocker": "Wave 4 worker A20 has not delivered this yet."
+        "missingIntegration": "Intents analytics code is present; HTTP routes (apps/api/src/intents-routes.ts) are not.",
+        "blocker": "Intents routes not committed; no canonical acceptance ID covers intents analytics beyond D01/D09."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [],
       "snapshot": {
-        "status": "PARTIAL",
-        "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A20 has not delivered this yet. | missing code: missing apps/api/src/intents-routes.ts",
-        "missingCode": ["missing apps/api/src/intents-routes.ts"],
-        "missingTestFiles": ["services/analytics/test/intents.test.ts"],
+        "status": "IMPLEMENTED_UNCERTIFIED",
+        "blockerKind": "STALE_EVIDENCE",
+        "blocker": "tests not certified: STALE D01,D09",
+        "missingCode": [],
+        "missingTestFiles": [],
         "evidence": [
           {
             "testId": "D01",
@@ -12175,17 +12224,17 @@
       "chapterSection": "final s8 Solver analysis returns CANNOT_COMPUTE",
       "engine": "ENGINE_A",
       "summary": "Solver share, fill rate and quote-to-execution only with a defensible join, else CANNOT_COMPUTE with the missing-data reason.",
-      "code": ["services/analytics/src/intents"],
+      "code": ["services/analytics/src/intents/analytics.ts#CANNOT_COMPUTE"],
       "tests": ["V14"],
       "testFiles": [
         "packages/capsule/test/acceptance/V14.accept.test.ts",
-        "services/analytics/test/intents.test.ts"
+        "services/analytics/src/intents/analytics.test.ts"
       ],
       "declared": {
         "partial": false,
         "external": false,
-        "missingIntegration": "No solver analysis exists.",
-        "blocker": "Wave 4 worker A20 has not delivered this yet."
+        "missingIntegration": "CANNOT_COMPUTE solver reporting is in the Intents code but is not exposed by routes.",
+        "blocker": "Intents routes not committed."
       },
       "dependsOnRequirements": [],
       "dependencyChain": ["D05", "D09", "Q07", "V06"],
@@ -12194,7 +12243,7 @@
         "blockerKind": "STALE_EVIDENCE",
         "blocker": "tests not certified: STALE V14",
         "missingCode": [],
-        "missingTestFiles": ["services/analytics/test/intents.test.ts"],
+        "missingTestFiles": [],
         "evidence": [
           {
             "testId": "V14",
@@ -12222,14 +12271,14 @@
         "partial": true,
         "external": false,
         "missingIntegration": "dry:true guard and sampler exist; the quote intelligence record and signed-quote verification do not.",
-        "blocker": "Wave 4 worker A20 has not delivered this yet."
+        "blocker": "Quote intelligence record and signed-quote verification are not committed."
       },
       "dependsOnRequirements": [],
       "dependencyChain": ["D02", "D04", "D05", "D07"],
       "snapshot": {
         "status": "PARTIAL",
         "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A20 has not delivered this yet. | dry:true guard and sampler exist; the quote intelligence record and signed-quote verification do not.",
+        "blocker": "Quote intelligence record and signed-quote verification are not committed. | dry:true guard and sampler exist; the quote intelligence record and signed-quote verification do not.",
         "missingCode": [],
         "missingTestFiles": [],
         "evidence": [
@@ -12259,6 +12308,7 @@
       "summary": "Immutable archives, checkpointed cursors, quarantines, unknown-versus-zero, archive metadata repaired from surviving payloads, no invented data.",
       "code": [
         "services/ingestion/src/archive/archive.ts",
+        "services/ingestion/src/archive/reconstruct.ts",
         "services/ingestion/src/backfill/state.ts",
         "services/ingestion/src/backfill/skip-quarantined.ts"
       ],
@@ -12268,20 +12318,21 @@
         "services/ingestion/test/acceptance/D03.accept.test.ts",
         "services/ingestion/test/acceptance/D06.accept.test.ts",
         "services/ingestion/test/acceptance/D11.accept.test.ts",
-        "services/ingestion/test/acceptance/D14.accept.test.ts"
+        "services/ingestion/test/acceptance/D14.accept.test.ts",
+        "services/ingestion/test/unit/reconstruct.test.ts"
       ],
       "declared": {
-        "partial": true,
+        "partial": false,
         "external": false,
-        "missingIntegration": "Raw-archive metadata reconstruction from surviving payloads is not integrated.",
-        "blocker": "Wave 4 worker A15 has not delivered this yet."
+        "missingIntegration": null,
+        "blocker": "Metadata reconstruction is committed; it has not been run against the live raw archive in an approved window, and no canonical ID covers it."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [],
       "snapshot": {
-        "status": "PARTIAL",
-        "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A15 has not delivered this yet. | Raw-archive metadata reconstruction from surviving payloads is not integrated.",
+        "status": "IMPLEMENTED_UNCERTIFIED",
+        "blockerKind": "STALE_EVIDENCE",
+        "blocker": "tests not certified: STALE D03,D06,D11,D14,S11",
         "missingCode": [],
         "missingTestFiles": [],
         "evidence": [
@@ -12345,15 +12396,15 @@
       "declared": {
         "partial": true,
         "external": false,
-        "missingIntegration": "Forward Explorer and account collectors exist; a NEAR RPC/indexer comparison and finality-aware feed do not.",
-        "blocker": "Wave 4 worker A15 has not delivered this yet."
+        "missingIntegration": "Forward Explorer and account collectors exist; the NEAR RPC/indexer cost and finality comparison and a finality-aware feed do not.",
+        "blocker": "Provider comparison (cost, consistency, finality, rate limits) not written; no near-real-time source chosen."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [],
       "snapshot": {
         "status": "PARTIAL",
         "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A15 has not delivered this yet. | Forward Explorer and account collectors exist; a NEAR RPC/indexer comparison and finality-aware feed do not.",
+        "blocker": "Provider comparison (cost, consistency, finality, rate limits) not written; no near-real-time source chosen. | Forward Explorer and account collectors exist; the NEAR RPC/indexer cost and finality comparison and a finality-aware feed do not.",
         "missingCode": [],
         "missingTestFiles": [],
         "evidence": [
@@ -12394,14 +12445,14 @@
         "partial": true,
         "external": false,
         "missingIntegration": "Coverage and watermark exist; collector lag and reconciliation status are not exposed as one contract.",
-        "blocker": "Wave 4 worker A21 has not delivered this yet."
+        "blocker": "Freshness contract (frontend contracts work) not committed."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [],
       "snapshot": {
         "status": "PARTIAL",
         "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A21 has not delivered this yet. | Coverage and watermark exist; collector lag and reconciliation status are not exposed as one contract.",
+        "blocker": "Freshness contract (frontend contracts work) not committed. | Coverage and watermark exist; collector lag and reconciliation status are not exposed as one contract.",
         "missingCode": [],
         "missingTestFiles": [],
         "evidence": [
@@ -13148,7 +13199,9 @@
         "packages/kernel/src",
         "apps/api/src/request-guards.ts",
         "scripts/security",
-        "scripts/release/vuln-scan.ts"
+        "scripts/release/vuln-scan.ts",
+        "packages/kernel/src/session-keys.ts",
+        "scripts/ops/supervise.sh"
       ],
       "tests": [
         "SEC01",
@@ -13181,8 +13234,8 @@
       "declared": {
         "partial": true,
         "external": false,
-        "missingIntegration": "Real authentication with session persistence across restarts and a supervisor script are not integrated.",
-        "blocker": "Wave 4 worker A15 has not delivered this yet."
+        "missingIntegration": "Session key ring and supervisor are committed; OTLP telemetry export, SLO burn alert delivery and container hardening evidence are not verified end to end.",
+        "blocker": "SEC and PERF verdicts are stale; PERF needs the quiet machine."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [
@@ -13214,7 +13267,7 @@
       "snapshot": {
         "status": "PARTIAL",
         "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A15 has not delivered this yet. | Real authentication with session persistence across restarts and a supervisor script are not integrated.",
+        "blocker": "SEC and PERF verdicts are stale; PERF needs the quiet machine. | Session key ring and supervisor are committed; OTLP telemetry export, SLO burn alert delivery and container hardening evidence are not verified end to end.",
         "missingCode": [],
         "missingTestFiles": [],
         "evidence": [
@@ -13339,14 +13392,14 @@
         "partial": true,
         "external": false,
         "missingIntegration": "Authorise-before/settle-after is wired for BigQuery, paid HTTP, plugin egress, archive, OutLayer and workflow ops; cost forecasts and threshold notifications are not complete.",
-        "blocker": "Wave 4 worker A21 (cost engine) has not delivered this yet."
+        "blocker": "Cost forecasts and threshold notifications are in worker A21's uncommitted work; not in HEAD."
       },
       "dependsOnRequirements": [],
       "dependencyChain": ["A05", "A12", "A18", "D10", "K10", "M05", "S06"],
       "snapshot": {
         "status": "PARTIAL",
         "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A21 (cost engine) has not delivered this yet. | Authorise-before/settle-after is wired for BigQuery, paid HTTP, plugin egress, archive, OutLayer and workflow ops; cost forecasts and threshold notifications are not complete.",
+        "blocker": "Cost forecasts and threshold notifications are in worker A21's uncommitted work; not in HEAD. | Authorise-before/settle-after is wired for BigQuery, paid HTTP, plugin egress, archive, OutLayer and workflow ops; cost forecasts and threshold notifications are not complete.",
         "missingCode": [],
         "missingTestFiles": [],
         "evidence": [
@@ -13529,16 +13582,16 @@
         "partial": true,
         "external": false,
         "missingIntegration": "Zod contracts and generated JSON schemas exist; the OpenAPI document, state taxonomy and sample payloads do not.",
-        "blocker": "Wave 4 worker A21 has not delivered this yet."
+        "blocker": "OpenAPI document, state taxonomy and sample payloads are in worker A21's uncommitted work; not in HEAD."
       },
       "dependsOnRequirements": [],
       "dependencyChain": [],
       "snapshot": {
         "status": "PARTIAL",
         "blockerKind": "PARTIAL_BUILD",
-        "blocker": "Wave 4 worker A21 has not delivered this yet. | missing code: missing docs/api; missing apps/api/src/openapi.ts",
-        "missingCode": ["missing docs/api", "missing apps/api/src/openapi.ts"],
-        "missingTestFiles": ["apps/api/test/openapi.test.ts"],
+        "blocker": "OpenAPI document, state taxonomy and sample payloads are in worker A21's uncommitted work; not in HEAD. | missing code: missing apps/api/src/openapi.ts",
+        "missingCode": ["missing apps/api/src/openapi.ts"],
+        "missingTestFiles": [],
         "evidence": []
       }
     },

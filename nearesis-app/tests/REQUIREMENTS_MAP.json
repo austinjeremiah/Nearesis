@@ -1,6 +1,7 @@
 {
   "version": 1,
   "source": "Build Bible chapter 24: feature traceability table (F01-F23) and hard launch checklist (L01-L14)",
+  "inventory": "Each row is mirrored as REQ-CH24-<id> in tests/REQUIREMENTS_INVENTORY.json (built by scripts/certify/build-inventory.ts); pnpm conformance fails if the two differ.",
   "requirements": [
     {
       "id": "F01",

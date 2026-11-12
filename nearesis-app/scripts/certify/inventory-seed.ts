@@ -256,8 +256,9 @@ r(
   {
     partial: true,
     missing:
-      "H2 fee reconstruction (gas and fee economics) and H4 route-quality metrics depend on the economics and Intents intelligence work, which is not in the code yet.",
-    blocker: "Wave 4 economics (final_master_prompt s7) and Intents intelligence (s8) not delivered.",
+      "Gas and fee metrics (s7) and Intents analytics (s8) exist as code but are not loaded with real data: the billed BigQuery gas/fee load is gated on owner approval and the Intents routes are not committed.",
+    blocker:
+      "Owner approval for the billed gas/fee BigQuery load; Intents routes pending commit; no research experiment consumes them yet.",
   },
 );
 r(
@@ -294,8 +295,8 @@ r(
   {
     partial: true,
     missing:
-      "The source-backed, time-versioned ecosystem entity registry with attribution coverage (final_master_prompt s5) is not built.",
-    blocker: "Wave 4 worker A17 (entity registry) has not delivered.",
+      "The entity registry and attribution (final s5) exist but research segment labels (live_segments.py) do not yet read them.",
+    blocker: "Engine B integration of the entity registry into research segmentation.",
   },
 );
 r(
@@ -999,9 +1000,14 @@ r(
   "ch14 Bridge taxonomy and attribution",
   B,
   "Registered bridge and ecosystem attribution with double-count policy.",
-  ["services/ingestion/src/registry"],
+  ["services/ingestion/src/registry", "services/ingestion/src/entities"],
   ["D08", "D17"],
-  { partial: true, missing: "Ecosystem entity registry (A17) not delivered.", blocker: "Wave 4 worker A17." },
+  {
+    partial: true,
+    missing:
+      "The entity registry is built, but the ingestion registry used by D08/D17 and the entity registry are separate stores; one effective-dated source is not yet unified.",
+    blocker: "Unify services/ingestion/src/registry with services/ingestion/src/entities.",
+  },
 );
 r(
   "REQ-CH14-05",
@@ -1395,7 +1401,6 @@ r(
 // ---------------------------------------------------------------------------------------------------------------
 // Final master directive, sections 4-21 (owner's final checklist)
 // ---------------------------------------------------------------------------------------------------------------
-const W4 = (who: string) => `Wave 4 worker ${who} has not delivered this yet.`;
 r(
   "REQ-FMP04-01",
   "final s4 Dynamic analytics: query planning pipeline",
@@ -1410,8 +1415,9 @@ r(
   {
     partial: true,
     missing:
-      "Follow-up proposal and saved-investigation artifact for unfamiliar questions are not integrated.",
-    blocker: W4("A19 (metric authoring)"),
+      "Follow-up proposals and the saved-investigation artifact for unfamiliar questions are not integrated.",
+    blocker:
+      "Authoring compiler is committed; the HTTP routes, follow-up proposals and saved-investigation artifact are not.",
   },
 );
 r(
@@ -1419,12 +1425,17 @@ r(
   "final s4 Governed metric authoring",
   A,
   "Typed metric proposals compile through an allowlisted compiler; no unrestricted SQL.",
-  ["packages/semantic-gateway/src/authoring", "apps/api/src/metric-routes.ts"],
-  [],
+  ["packages/semantic-gateway/src/authoring/compiler.ts", "apps/api/src/metric-routes.ts"],
+  ["S14", "S03"],
   {
-    files: ["packages/semantic-gateway/test/authoring.test.ts"],
-    missing: "Authoring compiler and APIs do not exist in the code yet.",
-    blocker: W4("A19"),
+    files: [
+      "packages/semantic-gateway/test/authoring/compiler.test.ts",
+      "packages/semantic-gateway/test/authoring/economics.test.ts",
+    ],
+    missing:
+      "Compiler, units and cost gate are committed; the versioned HTTP routes (apps/api/src/metric-routes.ts) are not.",
+    blocker:
+      "Metric authoring routes not committed; no canonical acceptance ID covers the authoring compiler.",
   },
 );
 r(
@@ -1432,13 +1443,18 @@ r(
   "final s4 Metric lifecycle and version pinning",
   A,
   "DRAFT, VALIDATED, CERTIFIED, DEPRECATED lifecycle; drafts visibly exploratory and excluded from verified artifacts; snapshots pin metric versions.",
-  ["services/analytics/src/registry/promotions.ts#approveChange", "packages/kernel/src/history/pinned.ts"],
+  [
+    "services/analytics/src/registry/authored.ts",
+    "packages/semantic-gateway/src/authoring/service.ts",
+    "packages/kernel/src/history/pinned.ts",
+  ],
   ["S12", "W02", "W10", "V18"],
   {
     partial: true,
+    files: ["packages/semantic-gateway/test/authoring/lifecycle.test.ts"],
     missing:
-      "Promotion (proposed/approved/rejected) and version pinning exist; the DRAFT/VALIDATED states, exploratory labelling and authoring APIs are not present.",
-    blocker: W4("A19"),
+      "Lifecycle service, authored metric store and pinning are committed; the HTTP routes exposing them are not.",
+    blocker: "Metric authoring routes not committed.",
   },
 );
 r(
@@ -1447,11 +1463,14 @@ r(
   A,
   "Source-backed, time-versioned registry of accounts, contracts, apps, DAOs, bridges, tokens with mapping methodology and confidence.",
   ["services/ingestion/src/entities", "services/analytics/src/entities", "apps/api/src/entity-routes.ts"],
-  ["D17"],
+  ["D17", "D08"],
   {
-    files: ["services/ingestion/test/entities.test.ts"],
-    missing: "Registry, entity metrics and routes do not exist.",
-    blocker: W4("A17"),
+    files: [
+      "services/ingestion/test/unit/entities-registry.test.ts",
+      "services/analytics/test/unit/entities.test.ts",
+      "apps/api/test/entity-routes.test.ts",
+    ],
+    blocker: "No canonical acceptance ID covers the entity registry beyond D17; unit tests only.",
   },
 );
 r(
@@ -1459,12 +1478,11 @@ r(
   "final s5 Attribution without double counting",
   A,
   "No double-counting across overlapping classifications; classified versus unclassified coverage; no LLM-guessed attribution.",
-  ["services/analytics/src/entities"],
-  [],
+  ["services/analytics/src/entities/attribution.ts"],
+  ["D17"],
   {
-    files: ["services/analytics/test/entities.test.ts"],
-    missing: "Attribution rules and coverage not built.",
-    blocker: W4("A17"),
+    files: ["services/analytics/test/unit/entities.test.ts"],
+    blocker: "No canonical acceptance ID covers attribution and coverage; unit tests only.",
   },
 );
 r(
@@ -1494,9 +1512,13 @@ r(
   ["services/ingestion/src/economics", "services/analytics/src/economics"],
   [],
   {
-    files: ["services/ingestion/test/economics.test.ts"],
-    missing: "No gas or fee metrics in the code (only chain-write gas in release scripts).",
-    blocker: `${W4("A18")} Any billed BigQuery run needs owner approval.`,
+    files: [
+      "services/ingestion/src/economics/economics.test.ts",
+      "services/analytics/src/economics/economics.test.ts",
+    ],
+    external: true,
+    blocker:
+      "Gas and fee SQL, loader and metric proposals are committed with free dry runs; the billed BigQuery load needs owner approval, so no real economics data is loaded.",
   },
 );
 r(
@@ -1507,9 +1529,13 @@ r(
   ["services/analytics/src/intents", "apps/api/src/intents-routes.ts"],
   ["D01", "D09"],
   {
-    files: ["services/analytics/test/intents.test.ts"],
-    missing: "Intents intelligence metrics and routes do not exist.",
-    blocker: W4("A20"),
+    files: [
+      "services/analytics/src/intents/analytics.test.ts",
+      "services/analytics/src/intents/stats.test.ts",
+    ],
+    missing: "Intents analytics code is present; HTTP routes (apps/api/src/intents-routes.ts) are not.",
+    blocker:
+      "Intents routes not committed; no canonical acceptance ID covers intents analytics beyond D01/D09.",
   },
 );
 r(
@@ -1517,12 +1543,12 @@ r(
   "final s8 Solver analysis returns CANNOT_COMPUTE",
   A,
   "Solver share, fill rate and quote-to-execution only with a defensible join, else CANNOT_COMPUTE with the missing-data reason.",
-  ["services/analytics/src/intents"],
+  ["services/analytics/src/intents/analytics.ts#CANNOT_COMPUTE"],
   ["V14"],
   {
-    files: ["services/analytics/test/intents.test.ts"],
-    missing: "No solver analysis exists.",
-    blocker: W4("A20"),
+    files: ["services/analytics/src/intents/analytics.test.ts"],
+    missing: "CANNOT_COMPUTE solver reporting is in the Intents code but is not exposed by routes.",
+    blocker: "Intents routes not committed.",
   },
 );
 r(
@@ -1536,7 +1562,7 @@ r(
     partial: true,
     missing:
       "dry:true guard and sampler exist; the quote intelligence record and signed-quote verification do not.",
-    blocker: W4("A20"),
+    blocker: "Quote intelligence record and signed-quote verification are not committed.",
   },
 );
 r(
@@ -1546,14 +1572,15 @@ r(
   "Immutable archives, checkpointed cursors, quarantines, unknown-versus-zero, archive metadata repaired from surviving payloads, no invented data.",
   [
     "services/ingestion/src/archive/archive.ts",
+    "services/ingestion/src/archive/reconstruct.ts",
     "services/ingestion/src/backfill/state.ts",
     "services/ingestion/src/backfill/skip-quarantined.ts",
   ],
   ["D03", "D06", "D11", "D14", "S11"],
   {
-    partial: true,
-    missing: "Raw-archive metadata reconstruction from surviving payloads is not integrated.",
-    blocker: W4("A15"),
+    files: ["services/ingestion/test/unit/reconstruct.test.ts"],
+    blocker:
+      "Metadata reconstruction is committed; it has not been run against the live raw archive in an approved window, and no canonical ID covers it.",
   },
 );
 r(
@@ -1569,8 +1596,9 @@ r(
   {
     partial: true,
     missing:
-      "Forward Explorer and account collectors exist; a NEAR RPC/indexer comparison and finality-aware feed do not.",
-    blocker: W4("A15"),
+      "Forward Explorer and account collectors exist; the NEAR RPC/indexer cost and finality comparison and a finality-aware feed do not.",
+    blocker:
+      "Provider comparison (cost, consistency, finality, rate limits) not written; no near-real-time source chosen.",
   },
 );
 r(
@@ -1584,7 +1612,7 @@ r(
     partial: true,
     missing:
       "Coverage and watermark exist; collector lag and reconciliation status are not exposed as one contract.",
-    blocker: W4("A21"),
+    blocker: "Freshness contract (frontend contracts work) not committed.",
   },
 );
 r(
@@ -1700,6 +1728,8 @@ r(
     "apps/api/src/request-guards.ts",
     "scripts/security",
     "scripts/release/vuln-scan.ts",
+    "packages/kernel/src/session-keys.ts",
+    "scripts/ops/supervise.sh",
   ],
   [
     "SEC01",
@@ -1718,8 +1748,8 @@ r(
   {
     partial: true,
     missing:
-      "Real authentication with session persistence across restarts and a supervisor script are not integrated.",
-    blocker: W4("A15"),
+      "Session key ring and supervisor are committed; OTLP telemetry export, SLO burn alert delivery and container hardening evidence are not verified end to end.",
+    blocker: "SEC and PERF verdicts are stale; PERF needs the quiet machine.",
   },
 );
 r(
@@ -1739,7 +1769,7 @@ r(
     partial: true,
     missing:
       "Authorise-before/settle-after is wired for BigQuery, paid HTTP, plugin egress, archive, OutLayer and workflow ops; cost forecasts and threshold notifications are not complete.",
-    blocker: W4("A21 (cost engine)"),
+    blocker: "Cost forecasts and threshold notifications are in worker A21's uncommitted work; not in HEAD.",
   },
 );
 r(
@@ -1785,7 +1815,8 @@ r(
     partial: true,
     missing:
       "Zod contracts and generated JSON schemas exist; the OpenAPI document, state taxonomy and sample payloads do not.",
-    blocker: W4("A21"),
+    blocker:
+      "OpenAPI document, state taxonomy and sample payloads are in worker A21's uncommitted work; not in HEAD.",
   },
 );
 

@@ -10,6 +10,9 @@
 #   --toolchain-from <d> seed the clone's .toolchain from <d> (faster, but the toolchain is then not downloaded fresh;
 #                        recorded in the manifest)
 #   --out <dir>          manifest directory (default: NEARESIS_Build_Bible/reports/CLEAN-ROOM when present, else ./clean-room)
+#   --continue           keep running later stages after a failed one (diagnosis only; the failed stage still makes the verdict FAIL)
+#   --allow-dirty        certify HEAD although the working tree has uncommitted changes (verdict can then never be CERTIFIED)
+#   --ref <commit>       certify this commit instead of HEAD (the clone is checked out at it)
 #   --keep               keep the clone, the disposable stack and the evidence directory
 #   --help
 #
@@ -31,7 +34,7 @@
 # script proves the canonical suite on a clean checkout, nothing more. POSIX sh.
 set -u
 
-SETUP_ONLY=0; GATE=""; LIVE=0; ENV_FILE=""; TC_FROM=""; OUT=""; KEEP=0; ALLOW_DIRTY=0
+SETUP_ONLY=0; GATE=""; LIVE=0; ENV_FILE=""; TC_FROM=""; OUT=""; KEEP=0; ALLOW_DIRTY=0; CONTINUE=0; REF=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --setup-only) SETUP_ONLY=1 ;;
@@ -41,8 +44,10 @@ while [ $# -gt 0 ]; do
     --toolchain-from) TC_FROM="$2"; shift ;;
     --out) OUT="$2"; shift ;;
     --keep) KEEP=1 ;;
+    --continue) CONTINUE=1 ;;
+    --ref) REF="$2"; shift ;;
     --allow-dirty) ALLOW_DIRTY=1 ;;
-    --help|-h) sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --help|-h) sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
   shift
@@ -90,7 +95,7 @@ stage() {
   if [ -d "$APP" ]; then ( cd "$APP" && "$@" ) > "$LOGS/$name.log" 2>&1; else ( "$@" ) > "$LOGS/$name.log" 2>&1; fi
   rc=$?
   secs=$(( $(now) - t0 ))
-  if [ "$rc" = 0 ]; then st=PASS; else st=FAIL; SETUP_FAILED=1; tail -15 "$LOGS/$name.log"; fi
+  if [ "$rc" = 0 ]; then st=PASS; else st=FAIL; [ "$CONTINUE" = 1 ] || SETUP_FAILED=1; tail -15 "$LOGS/$name.log"; fi
   printf '{"stage":"%s","status":"%s","seconds":%s,"exitCode":%s,"description":"%s","log":"logs/%s.log"}\n' "$name" "$st" "$secs" "$rc" "$(json_escape "$desc")" "$name" >> "$STAGES"
   echo "  $st (${secs}s)"
 }
@@ -126,8 +131,8 @@ if [ -n "$DIRTY" ]; then
     printf '{"stage":"clone","status":"FAIL","seconds":0,"exitCode":1,"description":"source tree is dirty","note":"uncommitted changes"}\n' >> "$STAGES"
   fi
 fi
-HEAD_SHA="$(git -C "$SRC_REPO" rev-parse HEAD)"
-stage clone "git clone --no-hardlinks of HEAD $HEAD_SHA" git clone --no-hardlinks --quiet "$SRC_REPO" "$CLONE"
+HEAD_SHA="$(git -C "$SRC_REPO" rev-parse "${REF:-HEAD}")"
+stage clone "git clone --no-hardlinks, checked out at $HEAD_SHA" sh -c "git clone --no-hardlinks --quiet '$SRC_REPO' '$CLONE' && git -C '$CLONE' checkout -q '$HEAD_SHA'"
 if [ "$SETUP_FAILED" = 0 ] && [ -n "$ENV_FILE" ]; then cp "$ENV_FILE" "$CLONE/.env"; fi
 if [ "$SETUP_FAILED" = 0 ] && [ -n "$TC_FROM" ]; then mkdir -p "$APP/.toolchain" && cp -R "$TC_FROM/." "$APP/.toolchain/"; fi
 

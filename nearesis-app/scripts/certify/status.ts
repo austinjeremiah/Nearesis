@@ -179,6 +179,19 @@ export function judge(
       "PARTIAL_BUILD",
       [declared, q.declared.missingIntegration].filter(Boolean).join(" | "),
     );
+  if (q.tests.length === 0 && q.declared.external)
+    return out("BLOCKED_EXTERNAL", "EXTERNAL_APPROVAL_OR_DATA", declared);
+  if (q.tests.length === 0)
+    return out(
+      "IMPLEMENTED_UNCERTIFIED",
+      "NO_EVIDENCE",
+      [
+        declared,
+        "bound only to unit tests, no canonical acceptance ID, so no recorded verdict can certify it",
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    );
   if (allCertified && !missingTestFiles.length) return out("CERTIFIED", "NONE", null);
   const worst = bad.find((id) => testsWithBlockedVerdict(id));
   let kind: BlockerKind = "STALE_EVIDENCE";

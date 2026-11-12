@@ -1,8 +1,11 @@
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { evaluate } from "../../scripts/conformance.ts";
 import { buildStatic } from "../../scripts/certify/build-inventory.ts";
+
+// evaluate() runs a git diff per indexed test; allow for a loaded machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 const APP = resolve(import.meta.dirname, "..", "..");
 const inv = JSON.parse(readFileSync(join(APP, "tests", "REQUIREMENTS_INVENTORY.json"), "utf8")) as {

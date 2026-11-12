@@ -1,3 +1,4 @@
+import { RangeQ as AccountRangeQ, HfQ as AccountHfQ, GrowthQ as AccountGrowthQ } from "./account-routes.ts";
 import { z } from "zod";
 import {
   AddEvidenceEdgeRequest,
@@ -819,6 +820,60 @@ export const ROUTES: RouteSpec[] = [
     "entities",
     "Unique users (CANNOT_COMPUTE when the source cannot support it)",
     { query: DayRangeQ, states: S("insufficient_data", "complete"), ok: "Unique users or CANNOT_COMPUTE" },
+  ),
+
+  // ---- accounts and cohorts (accounts are not people: every response carries meta.caveats) -------------------------
+  R(
+    "get",
+    "/v1/accounts/coverage",
+    "accounts",
+    "Loaded account-scan window, head threshold and covered days",
+    {
+      capability: "account scan coverage",
+      ok: "Coverage",
+    },
+  ),
+  R("get", "/v1/accounts/daily", "accounts", "Daily active accounts, new vs returning since window start", {
+    query: AccountRangeQ,
+    states: S("complete", "partial", "insufficient_data"),
+    ok: "Daily activity with coverage",
+  }),
+  R(
+    "get",
+    "/v1/accounts/growth",
+    "accounts",
+    "Average-DAU change split into new and returning contribution",
+    {
+      query: AccountGrowthQ,
+      states: S("complete", "partial", "insufficient_data"),
+      ok: "Growth contribution",
+    },
+  ),
+  R("get", "/v1/accounts/retention", "accounts", "Weekly cohort retention", {
+    query: AccountRangeQ,
+    states: S("complete", "partial", "insufficient_data"),
+    ok: "Cohort retention matrix",
+  }),
+  R("get", "/v1/accounts/concentration", "accounts", "Activity concentration across accounts", {
+    query: AccountRangeQ,
+    states: S("complete", "partial", "insufficient_data"),
+    ok: "Concentration",
+  }),
+  R("get", "/v1/accounts/high-frequency", "accounts", "Highest-frequency accounts", {
+    query: AccountHfQ,
+    states: S("complete", "partial", "insufficient_data"),
+    ok: "High-frequency accounts",
+  }),
+  R(
+    "get",
+    "/v1/accounts/:account/profile",
+    "accounts",
+    "One account's activity profile (404 ACCOUNT_NOT_IN_HEAD_SET)",
+    {
+      query: AccountRangeQ,
+      states: S("complete", "partial", "insufficient_data"),
+      ok: "Account profile",
+    },
   ),
 
   // ---- governed metric authoring (drafts, catalogue, lifecycle) ---------------------------------------------------

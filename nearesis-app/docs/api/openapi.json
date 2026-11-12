@@ -18,6 +18,9 @@
   ],
   "tags": [
     {
+      "name": "accounts"
+    },
+    {
       "name": "branches"
     },
     {
@@ -150,6 +153,548 @@
         },
         "x-states": [
           "source_unavailable"
+        ]
+      }
+    },
+    "/v1/accounts/{account}/profile": {
+      "get": {
+        "operationId": "getAccountsByAccountProfile",
+        "tags": [
+          "accounts"
+        ],
+        "summary": "One account's activity profile (404 ACCOUNT_NOT_IN_HEAD_SET)",
+        "parameters": [
+          {
+            "name": "account",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 400
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account profile",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-states": [
+          "complete",
+          "partial",
+          "insufficient_data"
+        ]
+      }
+    },
+    "/v1/accounts/concentration": {
+      "get": {
+        "operationId": "getAccountsConcentration",
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Activity concentration across accounts",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 400
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Concentration",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-states": [
+          "complete",
+          "partial",
+          "insufficient_data"
+        ]
+      }
+    },
+    "/v1/accounts/coverage": {
+      "get": {
+        "operationId": "getAccountsCoverage",
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Loaded account-scan window, head threshold and covered days",
+        "responses": {
+          "200": {
+            "description": "Coverage",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "account scan coverage"
+      }
+    },
+    "/v1/accounts/daily": {
+      "get": {
+        "operationId": "getAccountsDaily",
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Daily active accounts, new vs returning since window start",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 400
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daily activity with coverage",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-states": [
+          "complete",
+          "partial",
+          "insufficient_data"
+        ]
+      }
+    },
+    "/v1/accounts/growth": {
+      "get": {
+        "operationId": "getAccountsGrowth",
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Average-DAU change split into new and returning contribution",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 180
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Growth contribution",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-states": [
+          "complete",
+          "partial",
+          "insufficient_data"
+        ]
+      }
+    },
+    "/v1/accounts/high-frequency": {
+      "get": {
+        "operationId": "getAccountsHighFrequency",
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Highest-frequency accounts",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 400
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "High-frequency accounts",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-states": [
+          "complete",
+          "partial",
+          "insufficient_data"
+        ]
+      }
+    },
+    "/v1/accounts/retention": {
+      "get": {
+        "operationId": "getAccountsRetention",
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Weekly cohort retention",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 400
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cohort retention matrix",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-states": [
+          "complete",
+          "partial",
+          "insufficient_data"
         ]
       }
     },
@@ -14858,6 +15403,68 @@
           "message",
           "retryable"
         ],
+        "additionalProperties": false
+      },
+      "GetAccountsDailyQuery": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "to": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "days": {
+            "default": 30,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 400
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetAccountsGrowthQuery": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "default": 30,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 180
+          },
+          "to": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetAccountsHighFrequencyQuery": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "to": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "days": {
+            "default": 30,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 400
+          },
+          "limit": {
+            "default": 25,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
         "additionalProperties": false
       },
       "GetEntitiesByIdMetricsQuery": {

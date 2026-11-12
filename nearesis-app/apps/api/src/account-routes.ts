@@ -28,18 +28,18 @@ const Day = z
   .refine((s) => !Number.isNaN(Date.parse(`${s}T00:00:00Z`)), "not a calendar date");
 const Account = z.string().regex(/^[a-z0-9._-]{2,64}$/);
 const MAX_RANGE_DAYS = 400;
-const RangeQ = z.strictObject({
+export const RangeQ = z.strictObject({
   from: Day.optional(),
   to: Day.optional(),
   days: z.coerce.number().int().min(1).max(MAX_RANGE_DAYS).default(30),
 });
-const HfQ = z.strictObject({
+export const HfQ = z.strictObject({
   from: Day.optional(),
   to: Day.optional(),
   days: z.coerce.number().int().min(1).max(MAX_RANGE_DAYS).default(30),
   limit: z.coerce.number().int().min(1).max(200).default(25),
 });
-const GrowthQ = z.strictObject({
+export const GrowthQ = z.strictObject({
   days: z.coerce.number().int().min(1).max(180).default(30),
   to: Day.optional(),
 });

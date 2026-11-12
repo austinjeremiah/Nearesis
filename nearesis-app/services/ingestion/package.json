@@ -21,7 +21,9 @@
     "backfill:explorer-coverage": "tsx src/backfill/explorer-coverage-cli.ts",
     "backfill:account": "tsx src/backfill/account-cli.ts",
     "registry:refresh": "tsx src/registry/refresh-cli.ts",
-    "economics:dry-run": "tsx src/economics/cli.ts"
+    "economics:dry-run": "tsx src/economics/cli.ts",
+    "accounts:dry-run": "tsx src/accounts/dry-cli.ts",
+    "accounts:scan": "tsx src/accounts/cli.ts"
   },
   "dependencies": {
     "@clickhouse/client": "1.25.0",

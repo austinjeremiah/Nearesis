@@ -4,19 +4,25 @@ import { KernelError, zodDetails } from "@nearesis/kernel";
 import type { Session } from "@nearesis/kernel";
 import {
   CANNOT_COMPUTE_UNIQUE_USERS,
+  ClickHouseAccountSource,
   ClickHouseEntitySource,
   addDays,
   entityChanges,
   entityDaily,
+  entitySignerChange,
+  entityUniqueSigners,
   windowCoverage,
 } from "@nearesis/analytics";
-import type { EntityDataSource, RegistrySnapshot } from "@nearesis/analytics";
+import type { AccountDataSource, EntityDataSource, RegistrySnapshot } from "@nearesis/analytics";
 import { createClient } from "@clickhouse/client";
 
 export interface EntityRoutesOptions {
   authenticate(req: FastifyRequest): Promise<Session>;
   /** Defaults to the live ClickHouse database (nearesis_live), created lazily on first request. */
   source?: EntityDataSource | undefined;
+  /** Per-signer source for unique users per entity. Defaults to the live ClickHouse tables when `source` is the default; absent
+   * with an injected `source` it stays CANNOT_COMPUTE (PER_SIGNER_SOURCE_MISSING). */
+  signers?: AccountDataSource | undefined;
 }
 
 const Day = z
@@ -49,6 +55,11 @@ const ChangesQ = z.strictObject({
   type: z.enum(ENTITY_TYPES).optional(),
 });
 const RangeQ = z.strictObject({ from: Day, to: Day });
+const UniqueQ = z.strictObject({
+  from: Day.optional(),
+  to: Day.optional(),
+  days: z.coerce.number().int().min(1).max(MAX_RANGE_DAYS).default(90),
+});
 const CoverageQ = z.strictObject({
   from: Day.optional(),
   to: Day.optional(),
@@ -75,24 +86,33 @@ const notFound = (id: string) =>
  *   GET /v1/entities/:id                              -> drilldown: entity, category, relations, mappings with evidence
  *   GET /v1/entities/:id/mappings                     -> mappings with source URL, effective interval, methodology, limitations
  *   GET /v1/entities/:id/metrics?from&to              -> daily interactions, share of total, coverage
- *   GET /v1/entities/:id/unique-users                 -> 200 { state: "CANNOT_COMPUTE", reasonCode, missingSource }
+ *   GET /v1/entities/:id/unique-users?days=90|from&to -> exact per-day distinct signer accounts for the entity (A23 scan), summary, coverage;
+ *                                                        200 { state: "CANNOT_COMPUTE", ... } when the per-signer scan is not loaded
  * Errors: VALIDATION_FAILED (INVALID_QUERY), NOT_FOUND (ENTITY_NOT_FOUND), UPSTREAM_DEGRADED (ENTITY_SOURCE_UNAVAILABLE).
  * Registry data is global public reference data: no tenant rows are read or returned; every route still needs a session.
  */
 export const entityRoutes: FastifyPluginAsync<EntityRoutesOptions> = async (app, opts) => {
   let source = opts.source;
   let client: ReturnType<typeof createClient> | undefined;
+  const chClient = (): ReturnType<typeof createClient> => {
+    client ??= createClient({
+      url: process.env.NEARESIS_CH_URL ?? "http://127.0.0.1:58123",
+      username: process.env.NEARESIS_CH_USER ?? "nearesis",
+      password: process.env.NEARESIS_CH_PASSWORD ?? "nearesis",
+      database: "nearesis_live",
+    });
+    return client;
+  };
   const src = (): EntityDataSource => {
-    if (!source) {
-      client = createClient({
-        url: process.env.NEARESIS_CH_URL ?? "http://127.0.0.1:58123",
-        username: process.env.NEARESIS_CH_USER ?? "nearesis",
-        password: process.env.NEARESIS_CH_PASSWORD ?? "nearesis",
-        database: "nearesis_live",
-      });
-      source = new ClickHouseEntitySource(client);
-    }
+    source ??= new ClickHouseEntitySource(chClient());
     return source;
+  };
+  const signerSrc = (): AccountDataSource | undefined =>
+    opts.signers ?? (opts.source ? undefined : new ClickHouseAccountSource(chClient()));
+  /** Real per-entity unique signers when the per-signer scan is loaded; the legacy CANNOT_COMPUTE otherwise. */
+  const uniqueUsersFor = async (entityId: string, from: string, to: string) => {
+    const a = signerSrc();
+    return a ? entityUniqueSigners(a, entityId, from, to) : { entityId, ...CANNOT_COMPUTE_UNIQUE_USERS };
   };
   app.addHook("onClose", async () => {
     await client?.close();
@@ -209,7 +229,23 @@ export const entityRoutes: FastifyPluginAsync<EntityRoutesOptions> = async (app,
       const entities = (
         q.type ? rep.entities.filter((e) => types.get(e.entityId) === q.type) : rep.entities
       ).slice(0, q.limit);
-      return { ...rep, entities };
+      const a = signerSrc();
+      if (!a) return { ...rep, entities };
+      const withSigners = await Promise.all(
+        entities.map(async (e) => ({
+          ...e,
+          uniqueSigners: await entitySignerChange(a, e.entityId, to, q.days),
+        })),
+      );
+      return {
+        ...rep,
+        entities: withSigners,
+        uniqueUsers: {
+          state: "AVAILABLE_PER_ENTITY" as const,
+          detail:
+            "Exact per-day distinct signer accounts per entity (not people); see entities[].uniqueSigners and GET /v1/entities/:id/unique-users.",
+        },
+      };
     }),
   );
 
@@ -232,7 +268,7 @@ export const entityRoutes: FastifyPluginAsync<EntityRoutesOptions> = async (app,
         children: reg.entities.filter((e) => e.parentEntityId === id),
         relations: reg.relations.filter((r) => r.fromEntityId === id || r.toEntityId === id),
         mappings: reg.mappings.filter((m) => m.entityId === id),
-        uniqueUsers: CANNOT_COMPUTE_UNIQUE_USERS,
+        uniqueUsers: await uniqueUsersFor(id, addDays(await latest(s), -89), await latest(s)),
       };
     }),
   );
@@ -263,16 +299,24 @@ export const entityRoutes: FastifyPluginAsync<EntityRoutesOptions> = async (app,
         metric: "contract_interactions",
         grain: "day",
         ...entityDaily(reg, activity, id, q.from, q.to),
-        uniqueUsers: CANNOT_COMPUTE_UNIQUE_USERS,
+        uniqueUsers: await uniqueUsersFor(id, q.from, q.to),
       };
     }),
   );
   app.get<{ Params: { id: string } }>("/v1/entities/:id/unique-users", (req) =>
     guarded(req, async (s) => {
       const id = parse(Id, req.params.id);
+      const q = parse(UniqueQ, req.query);
       const reg = await loadReg(s);
       entityOr404(reg, id);
-      return { entityId: id, ...CANNOT_COMPUTE_UNIQUE_USERS };
+      const a = signerSrc();
+      if (!a) return { entityId: id, ...CANNOT_COMPUTE_UNIQUE_USERS };
+      const w = await a.window();
+      const to = q.to ?? w?.to ?? (await latest(s));
+      const from = q.from ?? addDays(to, -(q.days - 1));
+      if (from > to || (Date.parse(to) - Date.parse(from)) / 86_400_000 > MAX_RANGE_DAYS)
+        throw new KernelError("VALIDATION_FAILED", "INVALID_RANGE", "Invalid date range.");
+      return uniqueUsersFor(id, from, to);
     }),
   );
 };

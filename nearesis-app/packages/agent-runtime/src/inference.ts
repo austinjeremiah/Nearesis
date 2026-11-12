@@ -2,8 +2,9 @@ import type { z } from "zod";
 import type { InferenceProvider } from "@nearesis/contracts";
 import type pg from "pg";
 import { containsSecretShape, scrubSecretShapes } from "@nearesis/kernel";
-import { runExternalEffect } from "./ledger.ts";
+import { AbortedError, runExternalEffect } from "./ledger.ts";
 import { usdForTokens, type Supervisor } from "./supervisor.ts";
+import type { CostGovernor } from "./cost/governor.ts";
 
 export interface InferenceCtx {
   tenantId: string;
@@ -27,6 +28,8 @@ export class LedgerInference {
     private readonly pool: pg.Pool,
     private readonly supervisor: Supervisor,
     private readonly ctx: InferenceCtx,
+    /** Optional spend governor (ch.13 cost model): authorises BEFORE the provider is called, settles after. */
+    private readonly cost?: CostGovernor,
   ) {}
 
   async generate<T>(a: {
@@ -37,36 +40,38 @@ export class LedgerInference {
     maxTokens?: number;
   }): Promise<T> {
     const c = this.ctx;
-    const out = await runExternalEffect(
-      this.pool,
-      {
-        tenantId: c.tenantId,
-        runId: c.runId,
-        effectKey: `inference:${a.key}`,
-        kind: "inference",
-        guarantee: "external_non_idempotent",
-      },
-      async () => {
-        const r = await this.provider.generateStructured({
-          model: c.model,
-          system: a.system,
-          prompt: a.prompt,
-          schema: a.schema,
-          idempotencyKey: a.key,
-          maxTokens: a.maxTokens ?? 2000,
-        });
-        // ch.12: a model response is untrusted. Credential shapes (plain, base64, split by invisible characters) are
-        // scrubbed BEFORE the durable record is written, so neither the ledger nor any later replay can carry them.
-        const secretsRedacted = containsSecretShape(r.output);
-        return {
-          output: scrubSecretShapes(r.output) as unknown,
-          usage: r.usage,
-          provider: r.provider,
-          model: r.model,
-          secretsRedacted,
-        };
-      },
-      { signal: c.signal },
+    const out = await this.guarded(a, () =>
+      runExternalEffect(
+        this.pool,
+        {
+          tenantId: c.tenantId,
+          runId: c.runId,
+          effectKey: `inference:${a.key}`,
+          kind: "inference",
+          guarantee: "external_non_idempotent",
+        },
+        async () => {
+          const r = await this.provider.generateStructured({
+            model: c.model,
+            system: a.system,
+            prompt: a.prompt,
+            schema: a.schema,
+            idempotencyKey: a.key,
+            maxTokens: a.maxTokens ?? 2000,
+          });
+          // ch.12: a model response is untrusted. Credential shapes (plain, base64, split by invisible characters) are
+          // scrubbed BEFORE the durable record is written, so neither the ledger nor any later replay can carry them.
+          const secretsRedacted = containsSecretShape(r.output);
+          return {
+            output: scrubSecretShapes(r.output) as unknown,
+            usage: r.usage,
+            provider: r.provider,
+            model: r.model,
+            secretsRedacted,
+          };
+        },
+        { signal: c.signal },
+      ),
     );
     const tokens = out.result.usage.inputTokens + out.result.usage.outputTokens;
     await this.supervisor.charge({
@@ -79,5 +84,57 @@ export class LedgerInference {
       usage: { tokens, toolCalls: 0, usd: usdForTokens(tokens) },
     });
     return a.schema.parse(out.result.output);
+  }
+
+  /**
+   * Cost control (ch.13): authorise the worst-case spend BEFORE the provider is called (a refused spend never reaches
+   * the provider), run the call, then settle with the actual tokens. A failed call returns its reservation, except an
+   * aborted call, which may already have reached the provider and keeps the worst-case reservation.
+   */
+  private async guarded<R extends { result: { usage: { inputTokens: number; outputTokens: number } } }>(
+    a: { key: string; system: string; prompt: string; maxTokens?: number },
+    run: () => Promise<R>,
+  ): Promise<R> {
+    const cost = this.cost;
+    if (!cost) return run();
+    const c = this.ctx;
+    const tokenKey = `cost:inference:${a.key}`;
+    const reqKey = `cost:inference-req:${a.key}`;
+    const estTokens = Math.ceil((a.system.length + a.prompt.length) / 4) + (a.maxTokens ?? 2000);
+    const base = { tenantId: c.tenantId, workspaceId: c.workspaceId, runId: c.runId };
+    await cost.authorize({
+      ...base,
+      key: reqKey,
+      dimension: "external_requests",
+      quantity: 1,
+      paidOp: "inference",
+    });
+    try {
+      await cost.authorize({
+        ...base,
+        key: tokenKey,
+        dimension: "ai_tokens",
+        quantity: estTokens,
+        usd: usdForTokens(estTokens),
+        paidOp: "inference",
+      });
+    } catch (e) {
+      await cost.release(c.tenantId, reqKey);
+      throw e;
+    }
+    let out: R;
+    try {
+      out = await run();
+    } catch (e) {
+      if (!(e instanceof AbortedError)) {
+        await cost.release(c.tenantId, tokenKey);
+        await cost.release(c.tenantId, reqKey);
+      }
+      throw e;
+    }
+    const tokens = out.result.usage.inputTokens + out.result.usage.outputTokens;
+    await cost.settle(c.tenantId, tokenKey, { quantity: tokens, usd: usdForTokens(tokens) });
+    await cost.settle(c.tenantId, reqKey, { quantity: 1, usd: 0 });
+    return out;
   }
 }

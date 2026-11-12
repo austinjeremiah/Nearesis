@@ -7,3 +7,19 @@ export * from "./client.ts";
 export * from "./testing/dev-deps.ts";
 export * from "./replay.ts";
 export * from "./kernel-deps.ts";
+// Cost control and SLO burn (ch.13): re-exported so the API depends only on this package.
+export {
+  COST_DIMENSIONS,
+  CostGovernor,
+  CostBlockedError,
+  SLOS,
+  SloRecorder,
+  exportLedger,
+  readBurn,
+  resumeWorkspace,
+  sloStatus,
+  evaluateAndAlert,
+  upsertPolicy,
+  kernelAlertSink,
+} from "@nearesis/agent-runtime";
+export type { PolicyInput, WorkspaceBurn, SloStatus } from "@nearesis/agent-runtime";

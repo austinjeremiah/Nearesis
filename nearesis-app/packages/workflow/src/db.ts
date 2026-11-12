@@ -6,7 +6,11 @@ import pg from "pg";
 
 /** All runtime pools resolve unqualified names in schema `runtime` (never `public`). */
 export function makePool(connectionString: string, max = 10): pg.Pool {
-  return new pg.Pool({ connectionString, max, options: "-c search_path=runtime" });
+  const pool = new pg.Pool({ connectionString, max, options: "-c search_path=runtime" });
+  // An idle client killed by a database restart or connection reset emits 'error' on the pool; without a listener that
+  // is an uncaught exception that takes the whole worker down (found by PERF11). The pool replaces the client.
+  pool.on("error", () => undefined);
+  return pool;
 }
 
 export type { Pool, PoolClient } from "pg";
@@ -31,6 +35,9 @@ export async function withTenant<T>(
   fn: (c: pg.PoolClient) => Promise<T>,
 ): Promise<T> {
   const c = await pool.connect();
+  // A restart or reset while the client is checked out is an 'error' event on it; unhandled that kills the process.
+  const onClientError = () => undefined;
+  c.on("error", onClientError);
   try {
     await c.query("BEGIN");
     await c.query("SELECT set_config('app.org_id', $1, true)", [tenantId]);
@@ -41,6 +48,7 @@ export async function withTenant<T>(
     await c.query("ROLLBACK").catch(() => undefined);
     throw e;
   } finally {
+    c.removeListener("error", onClientError);
     c.release();
   }
 }

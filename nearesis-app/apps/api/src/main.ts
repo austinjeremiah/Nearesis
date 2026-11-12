@@ -12,6 +12,7 @@ import {
 import { buildApp } from "./app.ts";
 import { temporalEngine } from "./temporal-engine.ts";
 import { productionMonitoringConfig } from "./monitoring-config.ts";
+import { startOpsBackground } from "./ops-background.ts";
 
 /** Minimal .env loader (server-side only; values are never logged). */
 function loadEnv(): void {
@@ -49,8 +50,11 @@ const kernel = new Kernel({
 });
 await kernel.boot();
 kernel.outbox.start();
+// SLO recording + burn alerts (needs runtime migration 005): NEARESIS_COST_CONTROL=1.
+const ops = process.env.NEARESIS_COST_CONTROL === "1" ? startOpsBackground(kernel) : undefined;
 const app = await buildApp({
   kernel,
+  ...(ops ? { sloRecorder: ops.recorder } : {}),
   ...(process.env.NEARESIS_MONITOR_BACKGROUND === "1" ? { monitorBackground: {} } : {}),
   ...(process.env.NEARESIS_MCP_GATEWAY_SECRET
     ? {

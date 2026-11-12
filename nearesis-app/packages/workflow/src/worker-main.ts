@@ -16,7 +16,13 @@ import { loadEnvVar } from "@nearesis/inference";
 import { DEFAULT_APP_URL, makePool } from "./db.ts";
 import { buildDevDeps } from "./testing/dev-deps.ts";
 import { bootKernel, buildKernelDeps } from "./kernel-deps.ts";
-import { ScriptedProvider, scenarioRules } from "@nearesis/agent-runtime";
+import {
+  CostGovernor,
+  PgAudit,
+  ScriptedProvider,
+  kernelAlertSink,
+  scenarioRules,
+} from "@nearesis/agent-runtime";
 import { createWorker } from "./worker.ts";
 
 const production = process.env.NEARESIS_PRODUCTION_WORKER === "1";
@@ -26,18 +32,28 @@ const policy = process.env.POLICY_JSON ? JSON.parse(process.env.POLICY_JSON) : {
 const stepDelayMs = Number(process.env.STEP_DELAY_MS ?? "0");
 // KERNEL_PLUGIN_ROOT + KERNEL_TRUSTED_KEYS_JSON select the real kernel gateway (production plugin trust); the model is
 // the scripted scenario provider unless a live provider is configured by the host.
+const prodKernel = production
+  ? await bootKernel({
+      appUrl,
+      pluginRoot:
+        process.env.KERNEL_PLUGIN_ROOT ??
+        fileURLToPath(new URL("../../../plugins/near-thesis", import.meta.url)),
+      trustedKeys: JSON.parse(loadEnvVar("NEARESIS_PLUGIN_TRUSTED_KEYS") ?? "{}"),
+    })
+  : undefined;
+// Cost control (migration 005 must be applied): NEARESIS_COST_CONTROL=1 meters every model call and enforces the
+// workspace spend policy BEFORE the call. Off by default so a worker started against an unmigrated database still runs.
+const cost =
+  production && prodKernel && process.env.NEARESIS_COST_CONTROL === "1"
+    ? new CostGovernor({ pool, audit: new PgAudit(pool), sink: kernelAlertSink(prodKernel) })
+    : undefined;
 const deps = production
   ? buildKernelDeps({
       pool,
       appUrl,
       policy,
-      kernel: await bootKernel({
-        appUrl,
-        pluginRoot:
-          process.env.KERNEL_PLUGIN_ROOT ??
-          fileURLToPath(new URL("../../../plugins/near-thesis", import.meta.url)),
-        trustedKeys: JSON.parse(loadEnvVar("NEARESIS_PLUGIN_TRUSTED_KEYS") ?? "{}"),
-      }),
+      kernel: prodKernel!,
+      ...(cost ? { cost } : {}),
     })
   : process.env.KERNEL_PLUGIN_ROOT
     ? buildKernelDeps({

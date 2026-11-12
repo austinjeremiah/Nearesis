@@ -13,6 +13,8 @@ import { capsuleRoutes } from "./capsule-routes.ts";
 import { publishRoutes } from "./publish-routes.ts";
 import { integrityRoutes } from "./integrity-routes.ts";
 import { gatewayRoutes } from "./gateway-routes.ts";
+import { costRoutes } from "./cost-routes.ts";
+import type { SloRecorder } from "@nearesis/workflow";
 import type { GatewayCredentialConfig } from "./gateway-routes.ts";
 import { OverloadError, SseConnectionLimiter, TenantAdmission, sseClientKey } from "./overload/index.ts";
 import type { AdmissionOptions, SseLimits } from "./overload/index.ts";
@@ -57,6 +59,8 @@ export interface AppOptions {
   };
   /** Enables `GET /v1/gateway/runs/:id` for the MCP gateway's audience-constrained credential. Absent: route does not exist. */
   gatewayCredential?: GatewayCredentialConfig;
+  /** Feeds the api_availability SLO from every response (cost-routes.ts). Absent: SLO recording is off. */
+  sloRecorder?: SloRecorder;
 }
 
 declare module "fastify" {
@@ -519,6 +523,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   if (opts.gatewayCredential)
     await app.register(gatewayRoutes, { kernel, credential: opts.gatewayCredential });
   await app.register(monitoringRoutes, { kernel, runs, authenticate, background: opts.monitorBackground });
+  await app.register(costRoutes, { kernel, authenticate, slo: opts.sloRecorder });
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.
   void HTTP_STATUS_FOR;

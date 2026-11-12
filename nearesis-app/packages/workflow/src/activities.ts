@@ -32,6 +32,7 @@ import {
   taskIdFromHash,
   type ToolLogEntry,
   type AuditSink,
+  type CostGovernor,
   type LeaseBroker,
   type LocalToolHandler,
   type Policy,
@@ -102,6 +103,8 @@ export interface ActivityDeps {
   appUrl?: string;
   policy: Policy;
   audit: AuditSink;
+  /** Spend governor (ch.13 cost model). When set, every model call is authorised before it is sent and settled after. */
+  cost?: CostGovernor;
   gateway: ToolGateway;
   /** Kernel capability leases for agent principals (FND-20261110-030). */
   leases: LeaseBroker;
@@ -550,15 +553,23 @@ export function createActivities(d: ActivityDeps) {
         }
         const saver = d.appUrl ? openCheckpointer(d.appUrl) : undefined;
         try {
-          const inference = new LedgerInference(d.provider, d.pool, supervisor, {
-            tenantId: i.tenantId,
-            workspaceId: i.workspaceId,
-            runId: i.runId,
-            budgetId: i.budgetId,
-            taskId: i.directorTaskId,
-            model: model(d),
-            ...(Context.current().cancellationSignal ? { signal: Context.current().cancellationSignal } : {}),
-          });
+          const inference = new LedgerInference(
+            d.provider,
+            d.pool,
+            supervisor,
+            {
+              tenantId: i.tenantId,
+              workspaceId: i.workspaceId,
+              runId: i.runId,
+              budgetId: i.budgetId,
+              taskId: i.directorTaskId,
+              model: model(d),
+              ...(Context.current().cancellationSignal
+                ? { signal: Context.current().cancellationSignal }
+                : {}),
+            },
+            d.cost,
+          );
           const graph = buildDirectorGraph({
             mode: "plan",
             question: i.question,
@@ -923,15 +934,21 @@ export function createActivities(d: ActivityDeps) {
           ...(d.kernelMode ? { roleAllowed: roleCfg.allowedTools, auditGatewayDenials: true } : {}),
           ...(d.localTools ? { local: d.localTools } : {}),
         });
-        const inference = new LedgerInference(d.provider, d.pool, supervisor, {
-          tenantId: i.tenantId,
-          workspaceId: i.workspaceId,
-          runId: i.runId,
-          budgetId: i.budgetId,
-          taskId: i.taskId,
-          model: model(d),
-          signal: ctx.cancellationSignal,
-        });
+        const inference = new LedgerInference(
+          d.provider,
+          d.pool,
+          supervisor,
+          {
+            tenantId: i.tenantId,
+            workspaceId: i.workspaceId,
+            runId: i.runId,
+            budgetId: i.budgetId,
+            taskId: i.taskId,
+            model: model(d),
+            signal: ctx.cancellationSignal,
+          },
+          d.cost,
+        );
         if (i.role === "composer" && d.liveComposer && !isScripted(i.objective))
           return await liveCompose(i, tools, inference);
         const result = await runRoleGraph({

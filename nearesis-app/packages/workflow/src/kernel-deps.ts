@@ -17,6 +17,7 @@ import {
   type Requester,
   type RequesterResolver,
   PgAudit,
+  type CostGovernor,
   makePolicy,
   taskIdFromHash,
   withTenant,
@@ -209,6 +210,8 @@ export function buildKernelDeps(a: {
   model?: string;
   /** Model-planned composer for non-scenario questions. Default: on when INFERENCE_PROVIDER=openrouter and no provider is injected. */
   liveComposer?: boolean;
+  /** Spend governor (ch.13 cost model); absent = metering and caps are off for this worker. */
+  cost?: CostGovernor;
 }): ActivityDeps {
   const live = a.liveComposer ?? (!a.provider && resolveProviderMode() === "openrouter");
   const requesterOf = requesterFromKernel(a.pool, a.kernel);
@@ -219,6 +222,7 @@ export function buildKernelDeps(a: {
     ...(a.appUrl ? { appUrl: a.appUrl } : {}),
     policy: makePolicy(a.policy ?? {}),
     audit: new PgAudit(a.pool),
+    ...(a.cost ? { cost: a.cost } : {}),
     gateway,
     leases,
     canvas: new KernelCanvas({ pool: a.pool, kernel: a.kernel, gateway, requesterOf }),

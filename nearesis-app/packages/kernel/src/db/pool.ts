@@ -42,6 +42,10 @@ export class Db {
 
   private async run<T>(fn: (tx: Tx) => Promise<T>, setup?: (c: Tx) => Promise<void>): Promise<T> {
     const c = await this.pool.connect();
+    // A database restart or connection reset while this client is checked out and between statements is emitted as an
+    // 'error' on the client; unhandled it kills the process (found by PERF11). The next statement or COMMIT rejects instead.
+    const onClientError = () => undefined;
+    c.on("error", onClientError);
     try {
       await c.query("BEGIN");
       if (setup) await setup(c);
@@ -56,6 +60,7 @@ export class Db {
       }
       throw e;
     } finally {
+      c.removeListener("error", onClientError);
       c.release();
     }
   }

@@ -1,13 +1,13 @@
-import { NotConnected } from '@/components/nx/states';
 import { Content, PageHeader } from '@/components/nx/shell';
+import { AgentsView } from '@/components/nx/investigate-lists';
 
-/** Not connected to the API yet (WS2). Renders an honest typed state, never placeholder figures. */
-export default function Page() {
+export default async function Page({ params }: { params: Promise<{ wid: string }> }) {
+  const { wid } = await params;
   return (
     <>
-      <PageHeader title="Agents" description="Agents and runs." />
+      <PageHeader title="Agents and runs" description="Investigation runs in this workspace and the agents that did the work." />
       <Content>
-        <NotConnected what="Agents" stream="WS2" />
+        <AgentsView wid={wid} />
       </Content>
     </>
   );

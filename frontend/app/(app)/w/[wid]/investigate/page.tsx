@@ -1,13 +1,15 @@
-import { NotConnected } from '@/components/nx/states';
 import { Content, PageHeader } from '@/components/nx/shell';
+import AskForm, { RecentRuns } from '@/components/nx/ask-form';
 
-/** Not connected to the API yet (WS2). Renders an honest typed state, never placeholder figures. */
-export default function Page() {
+/** Ask a question. The run itself opens on /runs/[runId]. */
+export default async function Page({ params }: { params: Promise<{ wid: string }> }) {
+  const { wid } = await params;
   return (
     <>
-      <PageHeader title="Investigate" description="Ask and plan." />
+      <PageHeader title="Investigate" description="Ask a question. The plan, its budget and its approval step are shown before anything runs." />
       <Content>
-        <NotConnected what="Investigate" stream="WS2" />
+        <AskForm wid={wid} />
+        <RecentRuns wid={wid} />
       </Content>
     </>
   );

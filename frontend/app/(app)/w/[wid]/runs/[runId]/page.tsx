@@ -1,13 +1,17 @@
-import { NotConnected } from '@/components/nx/states';
 import { Content, PageHeader } from '@/components/nx/shell';
+import RunView from '@/components/nx/run-view';
 
-/** Not connected to the API yet (WS2). Renders an honest typed state, never placeholder figures. */
-export default function Page() {
+export default async function Page({ params }: { params: Promise<{ wid: string; runId: string }> }) {
+  const { wid, runId } = await params;
   return (
     <>
-      <PageHeader title="Run" description="Investigation run." />
+      <PageHeader
+        title="Investigation run"
+        description={`Run ${runId}`}
+        crumbs={[{ label: 'Investigate', href: `/w/${wid}/investigate` }, { label: 'Run' }]}
+      />
       <Content>
-        <NotConnected what="Run" stream="WS2" />
+        <RunView wid={wid} runId={runId} />
       </Content>
     </>
   );

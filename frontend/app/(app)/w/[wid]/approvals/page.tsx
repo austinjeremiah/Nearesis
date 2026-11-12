@@ -1,13 +1,13 @@
-import { NotConnected } from '@/components/nx/states';
 import { Content, PageHeader } from '@/components/nx/shell';
+import { ApprovalsView } from '@/components/nx/investigate-lists';
 
-/** Not connected to the API yet (WS2). Renders an honest typed state, never placeholder figures. */
-export default function Page() {
+export default async function Page({ params }: { params: Promise<{ wid: string }> }) {
+  const { wid } = await params;
   return (
     <>
-      <PageHeader title="Approvals" description="Pending and decided approvals." />
+      <PageHeader title="Approvals" description="Actions that wait for a decision. Each decision is bound to the exact action hash." />
       <Content>
-        <NotConnected what="Approvals" stream="WS2" />
+        <ApprovalsView wid={wid} />
       </Content>
     </>
   );

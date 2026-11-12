@@ -1,13 +1,13 @@
-import { NotConnected } from '@/components/nx/states';
 import { Content, PageHeader } from '@/components/nx/shell';
+import { TimelineView } from '@/components/nx/investigate-lists';
 
-/** Not connected to the API yet (WS2). Renders an honest typed state, never placeholder figures. */
-export default function Page() {
+export default async function Page({ params }: { params: Promise<{ wid: string }> }) {
+  const { wid } = await params;
   return (
     <>
-      <PageHeader title="Timeline" description="Research timeline." />
+      <PageHeader title="Timeline" description="Everything that changed in this workspace, newest first." />
       <Content>
-        <NotConnected what="Timeline" stream="WS2" />
+        <TimelineView wid={wid} />
       </Content>
     </>
   );

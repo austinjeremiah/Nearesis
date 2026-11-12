@@ -1,0 +1,33 @@
+/* Investigation surfaces (ask form, run view, findings, approvals). Uses the tokens in tokens.css only. */
+.rv-steps { display: flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--line-strong); }
+.rv-step { flex: 1 1 110px; padding: 6px 10px; font-size: var(--fs-tiny); color: var(--text-3); border-right: 1px solid var(--line); background: var(--surface); }
+.rv-step:last-child { border-right: 0; }
+.rv-step[data-done='true'] { color: var(--text); background: var(--raised); }
+.rv-step[data-current='true'] { color: var(--accent-ink); background: var(--accent); font-weight: 600; }
+.rv-step[data-end='bad'] { color: var(--bad); background: var(--bad-bg); font-weight: 600; }
+.rv-step[data-end='warn'] { color: var(--warn); background: var(--warn-bg); font-weight: 600; }
+
+.rv-log { max-height: 280px; overflow: auto; border: 1px solid var(--line); background: var(--raised); }
+.rv-log li { display: flex; gap: 10px; padding: 5px 10px; border-bottom: 1px dashed var(--line); font-size: var(--fs-small); }
+.rv-log li:last-child { border-bottom: 0; }
+
+.rv-tile { border: 1px solid var(--line-strong); background: var(--surface); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rv-tile[data-status='QUERYING'] { border-style: dashed; }
+.rv-tile[data-status='ERROR'] { border-color: var(--bad); }
+
+.rv-finding { border: 1px solid var(--line-strong); background: var(--surface); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.rv-finding[data-status='cannot_compute'], .rv-finding[data-status='insufficient_data'] { border-style: dashed; background: var(--page); }
+.rv-finding ul { margin: 0; padding-left: 18px; }
+.rv-finding li { font-size: var(--fs-small); color: var(--text-2); }
+
+.rv-hash { font-family: var(--font-mono); font-size: var(--fs-tiny); word-break: break-all; background: var(--sunken); padding: 3px 6px; display: inline-block; }
+
+.rv-approval { border: 1px solid var(--line-hard); background: var(--surface); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.rv-approval[data-status='approved'] { border-color: var(--ok); }
+.rv-approval[data-status='rejected'] { border-color: var(--bad); }
+
+.rv-form { display: flex; flex-direction: column; gap: 14px; }
+.rv-form .textarea { min-height: 96px; }
+.rv-budget { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 640px) { .rv-budget { grid-template-columns: 1fr; } }
+.rv-stage { border-left: 3px solid var(--line-hard); padding-left: 12px; display: flex; flex-direction: column; gap: 4px; }

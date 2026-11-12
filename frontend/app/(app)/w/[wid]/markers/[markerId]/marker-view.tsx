@@ -59,7 +59,7 @@ function Body({ wid, m }: { wid: string; m: Marker }) {
 
   const next = NEXT[m.status] ?? [];
   const needsResolution = next.some((s) => ['RESOLVED', 'MONITORING', 'DISMISSED'].includes(s));
-  const evidenceChoices = (graph.data?.nodes ?? []).filter((n) => ['claim', 'statistical_result', 'observation', 'query'].includes(n.type) && !m.linkedEvidenceIds.includes(n.id));
+  const evidenceChoices = (graph.data?.nodes ?? []).filter((n) => ['claim', 'statistical_result', 'observation', 'model', 'verification_artifact', 'source'].includes(n.type) && !m.linkedEvidenceIds.includes(n.id));
   const canAssign = m.status === 'ACTIVE' || m.status === 'INVESTIGATING';
 
   return (
@@ -176,7 +176,7 @@ function Body({ wid, m }: { wid: string; m: Marker }) {
         </div>
       </Card>
 
-      <Card title="Attached evidence" subtitle="Link claims, results or queries that bear on this marker.">
+      <Card title="Attached evidence" subtitle="Link claims, results or observations stored in the evidence graph. Panel queries are projections and cannot be attached.">
         <div className="col gap2">
           {m.linkedEvidenceIds.length === 0 ? (
             <div className="small dim">No evidence attached.</div>

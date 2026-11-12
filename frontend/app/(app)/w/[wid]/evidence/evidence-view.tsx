@@ -221,8 +221,19 @@ export function NodeInspector({ wid, node, g, onFocus }: { wid: string; node: Gr
               </Notice>
             ) : null}
             {d.rawObjectHash && <div className="tiny mono">raw {shortHash(d.rawObjectHash, 12, 6)}</div>}
+            <dl style={{ margin: 0 }} data-testid="deref-fields">
+              {Object.entries(d.data ?? {})
+                .filter(([k, v]) => ['string', 'number', 'boolean'].includes(typeof v) && k !== 'panelId')
+                .map(([k, v]) => (
+                  <div className="kv" key={k}>
+                    <dt>{k}</dt>
+                    <dd className="small">{String(v).slice(0, 120)}</dd>
+                  </div>
+                ))}
+            </dl>
+            {d.kind === 'claim' && !prov && <div className="small dim">No provenance tuple is recorded for this claim.</div>}
             {prov && (
-              <dl style={{ margin: 0 }}>
+              <dl style={{ margin: 0 }} data-testid="deref-provenance">
                 {Object.entries(prov).map(([k, v]) => (
                   <div className="kv" key={k}>
                     <dt>{k}</dt>

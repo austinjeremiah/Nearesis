@@ -1331,3 +1331,41 @@ table.table {
     padding: var(--s8) var(--s5);
   }
 }
+
+/* -----------------------------------------------------------------------------
+   evidence chain, spec 5.18
+   A claim resolved left to right down to the raw snapshot. Columns rather than a
+   force layout: the reader's question is "where did this number come from", and
+   a straight line answers it faster than a cloud of nodes.
+   -------------------------------------------------------------------------- */
+.evidence-chain {
+  display: flex;
+  align-items: stretch;
+  gap: var(--s2);
+  overflow-x: auto;
+  padding-bottom: var(--s2);
+}
+.chain-step {
+  flex: 1;
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s3);
+  background: var(--raised);
+  border: 1px solid var(--line);
+}
+.chain-arrow {
+  align-self: center;
+  color: var(--text-3);
+  font-size: 15px;
+  flex: none;
+}
+@media (max-width: 900px) {
+  .evidence-chain {
+    flex-direction: column;
+  }
+  .chain-arrow {
+    transform: rotate(90deg);
+  }
+}

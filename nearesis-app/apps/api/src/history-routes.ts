@@ -5,9 +5,13 @@ import { KernelError, workspaceNotFound } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
 import { historyService } from "@nearesis/kernel";
 import { attachCollabWebSocket } from "./collab-ws.ts";
+import { pinHistorySnapshot, principalOf } from "./metric-publish-guard.ts";
+import type { PublishAuthoring } from "./metric-publish-guard.ts";
 
 export interface HistoryRoutesOptions {
   kernel: Kernel;
+  /** Governed metric authoring: certified authored metric versions a snapshot rests on are pinned when it is taken. */
+  authoring?: PublishAuthoring;
 }
 
 const Uuid = z.uuid();
@@ -17,7 +21,7 @@ const Uuid = z.uuid();
  * Yjs collaboration. Foreign and unknown workspaces/objects both answer 404. Mutations take `expectedVersion` in the
  * body (or `If-Match: "<n>"`) and an optional `Idempotency-Key` header; a retry replays and returns `replayed: true`.
  */
-export const historyRoutes: FastifyPluginAsync<HistoryRoutesOptions> = async (app, { kernel }) => {
+export const historyRoutes: FastifyPluginAsync<HistoryRoutesOptions> = async (app, { kernel, authoring }) => {
   const svc = historyService(kernel);
   // Yjs over WebSocket: a transport for svc.collab (same authorisation, validation and persistence as the REST routes)
   const ws = attachCollabWebSocket(app.server, kernel, svc.collab);
@@ -184,6 +188,17 @@ export const historyRoutes: FastifyPluginAsync<HistoryRoutesOptions> = async (ap
     guard(req, [req.params.id], async (s) => {
       const { body, opts } = mut(req);
       const r = await svc.snapshots.create(s, req.params.id, body, opts);
+      if (authoring && !r.replayed) {
+        const id = (r.result as { snapshotId?: string } | undefined)?.snapshotId;
+        const row = id ? (await svc.snapshots.list(s, req.params.id)).find((x) => x.id === id) : undefined;
+        if (id && row)
+          await pinHistorySnapshot(
+            authoring,
+            principalOf(s, req.params.id),
+            id,
+            row.dataVintage.semanticPins,
+          );
+      }
       return reply.status(r.replayed ? 200 : 201).send(r);
     }),
   );

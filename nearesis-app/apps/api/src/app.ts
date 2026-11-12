@@ -527,9 +527,9 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     },
   );
 
-  await app.register(historyRoutes, { kernel });
-  await app.register(capsuleRoutes, { kernel });
-  await app.register(publishRoutes, { kernel });
+  await app.register(historyRoutes, { kernel, ...(opts.authoring ? { authoring: opts.authoring } : {}) });
+  await app.register(capsuleRoutes, { kernel, ...(opts.authoring ? { authoring: opts.authoring } : {}) });
+  await app.register(publishRoutes, { kernel, ...(opts.authoring ? { authoring: opts.authoring } : {}) });
   await app.register(integrityRoutes, { kernel });
   if (opts.gatewayCredential)
     await app.register(gatewayRoutes, { kernel, credential: opts.gatewayCredential });

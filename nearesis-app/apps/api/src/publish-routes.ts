@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { KernelError, writeAudit } from "@nearesis/kernel";
+import { guardCapsuleMetrics, principalOf } from "./metric-publish-guard.ts";
+import type { PublishAuthoring } from "./metric-publish-guard.ts";
 import type { Kernel, Session } from "@nearesis/kernel";
 import {
   APP_ROOT,
@@ -17,6 +19,8 @@ import {
 
 export interface PublishRoutesOptions {
   kernel: Kernel;
+  /** Governed metric authoring: when set, a capsule using a non-CERTIFIED semantic metric cannot be published (422 METRIC_NOT_CERTIFIED). */
+  authoring?: PublishAuthoring;
 }
 
 const CAPSULE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/;
@@ -36,7 +40,7 @@ const signerPem = (): string | null => {
  * the same explicit acknowledgement as the MCP publication route. This route never changes public MCP visibility
  * (`/v1/capsules/:id/publish` owns that).
  */
-export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (app, { kernel }) => {
+export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (app, { kernel, authoring }) => {
   async function authenticate(req: FastifyRequest): Promise<Session> {
     const h = req.headers.authorization;
     const token = h?.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : undefined;
@@ -98,6 +102,21 @@ export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (ap
         );
       }
 
+      try {
+        await guardCapsuleMetrics(
+          authoring,
+          principalOf(s, owner.workspaceId),
+          manifest.metricVersions,
+          `capsule:${id}`,
+        );
+      } catch (e) {
+        if (e instanceof KernelError && e.reasonCode === "METRIC_NOT_CERTIFIED")
+          await audit(s, owner.workspaceId, id, "denied", "METRIC_NOT_CERTIFIED", {
+            detail: (e.opts.details ?? []).slice(0, 10),
+          });
+        throw e;
+      }
+
       let published: ReturnType<typeof publishStatic>;
       try {
         const pem = signerPem();
@@ -105,6 +124,7 @@ export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (ap
           snapshotDir: join(dir, "snapshot"),
           capsuleId: manifest.capsuleId,
           ...(manifest.research ? { researchBundleDir: join(dir, "research") } : {}),
+          ...(manifest.metricVersions ? { metricVersions: manifest.metricVersions } : {}),
           root: join(publishRoot(), id),
           ...(pem ? { signer: { privateKeyPem: pem } } : {}),
         });

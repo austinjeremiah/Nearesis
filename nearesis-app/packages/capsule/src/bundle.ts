@@ -130,6 +130,8 @@ export interface BundleOptions {
   researchBundleDir?: string;
   /** Capsule id when it is not the default `cap-<snapshotId>` (a capsule that was built under a chosen id). */
   capsuleId?: string;
+  /** Semantic metric versions the capsule was built under; part of its hash, so a rebuild must carry them. */
+  metricVersions?: Record<string, string>;
   /** Versions are created under this directory, one per capsule hash. */
   root: string;
 }
@@ -159,6 +161,7 @@ export function buildPublicationBundle(o: BundleOptions): BundleResult {
       snapshotDir: o.snapshotDir,
       outDir: capDir,
       ...(o.capsuleId ? { capsuleId: o.capsuleId } : {}),
+      ...(o.metricVersions ? { metricVersions: o.metricVersions } : {}),
       ...(o.researchBundleDir ? { researchBundleDir: o.researchBundleDir } : {}),
     });
     const { descriptor, raw: snapRaw } = loadSnapshot(o.snapshotDir);

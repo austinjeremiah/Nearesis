@@ -3,6 +3,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { KernelError, writeAudit } from "@nearesis/kernel";
+import { guardCapsuleMetrics, principalOf } from "./metric-publish-guard.ts";
+import type { PublishAuthoring } from "./metric-publish-guard.ts";
 import type { Kernel, Session } from "@nearesis/kernel";
 import {
   APP_ROOT,
@@ -17,6 +19,8 @@ import {
 } from "@nearesis/capsule";
 
 export interface CapsuleRoutesOptions {
+  /** Governed metric authoring: a capsule using a non-CERTIFIED semantic metric cannot be published (422 METRIC_NOT_CERTIFIED). */
+  authoring?: PublishAuthoring;
   kernel: Kernel;
 }
 
@@ -37,7 +41,7 @@ const root = (): string => process.env.NEARESIS_CAPSULE_DIR ?? join(APP_ROOT, ".
  * are indistinguishable). Verification here is local recomputation only: the record keeps `local` and `outlayer` apart and
  * never reports OutLayer "verified" without evidence that passed the proof policy and a quote verifier.
  */
-export const capsuleRoutes: FastifyPluginAsync<CapsuleRoutesOptions> = async (app, { kernel }) => {
+export const capsuleRoutes: FastifyPluginAsync<CapsuleRoutesOptions> = async (app, { kernel, authoring }) => {
   async function authenticate(req: FastifyRequest): Promise<Session> {
     const h = req.headers.authorization;
     const token = h?.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : undefined;
@@ -142,6 +146,28 @@ export const capsuleRoutes: FastifyPluginAsync<CapsuleRoutesOptions> = async (ap
       if (s.role === "viewer") {
         await audit(s, owner.workspaceId, "capsule.publish", req.params.id, "denied", "ROLE_CANNOT_PUBLISH");
         throw new KernelError("FORBIDDEN", "ROLE_CANNOT_PUBLISH", "Viewers cannot publish capsules.");
+      }
+      try {
+        await guardCapsuleMetrics(
+          authoring,
+          principalOf(s, owner.workspaceId),
+          m.metricVersions,
+          `capsule:${req.params.id}`,
+        );
+      } catch (e) {
+        if (e instanceof KernelError && e.reasonCode === "METRIC_NOT_CERTIFIED")
+          await audit(
+            s,
+            owner.workspaceId,
+            "capsule.publish",
+            req.params.id,
+            "denied",
+            "METRIC_NOT_CERTIFIED",
+            {
+              detail: (e.opts.details ?? []).slice(0, 10),
+            },
+          );
+        throw e;
       }
       const gate = await kernel.verifiedState.gate(s, owner.workspaceId, "capsule", req.params.id);
       const need = new Set(cautionStatuses(m));

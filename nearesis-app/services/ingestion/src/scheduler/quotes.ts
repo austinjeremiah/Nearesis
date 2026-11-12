@@ -166,12 +166,16 @@ export async function runQuoteRound(d: QuoteRoundDeps): Promise<QuoteRoundResult
       stopped = true;
       break;
     }
-    if (tokensFailed || s.unavailableReason !== null || s.amountBaseUnits === null) {
+    // A slot not reached before its bucket ended is a missed observation: stored as unavailable, never filled later.
+    const elapsed = d.nowMs() >= bucket + d.cfg.quoteIntervalMs;
+    if (tokensFailed || s.unavailableReason !== null || s.amountBaseUnits === null || elapsed) {
       await d.insert([
         unavailableRow(
           s,
           bucketIso,
-          tokensFailed ? "TOKENS_FETCH_FAILED" : (s.unavailableReason ?? "UNPLANNED"),
+          tokensFailed
+            ? "TOKENS_FETCH_FAILED"
+            : (s.unavailableReason ?? (s.amountBaseUnits === null ? "UNPLANNED" : "BUCKET_ELAPSED")),
           d.nowMs(),
         ),
       ]);

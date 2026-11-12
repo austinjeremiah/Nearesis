@@ -516,6 +516,8 @@ export function Workspace({ workspaceId }: { workspaceId: string }) {
     },
     [loadDoc],
   );
+  /** Test hook (NEARESIS_TEST_HOOKS): the same apply path the UI gestures use, for edits that have no gesture yet. */
+  hooks().applyOps = (ops: PatchOp[]) => apply(ops, "patch");
 
   const undo = useCallback(async () => {
     const last = undoStack[undoStack.length - 1];

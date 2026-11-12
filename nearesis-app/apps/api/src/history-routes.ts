@@ -4,6 +4,7 @@ import { CollabPresenceRequest, CollabScope, CollabUpdateRequest } from "@neares
 import { KernelError, workspaceNotFound } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
 import { historyService } from "@nearesis/kernel";
+import { attachCollabWebSocket } from "./collab-ws.ts";
 
 export interface HistoryRoutesOptions {
   kernel: Kernel;
@@ -18,6 +19,9 @@ const Uuid = z.uuid();
  */
 export const historyRoutes: FastifyPluginAsync<HistoryRoutesOptions> = async (app, { kernel }) => {
   const svc = historyService(kernel);
+  // Yjs over WebSocket: a transport for svc.collab (same authorisation, validation and persistence as the REST routes)
+  const ws = attachCollabWebSocket(app.server, kernel, svc.collab);
+  app.addHook("onClose", async () => ws.closeAll());
 
   async function authenticate(req: FastifyRequest): Promise<Session> {
     const h = req.headers.authorization;

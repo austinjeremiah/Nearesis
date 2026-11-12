@@ -44,6 +44,9 @@ export class CollabConnection {
   readonly opened = Date.now();
   private timer: NodeJS.Timeout | null = null;
   private waiters: Array<() => void> = [];
+  /** Push hooks for transports (the WebSocket server): called for every delivered frame and once on close. */
+  onFrame: ((f: CollabFrame) => void) | null = null;
+  onClosed: ((reason: string) => void) | null = null;
 
   constructor(
     readonly id: string,
@@ -89,6 +92,7 @@ export class CollabConnection {
     if (this.closed) return;
     this.frames.push(f);
     for (const w of this.waiters.splice(0)) w();
+    this.onFrame?.(f);
   }
 
   async revalidate(): Promise<boolean> {
@@ -106,6 +110,7 @@ export class CollabConnection {
     if (this.timer) clearInterval(this.timer);
     this.onClose(this);
     for (const w of this.waiters.splice(0)) w();
+    this.onClosed?.(reason);
   }
 }
 

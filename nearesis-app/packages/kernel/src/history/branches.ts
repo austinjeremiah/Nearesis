@@ -7,6 +7,7 @@ import {
 } from "@nearesis/contracts";
 import type { MergeConflict, ObjectChange } from "@nearesis/contracts";
 import { canAdmin } from "../auth.ts";
+import type { CanvasService } from "../canvas.ts";
 import type { Session } from "../auth.ts";
 import type { Db, Tx } from "../db/pool.ts";
 import { KernelError } from "../errors.ts";
@@ -113,6 +114,7 @@ export class BranchOps {
   constructor(
     private readonly db: Db,
     private readonly runner: HistoryRunner,
+    private readonly canvas: CanvasService,
   ) {}
 
   private tenant(s: Session) {
@@ -589,10 +591,15 @@ export class BranchOps {
           }
         }
         const deferred: string[] = [];
+        let canvasOperationId: string | null = null;
         if (target.isMain) {
-          for (const o of ops) {
+          // panels are applied last as ONE canvas patch against the live document (all-or-nothing, own revision)
+          for (const o of ops.filter((x) => !x.objectId.startsWith("panel:"))) {
             if (!(await this.applyToMain(ctx, o.objectId, o.entry))) deferred.push(o.objectId);
           }
+          const pr2 = await this.applyPanelsToMain(ctx, ops);
+          deferred.push(...pr2.deferred);
+          canvasOperationId = pr2.operationId;
         } else {
           const t = await this.branchRow(ctx.tx, ctx.workspace.id, pr.target_branch_id, true);
           const tbase = await this.baseObjects(ctx.tx, ctx.workspace.id, t.base_snapshot_id);
@@ -615,7 +622,23 @@ export class BranchOps {
         await ctx.tx.query("UPDATE branches SET status = 'merged' WHERE id = $1", [src.branch_id]);
         return {
           eventType: "workspace.updated",
-          data: { change: "merge.accepted", proposalId, applied: ops.length - deferred.length, deferred },
+          data: {
+            change: "merge.accepted",
+            proposalId,
+            applied: ops.length - deferred.length,
+            deferred,
+            // what the merge changed on main, so the event log alone can rebuild it (Time Machine); panels are in the
+            // canvas patch named by canvasOperationId
+            target: target.isMain ? "main" : "branch",
+            replay: target.isMain
+              ? {
+                  objects: ops
+                    .filter((o) => !o.objectId.startsWith("panel:") && !deferred.includes(o.objectId))
+                    .map((o) => ({ objectId: o.objectId, entry: o.entry })),
+                  canvasOperationId,
+                }
+              : null,
+          },
           result: { proposalId, applied: ops.length - deferred.length, deferredObjects: deferred },
         };
       },
@@ -665,15 +688,26 @@ export class BranchOps {
       return true;
     }
     if (kind === "edge") {
-      if (entry.op === "delete") return false;
       const [from, to, rel] = rest.split("|") as [string, string, string];
+      if (entry.op === "delete") {
+        // soft removal: the edge row, its author and the removal stay on record; reads exclude removed edges
+        await tx.query(
+          `UPDATE evidence_edges SET removed_at = now(), removed_by = $5, removed_reason = 'removed by merge'
+            WHERE workspace_id = $1 AND from_node = $2 AND to_node = $3 AND relation = $4 AND removed_at IS NULL`,
+          [workspace.id, from, to, rel, session.userId],
+        );
+        return true;
+      }
       if (!(await endpointExists(tx, workspace.id, from)) || !(await endpointExists(tx, workspace.id, to)))
         throw new KernelError("VALIDATION_FAILED", "ORPHAN_EVIDENCE_EDGE", "Merged edge would be orphaned.", {
           details: [{ path: objectId, issue: "endpoint does not resolve to a persisted node" }],
         });
       await tx.query(
         `INSERT INTO evidence_edges(id, org_id, workspace_id, from_node, to_node, relation, created_by, reason)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (workspace_id, from_node, to_node, relation) DO NOTHING`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         ON CONFLICT (workspace_id, from_node, to_node, relation)
+         DO UPDATE SET removed_at = NULL, removed_by = NULL, removed_reason = NULL, reason = EXCLUDED.reason
+         WHERE evidence_edges.removed_at IS NOT NULL`,
         [
           idFor(ctx.commandId, objectId),
           workspace.orgId,
@@ -692,7 +726,44 @@ export class BranchOps {
       await applySemanticChange(ctx, rest, (entry.value as { version: string }).version);
       return true;
     }
-    return false; // panels: canvas changes must go through a canvas patch against the live document
+    return false; // panels go through applyPanelsToMain
+  }
+
+  /**
+   * Applies the merge's panel changes to the live canvas as one patch (add/update/remove) against the document revision
+   * read in this transaction. A rejected patch aborts the whole merge; nothing is half applied. Returns the object ids
+   * that could not be applied (none today) and the canvas operation id.
+   */
+  private async applyPanelsToMain(
+    ctx: HistoryCtx,
+    ops: Array<{ objectId: string; entry: OverlayEntry }>,
+  ): Promise<{ deferred: string[]; operationId: string | null }> {
+    const panelOps = ops.filter((o) => o.objectId.startsWith("panel:"));
+    if (!panelOps.length) return { deferred: [], operationId: null };
+    const branchId = ctx.workspace.activeBranchId;
+    if (!branchId) return { deferred: panelOps.map((o) => o.objectId), operationId: null };
+    const doc = await this.canvas.load(ctx.tx, ctx.workspace.id, branchId);
+    const live = new Map((doc?.panels ?? []).map((p) => [p.panelId, p]));
+    const operations: Array<Record<string, unknown>> = [];
+    for (const o of panelOps) {
+      const id = o.objectId.slice("panel:".length);
+      if (o.entry.op === "delete") {
+        if (live.has(id)) operations.push({ op: "removePanel", panelId: id });
+      } else {
+        const panel = { ...(o.entry.value as Record<string, unknown>), panelId: id };
+        operations.push(live.has(id) ? { op: "updatePanel", panelId: id, panel } : { op: "addPanel", panel });
+      }
+    }
+    if (!operations.length) return { deferred: [], operationId: null };
+    const operationId = idFor(ctx.commandId, "merge-panels");
+    await this.canvas.applyInTx(ctx, {
+      schemaVersion: 1,
+      type: "workspace.patch",
+      operationId,
+      expectedRevision: doc?.documentRevision ?? 0,
+      operations,
+    });
+    return { deferred: [], operationId };
   }
 
   async rejectMerge(

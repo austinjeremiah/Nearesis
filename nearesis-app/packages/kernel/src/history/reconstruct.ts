@@ -23,11 +23,24 @@ const REPLAYABLE = new Set([
 ]);
 /** Markers that change state the replayer cannot rebuild: reported, and they forbid `exactReproduction: true`. */
 const STATE_CHANGING_UNREPLAYABLE = new Set([
-  "merge.accepted",
   "graph.node_restriction",
   "retention.payload_deleted",
   "graph.recheck_resolved",
 ]);
+
+interface MergedValue {
+  kind: string;
+  label: string;
+  data?: unknown;
+  semanticPins?: unknown;
+  tombstone?: boolean;
+  rawObjectHash?: string;
+}
+/** One object change recorded by a merge event (`replay.objects`). */
+interface MergedObject {
+  objectId: string;
+  entry: { op: "set" | "delete"; value?: unknown };
+}
 
 export type PanelDataState = "pinned" | "vintage_unavailable";
 
@@ -124,9 +137,14 @@ export class ReconstructOps {
     ).rows;
 
     // Canvas: replay the exact patches named by the canvas.patched events up to this revision.
-    const opIds = events
-      .filter((e) => e.event_type === "canvas.patched")
-      .map((e) => String(e.payload.operationId));
+    const opIds = events.flatMap((e) =>
+      e.event_type === "canvas.patched"
+        ? [String(e.payload.operationId)]
+        : e.payload.change === "merge.accepted" &&
+            (e.payload.replay as { canvasOperationId?: string } | null)?.canvasOperationId
+          ? [String((e.payload.replay as { canvasOperationId: string }).canvasOperationId)]
+          : [],
+    );
     let doc = emptyCanvas(workspaceId, ws.active_branch_id);
     if (opIds.length) {
       const patches = (
@@ -154,6 +172,45 @@ export class ReconstructOps {
     const unreplayable: Array<{ seq: number; change: string }> = [];
     for (const e of events) {
       const change = typeof e.payload.change === "string" ? e.payload.change : "";
+      if (change === "merge.accepted") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mp = e.payload as Record<string, any>;
+        if (mp.target === "branch") continue; // a merge into a branch does not change main
+        if (!mp.replay) {
+          unreplayable.push({ seq: e.seq, change }); // recorded before merges carried their changes
+          continue;
+        }
+        for (const o of mp.replay.objects as MergedObject[]) {
+          const i = o.objectId.indexOf(":");
+          const kind = o.objectId.slice(0, i);
+          const rest = o.objectId.slice(i + 1);
+          if (kind === "node") {
+            if (o.entry.op === "delete") {
+              const n = nodes.get(rest);
+              if (n) n.tombstone = true;
+            } else {
+              const v = o.entry.value as MergedValue;
+              nodes.set(rest, {
+                kind: v.kind,
+                label: v.label,
+                data: v.data ?? {},
+                semanticPins: v.semanticPins ?? {},
+                tombstone: v.tombstone ?? false,
+                ...(v.rawObjectHash ? { rawObjectHash: v.rawObjectHash } : {}),
+              });
+            }
+          } else if (kind === "edge") {
+            if (o.entry.op === "delete") edges.delete(o.objectId);
+            else
+              edges.set(o.objectId, {
+                relation: (o.entry.value as { relation: string }).relation,
+                reason: (o.entry.value as { reason?: string | null }).reason ?? null,
+              });
+          } else if (kind === "metric" && o.entry.op === "set")
+            versions.set(rest, (o.entry.value as { version: string }).version);
+        }
+        continue;
+      }
       if (STATE_CHANGING_UNREPLAYABLE.has(change)) {
         unreplayable.push({ seq: e.seq, change });
         continue;

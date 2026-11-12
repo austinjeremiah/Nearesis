@@ -49,7 +49,7 @@ export class HistoryService {
     this.runner = new HistoryRunner(deps.db, deps.journal);
     this.graphOps = new GraphOps(this.runner);
     this.snapshots = new SnapshotOps(deps.db, this.runner, deps.canvas, deps.graph);
-    this.branches = new BranchOps(deps.db, this.runner);
+    this.branches = new BranchOps(deps.db, this.runner, deps.canvas);
     this.collab = new CollabService(deps.db);
     this.impact = new ImpactOps(deps.db);
     this.reviews = new ReviewOps(deps.db, this.runner);

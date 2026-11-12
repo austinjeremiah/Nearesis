@@ -62,7 +62,7 @@ export async function captureLiveObjects(
     relation: string;
     reason: string | null;
   }>(
-    "SELECT from_node, to_node, relation, reason FROM evidence_edges WHERE workspace_id = $1 ORDER BY from_node, to_node, relation",
+    "SELECT from_node, to_node, relation, reason FROM evidence_edges WHERE workspace_id = $1 AND removed_at IS NULL ORDER BY from_node, to_node, relation",
     [workspaceId],
   );
   for (const e of edges.rows)

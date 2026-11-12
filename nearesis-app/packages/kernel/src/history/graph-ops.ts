@@ -105,7 +105,7 @@ export async function applySemanticChange(
   for (const n of nodes) if (!n.tombstone && n.v !== null && n.v !== toVersion) pinnedFrom.set(n.id, n.v);
   const edges = (
     await tx.query<DepEdge>(
-      "SELECT from_node, to_node, relation FROM evidence_edges WHERE workspace_id = $1",
+      "SELECT from_node, to_node, relation FROM evidence_edges WHERE workspace_id = $1 AND removed_at IS NULL",
       [workspace.id],
     )
   ).rows;
@@ -258,30 +258,28 @@ export class GraphOps {
             tombstoned.push(id);
           }
         }
-        const edgeId = idFor(ctx.commandId, "edge");
-        try {
-          await ctx.tx.query("SAVEPOINT edge_ins");
-          await ctx.tx.query(
-            `INSERT INTO evidence_edges(id, org_id, workspace_id, from_node, to_node, relation, created_by, reason)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-            [
-              edgeId,
-              ctx.workspace.orgId,
-              ctx.workspace.id,
-              p.from,
-              p.to,
-              p.relation,
-              ctx.session.userId,
-              p.reason ?? null,
-            ],
-          );
-          await ctx.tx.query("RELEASE SAVEPOINT edge_ins");
-        } catch (e) {
-          await ctx.tx.query("ROLLBACK TO SAVEPOINT edge_ins");
-          if ((e as { code?: string }).code === "23505")
-            throw new KernelError("DOMAIN_INVARIANT", "DUPLICATE_EDGE", "That relation already exists.");
-          throw e;
-        }
+        // a removed edge is revived (same row, removal cleared); an active duplicate is refused
+        const ins = await ctx.tx.query<{ id: string }>(
+          `INSERT INTO evidence_edges(id, org_id, workspace_id, from_node, to_node, relation, created_by, reason)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+           ON CONFLICT (workspace_id, from_node, to_node, relation)
+           DO UPDATE SET removed_at = NULL, removed_by = NULL, removed_reason = NULL, reason = EXCLUDED.reason
+           WHERE evidence_edges.removed_at IS NOT NULL
+           RETURNING id`,
+          [
+            idFor(ctx.commandId, "edge"),
+            ctx.workspace.orgId,
+            ctx.workspace.id,
+            p.from,
+            p.to,
+            p.relation,
+            ctx.session.userId,
+            p.reason ?? null,
+          ],
+        );
+        if (!ins.rows[0])
+          throw new KernelError("DOMAIN_INVARIANT", "DUPLICATE_EDGE", "That relation already exists.");
+        const edgeId = ins.rows[0].id;
         return {
           eventType: "evidence.verified",
           data: {

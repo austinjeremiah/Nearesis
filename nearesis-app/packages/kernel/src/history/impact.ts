@@ -177,7 +177,7 @@ export class ImpactOps {
     const roots = nodes.filter((n) => !n.tombstone && n.v !== null && n.v !== cur).map((n) => n.id);
     const edges = (
       await tx.query<DepEdge>(
-        "SELECT from_node, to_node, relation FROM evidence_edges WHERE workspace_id = $1",
+        "SELECT from_node, to_node, relation FROM evidence_edges WHERE workspace_id = $1 AND removed_at IS NULL",
         [workspaceId],
       )
     ).rows;

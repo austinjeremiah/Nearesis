@@ -4,6 +4,7 @@ import { HistoryService } from "./history/service.ts";
 
 export * from "./history/service.ts";
 export { idFor } from "./history/runner.ts";
+export type { CollabConnection, CollabFrame, CollabService } from "./history/collab.ts";
 
 /**
  * Seam kept for the command bus. History commands (`snapshot.create`, `branch.*`, `merge.*`, `graph.add_*`) run through

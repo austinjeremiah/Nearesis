@@ -231,7 +231,7 @@ export class EvidenceGraphService {
       to_node: string;
       relation: GraphEdge["relation"];
     }>(
-      "SELECT id, from_node, to_node, relation FROM evidence_edges WHERE workspace_id = $1 ORDER BY created_at, id",
+      "SELECT id, from_node, to_node, relation FROM evidence_edges WHERE workspace_id = $1 AND removed_at IS NULL ORDER BY created_at, id",
       [workspaceId],
     );
     const edges: GraphEdge[] = [];

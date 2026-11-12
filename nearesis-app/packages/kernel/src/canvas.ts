@@ -120,6 +120,17 @@ export class CanvasService {
     handle: async (ctx, payload) => this.apply(ctx, payload),
   };
 
+  /**
+   * Apply a CanvasPatch to the workspace's active branch inside a caller-owned transaction (merge acceptance applies
+   * deferred panel changes this way, so the merge and its canvas revision commit or roll back together).
+   */
+  async applyInTx(
+    ctx: Pick<CommandContext, "tx" | "workspace" | "session">,
+    payload: Record<string, unknown>,
+  ) {
+    return this.apply(ctx as CommandContext, payload);
+  }
+
   /** Apply a CanvasPatch atomically: validate everything first, then write; any failure leaves no trace (422). */
   private async apply(ctx: CommandContext, payload: Record<string, unknown>) {
     const parsed = CanvasPatch.safeParse(payload);

@@ -1,5 +1,5 @@
 import type { Question } from "./schema.ts";
-import { forbiddenHits, ungroundedNumbers } from "./validators.ts";
+import { forbiddenHits, proseNumbers, ungroundedNumbers } from "./validators.ts";
 import type { ProbeResult } from "./validators.ts";
 
 export const DIMENSIONS = [
@@ -29,6 +29,7 @@ export const GATING: Dimension[] = [
 
 export interface PanelObs {
   panelId: string;
+  kind: string;
   title: string;
   fields: string[];
   queryHash: string | null;
@@ -99,7 +100,9 @@ export function outcomeOf(q: Question, run: RunObs): "answer" | "refusal" | "pen
 
 const panelMatches = (q: Question, run: RunObs): boolean =>
   !q.expect.panelPattern ||
-  run.panels.some((p) => new RegExp(q.expect.panelPattern!, "i").test(`${p.title} ${p.fields.join(" ")}`));
+  run.panels.some((p) =>
+    new RegExp(q.expect.panelPattern!, "i").test(`${p.kind} ${p.title} ${p.fields.join(" ")}`),
+  );
 
 export function scoreQuestion(q: Question, obs: Observation): Scored {
   const dims = Object.fromEntries(DIMENSIONS.map((d) => [d, null])) as Record<Dimension, Dim>;
@@ -172,7 +175,8 @@ export function scoreQuestion(q: Question, obs: Observation): Scored {
       ...run.findings.flatMap((f) => f.factValues),
       ...obs.probes.flatMap((p) => [String(p.observed), String(p.expected)]),
     ];
-    const ungrounded = ungroundedNumbers(text, grounded);
+    // numbers the question itself states (window lengths, thresholds) are inputs, not claims
+    const ungrounded = ungroundedNumbers(text, [...grounded, ...proseNumbers(q.prompt)]);
     const reasonOk = q.acceptableRefusals.some(
       (r) =>
         r.reasonCodes.includes(run.failure?.reasonCode ?? "") ||
@@ -244,7 +248,9 @@ const proseNumbersPresent = (t: string): boolean => /\d[\d,]{2,}/.test(t);
 const sourcesSeen = (q: Question, run: RunObs): boolean =>
   q.requiredSources.length === 0 ||
   q.requiredSources.some((s) =>
-    run.panels.some((p) => `${p.title} ${p.fields.join(" ")}`.toLowerCase().includes(s.toLowerCase())),
+    run.panels.some((p) =>
+      `${p.kind} ${p.title} ${p.fields.join(" ")}`.toLowerCase().includes(s.toLowerCase()),
+    ),
   );
 
 function finish(

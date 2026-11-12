@@ -237,6 +237,47 @@ describe("scoring", () => {
       "FAIL",
     );
   });
+  it("numbers the question itself states are inputs, not unsourced claims", () => {
+    const q = {
+      ...base({}, CANNOT),
+      prompt: "What breaks if we use a 180 day window instead of a 90 day window?",
+    };
+    const r = run({
+      state: "PARTIAL",
+      failure: {
+        reasonCode: "CANNOT_COMPUTE",
+        humanActionNeeded: "a 180 day comparison needs 365 complete days",
+      },
+    });
+    expect(scoreQuestion(q as Question, obs(r)).dims.honest_refusal).toBe(0);
+    const r2 = run({
+      state: "PARTIAL",
+      failure: {
+        reasonCode: "CANNOT_COMPUTE",
+        humanActionNeeded: "a 180 day comparison is not possible with the current catalogue",
+      },
+    });
+    expect(scoreQuestion(q as Question, obs(r2)).dims.honest_refusal).toBe(1);
+  });
+  it("a panel kind can satisfy the required visualization pattern", () => {
+    const q = base({ panelPattern: "heatmap" });
+    expect(
+      scoreQuestion(
+        q,
+        obs(
+          run({
+            panels: [
+              { ...panel, kind: "heatmap" },
+              { ...panel, panelId: "p2" },
+            ],
+          }),
+        ),
+      ).dims.correctness,
+    ).toBe(1);
+    expect(
+      scoreQuestion(q, obs(run({ panels: [panel, { ...panel, panelId: "p2" }] }))).dims.correctness,
+    ).toBe(0);
+  });
   it("a refusal that quotes an unsourced number fails honest-refusal", () => {
     const r = run({
       state: "PARTIAL",

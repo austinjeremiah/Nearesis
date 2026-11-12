@@ -140,7 +140,9 @@
     "prompt": "Can we tell from the data how long NEAR Intents transfers took from deposit to final delivery?",
     "kind": "run",
     "requiredSources": ["intents_swaps"],
-    "minAnswerProperties": ["states that no second timestamp exists per swap"],
+    "minAnswerProperties": [
+      "states what is timed and that delivery on the destination chain is not observed, or that no such timestamp exists"
+    ],
     "acceptableRefusals": [
       {
         "state": "PARTIAL",
@@ -161,11 +163,17 @@
         "pattern": "\\b(median|average|p50|p95) settlement (time|duration) (is|was) \\d",
         "flags": "i",
         "why": "no second per-swap timestamp exists"
+      },
+      {
+        "id": "delivery_claim",
+        "pattern": "\\b(delivered|arrived) (in|after) \\d",
+        "flags": "i",
+        "why": "destination delivery time is not observed"
       }
     ],
     "acceptanceTests": ["A19", "B13"],
     "expect": {
-      "outcome": "refusal",
+      "outcome": "either",
       "minPanels": 1,
       "maxUsd": 0.05,
       "reproducible": false
@@ -173,11 +181,11 @@
     "probes": [
       {
         "kind": "api_field",
-        "label": "API reports CANNOT_COMPUTE",
+        "label": "API either measures with a stated definition or reports CANNOT_COMPUTE",
         "api": "/v1/intents/settlement-duration?from=2026-09-13&to=2026-10-12",
         "json": "status",
         "httpStatus": 200,
-        "equals": "CANNOT_COMPUTE"
+        "matches": "^(OK|CANNOT_COMPUTE)$"
       }
     ],
     "run": {

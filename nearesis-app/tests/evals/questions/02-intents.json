@@ -216,7 +216,8 @@
     "kind": "run",
     "requiredSources": ["intents_swaps"],
     "minAnswerProperties": [
-      "either a measured distribution with its timestamp source, or an explicit statement that deposit-to-settlement duration is not in the data"
+      "a measured p50/p95 by origin chain that states exactly what is timed (Explorer createdAt to NEAR inclusion) and over which covered days",
+      "or an explicit statement that deposit-to-settlement duration is not in the data"
     ],
     "acceptableRefusals": [
       {
@@ -231,30 +232,48 @@
       }
     ],
     "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
-    "invariants": ["the Explorer row has one timestamp, so no duration can be derived"],
+    "invariants": [
+      "the metric is the last listed NEAR transaction's block time minus Explorer createdAt",
+      "swaps with a missing hash are excluded and counted"
+    ],
     "forbiddenClaims": [
       {
         "id": "invented_duration",
         "pattern": "\\b(median|average|p50|p95) settlement (time|duration) (is|was) \\d",
         "flags": "i",
         "why": "no second per-swap timestamp exists"
+      },
+      {
+        "id": "user_wait_claim",
+        "pattern": "\\b(users? waited|time to (receive|deliver)|destination (chain )?(arrival|delivery) time)\\b",
+        "flags": "i",
+        "why": "the metric is NEAR inclusion, not the user's wait on the destination chain"
       }
     ],
     "acceptanceTests": ["A19", "B09", "B13"],
     "expect": {
-      "outcome": "refusal",
+      "outcome": "either",
       "minPanels": 1,
       "maxUsd": 0.05,
-      "reproducible": false
+      "reproducible": false,
+      "panelPattern": "settlement|duration|chain|intents"
     },
     "probes": [
       {
         "kind": "api_field",
-        "label": "API itself reports CANNOT_COMPUTE for settlement duration",
+        "label": "API either measures with a stated definition or reports CANNOT_COMPUTE",
         "api": "/v1/intents/settlement-duration?from=2026-10-13&to=2026-11-11",
         "json": "status",
         "httpStatus": 200,
-        "equals": "CANNOT_COMPUTE"
+        "matches": "^(OK|CANNOT_COMPUTE)$"
+      },
+      {
+        "kind": "api_field",
+        "label": "when measured, the definition names what is timed",
+        "api": "/v1/intents/settlement-duration?from=2026-10-13&to=2026-11-11",
+        "json": "definition",
+        "httpStatus": 200,
+        "matches": "NEAR inclusion|CANNOT|block time"
       }
     ],
     "run": {

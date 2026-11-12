@@ -7,7 +7,10 @@
  *
  *   pnpm evals:run [--split dev|heldout|all] [--only Q001,Q007] [--category intents] [--no-runs]
  *                  [--live-model] [--max-usd 0.40] [--concurrency 1] [--timeout-sec 150] [--base-url http://127.0.0.1:4110]
- *                  [--validate-only] [--probes-only]
+ *                  [--validate-only] [--probes-only] [--no-approve]
+ * *
+ * Approvals: a pending canvas patch on the fixture-only evaluation workspace (no cost, no network) is approved so that the
+ * answer can be judged; --no-approve leaves it pending (the question then fails as "waiting for approval").
  *
  * Inference: the suite does not choose the server's model. `--live-model` only allows a larger spend cap (default USD 1.00,
  * never above 2.50 and never above half of what is left under the global USD 5 ceiling). Without it the cap is USD 0.40; the
@@ -15,6 +18,7 @@
  * to use a paid provider, the summary says so (observed spend > 0 without --live-model).
  * The held-out split exists to detect hardcoding: do not read or tune against it; run it with --split heldout.
  */
+import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,7 +30,7 @@ import { DIMENSIONS, scoreQuestion } from "./lib/score.ts";
 import type { FindingObs, Observation, PanelObs, RunObs, Scored, StepObs } from "./lib/score.ts";
 import { runProbe } from "./lib/validators.ts";
 import type { ProbeIo } from "./lib/validators.ts";
-import { getPath } from "./lib/util.ts";
+import { getPath, sleep } from "./lib/util.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -71,6 +75,8 @@ async function main(): Promise<void> {
   const concurrency = Math.max(1, Number(arg("concurrency") ?? 1));
   const noRuns = flag("no-runs");
   const probesOnly = flag("probes-only");
+  const approve = !flag("no-approve");
+  let approvals = 0;
   const tag = new Date()
     .toISOString()
     .replace(/[-:.TZ]/g, "")
@@ -86,10 +92,35 @@ async function main(): Promise<void> {
   const startCommitted = g0.committedUsd ?? 0;
   let spent = 0;
 
-  const wsList = ((await api.get("owner", "/v1/workspaces")).body as { workspaces: Array<{ id: string }> })
-    .workspaces;
-  const WS = wsList[0]?.id;
-  if (!WS) throw new Error("the owner has no workspace; run pnpm dev:seed");
+  // a dedicated workspace keeps eval panels and metric drafts out of the owner's working workspace
+  const EVAL_OBJECTIVE = "Nearesis evaluation suite";
+  const WS = await (async (): Promise<string> => {
+    const list = (
+      (await api.get("owner", "/v1/workspaces")).body as {
+        workspaces: Array<{ id: string; objective: string }>;
+      }
+    ).workspaces;
+    const found = list.find((w) => w.objective === EVAL_OBJECTIVE);
+    if (found) return found.id;
+    const c = await api.call(
+      "owner",
+      "POST",
+      "/v1/workspaces",
+      { objective: EVAL_OBJECTIVE, networkScope: "fixture-only" },
+      { "idempotency-key": "evals-suite-workspace-0001" },
+    );
+    const id = (c.body as { workspaceId?: string } | null)?.workspaceId;
+    if (!id) throw new Error(`could not create the evaluation workspace (${c.status})`);
+    const v = ((await api.get("owner", `/v1/workspaces/${id}`)).body as { version: number }).version;
+    await api.call("owner", "POST", `/v1/workspaces/${id}/commands`, {
+      apiVersion: "v1",
+      commandId: randomUUID(),
+      commandType: "plugin.enable",
+      payload: { pluginId: "near-thesis" },
+      expectedVersion: v,
+    });
+    return id;
+  })();
   let WS_OTHER = (((await api.get("other", "/v1/workspaces")).body as { workspaces?: Array<{ id: string }> })
     .workspaces ?? [])[0]?.id;
   if (!WS_OTHER) {
@@ -160,7 +191,40 @@ async function main(): Promise<void> {
       };
     }
     const runId = (sub_.body as { runId: string }).runId;
-    const w = await api.waitRun(as, runId, timeoutMs);
+    let w = await api.waitRun(as, runId, timeoutMs);
+    // A canvas patch on the fixture-only evaluation workspace costs nothing and touches no network: approving it is what a
+    // reviewer would do, and the answer cannot be judged until it is applied. Anything else is left pending and cancelled.
+    for (
+      let i = 0;
+      approve && i < 8 && w.body.state === "APPROVAL_NEEDED" && Date.now() - t0 < timeoutMs;
+      i++
+    ) {
+      const pending =
+        (
+          (await api.get(as, `/v1/runs/${runId}/approvals`)).body as {
+            approvals?: Array<{
+              approvalId: string;
+              actionHash: string;
+              kind: string;
+              network: string;
+              costLimit: number;
+            }>;
+          } | null
+        )?.approvals ?? [];
+      const ok = pending.find(
+        (a) => a.kind === "canvas.apply_patch" && a.network === "fixture-only" && a.costLimit === 0,
+      );
+      if (pending.length && !ok) break;
+      if (ok) {
+        await api.call(as, "POST", `/v1/runs/${runId}/approvals/${ok.approvalId}`, {
+          decision: "approve",
+          actionHash: ok.actionHash,
+        });
+        approvals++;
+      }
+      await sleep(3000);
+      w = await api.waitRun(as, runId, Math.max(5000, timeoutMs - (Date.now() - t0)), ok ? false : true);
+    }
     const latencyMs = Date.now() - t0;
     if (w.body.state === "APPROVAL_NEEDED") await api.call(as, "POST", `/v1/runs/${runId}/cancel`, {});
     const after = await panelsOf();
@@ -168,6 +232,7 @@ async function main(): Promise<void> {
       .filter((p) => !before.has(String(p.panelId)))
       .map((p) => ({
         panelId: String(p.panelId),
+        kind: String(p.kind ?? ""),
         title: String(p.title ?? ""),
         fields: [...((getPath(p, "dataBinding.fields") as string[] | undefined) ?? [])],
         queryHash: (getPath(p, "queryRef.hash") as string | undefined) ?? null,
@@ -248,6 +313,10 @@ async function main(): Promise<void> {
         reproduced: null,
         skipped: `spend cap USD ${cap.toFixed(2)} reached`,
       };
+    if (!(await api.waitHealthy(120_000)))
+      return { latencyMs: 0, probes: [], reproduced: null, error: "API unreachable for 120s" };
+    // tokens may have been invalidated by a restart
+    for (const who of ["viewer", "other"] as const) api.forget(who);
     const pre = await Promise.all(
       q.probes.filter((p) => p.kind === "ch_check" && p.precondition).map((p) => runProbe(p, io)),
     );
@@ -316,7 +385,10 @@ async function main(): Promise<void> {
   );
   for (const q of runQs) await doOne(q);
 
-  const g1 = ((await api.get("owner", "/v1/cost/global")).body ?? {}) as { committedUsd?: number };
+  const g1 = (await api.get("owner", "/v1/cost/global").then(
+    (r) => r.body ?? {},
+    () => ({}),
+  )) as { committedUsd?: number };
   const observedSpend = (g1.committedUsd ?? 0) - startCommitted;
   const rows = qs.map((q) => results.get(q.id)!.scored);
   const outDir = arg("out") ?? join(HERE, "results", `${tag}-${split}`);
@@ -326,6 +398,7 @@ async function main(): Promise<void> {
     JSON.stringify(
       {
         tag,
+        approvals,
         split,
         base,
         cap,

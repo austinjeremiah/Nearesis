@@ -47,3 +47,18 @@ Estimated bytes: about 35 GiB for the 13-month window, about 6 GiB per month (th
 
 - Verdict engine still gates on legacy one-sided HAC `p_raw` for nested comparisons (owner tension, ADR-20261111-004).
 - Skeptic/Auditor/Composer guards are wired into the adversarial graph and exported from `packages/agent-runtime` (see the agent-runtime tests).
+
+## Segment input (prepared, not run)
+
+Status: prepared only. No BigQuery job, dry run or extract exists; running the SQL (about 35 GiB for 13 months) is an owner decision. The segment target stays NOT_COMPUTABLE live until the owner approves the scan.
+
+- Query: `docs/research/sql/per_signer_daily_organic.sql` (per-signer daily organic count, head only at `n_org >= 100`; bytes estimate and the 13-month chunk plan are in its comments). One CSV per month chunk, `per_signer_daily_organic_YYYY-MM.csv`.
+- Loader: `services/research/nearesis_research/live_segments.py`. File schema: `block_date` (YYYY-MM-DD), `signer`, `n_org` (integer, at least 100), optional `segment` (one key per signer). It rejects unknown or missing columns, bad dates, empty signers, non-integer or sub-threshold counts, duplicate (date, signer) rows, rows outside the window, and any calendar day with no rows (a missing day is never zero). It reports per-month completeness (`months`). Given the organic day totals from `account_daily_activity` it adds one exact `__REMAINDER__` row per day (total minus listed head signers), so day totals are conserved and the tail is never stored per account, and it rejects days where the listed signers exceed the total.
+- Output: the engine's `Inputs.accounts` shape (`date`, `account`, `actions`), deterministic for any file order, and `head_tail_inputs(seg, before, head_n, exclude)`, which applies the `robustness.py` rule (top `segmentHeadAccounts` accounts by total over dates before the lockbox start, ties by account id), keeps `__REMAINDER__` out of the ranking, and returns head and tail frames (tail = other accounts plus the remainder).
+- Tests: `tests/python/research/test_live_segments.py` (SYNTHETIC fixtures; schema, missing days, head/tail split, determinism).
+
+Proposed wiring (not implemented; `live.py`, `robustness.py` and `cli.py` are untouched):
+
+1. `live.py`: a new input method that, when per-signer extract files are present for the whole window, builds `Inputs(daily, accounts=<SegmentInput.accounts>, target_aggregate=organic, label="LIVE")` as a separate pinned snapshot (new snapshot id, hashing the extract files and the day totals), never overwriting the aggregate snapshot.
+2. `robustness.py` segment cell: with `accounts` containing `__REMAINDER__`, the current `tot.index[:segmentHeadAccounts]` ranking would rank the remainder first. Either exclude the `__REMAINDER__` account from the ranking in that cell or call `head_tail_inputs` and pass its frames to `build_dataset`. Note `target_series` sums every non-excluded account, so the remainder row must stay in the tail frame to conserve the daily total. Intents receivers are already excluded by the SQL, so `intents_accounts` filtering is a no-op on this input.
+3. Registration: a new live registration that declares the head/tail definition and the extract hashes before the result is read, then `segment_targets` moves from NOT_COMPUTABLE to OK or a real reason.

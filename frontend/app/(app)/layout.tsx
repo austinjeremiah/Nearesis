@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import '../app.css';
+import Providers from '@/components/providers';
 
 /**
  * App route group. Deliberately does not load the marketing site's Webflow
@@ -23,7 +24,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <link href="https://fonts.googleapis.com" rel="preconnect" />
       <link href="https://fonts.gstatic.com" rel="preconnect" crossOrigin="anonymous" />
       <link href={FONTS} rel="stylesheet" precedence="default" />
-      {children}
+      <Providers>{children}</Providers>
     </div>
   );
 }

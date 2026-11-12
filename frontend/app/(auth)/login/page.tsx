@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Wordmark from '@/components/Wordmark';
 import { LinkButton } from '@/components/nx/ui';
-import { Notice } from '@/components/nx/ui';
+import { Suspense } from 'react';
+import LoginForm from './login-form';
 
 export const metadata: Metadata = { title: 'Sign in · Nearesis' };
 
@@ -11,9 +12,8 @@ export const metadata: Metadata = { title: 'Sign in · Nearesis' };
  *
  * Only configured identity providers are shown. There is no decorative Google
  * button standing in for an integration that does not exist, and no password
- * field, because the production path is OIDC. While the backend is not wired,
- * the one honest action is to continue into the fixture workspace, and it says
- * exactly that.
+ * field, because the production path is OIDC. LoginForm offers the dev login
+ * only when the server enables it, and OIDC only when it is configured.
  */
 export default function LoginPage() {
   return (
@@ -29,16 +29,11 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <Notice tone="info" title="Identity provider not configured yet">
-          Single sign-on is wired to the backend, which is still being built. Until then you can
-          open the product against a frozen fixture snapshot. Nothing you see will be live data,
-          and every screen says so.
-        </Notice>
+        <Suspense fallback={null}>
+          <LoginForm />
+        </Suspense>
 
         <div className="col gap2">
-          <LinkButton href="/home" variant="primary" size="lg">
-            Continue to the fixture workspace
-          </LinkButton>
           <LinkButton href="/welcome" size="lg">
             What is Nearesis?
           </LinkButton>

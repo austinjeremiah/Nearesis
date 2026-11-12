@@ -13,6 +13,7 @@ import {
   type NavItem,
 } from '@/lib/nav';
 import { IconButton } from './ui';
+import { UserMenu } from './user-menu';
 
 /**
  * Application shell: sidebar, topbar, page header, inspector and run strip.
@@ -190,6 +191,7 @@ export function AppShell({
               ⌘K
             </kbd>
           </button>
+          <UserMenu workspaceId={workspaceId} />
         </header>
         {children}
       </div>

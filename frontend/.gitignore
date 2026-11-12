@@ -7,3 +7,7 @@ next-env.d.ts
 .env*.local
 .env.local.bak*
 .contract-check.local.*
+
+# playwright
+test-results/
+playwright-report/

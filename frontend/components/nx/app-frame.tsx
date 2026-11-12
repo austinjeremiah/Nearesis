@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { AppShell } from './shell';
 import { CommandPalette, type PaletteAction } from './palette';
 import { TooltipProvider } from './overlays';
+import { useWorkspaceStream } from '@/lib/sse/hub';
 
 /**
  * Client frame around every app route: the shell, the command palette and the
@@ -22,6 +23,8 @@ export default function AppFrame({
   children: ReactNode;
 }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // One live event stream per open workspace; events invalidate the query cache.
+  useWorkspaceStream(workspaceId);
   return (
     <TooltipProvider>
       <AppShell

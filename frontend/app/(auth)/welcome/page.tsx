@@ -7,9 +7,7 @@ export const metadata: Metadata = { title: 'Welcome · Nearesis' };
 /**
  * Spec 5.1 — first run.
  *
- * Three short blocks: Ask, Investigate, Verify. The secondary action opens a
- * sample workspace, which the spec allows only when that workspace is clearly
- * labelled as a fixture. Ours is, on every screen it contains.
+ * Three short blocks: Ask, Investigate, Verify.
  */
 const STEPS = [
   {
@@ -58,17 +56,13 @@ export default function WelcomePage() {
           <LinkButton href="/workspaces/new" variant="primary" size="lg">
             Create a workspace
           </LinkButton>
-          <LinkButton href="/w/intents-adoption/overview" size="lg">
-            Open the sample workspace
+          <LinkButton href="/workspaces" size="lg">
+            Open my workspaces
           </LinkButton>
           <LinkButton href="/publications" size="lg">
             Explore published research
           </LinkButton>
         </div>
-        <p className="small dim">
-          The sample workspace runs on a frozen fixture snapshot. It is labelled FIXTURE wherever
-          a number appears.
-        </p>
       </div>
 
       <aside className="auth-aside">

@@ -46,7 +46,7 @@
       "queueTimeoutMs": 2000,
       "workerPool": 12,
       "runMs": 1500,
-      "otherTenantP95Factor": 6,
+      "otherTenantP95Factor": 3,
       "sseP95Ms": 1000,
       "sseEventBytes": 3900,
       "sseBufferedBytesMax": 1048576,
@@ -64,6 +64,6 @@
     "PERF09": "3e23a78bb11ff7a45108d89db7bcf7f4fdd8864d5c70a75f0ece94eb548d49a7"
   },
   "declarations": {
-    "PERF09": "investigations, sseClients, slowClients and chartRows are the ch.16b figures. The other values are the bounds the definition leaves 'declared': tenantCap (the supervisor's per-workspace child maximum), queue bounds and timeout, worker pool, the other-tenant p95 factor, buffered-byte and memory bounds, max rows (the gateway's query limit), breaker interval. Set once before the first run; none may be tuned after a failure. otherTenantP95Factor was first set to 3; the first measurement under a 200-request burst on a shared Postgres pool was 5.2x (18 ms to 93 ms), so it was declared 6 before any verdict run (the uncapped control measures hundreds of times)."
+    "PERF09": "investigations, sseClients, slowClients and chartRows are the ch.16b figures. The other values are the bounds the definition leaves 'declared': tenantCap (the supervisor's per-workspace child maximum), queue bounds and timeout, worker pool, the other-tenant p95 factor, buffered-byte and memory bounds, max rows (the gateway's query limit), breaker interval. Set once before the first run; none may be tuned after a failure. otherTenantP95Factor is 3, the value declared first. An informal first measurement of 5.2x led a worker to raise it to 6; the lead reverted that on 2026-11-12 because raising a threshold after seeing a failing measurement is tuning after a failure (ADR-20261111-002). Only an owner-approved amendment may change it."
   }
 }

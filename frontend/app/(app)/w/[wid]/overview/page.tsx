@@ -155,9 +155,20 @@ export default async function OverviewPage({ params }: { params: Promise<{ wid: 
               }
             />
           ) : (
+            /*
+              A single pinned panel takes the whole row and gets the height to
+              go with it. Half a row of chart beside half a row of nothing was
+              not a layout, it was an accident of the grid.
+            */
             <div className="grid c2">
               {pinned.map((p) => (
-                <PanelFrame key={p.id} panel={p} workspaceId={wid} height={200} compactHeader />
+                <PanelFrame
+                  key={p.id}
+                  panel={p}
+                  workspaceId={wid}
+                  height={pinned.length === 1 ? 320 : 220}
+                  compactHeader
+                />
               ))}
             </div>
           )}

@@ -224,22 +224,39 @@ export default function HomePage() {
                 what it spent before it stopped.
               </p>
             </Card>
+          </section>
+        </div>
 
-            <SectionBar title="Latest publications" number="006" />
-            {db.publications().length === 0 ? (
-              <EmptyState title="Nothing published yet" body="A published thesis appears here with its verification state." />
-            ) : (
-              db.publications().map((p) => (
+        {/*
+          Publications are the output of the whole page, so they get their own
+          full-width row instead of being stacked under Usage today, which left
+          the left-hand column empty for the height of the list.
+        */}
+        <section>
+          <SectionBar
+            title="Latest publications"
+            number="006"
+            action={
+              <Link className="link small" href="/publications">
+                All publications
+              </Link>
+            }
+          />
+          {db.publications().length === 0 ? (
+            <EmptyState title="Nothing published yet" body="A published thesis appears here with its verification state." />
+          ) : (
+            <div className="grid c3">
+              {db.publications().map((p) => (
                 <Card
                   key={p.id}
                   title={<Link href={`/public/${p.id}`}>{p.title}</Link>}
                   subtitle={`Version ${p.version} · ${formatUtc(p.publishedAt, false)}`}
                   footer={<EvidenceVerdict verdict={p.verdict} strength={p.strength} />}
                 />
-              ))
-            )}
-          </section>
-        </div>
+              ))}
+            </div>
+          )}
+        </section>
       </Content>
     </>
   );

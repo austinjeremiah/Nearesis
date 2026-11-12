@@ -1872,3 +1872,366 @@ table.table {
 .mode {
   min-width: 0;
 }
+
+/* =============================================================================
+   Pass 5: fixed app frame, section rhythm, and the evidence sandbox.
+   ========================================================================== */
+
+/* -----------------------------------------------------------------------------
+   The app is a frame, not a document. The sidebar, topbar and page header hold
+   still and only the content column scrolls. Before this the whole document
+   scrolled, so reading to the bottom of a long page carried the navigation off
+   the top of the window and left the rail detached from the content.
+   -------------------------------------------------------------------------- */
+html,
+body {
+  height: 100%;
+}
+.shell {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.shell > * {
+  min-height: 0;
+}
+.nav {
+  position: static;
+  height: 100%;
+}
+.main {
+  min-height: 0;
+  overflow: hidden;
+}
+.content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  /* Scrolling inside the column should not chain up to the page behind it. */
+  overscroll-behavior: contain;
+}
+.with-inspector {
+  min-height: 0;
+  overflow: hidden;
+}
+/* The run strip no longer needs to be sticky: the frame already pins it. */
+.runstrip {
+  position: static;
+  flex: none;
+}
+@media (max-width: 900px) {
+  /* Off-canvas nav: the rail is fixed, so the frame goes back to one column. */
+  .nav {
+    position: fixed;
+    height: 100dvh;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Grids size themselves to the column they are in, not to the window. With the
+   sidebar open a three-up grid used to keep three columns and squeeze every
+   card; now a track never goes below a readable width and the row drops to two
+   or one instead. A section holding a single card fills the row rather than
+   leaving half the page blank.
+   -------------------------------------------------------------------------- */
+.grid.c2 {
+  grid-template-columns: repeat(auto-fit, minmax(max(300px, (100% - var(--s4)) / 2), 1fr));
+}
+.grid.c3 {
+  grid-template-columns: repeat(auto-fit, minmax(max(270px, (100% - 2 * var(--s4)) / 3), 1fr));
+}
+.grid.c4 {
+  grid-template-columns: repeat(auto-fit, minmax(max(210px, (100% - 3 * var(--s4)) / 4), 1fr));
+}
+
+/* -----------------------------------------------------------------------------
+   Reading rhythm. A title and its subtitle were set tight enough to read as one
+   block; they are two different things and now have air between them.
+   -------------------------------------------------------------------------- */
+.card-head {
+  align-items: flex-start;
+}
+.card-head > .grow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.card-head .h3 {
+  line-height: 1.3;
+}
+.card-head .small.dim {
+  line-height: 1.45;
+}
+.card-head .actions {
+  padding-top: 2px;
+}
+.pagehead .titles {
+  gap: 5px;
+}
+.card-foot {
+  gap: var(--s3);
+}
+.kv > dt {
+  line-height: 1.45;
+}
+
+/* Section rule: the action now sits in the rule instead of floating over it. */
+.section-head {
+  position: static;
+}
+.section-rule {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 0 var(--s3);
+  margin-top: 10px;
+}
+.section-rule .sq {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--line-strong);
+}
+.section-rule .ln {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.section-action {
+  position: static;
+  flex: none;
+  font-size: var(--fs-small);
+  white-space: nowrap;
+}
+/* Air between the rule and the first card of the section. */
+.content > section {
+  gap: var(--s5);
+}
+
+/* A badge keeps its size in a dense row and wraps to the next line instead of
+   being sliced by the column edge. */
+.row > .badge,
+.row > .mode {
+  flex: none;
+}
+
+/* The budget fill was mint on cream and read as a disabled track. Deeper green,
+   a taller bar and a hairline so the track itself is visible. */
+.meter {
+  height: 9px;
+  border: 1px solid var(--line);
+  background: var(--sunken);
+}
+.meter > span {
+  background: color-mix(in srgb, var(--accent) 78%, #00512f);
+}
+
+/* =============================================================================
+   Evidence sandbox: a pannable, zoomable canvas of the provenance graph.
+   ========================================================================== */
+.graph {
+  position: relative;
+  height: var(--graph-h, 620px);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  /* The canvas is the darker of the two creams so the node cards sit on top of
+     it rather than dissolving into it. */
+  background-color: var(--sunken);
+  background-image: radial-gradient(var(--line-strong) 1px, transparent 1px);
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+.graph[data-panning='true'] {
+  cursor: grabbing;
+}
+.graph-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.graph-edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.graph-edges path {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+.graph-edges path.hot {
+  stroke: var(--accent-ink);
+  stroke-width: 2;
+}
+.graph-edges circle {
+  fill: var(--line-strong);
+}
+
+/* `.nx button` resets background and border, so the node needs the extra
+   specificity or it renders as bare text on the canvas. */
+.graph .gnode {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 216px;
+  height: 92px;
+  padding: 9px 11px;
+  text-align: left;
+  background: var(--surface);
+  /* A hard rule, like the landing page's section bars. On a textured canvas a
+     soft grey border reads as a smudge rather than an edge. */
+  border: 1px solid var(--line-hard);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.09);
+  cursor: grab;
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+.graph .gnode:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+}
+.graph .gnode[data-selected='true'] {
+  border-color: var(--line-hard);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.graph .gnode[data-dragging='true'] {
+  cursor: grabbing;
+}
+.gnode .k {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  font-weight: 700;
+  color: var(--text-3);
+}
+.gnode .k::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+.gnode[data-kind='claim'] .k::before {
+  background: var(--accent);
+}
+.gnode[data-kind='hypothesis'] .k::before {
+  background: var(--warn, #b3701a);
+}
+.gnode[data-kind='snapshot'] .k::before {
+  background: var(--line-hard);
+}
+.gnode .t {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.gnode .s {
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-tiny);
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-controls {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: var(--page);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-overlay);
+}
+.graph-controls button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+}
+.graph-controls button:hover {
+  background: var(--sunken);
+  color: var(--text);
+}
+.graph-controls .zoom {
+  width: auto;
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-tiny);
+  cursor: default;
+}
+.graph-hint {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  font-size: var(--fs-tiny);
+  color: var(--text-3);
+  background: color-mix(in srgb, var(--page) 86%, transparent);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+.graph-detail {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 288px;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  background: var(--page);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-overlay);
+}
+@media (max-width: 760px) {
+  .graph-detail {
+    position: static;
+    width: auto;
+    margin-top: var(--s3);
+    max-height: none;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Tables. Breaking a hash across lines is fine; breaking $44.10 into "$44.1"
+   and "0" is not. Figures, ids and timestamps are atomic in a table, and the
+   table keeps a working minimum width so a dozen columns stop crushing each
+   other when the sidebar is open. Below that the wrapper scrolls, which is the
+   honest behaviour for a wide data table.
+   -------------------------------------------------------------------------- */
+table.table {
+  min-width: 940px;
+}
+.table .mono,
+.table .num,
+.table td.n,
+.table .badge {
+  overflow-wrap: normal;
+  word-break: keep-all;
+  white-space: nowrap;
+}
+.table td.n {
+  text-align: right;
+}

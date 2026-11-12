@@ -26,12 +26,20 @@ export function SectionBar({
         <h2>{title}</h2>
         {number && <span className="n">{number}</span>}
       </div>
-      <div className="dot-rule" aria-hidden="true">
-        <span className="sq" />
-        <span className="ln" />
-        <span className="sq" />
+      {/*
+        The action lives inside the rule rather than floating over it. As an
+        absolutely positioned element it sat on top of the hairline and the
+        right-hand square, which is what "Open canvas" was colliding with.
+      */}
+      <div className="section-rule">
+        <span className="sq" aria-hidden="true" />
+        <span className="ln" aria-hidden="true" />
+        {action ? (
+          <div className="section-action">{action}</div>
+        ) : (
+          <span className="sq" aria-hidden="true" />
+        )}
       </div>
-      {action && <div className="section-action">{action}</div>}
     </div>
   );
 }

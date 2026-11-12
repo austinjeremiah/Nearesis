@@ -48,9 +48,12 @@ export default function WorkspacesPage() {
     {
       key: 'name',
       header: 'Workspace',
+      // The widest column in the table, named so the name and its pinned mark
+      // are not the first thing the browser squeezes when the rail is open.
+      width: '24%',
       render: (w) => (
         <div className="col gap1" style={{ minWidth: 0 }}>
-          <span className="strong row gap2">
+          <span className="strong row gap2 wrap">
             {w.name}
             {w.pinned && <Badge outline>Pinned</Badge>}
           </span>

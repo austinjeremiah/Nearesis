@@ -196,6 +196,78 @@ describe("OpenRouterProvider", () => {
     });
   });
 
+  it("verifies BYOK from the completion's own usage.is_byok without waiting for the lagging generation endpoint", async () => {
+    const f = makeFake();
+    f.chat["openai/primary"] = [{ usage: { is_byok: true } }];
+    f.generation = () => ({ status: 404 }); // never available
+    const { provider } = makeProvider(f);
+    const r = await provider.generateStructured(base);
+    expect(r.output.city).toBe("Atlantis");
+    expect(f.calls.some((c) => c.path.startsWith("/generation"))).toBe(false);
+    expect((r.evidence as { byok: boolean; upstreamProvider: string }).byok).toBe(true);
+    // a completion that does not report BYOK still needs the generation metadata and fails closed without it
+    const f2 = makeFake();
+    f2.generation = () => ({ status: 404 });
+    await expect(makeProvider(f2).provider.generateStructured(base)).rejects.toMatchObject({
+      code: "UPSTREAM_DEGRADED",
+    });
+    // usage.is_byok on a provider that is not allowed is not trusted either
+    const f3 = makeFake();
+    f3.chat["openai/primary"] = [
+      {
+        body: {
+          id: "gen-x",
+          provider: "Azure",
+          model: "openai/primary",
+          choices: [{ message: { content: JSON.stringify({ city: "A", population_millions: 1 }) } }],
+          usage: { prompt_tokens: 5, completion_tokens: 5, cost: 0, is_byok: true },
+        },
+      },
+    ];
+    f3.generation = () => ({ status: 404 });
+    await expect(makeProvider(f3).provider.generateStructured(base)).rejects.toMatchObject({
+      code: "UPSTREAM_DEGRADED",
+    });
+  });
+
+  it("generation metadata that is unavailable once is retried one time (bounded), then fails closed", async () => {
+    const f = makeFake();
+    let first = true;
+    const ok = f.generation;
+    f.generation = (id, model) => {
+      if (first) {
+        first = false;
+        return { status: 404 };
+      }
+      return ok(id, model);
+    };
+    const { provider } = makeProvider(f, { generationPolls: 1 });
+    const r = await provider.generateStructured(base);
+    expect(r.output.city).toBe("Atlantis");
+    expect(f.calls.filter((c) => c.path === "/chat/completions")).toHaveLength(2);
+    const ev = r.evidence as { attempts: Array<{ outcome: string }> };
+    expect(ev.attempts.map((a) => a.outcome)).toEqual(["metadata_unavailable", "ok"]);
+    const f2 = makeFake();
+    f2.generation = () => ({ status: 404 });
+    await expect(
+      makeProvider(f2, { generationPolls: 1 }).provider.generateStructured(base),
+    ).rejects.toMatchObject({ code: "UPSTREAM_DEGRADED" });
+    expect(f2.calls.filter((c) => c.path === "/chat/completions")).toHaveLength(2); // never more than one retry
+  });
+
+  it("a model that just answered provider-unavailable is skipped for the next calls while a fallback exists", async () => {
+    const f = makeFake();
+    f.chat["openai/primary"] = [{ status: 503 }];
+    const { provider } = makeProvider(f);
+    const a = await provider.generateStructured(base);
+    expect(a.model).toBe("anthropic/fallback");
+    const before = f.calls.filter((c) => c.path === "/chat/completions").length;
+    const b = await provider.generateStructured(base);
+    expect(b.model).toBe("anthropic/fallback");
+    const sent = f.calls.filter((c) => c.path === "/chat/completions").slice(before);
+    expect(sent.every((c) => c.body!.model === "anthropic/fallback")).toBe(true);
+  });
+
   it("budget refusal happens before sending and ledger accumulates", async () => {
     const f = makeFake();
     const small = new SpendLedger({ apiKey: KEY, path: makeProvider(f).ledger.path, capUsd: 0.0001 });

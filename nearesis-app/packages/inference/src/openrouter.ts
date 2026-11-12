@@ -75,6 +75,8 @@ interface Chat {
     prompt_tokens?: number;
     completion_tokens?: number;
     cost?: number;
+    /** OpenRouter reports BYOK routing in the completion's own usage block. */
+    is_byok?: boolean;
     cost_details?: { upstream_inference_cost?: number | null };
   };
 }
@@ -147,6 +149,8 @@ export class OpenRouterProvider implements InferenceProvider {
   private readonly tokenCap: number;
   readonly spend: SpendLedger;
   private catalog: Map<string, CatalogModel> | null = null;
+  /** Models that just answered "unavailable / not found": skipped for a few minutes while another model in the chain exists. */
+  private readonly skipUntil = new Map<string, number>();
 
   constructor(opts: OpenRouterOptions) {
     if (!opts.apiKey) throw new InferenceError("UPSTREAM_AUTH", "OPENROUTER_API_KEY not provided");
@@ -314,7 +318,12 @@ export class OpenRouterProvider implements InferenceProvider {
     return report;
   }
 
+  /**
+   * Generation metadata can lag the completion by several seconds (measured 8 to 29 s). Polling is dense early and capped at
+   * 5 s steps: 0.3, 0.6, 1, 1.5, 2, 3, 4, then 5 s (about 40 s over the default 12 polls).
+   */
   private async generationMeta(genId: string): Promise<GenerationMeta | null> {
+    const steps = [300, 600, 1000, 1500, 2000, 3000, 4000, 5000];
     for (let i = 0; i < this.polls; i++) {
       try {
         const { res } = await this.http(`/generation?id=${encodeURIComponent(genId)}`);
@@ -324,9 +333,7 @@ export class OpenRouterProvider implements InferenceProvider {
       } catch {
         /* transient: poll again */
       }
-      // Metadata can lag the completion by tens of seconds: capped exponential backoff
-      // (1, 2, 4, 8, 8, ... s; ~75 s total with the default 12 polls).
-      await this.sleep(Math.min(8000, 1000 * 2 ** i));
+      await this.sleep(steps[Math.min(i, steps.length - 1)]!);
     }
     return null;
   }
@@ -354,7 +361,9 @@ export class OpenRouterProvider implements InferenceProvider {
     const jsonSchema = z.toJSONSchema(args.schema);
     let lastFailure: ModelFailure | InferenceError | null = null;
 
-    for (const model of chain) {
+    const nowMs = Date.now();
+    const usable = chain.filter((m) => (this.skipUntil.get(m) ?? 0) <= nowMs);
+    for (const model of usable.length ? usable : chain) {
       const entry = catalog.get(model);
       if (!entry) {
         // Unlisted model: no published pricing, so nothing can be sent. Treated as model-not-found (recoverable).
@@ -419,6 +428,8 @@ export class OpenRouterProvider implements InferenceProvider {
         };
       } catch (e) {
         if (e instanceof ModelFailure && e.recoverable) {
+          if (e.cls === "provider_unavailable" || e.cls === "model_not_found")
+            this.skipUntil.set(model, Date.now() + 5 * 60_000);
           lastFailure = e;
           continue;
         }
@@ -584,7 +595,21 @@ export class OpenRouterProvider implements InferenceProvider {
       this.tokensUsed += u.inputTokens + u.outputTokens;
       this.usdSpentThisRun += u.usd;
       const genId = chat!.id ?? "";
-      const gen = genId ? await this.generationMeta(genId) : null;
+      // The completion itself reports BYOK routing (usage.is_byok) and the serving provider. When both say BYOK on an allowed
+      // provider, the call is verified from the response and nothing waits for the lagging generation endpoint. Anything
+      // else (no flag, false, other provider) still goes through the generation metadata and fails closed without it.
+      const fromResponse =
+        chat!.usage?.is_byok === true && this.providerAllowed(chat!.provider)
+          ? ({
+              id: genId,
+              is_byok: true,
+              provider_name: chat!.provider,
+              model: chat!.model,
+              total_cost: chat!.usage?.cost ?? 0,
+              upstream_inference_cost: chat!.usage?.cost_details?.upstream_inference_cost ?? null,
+            } as GenerationMeta)
+          : null;
+      const gen = fromResponse ?? (genId ? await this.generationMeta(genId) : null);
       info.httpStatus = httpStatus;
       info.generationId = genId;
       info.upstreamProvider = gen?.provider_name ?? chat!.provider ?? null;
@@ -603,6 +628,16 @@ export class OpenRouterProvider implements InferenceProvider {
         info.errorClass = "metadata_unavailable";
         await this.spend.settle(resId, { ...u, requestId }, { model, ...info });
         record("metadata_unavailable", "generation metadata unavailable; BYOK not provable");
+        // transient lag: one bounded retry of the completion (never more) before failing closed
+        if (t === 0) {
+          lastErr = new ModelFailure(
+            "metadata_unavailable",
+            httpStatus,
+            `${model}: generation metadata unavailable`,
+            false,
+          );
+          continue;
+        }
         throw new ModelFailure(
           "metadata_unavailable",
           httpStatus,

@@ -17,6 +17,7 @@
     "quotes:validate": "tsx src/scheduler/validate-quotes.ts",
     "test:scheduler": "vitest run test/scheduler",
     "backfill:replay-raw": "tsx src/backfill/replay-cli.ts",
+    "backfill:skip-quarantined": "tsx src/backfill/skip-quarantined.ts",
     "backfill:account": "tsx src/backfill/account-cli.ts"
   },
   "dependencies": {

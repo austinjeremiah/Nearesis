@@ -34,6 +34,7 @@ export type RunStatus =
   | "auth_blocked"
   | "circuit_open"
   | "quarantined"
+  | "quarantine_cap"
   | "transient_failure"
   | "rate_limited"
   | "lease_held";
@@ -47,6 +48,8 @@ export interface RunResult {
   cursor: ExplorerCursor | null;
   blocker?: BlockerDraft;
   quarantineReason?: string;
+  /** Quarantined pages skipped (gap recorded, cursor advanced) by this call. */
+  pagesSkipped?: number;
 }
 
 export interface BlockerDraft {
@@ -97,7 +100,87 @@ export interface RunOptions {
   /** Start of the window being collected, used to describe uncovered intervals. */
   windowStartUTC?: string;
   windowEndUTC?: string;
-  /** Skip cursor load/save to a stream (used by day collection which uses per-day streams). */
+  /**
+   * Bounded skip-and-record for quarantined pages. The page stays quarantined and promotes no facts; only its cursor
+   * position is taken from the raw bytes so collection can continue. Without this option a quarantined page stops the run.
+   */
+  skipQuarantined?: {
+    /** False once a cap is reached; the run then stops with status `quarantine_cap`. A hash already counted is always allowed. */
+    allow: (rawObjectHash: string) => boolean;
+    record: (s: SkippedPage) => Promise<void>;
+  };
+}
+
+export interface SkippedPage {
+  rawObjectHash: string;
+  reasonCode: string;
+  detail: string;
+  fromUTC: string;
+  toUTC: string;
+  cursor: ExplorerCursor;
+  items: number;
+}
+
+/** Reasons whose raw bytes still carry a trustworthy page position. Bad JSON and checksum mismatches never skip. */
+export const SKIPPABLE_REASONS: ReadonlySet<string> = new Set(["BAD_SCHEMA", "PAGE_LIMIT"]);
+
+/**
+ * Best-effort position of a quarantined page: createdAt range of its items and the cursor after its last item. Null when
+ * the bytes do not parse as an array of objects with a usable last depositAddress and at least one valid createdAt.
+ */
+export function salvagePage(
+  body: Uint8Array,
+): { fromUTC: string; toUTC: string; cursor: ExplorerCursor; items: number } | null {
+  let json: unknown;
+  try {
+    json = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(json) || json.length === 0) return null;
+  let lo = Number.POSITIVE_INFINITY;
+  let hi = Number.NEGATIVE_INFINITY;
+  for (const it of json as Array<Record<string, unknown> | null>) {
+    const t = typeof it?.createdAt === "string" ? Date.parse(it.createdAt) : Number.NaN;
+    if (Number.isNaN(t)) continue;
+    lo = Math.min(lo, t);
+    hi = Math.max(hi, t);
+  }
+  const last = json[json.length - 1] as Record<string, unknown> | null;
+  const addr = last?.depositAddress;
+  const memo = last?.depositMemo ?? "";
+  if (!Number.isFinite(lo) || typeof addr !== "string" || addr === "" || typeof memo !== "string")
+    return null;
+  return {
+    fromUTC: new Date(lo).toISOString(),
+    toUTC: new Date(hi).toISOString(),
+    cursor: { lastDepositAddress: addr, lastDepositMemo: memo },
+    items: json.length,
+  };
+}
+
+export const quarantineGapCode = (rawObjectHash: string): string => `QUARANTINED_PAGE:${rawObjectHash}`;
+
+/** Records the Postgres gap and moves the stored cursor past a quarantined page (the quarantine row stays). Idempotent. */
+export async function advancePastQuarantined(
+  db: Db,
+  streamKey: string,
+  s: Pick<SkippedPage, "rawObjectHash" | "fromUTC" | "toUTC" | "cursor">,
+): Promise<void> {
+  await db.tx(async (c) => {
+    const code = quarantineGapCode(s.rawObjectHash);
+    await c.query(
+      `INSERT INTO ingestion.quality_gaps(provider_id, dataset, from_utc, to_utc, state, reason_code)
+       SELECT $1,'intents_swaps',$2,$3,'unavailable',$4
+        WHERE NOT EXISTS (SELECT 1 FROM ingestion.quality_gaps WHERE provider_id=$1 AND dataset='intents_swaps' AND reason_code=$4)`,
+      [PROVIDER, s.fromUTC, s.toUTC, code],
+    );
+    await c.query(
+      `UPDATE ingestion.cursor_state SET cursor=$3, page_hash=$4, updated_at=now()
+        WHERE provider_id=$1 AND stream_key=$2`,
+      [PROVIDER, streamKey, JSON.stringify(s.cursor), s.rawObjectHash],
+    );
+  });
 }
 
 type FetchOutcome =
@@ -442,6 +525,31 @@ export class ExplorerCollector {
         const pageNo = cp.pagesCommitted + 1;
         const page = await this.commitPage(out, cursor, pageNo, result);
         if (page.kind === "quarantined") {
+          const sk = opts.skipQuarantined;
+          if (sk && page.skip) {
+            if (!sk.allow(page.skip.rawObjectHash)) {
+              result.status = "quarantine_cap";
+              result.quarantineReason = page.reason;
+              await this.saveHealth("degraded", "partial", { reason: `quarantine_cap:${page.reason}` });
+              break;
+            }
+            await sk.record(page.skip);
+            await advancePastQuarantined(this.d.db, this.streamKey, page.skip);
+            await this.trace("explorer.quarantine_skipped", page.skip.rawObjectHash, {
+              reason_code: page.reason,
+              from: page.skip.fromUTC,
+              to: page.skip.toUTC,
+            });
+            await this.saveHealth("healthy", "partial", { reason: `skipped_quarantined:${page.reason}` });
+            result.pagesSkipped = (result.pagesSkipped ?? 0) + 1;
+            cursor = page.skip.cursor;
+            result.cursor = cursor;
+            if (page.skip.items < this.pageSize) {
+              result.status = "complete";
+              break;
+            }
+            continue;
+          }
           result.status = "quarantined";
           result.quarantineReason = page.reason;
           await this.saveHealth("degraded", "partial", { reason: `quarantined:${page.reason}` });
@@ -498,7 +606,8 @@ export class ExplorerCollector {
     pageNo: number,
     result: RunResult,
   ): Promise<
-    { kind: "ok"; cursor: ExplorerCursor | null; count: number } | { kind: "quarantined"; reason: string }
+    | { kind: "ok"; cursor: ExplorerCursor | null; count: number }
+    | { kind: "quarantined"; reason: string; skip: SkippedPage | null }
   > {
     const fetchedAtUTC = new Date(out.receivedAtMs).toISOString();
     const parsed = parseExplorerPage(out.body, out.headers);
@@ -539,7 +648,19 @@ export class ExplorerCollector {
         reason_code: parsed.reasonCode,
         pageNo,
       });
-      return { kind: "quarantined", reason: parsed.reasonCode };
+      const salvaged = SKIPPABLE_REASONS.has(parsed.reasonCode) ? salvagePage(out.body) : null;
+      return {
+        kind: "quarantined",
+        reason: parsed.reasonCode,
+        skip: salvaged
+          ? {
+              rawObjectHash: arch.observation.payloadObjectHash,
+              reasonCode: parsed.reasonCode,
+              detail: parsed.detail,
+              ...salvaged,
+            }
+          : null,
+      };
     }
     const items = parsed.items;
     const last = items[items.length - 1];

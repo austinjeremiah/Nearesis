@@ -32,6 +32,8 @@ export interface BackfillState {
     complete?: boolean;
     lastError?: string | null;
     lastStatusAtUTC?: string;
+    /** raw object hashes of quarantined Explorer pages skipped with a recorded gap (cumulative cap) */
+    skippedPageHashes?: string[];
   };
   explorerLoad?: { afterVersionMs: number; afterKey: string };
   price: { done: boolean; requests: number; days: number } | null;

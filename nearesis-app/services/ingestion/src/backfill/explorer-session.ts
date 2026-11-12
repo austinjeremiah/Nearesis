@@ -2,7 +2,13 @@ import type { ClickHouseClient } from "@clickhouse/client";
 import { Redis } from "ioredis";
 import type { RawArchive } from "../archive/archive.ts";
 import type { Db } from "../db.ts";
-import { ExplorerCollector, EXPLORER_ADAPTER_VERSION } from "../adapters/explorer.ts";
+import {
+  ExplorerCollector,
+  EXPLORER_ADAPTER_VERSION,
+  quarantineGapCode,
+  type RunOptions,
+  type SkippedPage,
+} from "../adapters/explorer.ts";
 import type { ExplorerTx } from "../adapters/explorer-parse.ts";
 import { systemClock } from "../clock.ts";
 import { ALLOW_EXPLORER, HttpClient } from "../http/client.ts";
@@ -15,6 +21,8 @@ import type { BackfillState, StateStore } from "./state.ts";
 
 export const EXPLORER_STREAM = "transactions:live-backfill";
 const PAGE_SIZE = 1000;
+export const SKIP_CAP_PER_SESSION = 10;
+export const SKIP_CAP_CUMULATIVE = 25;
 const BATCH_PAGES = 30; // run() is called in batches so wall-clock caps are honoured between them
 
 export interface ExplorerResult {
@@ -94,6 +102,58 @@ export async function loadSwapsToClickHouse(
   return loaded;
 }
 
+/** ClickHouse gap for a skipped quarantined page: the page's createdAt range, tagged with its raw object hash. Idempotent. */
+export async function recordQuarantineGapCh(
+  ch: ClickHouseClient,
+  s: Pick<SkippedPage, "rawObjectHash" | "fromUTC" | "toUTC">,
+  version: number = Date.now(),
+): Promise<void> {
+  await insertLive(ch, "quality_gaps", [
+    {
+      provider_id: "near-explorer",
+      dataset: "intents_swaps",
+      from_utc: s.fromUTC,
+      to_utc: s.toUTC,
+      state: "unavailable",
+      reason_code: quarantineGapCode(s.rawObjectHash),
+      source_label: "LIVE",
+      version,
+    },
+  ]);
+}
+
+/**
+ * Bounded skip policy: at most `perSession` newly skipped pages in this session and `cumulative` over all sessions
+ * (hashes tracked in state.json). A page whose hash is already counted is always allowed (re-skipping is idempotent).
+ */
+export function makeSkipPolicy(
+  ch: ClickHouseClient,
+  store: StateStore,
+  log: (m: string) => void,
+  caps: { perSession: number; cumulative: number } = {
+    perSession: SKIP_CAP_PER_SESSION,
+    cumulative: SKIP_CAP_CUMULATIVE,
+  },
+): NonNullable<RunOptions["skipQuarantined"]> {
+  let session = 0;
+  const known = (): string[] => store.state.explorer.skippedPageHashes ?? [];
+  return {
+    allow: (hash) =>
+      known().includes(hash) || (session < caps.perSession && known().length < caps.cumulative),
+    record: async (s) => {
+      await recordQuarantineGapCh(ch, s);
+      if (!known().includes(s.rawObjectHash)) {
+        session++;
+        store.state.explorer.skippedPageHashes = [...known(), s.rawObjectHash];
+        store.save();
+      }
+      log(
+        `explorer skipped quarantined page ${s.rawObjectHash} (${s.reasonCode}: ${s.detail}); gap ${s.fromUTC}..${s.toUTC}; skipped this session ${session}, cumulative ${known().length}`,
+      );
+    },
+  };
+}
+
 export async function runExplorerSession(d: {
   ch: ClickHouseClient;
   db: Db;
@@ -120,6 +180,7 @@ export async function runExplorerSession(d: {
     sourceEnvironment: "live",
     streamKey: EXPLORER_STREAM,
   });
+  const skipPolicy = makeSkipPolicy(d.ch, d.store, d.log);
   const startedAt = Date.now();
   // minutes <= 0 means unlimited (detached full-year run)
   const deadline = d.minutes > 0 ? startedAt + d.minutes * 60_000 : Number.POSITIVE_INFINITY;
@@ -135,7 +196,7 @@ export async function runExplorerSession(d: {
   let lastCursor: unknown = null;
   try {
     while (Date.now() < deadline) {
-      const r = await collector.run({ ...window, maxPages: BATCH_PAGES });
+      const r = await collector.run({ ...window, maxPages: BATCH_PAGES, skipQuarantined: skipPolicy });
       lastCursor = r.cursor;
       status = r.status;
       d.log(`explorer batch: ${r.status}, +${r.pagesCommitted} pages, +${r.swapsInserted} swaps`);

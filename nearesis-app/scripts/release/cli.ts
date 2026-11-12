@@ -1,6 +1,6 @@
 /**
  * Release tooling CLI (read-only, offline).
- *   tsx scripts/release/cli.ts manifest [--out DIR]   build manifest, rollback manifest and SBOM record; print validation problems
+ *   tsx scripts/release/cli.ts manifest [--out DIR] [--approver ID]   build manifest, rollback manifest and SBOM record; print validation problems
  *   tsx scripts/release/cli.ts check FILE              validate a manifest file
  *   tsx scripts/release/cli.ts build-images --label L [--ref REF] [--no-cache]   build api, worker, web locally from a clean export (never pushed)
  *   tsx scripts/release/cli.ts promote --label L                                  point the local `live` tags at that build
@@ -10,7 +10,7 @@
  *   tsx scripts/release/cli.ts rollback --manifest F --rollback F [--dry-run]     verify then move `live` to the previous release
  * There is no `release` or `broadcast` command: signing and writes are human-only.
  */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildManifest, validateManifest, validateRollback } from "./manifest.ts";
@@ -27,10 +27,34 @@ import { ApprovalStore } from "./approval.ts";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const [cmd, ...rest] = process.argv.slice(2);
 if (cmd === "manifest") {
-  const out = rest[rest.indexOf("--out") + 1] ?? join(root, ".data", "release");
+  const out = rest.includes("--out") ? rest[rest.indexOf("--out") + 1]! : join(root, ".data", "release");
   const sbom = readSec11Sbom(root);
+  // real inputs when present: locally built images (candidate and previous) and the recorded testnet commitment
+  const rel = join(root, ".data", "release");
+  const cand = readBuildRecord(join(rel, "candidate"));
+  const prev = readBuildRecord(join(rel, "previous"));
+  const digests = (r: BuildRecord) => ({
+    api: r.images.api.digest,
+    worker: r.images.worker.digest,
+    web: r.images.web.digest,
+  });
+  const tnFile = join(
+    root,
+    "..",
+    "NEARESIS_Build_Bible",
+    "reports",
+    "TESTS",
+    "TESTNET-LIVE",
+    "prereg-commit.json",
+  );
+  const tn = existsSync(tnFile) ? (JSON.parse(readFileSync(tnFile, "utf8")) as { txHash: string }) : null;
   const { manifest, rollback } = buildManifest({
     root,
+    gitSha: cand?.gitSha,
+    images: cand ? digests(cand) : undefined,
+    previous: prev ? { gitSha: prev.gitSha, images: digests(prev) } : null,
+    testnetTxHash: tn?.txHash ?? null,
+    approver: rest.includes("--approver") ? rest[rest.indexOf("--approver") + 1]! : null,
     sbomSha256: sbom?.sbomSha256 ?? null,
     expectedMaxSpend: "0.05 NEAR",
     balanceCeiling: "10",

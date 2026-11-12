@@ -1845,9 +1845,9 @@
       "passCondition": "only chain ID 8453 read-only query if enabled",
       "owner": "ENGINE_A",
       "definition": "ch16",
-      "testFiles": [],
+      "testFiles": ["tests/release/N05.accept.test.ts"],
       "live": true,
-      "status": "DEFINED",
+      "status": "IMPLEMENTED",
       "required": false,
       "dependsOn": []
     },

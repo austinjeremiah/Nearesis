@@ -3,6 +3,59 @@ export const BASE_CHAIN_ID = "0x2105";
 export const BASE_ALLOWED_METHODS = ["eth_chainId", "eth_getBlockByNumber"] as const;
 export type Transport = (method: string, params: unknown[]) => Promise<unknown>;
 
+/** Free public Base RPC, used only when the adapter is enabled (`--live`) and NEARESIS_BASE_RPC_URL is not set. No API key. */
+export const DEFAULT_BASE_PUBLIC_RPC = "https://mainnet.base.org";
+export const BASE_LIMITS = { timeoutMs: 8000, maxResponseBytes: 64 * 1024, maxRequestBytes: 512 } as const;
+
+/**
+ * A URL with credentials, a query string or a long opaque path segment is how paid providers carry API keys; the adapter
+ * refuses all of them, so only a keyless public endpoint can be configured. https only (http only for loopback fixtures).
+ */
+export function assertKeylessBaseUrl(raw: string): URL {
+  const u = new URL(raw);
+  const loopback = u.hostname === "127.0.0.1" || u.hostname === "localhost";
+  if (u.protocol !== "https:" && !(loopback && u.protocol === "http:"))
+    throw new Error("Base RPC must be https");
+  if (u.username || u.password) throw new Error("Base RPC URL must not carry credentials");
+  if (u.search || u.hash) throw new Error("Base RPC URL must not carry a query string (API key)");
+  if (u.pathname.split("/").some((seg) => seg.length >= 24))
+    throw new Error("Base RPC URL path looks like an API key; only keyless public endpoints are allowed");
+  return u;
+}
+
+/**
+ * The real HTTP transport. Read methods only: the method allowlist is enforced HERE as well as in the adapter, so a write
+ * method can never be serialised onto the wire even by a caller that bypasses BaseReadonly. Single (non-batch) JSON-RPC
+ * call, bounded request and response size, hard timeout, no cookies or auth headers, no redirects followed.
+ */
+export function createHttpTransport(
+  rawUrl: string,
+  opts: { fetchImpl?: typeof fetch; timeoutMs?: number } = {},
+): Transport {
+  const url = assertKeylessBaseUrl(rawUrl);
+  const doFetch = opts.fetchImpl ?? fetch;
+  return async (method, params) => {
+    if (!(BASE_ALLOWED_METHODS as readonly string[]).includes(method))
+      throw new Error(`method denied at transport: ${method}`);
+    const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method, params });
+    if (body.length > BASE_LIMITS.maxRequestBytes) throw new Error("request too large");
+    const res = await doFetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+      redirect: "error",
+      credentials: "omit",
+      signal: AbortSignal.timeout(opts.timeoutMs ?? BASE_LIMITS.timeoutMs),
+    });
+    if (!res.ok) throw new Error(`Base RPC http ${res.status}`);
+    const text = await res.text();
+    if (text.length > BASE_LIMITS.maxResponseBytes) throw new Error("response too large");
+    const j = JSON.parse(text) as { result?: unknown; error?: { message?: string } };
+    if (j.error) throw new Error(`Base RPC error: ${String(j.error.message ?? "unknown").slice(0, 120)}`);
+    return j.result;
+  };
+}
+
 export class BaseReadonly {
   readonly requested: string[] = [];
   private headers = 0;

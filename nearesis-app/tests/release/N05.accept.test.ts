@@ -1,29 +1,30 @@
 /**
  * N05: Base adapter chain ID, only if enabled. Enabled means NEARESIS_BASE_RPC_URL is configured and `--live` is passed;
  * then exactly one eth_chainId and at most one finalized header are read through the allowlisted adapter. Otherwise the test
- * is NOT_RUN (not enabled) and is intentionally left unbound from TEST_INDEX.json, so the runner reports NOT_RUN rather than
- * recording a verdict.
+ * is NOT_RUN (not enabled) and records BLOCKED_DEPENDENCY, never PASS. With `--live` and no env value, the keyless public
+ * endpoint https://mainnet.base.org is used (no API key, no paid provider). The read goes through the real HTTP transport,
+ * which only serialises the two allowlisted read methods.
  */
 import { expect, it } from "vitest";
 import { observe } from "@nearesis/acceptance";
-import { BASE_CHAIN_ID, BaseReadonly } from "../../scripts/release/base.ts";
+import {
+  BASE_CHAIN_ID,
+  BaseReadonly,
+  DEFAULT_BASE_PUBLIC_RPC,
+  createHttpTransport,
+} from "../../scripts/release/base.ts";
 
-const url = process.env.NEARESIS_BASE_RPC_URL;
 const live = !!process.env.NEARESIS_ACCEPT_LIVE;
+const url = process.env.NEARESIS_BASE_RPC_URL || (live ? DEFAULT_BASE_PUBLIC_RPC : undefined);
 
 it.skipIf(!(url && live))(
   "N05: the configured Base RPC reports chain id 8453 through the read-only adapter",
   async () => {
     const seen: string[] = [];
+    const http = createHttpTransport(url!);
     const transport = async (method: string, params: unknown[]) => {
       seen.push(method);
-      const r = await fetch(url!, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-        signal: AbortSignal.timeout(8000),
-      });
-      return ((await r.json()) as { result: unknown }).result;
+      return http(method, params);
     };
     const res = await new BaseReadonly(transport).smoke();
     expect(res.chainId).toBe(BASE_CHAIN_ID);

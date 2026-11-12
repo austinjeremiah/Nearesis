@@ -26,6 +26,14 @@
     "PERF10": {
       "concurrentWorkspaces": 20,
       "warmP95Ms": 1000
+    },
+    "PERF06": {
+      "coldRuns": 30,
+      "warmRuns": 10,
+      "panels": 4,
+      "firstPanelP95Ms": 8000,
+      "firstBeforeFourthMinRatePct": 95,
+      "mockInferenceMs": 400
     }
   },
   "fixtures": {

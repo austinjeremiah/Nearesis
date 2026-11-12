@@ -151,8 +151,8 @@ export function buildImages(opts: {
       if (b.code !== 0) throw new Error(`docker build ${name} failed: ${b.err.slice(-400)}`);
       const info = inspectImage(run, tag);
       if (!info || !DIGEST.test(info.id)) throw new Error(`cannot inspect ${tag}`);
-      // the runtime image may be distroless (no shell): walk the filesystem with the image's own node
-      const envFiles = run("docker", ["run", "--rm", "--entrypoint", "node", tag, "-e", ENV_FILE_WALK]);
+      // the runtime image may be distroless (no shell): walk the filesystem with the image's own node (its entrypoint is node, or docker-entrypoint.sh which execs node for -e)
+      const envFiles = run("docker", ["run", "--rm", tag, "-e", ENV_FILE_WALK]);
       images[name] = {
         tag,
         digest: info.id,
@@ -234,7 +234,7 @@ export function writeSbom(
   const unique = [...new Set(pkgs)].sort();
   const osPackages: Record<string, string[]> = {};
   for (const [name, img] of Object.entries(rec.images)) {
-    const r = run("docker", ["run", "--rm", "--entrypoint", "node", img.tag, "-e", OS_PACKAGE_LIST]);
+    const r = run("docker", ["run", "--rm", img.tag, "-e", OS_PACKAGE_LIST]);
     osPackages[name] = r.out.split("\n").filter(Boolean).sort();
   }
   const doc = {

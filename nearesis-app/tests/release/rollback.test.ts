@@ -177,8 +177,6 @@ describe.skipIf(!cand || !prev || !haveDocker)("rollback against the locally bui
     const ran = realRun("docker", [
       "run",
       "--rm",
-      "--entrypoint",
-      "node",
       liveTag("api"),
       "-e",
       "console.log(process.version, process.getuid())",

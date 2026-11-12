@@ -73,13 +73,18 @@ export async function startStack(o: StackOptions): Promise<Stack | { blocked: st
   kernel.outbox.start();
   const app = await buildApp({ kernel, nodeEnv: "test", ssePollMs: 50 });
   await app.listen({ host: "127.0.0.1", port: o.apiPort });
-  const dist = ".next-perf";
+  const dist = ".next-perf-hooks";
   if (await up(o.webPort)) throw new Error(`port ${o.webPort} is already serving`);
   if (!existsSync(join(WEB_DIR, dist, "BUILD_ID")) || process.env.PERF_REBUILD === "1") {
     const b = spawnSync("pnpm", ["exec", "next", "build"], {
       cwd: WEB_DIR,
       encoding: "utf8",
-      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", NEARESIS_WEB_DIST: dist },
+      env: {
+        ...process.env,
+        NEXT_TELEMETRY_DISABLED: "1",
+        NEARESIS_WEB_DIST: dist,
+        NEXT_PUBLIC_NEARESIS_TEST_HOOKS: "1",
+      },
     });
     if (b.status !== 0) {
       await app.close();

@@ -128,3 +128,4 @@ the build if a route is added without being described, so regenerate the spec wh
 
 ## 2026-11-13 — lead hotfix in frontend-owned code (owner-approved)
 - `packages/ui/src/shell/Sidebar.tsx`: run state `BLOCKED_SOURCE` (API since contracts 1.5.0) now renders "Source unavailable"; any other unknown run state renders "Unknown state" instead of crashing the sidebar. Commit above. Please keep or replace it with your own handling; the full twelve-state taxonomy is in `docs/api/STATES.md`.
+- `packages/ui/src/styles/components.css` (owner-approved hotfix, 2026-11-13): `.nz-chat-scroll > * { flex-shrink: 0 }` so long run cards scroll instead of being squeezed and clipped (the approve button was unreachable). Keep or replace.

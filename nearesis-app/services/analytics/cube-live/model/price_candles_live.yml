@@ -4,6 +4,7 @@ cubes:
     sql: "SELECT * FROM price_candles FINAL ORDER BY update_vintage DESC LIMIT 1 BY provider, coin_id, quote_currency, `interval`, bucket_start"
     public: false
     refresh_key:
+      sql: "SELECT toString(max(modification_time)), toString(sum(rows)), toString(count()) FROM system.parts WHERE database = currentDatabase() AND table = 'price_candles' AND active"
       every: 5 second
     dimensions:
       - name: day

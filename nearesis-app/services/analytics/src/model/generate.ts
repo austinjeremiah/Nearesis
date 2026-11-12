@@ -2,8 +2,16 @@ import type { Registry } from "../registry/types.ts";
 import { CUBES, type CubeDef } from "./definition.ts";
 
 const q = (s: string) => JSON.stringify(s);
-/** Time-based refresh (Cube Core re-evaluates SQL refresh keys unreliably for ClickHouse rollups, see FND-20261110-501). */
+/**
+ * Refresh cadence: the refresh key is CHECKED every 5 s, but a rollup is rebuilt only when the key VALUE changes.
+ * A pure time-bucket key (`every: 5 second` alone) invalidates every rollup every 5 s whatever the data did, so at 1M+ rows
+ * a build outlives its own bucket, builds overlap and the rollup never settles (`_tmp_replace_* doesn't exist`, PERF10).
+ * The key value is a cheap system.parts fingerprint of the cube's source table: it changes on every insert or merge, so
+ * freshness after a load is unchanged and metric semantics are untouched.
+ */
 export const REFRESH_EVERY = "5 second";
+export const refreshSql = (table: string) =>
+  `SELECT toString(max(modification_time)), toString(sum(rows)), toString(count()) FROM system.parts WHERE database = currentDatabase() AND table = '${table}' AND active`;
 
 /** Renders one cube + its public view as Cube YAML. Metric metadata is copied from the registry into measure `meta` (S13: meta == registry). */
 export function renderCubeFile(c: CubeDef, registry: Registry): string {
@@ -18,7 +26,7 @@ export function renderCubeFile(c: CubeDef, registry: Registry): string {
   L.push(`    sql: ${q(select)}`);
   L.push("    public: false");
   L.push("    refresh_key:");
-  L.push(`      every: ${REFRESH_EVERY}`);
+  L.push(`      sql: ${q(refreshSql(c.table))}`, `      every: ${REFRESH_EVERY}`);
   L.push("    dimensions:");
   L.push("      - name: day");
   L.push(`        sql: ${q(c.timeColumn)}`);
@@ -55,7 +63,11 @@ export function renderCubeFile(c: CubeDef, registry: Registry): string {
         "          - name: idx_dims",
         `            columns: [${r.dimensions.join(", ")}]`,
       );
-      L.push("        refresh_key:", `          every: ${REFRESH_EVERY}`);
+      L.push(
+        "        refresh_key:",
+        `          sql: ${q(refreshSql(c.table))}`,
+        `          every: ${REFRESH_EVERY}`,
+      );
     }
   }
   const exposed = [

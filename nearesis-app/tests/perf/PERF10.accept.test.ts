@@ -31,6 +31,7 @@ import {
   W1,
 } from "../../packages/semantic-gateway/test/helpers.ts";
 import type { Env } from "../../packages/semantic-gateway/test/helpers.ts";
+import { DEFAULT_POLICY } from "../../packages/semantic-gateway/src/index.ts";
 import type { Session } from "../../packages/semantic-gateway/src/index.ts";
 import { DRYRUN, percentile, sha256Text, stats } from "./_reference.ts";
 import { evidenceBase, gateB, referenceB, thr } from "./_b.ts";
@@ -40,6 +41,7 @@ const SIZES =
   DRYRUN && process.env.PERF_SIZES ? process.env.PERF_SIZES.split(",").map(Number) : [1_000_000, 10_000_000];
 const WORKSPACES = th.concurrentWorkspaces!;
 const WARM_PASSES = 5;
+const INSERT_CHUNK = 500_000;
 const RANGE = ["2026-10-01T00:00:00.000", "2026-10-10T23:59:59.999"];
 const M = (m: string) => `intents.${m}`;
 const day = (from: number, to: number, grain: "day" | "week" = "day") => ({
@@ -90,7 +92,7 @@ export const PATTERNS = [
   ast({ measures: [M("oneclick_private_settlement_swap_count")], time: day(1, 11, "week") }),
 ];
 /** Deterministic generator: row n of the dataset (the fixture content is exactly this expression over numbers(N)). */
-const gen = (n: number) => `
+const gen = (n: number, from?: number) => `
 INSERT INTO intents_swaps
 SELECT concat('perf-', toString(number)) AS swap_key, concat('dep-', toString(number)) AS deposit_address, NULL AS deposit_memo,
   ['SUCCESS','SUCCESS','SUCCESS','FAILED','REFUNDED'][1 + number % 5] AS status,
@@ -106,7 +108,7 @@ SELECT concat('perf-', toString(number)) AS swap_key, concat('dep-', toString(nu
   ['public','private_settlement'][1 + number % 2] AS privacy_era, [] AS public_swap_tx_hashes, [] AS boundary_tx_hashes,
   ['none','partial','full'][1 + number % 3] AS reconciliation_level, 'SYNTHETIC' AS source_label,
   concat('raw-', toString(number)) AS raw_object_hash, 1 AS version
-FROM numbers(${n})`;
+FROM numbers(${from === undefined ? String(n) : `${from}, ${n}`})`;
 export const FIXTURE_SPEC = {
   sizes: [1_000_000, 10_000_000],
   generator: gen(0),
@@ -160,7 +162,12 @@ it("PERF10: 20 query patterns at 1M and 10M rows meet warm p95 < 1 s; cold and w
       return { rows: [], rowCount: 0 };
     },
   } as unknown as Pool;
-  const gw = e.gateway({ pg: pgSpy });
+  // The default policy caps a query at 5M estimated source rows (a cost guard on the raw table size); the 10M benchmark
+  // dataset legitimately exceeds it, so the benchmark workspaces carry a policy sized to the dataset. Nothing else changes.
+  const gw = e.gateway({
+    pg: pgSpy,
+    policy: () => ({ ...DEFAULT_POLICY, maxEstimatedRows: Math.max(...SIZES) * 2 }),
+  });
   const report: Array<Record<string, unknown>> = [];
   const t0all = Date.now();
   const cpu0 = process.cpuUsage();
@@ -174,8 +181,22 @@ it("PERF10: 20 query patterns at 1M and 10M rows meet warm p95 < 1 s; cold and w
     await loadNormalized(e.ch, baseline());
     await e.ch.command({ query: "TRUNCATE TABLE intents_swaps" });
     const tl = Date.now();
-    await e.ch.command({ query: gen(size), clickhouse_settings: { max_insert_threads: "4" } });
-    await e.ch.command({ query: "OPTIMIZE TABLE intents_swaps FINAL" });
+    // The shared ClickHouse container is capped at 2 GiB, so the same row expression is generated in bounded chunks
+    // (numbers(from, count) yields exactly the rows numbers(size) would), one insert thread, small insert blocks.
+    for (let from = 0; from < size; from += INSERT_CHUNK)
+      await e.ch.command({
+        query: gen(Math.min(INSERT_CHUNK, size - from), from),
+        clickhouse_settings: {
+          max_insert_threads: "1",
+          max_threads: "2",
+          min_insert_block_size_rows: "65536",
+          min_insert_block_size_bytes: "33554432",
+        },
+      });
+    await e.ch.command({
+      query: "OPTIMIZE TABLE intents_swaps FINAL",
+      clickhouse_settings: { max_threads: "2" },
+    });
     const loadMs = Date.now() - tl;
     const rows = Number(
       (await queryRows<{ n: string }>(e.ch, "SELECT count() AS n FROM intents_swaps FINAL"))[0]!.n,

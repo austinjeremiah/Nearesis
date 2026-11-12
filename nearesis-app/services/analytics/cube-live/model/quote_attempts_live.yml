@@ -4,6 +4,7 @@ cubes:
     sql: "SELECT * FROM quote_attempts FINAL"
     public: false
     refresh_key:
+      sql: "SELECT toString(max(modification_time)), toString(sum(rows)), toString(count()) FROM system.parts WHERE database = currentDatabase() AND table = 'quote_attempts' AND active"
       every: 5 second
     dimensions:
       - name: day

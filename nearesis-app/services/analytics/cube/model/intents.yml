@@ -4,6 +4,7 @@ cubes:
     sql: "SELECT * FROM intents_swaps FINAL"
     public: false
     refresh_key:
+      sql: "SELECT toString(max(modification_time)), toString(sum(rows)), toString(count()) FROM system.parts WHERE database = currentDatabase() AND table = 'intents_swaps' AND active"
       every: 5 second
     dimensions:
       - name: day
@@ -289,6 +290,7 @@ cubes:
           - name: idx_dims
             columns: [status, privacy_era]
         refresh_key:
+          sql: "SELECT toString(max(modification_time)), toString(sum(rows)), toString(count()) FROM system.parts WHERE database = currentDatabase() AND table = 'intents_swaps' AND active"
           every: 5 second
 
 views:

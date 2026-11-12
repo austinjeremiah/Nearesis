@@ -4,6 +4,7 @@ cubes:
     sql: "SELECT * FROM contract_interactions FINAL"
     public: false
     refresh_key:
+      sql: "SELECT toString(max(modification_time)), toString(sum(rows)), toString(count()) FROM system.parts WHERE database = currentDatabase() AND table = 'contract_interactions' AND active"
       every: 5 second
     dimensions:
       - name: day
@@ -148,6 +149,7 @@ cubes:
           - name: idx_dims
             columns: [category, segment_state]
         refresh_key:
+          sql: "SELECT toString(max(modification_time)), toString(sum(rows)), toString(count()) FROM system.parts WHERE database = currentDatabase() AND table = 'contract_interactions' AND active"
           every: 5 second
 
 views:

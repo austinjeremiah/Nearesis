@@ -4,6 +4,7 @@ cubes:
     sql: "SELECT * FROM near_daily_usage FINAL"
     public: false
     refresh_key:
+      sql: "SELECT toString(max(modification_time)), toString(sum(rows)), toString(count()) FROM system.parts WHERE database = currentDatabase() AND table = 'near_daily_usage' AND active"
       every: 5 second
     dimensions:
       - name: day
@@ -144,6 +145,7 @@ cubes:
           - name: idx_dims
             columns: [source_label]
         refresh_key:
+          sql: "SELECT toString(max(modification_time)), toString(sum(rows)), toString(count()) FROM system.parts WHERE database = currentDatabase() AND table = 'near_daily_usage' AND active"
           every: 5 second
 
 views:

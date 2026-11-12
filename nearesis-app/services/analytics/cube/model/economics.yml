@@ -4,6 +4,7 @@ cubes:
     sql: "SELECT * FROM economics_reports FINAL"
     public: false
     refresh_key:
+      sql: "SELECT toString(max(modification_time)), toString(sum(rows)), toString(count()) FROM system.parts WHERE database = currentDatabase() AND table = 'economics_reports' AND active"
       every: 5 second
     dimensions:
       - name: day

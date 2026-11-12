@@ -137,6 +137,8 @@ export function trustDecision(
   reg: TrustedKeyRegistry,
   publicKeyPem: string,
   signedAt: string | null,
+  /** Independent publication-log time: undefined = no log consulted; null = log consulted, manifest not in it. */
+  anchoredAt?: string | null,
 ): { trusted: boolean; reason: string } {
   let fp: string;
   try {
@@ -150,6 +152,20 @@ export function trustDecision(
   const rev = Date.parse(k.revokedAt ?? "");
   const at = signedAt ? Date.parse(signedAt) : NaN;
   if (!Number.isFinite(rev)) return { trusted: false, reason: "revoked key without a revocation time" };
+  if (anchoredAt !== undefined) {
+    // the log time cannot be backdated by the key holder: it must exist and not be after the revocation
+    if (anchoredAt === null)
+      return {
+        trusted: false,
+        reason: "revoked key and the manifest is not in the independent publication log",
+      };
+    const an = Date.parse(anchoredAt);
+    if (!Number.isFinite(an) || an > rev)
+      return { trusted: false, reason: "published (log time) after the key was revoked" };
+    if (Number.isFinite(at) && at >= rev)
+      return { trusted: false, reason: "signed after the key was revoked" };
+    return { trusted: true, reason: "published (independent log time) before the key was revoked" };
+  }
   if (!Number.isFinite(at))
     return { trusted: false, reason: "revoked key and the manifest has no proven signing time" };
   return at < rev

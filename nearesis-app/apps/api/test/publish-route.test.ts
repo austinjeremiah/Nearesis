@@ -6,7 +6,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   buildCapsule,
   buildLiveCapsuleInput,
+  appendPublishAnchor,
   isCapsulePublic,
+  readAnchorLog,
+  verifyAnchorChain,
   verifyPublishManifest,
   writeCapsuleOwnership,
 } from "../../../packages/capsule/src/index.ts";
@@ -41,8 +44,10 @@ beforeAll(async () => {
   writeFileSync(
     keyFile,
     generateKeyPairSync("ed25519").privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+    { mode: 0o600 },
   );
   process.env.NEARESIS_PUBLISH_KEY_FILE = keyFile;
+  process.env.NEARESIS_ALLOW_PLAIN_PUBLISH_KEY = "1";
   f = await apiFixture();
   const orgA = await seedOrg(f.db.admin, "pubroute-a", { alice: "owner", vic: "viewer" });
   const orgB = await seedOrg(f.db.admin, "pubroute-b", { bob: "owner" });
@@ -70,7 +75,14 @@ beforeAll(async () => {
     writeCapsuleOwnership(join(capsules, id), { orgId: orgA.orgId, workspaceId: wsA });
 }, 120_000);
 afterAll(async () => {
-  for (const k of ["NEARESIS_CAPSULE_DIR", "NEARESIS_PUBLISH_DIR", "NEARESIS_PUBLISH_KEY_FILE"])
+  for (const k of [
+    "NEARESIS_CAPSULE_DIR",
+    "NEARESIS_PUBLISH_DIR",
+    "NEARESIS_PUBLISH_KEY_FILE",
+    "NEARESIS_ALLOW_PLAIN_PUBLISH_KEY",
+    "NEARESIS_PUBLISH_KEY_ENCRYPTED_FILE",
+    "NEARESIS_PUBLISH_KEY_PASSPHRASE",
+  ])
     delete process.env[k];
   await f?.close();
   rmSync(capsules, { recursive: true, force: true });
@@ -136,5 +148,70 @@ describe("POST /v1/publish", () => {
     const ok = await post(alice, { capsuleId: ids.fixture });
     expect(ok.status).toBe(200);
     expect(ok.body).toMatchObject({ label: "SYNTHETIC", signature: "valid" });
+  });
+
+  it("plaintext key: refused without the dev flag; with it the response and log say hardened:false", async () => {
+    delete process.env.NEARESIS_ALLOW_PLAIN_PUBLISH_KEY;
+    const refused = await post(alice, { capsuleId: ids.fixture });
+    expect(refused.status).toBe(503);
+    expect(refused.body).toMatchObject({ reasonCode: "PLAINTEXT_PUBLISH_KEY_REFUSED" });
+    process.env.NEARESIS_ALLOW_PLAIN_PUBLISH_KEY = "1";
+    const ok = await post(alice, { capsuleId: ids.fixture });
+    expect(ok.status).toBe(200);
+    expect(ok.body).toMatchObject({ hardened: false, signingSource: "plain-file" });
+  });
+
+  it("encrypted key is a hardened source; the publication is appended to the hash-chained log", async () => {
+    const enc = join(published, "enc.pem");
+    writeFileSync(
+      enc,
+      generateKeyPairSync("ed25519")
+        .privateKey.export({ type: "pkcs8", format: "pem", cipher: "aes-256-cbc", passphrase: "pw-for-test" })
+        .toString(),
+    );
+    process.env.NEARESIS_PUBLISH_KEY_ENCRYPTED_FILE = enc;
+    process.env.NEARESIS_PUBLISH_KEY_PASSPHRASE = "pw-for-test";
+    try {
+      const ok = await post(alice, { capsuleId: ids.fixture });
+      expect(ok.status).toBe(200);
+      expect(ok.body).toMatchObject({ hardened: true, signingSource: "encrypted-file", signature: "valid" });
+      const rows = (await f.db.admin.query("SELECT * FROM publication_anchor_log ORDER BY seq")).rows;
+      const entries = await readAnchorLog(f.db.admin);
+      expect(rows.length).toBeGreaterThanOrEqual(2);
+      expect(verifyAnchorChain(entries)).toEqual([]);
+      const mine = entries.find((e) => e.manifestHash === ok.body.manifestHash)!;
+      expect(mine.kind).toBe("publish");
+      expect(mine.signedAt).toMatch(/Z$/);
+      // an independent database timestamp exists and is not the signer's
+      expect(Date.parse(mine.anchoredAt)).toBeGreaterThan(0);
+    } finally {
+      delete process.env.NEARESIS_PUBLISH_KEY_ENCRYPTED_FILE;
+      delete process.env.NEARESIS_PUBLISH_KEY_PASSPHRASE;
+    }
+  });
+
+  it("the log is append-only: update, delete and truncate are refused; a client cannot choose seq or hash", async () => {
+    await expect(f.db.admin.query("UPDATE publication_anchor_log SET payload = 'x'")).rejects.toThrow(
+      /append-only/,
+    );
+    await expect(f.db.admin.query("DELETE FROM publication_anchor_log")).rejects.toThrow(/append-only/);
+    await expect(f.db.admin.query("TRUNCATE publication_anchor_log")).rejects.toThrow(/append-only/);
+    const forged = await appendPublishAnchor(f.db.admin, {
+      manifestHash: "a".repeat(64),
+      signedAt: "2020-01-01T00:00:00.000Z",
+      capsuleId: "forge",
+      version: "v",
+      keyFingerprint: null,
+    });
+    // the claimed (backdated) signing time is recorded as claimed; the log time is the database clock
+    expect(forged.signedAt).toBe("2020-01-01T00:00:00.000Z");
+    expect(Date.parse(forged.anchoredAt)).toBeGreaterThan(Date.parse("2026-01-01"));
+    expect(verifyAnchorChain(await readAnchorLog(f.db.admin))).toEqual([]);
+  });
+
+  it("without a configured chain hook the response reports anchor.chain not_configured (log entry still written)", async () => {
+    const ok = await post(alice, { capsuleId: ids.live, acknowledge: ["INSUFFICIENT_DATA"] });
+    expect(ok.status).toBe(200);
+    expect(ok.body.anchor).toMatchObject({ chain: "not_configured" });
   });
 });

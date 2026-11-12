@@ -7,6 +7,8 @@ import { canonicalJson, canonicalSha256, sha256Hex } from "./canonical.ts";
 import { liveQueryId } from "./live.ts";
 import { readRegistry, trustDecision } from "./trusted-keys.ts";
 import type { TrustedKeyRegistry } from "./trusted-keys.ts";
+import { anchoredTimeFor } from "./publication-anchor.ts";
+import type { AnchorEntry } from "./publication-anchor.ts";
 
 /**
  * Static publication pipeline (ch.25: "The publisher consumes a signed manifest referencing all completed outputs, not
@@ -338,7 +340,12 @@ export interface PublishVerification {
 export function verifyPublishManifest(
   versionDir: string,
   manifestPath: string,
-  opts: { trustedKeyIds?: string[]; registry?: TrustedKeyRegistry | string } = {},
+  opts: {
+    trustedKeyIds?: string[];
+    registry?: TrustedKeyRegistry | string;
+    /** Independent append-only publication-log entries (see publication-anchor.ts); when given, a revoked key needs one. */
+    anchors?: AnchorEntry[];
+  } = {},
 ): PublishVerification {
   const problems: string[] = [];
   let m: PublishManifest;
@@ -446,9 +453,15 @@ export function verifyPublishManifest(
         proven = null;
       }
     }
-    const d = trustDecision(reg, signature.publicKeyPem, proven);
+    const anchor = opts.anchors ? anchoredTimeFor(opts.anchors, manifestHash) : undefined;
+    const d = trustDecision(reg, signature.publicKeyPem, proven, anchor);
     trusted = d.trusted;
     trustReason = d.reason;
+  }
+  // a manifest that fails any integrity check is never trusted, whatever its signature says
+  if (problems.length > 0 && trusted) {
+    trusted = false;
+    trustReason = "manifest failed verification";
   }
   return {
     ok: problems.length === 0,

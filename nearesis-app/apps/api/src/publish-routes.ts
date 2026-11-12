@@ -1,12 +1,16 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { KernelError, writeAudit } from "@nearesis/kernel";
 import { guardCapsuleMetrics, principalOf } from "./metric-publish-guard.ts";
 import type { PublishAuthoring } from "./metric-publish-guard.ts";
 import type { Kernel, Session } from "@nearesis/kernel";
+import { resolvePublishSigner } from "./publish-signer.ts";
+import type { ChainCommitPayload } from "@nearesis/capsule";
 import {
   APP_ROOT,
+  appendChainCommitAnchor,
+  appendPublishAnchor,
   PublicationBlockedError,
   PublishBlockedError,
   SnapshotError,
@@ -21,16 +25,16 @@ export interface PublishRoutesOptions {
   kernel: Kernel;
   /** Governed metric authoring: when set, a capsule using a non-CERTIFIED semantic metric cannot be published (422 METRIC_NOT_CERTIFIED). */
   authoring?: PublishAuthoring;
+  /**
+   * Commits a published manifest hash on-chain (NEAR testnet, hash only, approved path). Optional; when absent the response
+   * reports `anchor.chain: "not_configured"`. A failure never fails the publication: the log entry already exists.
+   */
+  anchorChain?: (manifestHash: string) => Promise<ChainCommitPayload>;
 }
 
 const CAPSULE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/;
 const capsuleRoot = (): string => process.env.NEARESIS_CAPSULE_DIR ?? join(APP_ROOT, ".data", "capsules");
 const publishRoot = (): string => process.env.NEARESIS_PUBLISH_DIR ?? join(APP_ROOT, ".data", "published");
-/** Optional ed25519 PKCS8 PEM file for the publish manifest signature; absent means an honestly `unsigned` manifest. */
-const signerPem = (): string | null => {
-  const f = process.env.NEARESIS_PUBLISH_KEY_FILE;
-  return f && existsSync(f) ? readFileSync(f, "utf8") : null;
-};
 
 /**
  * `POST /v1/publish` (ch.11: approved immutable claim set -> scheduled export workflow). Builds the static publication
@@ -40,7 +44,10 @@ const signerPem = (): string | null => {
  * the same explicit acknowledgement as the MCP publication route. This route never changes public MCP visibility
  * (`/v1/capsules/:id/publish` owns that).
  */
-export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (app, { kernel, authoring }) => {
+export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (
+  app,
+  { kernel, authoring, anchorChain },
+) => {
   async function authenticate(req: FastifyRequest): Promise<Session> {
     const h = req.headers.authorization;
     const token = h?.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : undefined;
@@ -118,8 +125,20 @@ export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (ap
       }
 
       let published: ReturnType<typeof publishStatic>;
+      let signing: { source: string; hardened: boolean } = { source: "none", hardened: false };
       try {
-        const pem = signerPem();
+        const resolved = resolvePublishSigner();
+        if (resolved.kind === "refused") {
+          app.log.error({ hardened: false, signingSource: resolved.source }, resolved.reason);
+          throw new KernelError("UPSTREAM_DEGRADED", "PLAINTEXT_PUBLISH_KEY_REFUSED", resolved.reason);
+        }
+        signing = { source: resolved.source, hardened: resolved.hardened };
+        if (resolved.kind === "signer" && !resolved.hardened)
+          app.log.warn(
+            { hardened: false, signingSource: resolved.source },
+            "publishing with a plaintext key (dev only)",
+          );
+        const pem = resolved.kind === "signer" ? resolved.privateKeyPem : null;
         published = publishStatic({
           snapshotDir: join(dir, "snapshot"),
           capsuleId: manifest.capsuleId,
@@ -173,6 +192,7 @@ export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (ap
         label: manifest.label,
         signature: v.signature,
       };
+      let anchor: Record<string, unknown> = { log: "none", chain: "not_configured" };
       const ev = await kernel.db.tx(
         { orgId: s.principal.orgId, userId: s.userId, actorKind: s.principal.kind },
         async (tx) => {
@@ -197,13 +217,45 @@ export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (ap
             subject: `capsule:${id}`,
             outcome: "ok",
             reasonCode: null,
-            detail: { version: data.version, manifestHash: data.manifestHash },
+            detail: { version: data.version, manifestHash: data.manifestHash, hardened: signing.hardened },
           });
+          // independent append-only record (database clock): first publication of this manifest hash only
+          const seen = await tx.query(
+            "SELECT 1 FROM publication_anchor_log WHERE manifest_hash = $1 AND kind = 'publish'",
+            [data.manifestHash],
+          );
+          if (seen.rows.length === 0) {
+            const sig = published.manifest.signature;
+            const a = await appendPublishAnchor(tx, {
+              manifestHash: data.manifestHash,
+              signedAt: sig.alg === "ed25519" ? (sig.signedAt ?? null) : null,
+              capsuleId: id,
+              version: data.version,
+              keyFingerprint: sig.alg === "ed25519" ? sig.keyId : null,
+            });
+            anchor = { log: "appended", seq: a.seq, anchoredAt: a.anchoredAt, chain: "not_configured" };
+          } else anchor = { log: "already_recorded", chain: "not_configured" };
           return e;
         },
       );
+      if (anchor.log === "appended" && anchorChain) {
+        try {
+          const c = await anchorChain(data.manifestHash);
+          await kernel.db.tx(
+            { orgId: s.principal.orgId, userId: s.userId, actorKind: s.principal.kind },
+            (tx) => appendChainCommitAnchor(tx, { manifestHash: data.manifestHash, ...c }),
+          );
+          anchor = { ...anchor, chain: "committed", network: c.network, txHash: c.txHash };
+        } catch (e) {
+          app.log.error({ err: (e as Error).message }, "publication chain anchor failed");
+          anchor = { ...anchor, chain: "failed" };
+        }
+      }
       return {
         ...data,
+        signingSource: signing.source,
+        hardened: signing.hardened,
+        anchor,
         created: published.bundle.created,
         eventId: ev.eventId,
         seq: ev.seq,

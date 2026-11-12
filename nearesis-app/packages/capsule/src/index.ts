@@ -24,6 +24,7 @@ export * from "./attest-outlayer.ts";
 export * from "./publication-state.ts";
 export * from "./publish.ts";
 export * from "./publish-key.ts";
+export * from "./publication-anchor.ts";
 export * from "./trusted-keys.ts";
 export * from "./live.ts";
 export * from "./outlayer-submit.ts";

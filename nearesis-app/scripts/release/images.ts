@@ -9,6 +9,8 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { scanRelease } from "./vuln-scan.ts";
+import type { NotRunRecord, ScanRecord } from "./vuln-scan.ts";
 
 export const IMAGE_DOCKERFILES = {
   api: "infrastructure/deploy/Dockerfile.api",
@@ -56,7 +58,7 @@ export interface BuildRecord {
   pushed: false;
   images: Record<ImageName, BuiltImage>;
   sbom: { path: string; sha256: string; packages: number; osPackages: number } | null;
-  vulnerabilityScan: { status: "NOT_RUN"; reason: string } | { status: "RAN"; tool: string; summary: string };
+  vulnerabilityScan: ScanRecord | NotRunRecord;
 }
 
 export const DIGEST = /^sha256:[0-9a-f]{64}$/;
@@ -105,10 +107,13 @@ export function buildImages(opts: {
   outDir: string;
   noCache?: boolean;
   names?: ImageName[];
+  /** Vulnerability and secret scan with the pinned trivy (default on). */
+  scan?: boolean;
 }): BuildRecord {
   const run = opts.run ?? realRun;
   const { dir, gitSha } = exportRef(run, opts.repoRoot, opts.appDir, opts.ref);
   const images = {} as Record<ImageName, BuiltImage>;
+  let scanned: BuildRecord["vulnerabilityScan"] | undefined;
   try {
     for (const name of opts.names ?? IMAGE_NAMES) {
       const dockerfile = IMAGE_DOCKERFILES[name];
@@ -155,6 +160,7 @@ export function buildImages(opts: {
         envFilesInImage: envFiles.out.split("\n").filter(Boolean),
       };
     }
+    scanned = opts.scan === false ? undefined : scanExport(dir, images);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -167,16 +173,44 @@ export function buildImages(opts: {
     pushed: false,
     images,
     sbom: null,
-    vulnerabilityScan: {
+    vulnerabilityScan: scanned ?? {
       status: "NOT_RUN",
-      reason:
-        "no offline image scanner (syft, grype, trivy) is installed and none may be downloaded without approval; lockfile dependency scanning is covered by SEC05",
+      reason: opts.scan === false ? "scan disabled by the caller" : "scan not run",
     },
   };
   record.sbom = writeSbom(run, opts.repoRoot, opts.appDir, record, opts.outDir);
   mkdirSync(opts.outDir, { recursive: true });
   writeFileSync(join(opts.outDir, "build-record.json"), JSON.stringify(record, null, 2) + "\n");
   return record;
+}
+
+/** Scan the lockfiles of an exported tree and each built image with the pinned trivy. */
+export function scanExport(
+  dir: string,
+  images: Partial<Record<ImageName, BuiltImage>>,
+): BuildRecord["vulnerabilityScan"] {
+  return scanRelease({
+    dir,
+    images: Object.fromEntries(Object.entries(images).map(([k, v]) => [k, { tag: v.tag, digest: v.digest }])),
+  });
+}
+
+/** Re-scan an existing build record (same commit export for the lockfiles, same local images) and rewrite the record. */
+export function rescanRecord(
+  run: Run,
+  repoRoot: string,
+  appDir: string,
+  rec: BuildRecord,
+  outDir: string,
+): BuildRecord {
+  const { dir } = exportRef(run, repoRoot, appDir, rec.gitSha);
+  try {
+    rec.vulnerabilityScan = scanExport(dir, rec.images);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  writeFileSync(join(outDir, "build-record.json"), JSON.stringify(rec, null, 2) + "\n");
+  return rec;
 }
 
 /** Image SBOM: OS packages read from each image (dpkg status) plus every package in the committed lockfile. */

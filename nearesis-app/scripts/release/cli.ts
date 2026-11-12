@@ -3,6 +3,7 @@
  *   tsx scripts/release/cli.ts manifest [--out DIR] [--approver ID]   build manifest, rollback manifest and SBOM record; print validation problems
  *   tsx scripts/release/cli.ts check FILE              validate a manifest file
  *   tsx scripts/release/cli.ts build-images --label L [--ref REF] [--no-cache]   build api, worker, web locally from a clean export (never pushed)
+ *   tsx scripts/release/cli.ts scan --label L                                      trivy scan of that build's lockfiles and images; exit 1 on a BLOCK verdict
  *   tsx scripts/release/cli.ts promote --label L                                  point the local `live` tags at that build
  *   tsx scripts/release/cli.ts preflight --network testnet|mainnet --contract C --method M --payload HEX64 --signer S --max-cost N --fee-ceiling N --balance-ceiling N
  *       read-only dry pre-flight (chain id read from the RPC, balance, fee estimate, on-chain readback of the payload); never signs or broadcasts
@@ -13,10 +14,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildManifest, validateManifest, validateRollback } from "./manifest.ts";
+import { buildManifest, scanProblems, validateManifest, validateRollback } from "./manifest.ts";
 import type { ReleaseManifest, RollbackManifest } from "./manifest.ts";
 import { readSec11Sbom } from "./sbom.ts";
-import { buildImages, readBuildRecord, realRun, writeSbom } from "./images.ts";
+import { buildImages, readBuildRecord, realRun, rescanRecord, writeSbom } from "./images.ts";
 import type { BuildRecord, ImageName } from "./images.ts";
 import { promote, rollback } from "./rollback.ts";
 import { actionHash } from "./approval.ts";
@@ -56,6 +57,7 @@ if (cmd === "manifest") {
     testnetTxHash: tn?.txHash ?? null,
     approver: rest.includes("--approver") ? rest[rest.indexOf("--approver") + 1]! : null,
     sbomSha256: sbom?.sbomSha256 ?? null,
+    vulnerabilityScan: cand?.vulnerabilityScan ?? null,
     expectedMaxSpend: "0.05 NEAR",
     balanceCeiling: "10",
     feeCeiling: "1",
@@ -69,7 +71,11 @@ if (cmd === "manifest") {
   );
   console.log(
     JSON.stringify(
-      { out, problems: [...validateManifest({ ...manifest }), ...validateRollback(rollback, manifest)] },
+      {
+        out,
+        problems: [...validateManifest({ ...manifest }), ...validateRollback(rollback, manifest)],
+        releaseBlockers: scanProblems(manifest),
+      },
       null,
       2,
     ),
@@ -103,6 +109,19 @@ if (cmd === "manifest") {
       2,
     ),
   );
+} else if (cmd === "scan") {
+  // re-scan a recorded build (lockfiles of its commit and its local images) with the pinned trivy
+  const label = rest[rest.indexOf("--label") + 1] ?? "candidate";
+  const dir = join(root, ".data", "release", label);
+  const rec = rescanRecord(
+    realRun,
+    resolve(root, ".."),
+    "nearesis-app",
+    readBuildRecord(dir) as BuildRecord,
+    dir,
+  );
+  console.log(JSON.stringify(rec.vulnerabilityScan, null, 2));
+  process.exit(rec.vulnerabilityScan.status === "RAN" && rec.vulnerabilityScan.verdict === "PASS" ? 0 : 1);
 } else if (cmd === "preflight" || cmd === "approval-request") {
   const flag = (n: string) => {
     const v = rest[rest.indexOf(`--${n}`) + 1];

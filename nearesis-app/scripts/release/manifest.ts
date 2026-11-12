@@ -3,6 +3,7 @@ import { createHash, verify as edVerify } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
+import type { NotRunRecord, ScanRecord } from "./vuln-scan.ts";
 
 export const MAINNET_ACTIONS = ["commit_preregistration_hash"] as const;
 export const REQUIRED_FIELDS = [
@@ -38,6 +39,8 @@ export interface ReleaseManifest {
   balanceCeiling: string | null;
   feeCeiling: string | null;
   rollbackManifestSha: string | null;
+  /** Vulnerability and secret scan of the lockfiles and the built images (scanner, DB date, per-image results, policy verdict). */
+  vulnerabilityScan?: ((ScanRecord | NotRunRecord) & { recordSha256?: string }) | null;
 }
 export interface RollbackManifest {
   previousGitSha: string | null;
@@ -83,6 +86,7 @@ export interface BuildInputs {
   sbomSha256?: string | null;
   balanceCeiling?: string;
   feeCeiling?: string;
+  vulnerabilityScan?: ReleaseManifest["vulnerabilityScan"];
   /** Previous release for the rollback manifest. */
   previous?: { gitSha: string; images: Partial<ReleaseManifest["images"]> } | null;
 }
@@ -153,6 +157,9 @@ export function buildManifest(i: BuildInputs): { manifest: ReleaseManifest; roll
     balanceCeiling: i.balanceCeiling ?? null,
     feeCeiling: i.feeCeiling ?? null,
     rollbackManifestSha: `sha256:${sha256(JSON.stringify(rollback))}`,
+    vulnerabilityScan: i.vulnerabilityScan
+      ? { ...i.vulnerabilityScan, recordSha256: sha256(JSON.stringify(i.vulnerabilityScan)) }
+      : null,
   };
   return { manifest, rollback };
 }
@@ -215,6 +222,42 @@ export function validateManifest(m: Partial<ReleaseManifest> & Record<string, un
   if (!isNull(m.sbomSha256) && !/^[0-9a-f]{64}$/.test(String(m.sbomSha256)))
     p.push({ field: "sbomSha256", problem: "malformed" });
   p.push(...scanSecrets(m).map((s) => ({ field: s.field || "(manifest)", problem: s.problem })));
+  return p;
+}
+
+/**
+ * Release blockers from the vulnerability scan record: absent, not run, scanner not the pinned one, an image missing from
+ * the scan, a verdict that disagrees with its own findings, or a BLOCK verdict. These do not change manifest completeness
+ * (`validateManifest`); they decide whether the release may proceed.
+ */
+export function scanProblems(m: ReleaseManifest): Problem[] {
+  const s = m.vulnerabilityScan;
+  if (!s) return [{ field: "vulnerabilityScan", problem: "missing" }];
+  if (s.status !== "RAN") return [{ field: "vulnerabilityScan", problem: `not run: ${s.reason}` }];
+  const p: Problem[] = [];
+  if (!s.scanner.pinOk)
+    p.push({ field: "vulnerabilityScan.scanner", problem: "scanner is not the pinned trivy version/binary" });
+  if (!s.scanner.dbUpdatedAt)
+    p.push({ field: "vulnerabilityScan.scanner", problem: "no vulnerability DB date" });
+  for (const k of IMAGE_KEYS) {
+    const r = s.images[k];
+    if (!r) p.push({ field: `vulnerabilityScan.images.${k}`, problem: "image not scanned" });
+    else if (m.images[k] && r.digest !== m.images[k])
+      p.push({
+        field: `vulnerabilityScan.images.${k}`,
+        problem: "scanned image digest differs from the manifest",
+      });
+    else if (r.verdict.verdict !== "PASS")
+      p.push({
+        field: `vulnerabilityScan.images.${k}`,
+        problem: `BLOCK: ${r.verdict.blockers.map((b) => `${b.rule} ${b.id} ${b.detail}`).join("; ")}`,
+      });
+  }
+  if (s.lockfiles.verdict.verdict !== "PASS")
+    p.push({
+      field: "vulnerabilityScan.lockfiles",
+      problem: `BLOCK: ${s.lockfiles.verdict.blockers.map((b) => `${b.rule} ${b.id} ${b.target}`).join("; ")}`,
+    });
   return p;
 }
 

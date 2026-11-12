@@ -1,0 +1,4 @@
+{
+  "note": "Vulnerability waivers. Each entry is the export of a signed SEC22 release_waivers record (human signer, independent reviewer, expiry). Only HIGH (never CRITICAL) findings can be waived; an expired, unsigned, self-reviewed or short-rationale entry is ignored and reported as invalid.",
+  "waivers": []
+}

@@ -30,6 +30,17 @@ function loadEnv(): void {
   }
 }
 loadEnv();
+// Sessions survive API restarts: without an operator secret, the signing key ring persists (0600) under .data/keys.
+if (!process.env.NEARESIS_SESSION_SECRET && !process.env.NEARESIS_SESSION_KEYRING)
+  process.env.NEARESIS_SESSION_KEYRING = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "..",
+    "..",
+    ".data",
+    "keys",
+    "session-keyring.json",
+  );
 
 const nodeEnv = process.env.NODE_ENV;
 // Cost control: plugin egress is authorised before it leaves (the governor is bound after the kernel exists).

@@ -3,6 +3,7 @@ export * from "./redact.ts";
 export * from "./egress.ts";
 export * from "./sandbox.ts";
 export * from "./auth.ts";
+export * from "./session-keys.ts";
 export * from "./journal.ts";
 export * from "./workspace.ts";
 export * from "./commands.ts";

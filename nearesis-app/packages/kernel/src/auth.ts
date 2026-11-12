@@ -1,8 +1,9 @@
-import { randomBytes, randomUUID } from "node:crypto";
-import { SignJWT, jwtVerify } from "jose";
+import { randomUUID } from "node:crypto";
+import { SignJWT, decodeProtectedHeader, jwtVerify } from "jose";
 import type { Principal, Role } from "@nearesis/contracts";
 import type { Db } from "./db/pool.ts";
 import { KernelError } from "./errors.ts";
+import { SessionKeyRing } from "./session-keys.ts";
 
 export interface Session {
   principal: Principal;
@@ -19,16 +20,34 @@ const ISSUER = "nearesis-kernel";
 const AUDIENCE = "nearesis-api";
 
 export class DevAuthProvider implements AuthProvider {
-  private readonly secret: Uint8Array;
+  private readonly keys: SessionKeyRing;
+  /**
+   * Key source, in order: an operator secret (NEARESIS_SESSION_SECRET, >= 16 chars); else a persisted key ring at
+   * `keyringPath` so sessions survive API restarts; else an ephemeral in-memory key (tests).
+   */
   constructor(
     private readonly db: Db,
     secret: string | undefined = process.env.NEARESIS_SESSION_SECRET,
     private readonly nodeEnv: string | undefined = process.env.NODE_ENV,
     private readonly ttlSeconds = 3600,
+    keyringPath: string | undefined = process.env.NEARESIS_SESSION_KEYRING,
+    keyring?: SessionKeyRing,
   ) {
-    this.secret = new TextEncoder().encode(
-      secret && secret.length >= 16 ? secret : randomBytes(32).toString("hex"),
-    );
+    this.keys =
+      keyring ??
+      new SessionKeyRing({
+        ...(secret && secret.length >= 16
+          ? { fixedSecret: secret }
+          : keyringPath
+            ? { path: keyringPath }
+            : {}),
+        windowMs: Math.max(ttlSeconds * 1000 * 2, 3600_000),
+      });
+  }
+
+  /** Rotate the signing key; tokens signed by the previous key stay valid for the retirement window. */
+  rotateKey(): void {
+    this.keys.rotate();
   }
 
   /** Dev login: only when NODE_ENV !== "production". Issues a session JWT for a seeded user. */
@@ -43,20 +62,23 @@ export class DevAuthProvider implements AuthProvider {
     );
     const row = r.rows[0];
     if (!row) throw new KernelError("UNAUTHENTICATED", "UNKNOWN_SUBJECT", "Unknown subject.");
+    const signing = this.keys.signing();
     return new SignJWT({ org: row.org_id })
-      .setProtectedHeader({ alg: "HS256" })
+      .setProtectedHeader({ alg: "HS256", kid: signing.kid })
       .setSubject(row.user_id)
       .setIssuer(ISSUER)
       .setAudience(AUDIENCE)
       .setJti(randomUUID())
       .setIssuedAt()
       .setExpirationTime(`${this.ttlSeconds}s`)
-      .sign(this.secret);
+      .sign(signing.secret);
   }
 
   async authenticate(token: string): Promise<{ userId: string; orgId: string; jti?: string }> {
     try {
-      const { payload } = await jwtVerify(token, this.secret, {
+      const secret = this.keys.verifying(decodeProtectedHeader(token).kid);
+      if (!secret) throw new Error("kid");
+      const { payload } = await jwtVerify(token, secret, {
         issuer: ISSUER,
         audience: AUDIENCE,
         algorithms: ["HS256"],

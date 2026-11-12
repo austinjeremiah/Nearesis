@@ -10,6 +10,8 @@ import { planChunks, quotaDayStart, WINDOW_FROM, WINDOW_TO } from "./plan.ts";
 import { StateStore } from "./state.ts";
 import { runExplorerSession } from "./explorer-session.ts";
 import { runPricePhase } from "./price-phase.ts";
+import { installGracefulShutdown } from "../rate/shutdown.ts";
+import { isTransientError } from "../rate/retry.ts";
 import { writeRunReport, type RunSummary } from "./report.ts";
 
 // NEARESIS_COST_CONTROL=1: authorise every billed BigQuery job, paid HTTP call and archive write before it runs.
@@ -68,6 +70,28 @@ const summary: RunSummary = {
   explorer: null,
   price: null,
 };
+
+let stopRequested = false;
+installGracefulShutdown({
+  log,
+  onStop: () => {
+    stopRequested = true;
+  },
+  cleanup: async () => {
+    await ch.close();
+    await live.db.close();
+  },
+});
+// A transient socket/timeout error surfacing from a client callback must not kill an unattended run.
+for (const ev of ["unhandledRejection", "uncaughtException"] as const)
+  process.on(ev, (e: unknown) => {
+    if (isTransientError(e)) {
+      log(`${ev} (transient, ignored): ${(e as Error).name}: ${(e as Error).message?.slice(0, 120)}`);
+      return;
+    }
+    log(`${ev} (fatal): ${(e as Error)?.stack ?? String(e)}`);
+    process.exit(1);
+  });
 
 try {
   if (values.reconcile) {
@@ -141,10 +165,12 @@ try {
         values["explorer-max-minutes"] ?? values["explorer-minutes"] ?? (values["explorer-only"] ? 0 : 120),
       ),
       log,
+      shouldStop: () => stopRequested,
     });
   const paths = await writeRunReport({ ch, store, summary, dataDir: DATA_DIR });
   log(`report ${paths.md}`);
 } finally {
   await ch.close();
   await live.db.close();
+  if (stopRequested) process.exitCode = 143; // stopped by signal: a supervisor must not treat this as "finished"
 }

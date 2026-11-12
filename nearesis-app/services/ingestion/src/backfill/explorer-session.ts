@@ -17,6 +17,7 @@ import { normalize } from "../normalize.ts";
 import { insertLive, refreshWatermarks, swapRows } from "./ch.ts";
 import { refreshExplorerCoverage } from "./explorer-coverage.ts";
 import { REDIS_URL } from "./env.ts";
+import { withRetry } from "../rate/retry.ts";
 import { loadLiveAssetRegistry } from "../registry/live-registry.ts";
 import { addDays, WINDOW_FROM, WINDOW_TO } from "./plan.ts";
 import type { BackfillState, StateStore } from "./state.ts";
@@ -181,6 +182,9 @@ export async function runExplorerSession(d: {
   store: StateStore;
   minutes: number;
   log: (m: string) => void;
+  /** Graceful stop (SIGTERM/SIGINT): checked between batches and between retries. */
+  shouldStop?: () => boolean;
+  sleep?: (ms: number) => Promise<void>;
 }): Promise<ExplorerResult | null> {
   if (!d.creds.has("INTENTS_EXPLORER_JWT")) {
     d.log("explorer: INTENTS_EXPLORER_JWT not set, skipping");
@@ -203,7 +207,21 @@ export async function runExplorerSession(d: {
   const startedAt = Date.now();
   // minutes <= 0 means unlimited (detached full-year run)
   const deadline = d.minutes > 0 ? startedAt + d.minutes * 60_000 : Number.POSITIVE_INFINITY;
-  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+  const sleep = d.sleep ?? ((ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms)));
+  const stopped = (): boolean => d.shouldStop?.() ?? false;
+  // Unlimited (unattended) runs ride out CH/PG/Redis timeouts indefinitely; bounded runs retry a few times then surface.
+  const guard = <T>(fn: () => Promise<T>): Promise<T> =>
+    withRetry(fn, {
+      attempts: d.minutes <= 0 ? Number.POSITIVE_INFINITY : 4,
+      baseMs: 2000,
+      maxMs: 120_000,
+      sleep,
+      shouldStop: stopped,
+      onRetry: ({ attempt, delayMs, error }) =>
+        d.log(
+          `explorer transient error (${(error as Error).message?.slice(0, 100)}); retry ${attempt} in ${delayMs / 1000}s`,
+        ),
+    });
   let retries = 0;
   const window = {
     startUnix: Date.parse(`${WINDOW_FROM}T00:00:00Z`) / 1000 - 1, // non-inclusive in provider semantics
@@ -214,8 +232,10 @@ export async function runExplorerSession(d: {
   let status = "max_pages";
   let lastCursor: unknown = null;
   try {
-    while (Date.now() < deadline) {
-      const r = await collector.run({ ...window, maxPages: BATCH_PAGES, skipQuarantined: skipPolicy });
+    while (Date.now() < deadline && !stopped()) {
+      const r = await guard(() =>
+        collector.run({ ...window, maxPages: BATCH_PAGES, skipQuarantined: skipPolicy }),
+      );
       lastCursor = r.cursor;
       status = r.status;
       d.log(`explorer batch: ${r.status}, +${r.pagesCommitted} pages, +${r.swapsInserted} swaps`);
@@ -229,7 +249,7 @@ export async function runExplorerSession(d: {
       if (r.status === "max_pages") {
         retries = 0;
         // load incrementally so ClickHouse tracks the Postgres import state as it grows
-        await loadSwapsToClickHouse(d.db, d.ch, d.store, Date.now());
+        await guard(() => loadSwapsToClickHouse(d.db, d.ch, d.store, Date.now()));
         continue;
       }
       // Unattended runs ride out outages: transient network failures, rate limiting and a stale lease are retried with
@@ -241,7 +261,7 @@ export async function runExplorerSession(d: {
         retries++;
         const wait = Math.min(600_000, 30_000 * retries);
         d.log(`explorer ${r.status}; retry ${retries} in ${wait / 1000}s`);
-        await loadSwapsToClickHouse(d.db, d.ch, d.store, Date.now());
+        await guard(() => loadSwapsToClickHouse(d.db, d.ch, d.store, Date.now()));
         await sleep(wait);
         continue;
       }
@@ -250,7 +270,7 @@ export async function runExplorerSession(d: {
   } finally {
     redis.disconnect();
   }
-  const loadedSwaps = await loadSwapsToClickHouse(d.db, d.ch, d.store, Date.now());
+  const loadedSwaps = await guard(() => loadSwapsToClickHouse(d.db, d.ch, d.store, Date.now()));
   const range = await d.db.query<{ lo: Date | null; hi: Date | null }>(
     "SELECT min(created_at) lo, max(created_at) hi FROM ingestion.explorer_swaps",
   );

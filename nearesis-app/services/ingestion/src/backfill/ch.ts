@@ -1,4 +1,5 @@
 import { createClient, type ClickHouseClient } from "@clickhouse/client";
+import { withRetry } from "../rate/retry.ts";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -94,7 +95,12 @@ export async function insertLive(ch: ClickHouseClient, table: string, rows: Row[
   assertLive(table, rows);
   const BATCH = 20_000;
   for (let i = 0; i < rows.length; i += BATCH)
-    await ch.insert({ table, values: rows.slice(i, i + BATCH), format: "JSONEachRow" });
+    // Loads are idempotent (ReplacingMergeTree keyed rows), so a timed-out insert that did land is harmless to repeat.
+    await withRetry(() => ch.insert({ table, values: rows.slice(i, i + BATCH), format: "JSONEachRow" }), {
+      attempts: 6,
+      baseMs: 2000,
+      maxMs: 60_000,
+    });
   return rows.length;
 }
 

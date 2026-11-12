@@ -22,6 +22,8 @@ import {
   SCHEDULER_STATE_PATH,
   type TaskName,
 } from "./config.ts";
+import { installGracefulShutdown } from "../rate/shutdown.ts";
+import { backoffDelayMs, isTransientError } from "../rate/retry.ts";
 import { planBqDry } from "./daily.ts";
 import { SchedulerLease } from "./lease.ts";
 import { DEFAULT_ROUTES, limitSlots, pendingBqDays, pendingPriceDays, planQuoteGrid } from "./plan.ts";
@@ -123,7 +125,19 @@ const ch = createLiveCh();
 await migrateLive(ch);
 const live = await openLivePg();
 const archive = openArchive(live.db, SCHEDULER_RAW_DIR);
-const lease = new SchedulerLease(new Redis(REDIS_URL, { maxRetriesPerRequest: 2 }), SCHEDULER_LEASE_KEY);
+const lease = new SchedulerLease(
+  new Redis(REDIS_URL, { maxRetriesPerRequest: 2 }),
+  SCHEDULER_LEASE_KEY,
+  120_000,
+  {
+    onEvent: (e) => {
+      if (e === "clock_jump") log("clock jump detected (machine sleep?); re-validating the lease");
+      else if (e === "reacquired") log("lease had expired; re-acquired it, continuing");
+      else if (e === "lost") log("lease held by another instance");
+      else log("lease renew failed (redis unreachable); will retry on the next beat");
+    },
+  },
+);
 if (!(await lease.acquire())) {
   log("another scheduler instance holds the lease; exiting");
   await ch.close();
@@ -132,10 +146,26 @@ if (!(await lease.acquire())) {
 }
 lease.startRenewing();
 let stop = false;
-for (const sig of ["SIGINT", "SIGTERM"] as const)
-  process.on(sig, () => {
-    log(`${sig}: stopping after the current step`);
+// SIGTERM/SIGINT: finish the current step, but never hold the lease longer than the grace period.
+installGracefulShutdown({
+  log,
+  onStop: () => {
     stop = true;
+  },
+  cleanup: async () => {
+    await ch.close();
+    await live.db.close();
+  },
+});
+// A transient socket/timeout error escaping from a client callback must not kill the loop (macOS sleep, CH restart).
+for (const ev of ["unhandledRejection", "uncaughtException"] as const)
+  process.on(ev, (e: unknown) => {
+    if (isTransientError(e)) {
+      log(`${ev} (transient, ignored): ${(e as Error).name}: ${(e as Error).message?.slice(0, 120)}`);
+      return;
+    }
+    log(`${ev} (fatal): ${(e as Error)?.stack ?? String(e)}`);
+    void lease.release().finally(() => process.exit(1));
   });
 const sleep = async (ms: number): Promise<void> => {
   for (let waited = 0; waited < ms && !stop && !lease.lost; waited += 1000)
@@ -165,8 +195,22 @@ try {
       await scheduler.runTask(t);
     }
   } else {
+    let tickFailures = 0;
     do {
-      await scheduler.tick();
+      try {
+        await scheduler.tick();
+        tickFailures = 0;
+      } catch (e) {
+        // Per-task failures are already isolated by the scheduler; this catches what escapes (planning, state, CH/PG reads).
+        if (values.once || !isTransientError(e)) throw e;
+        tickFailures++;
+        const wait = backoffDelayMs(tickFailures, 5000, 120_000);
+        log(
+          `tick failed (${(e as Error).name}: ${(e as Error).message?.slice(0, 120)}); retry in ${wait / 1000}s`,
+        );
+        await sleep(wait);
+        continue;
+      }
       if (values.once) break;
       await sleep(cfg.tickMs);
     } while (!stop && !lease.lost);

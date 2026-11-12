@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Redis } from "ioredis";
 import type { Clock } from "../clock.ts";
+import { trackLease, untrackLease } from "./shutdown.ts";
 
 export const EXPLORER_INTERVAL_MS = 5000;
 
@@ -83,9 +84,12 @@ export class RedisLease {
     private readonly ttlMs: number = 60_000,
   ) {}
   async acquire(): Promise<boolean> {
-    return (await this.redis.set(this.key, this.token, "PX", this.ttlMs, "NX")) === "OK";
+    const ok = (await this.redis.set(this.key, this.token, "PX", this.ttlMs, "NX")) === "OK";
+    if (ok) trackLease(this);
+    return ok;
   }
   async release(): Promise<void> {
+    untrackLease(this);
     await this.redis.eval(RELEASE_LUA, 1, this.key, this.token);
   }
 }

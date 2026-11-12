@@ -1,4 +1,4 @@
-import { type ChartData, type PanelSpec, Selection } from "@nearesis/contracts";
+import { type ChartData, type PanelSpec, type ResultTruncation, Selection } from "@nearesis/contracts";
 
 /** ch.26 panel state machine. ERROR may be entered from any active state and keeps last good data. */
 export type PanelState =
@@ -86,6 +86,92 @@ export function downsampleMinMax(
     for (const i of [...keep].sort((a, b) => a - b)) out.push([points[i]![0], points[i]![1]]);
   }
   return { method: "min_max_bucket", points: out };
+}
+
+/** Default per-chart row bound (ch.13 Backpressure "per-chart max rows/points"). Mirrors the gateway's 10,000-row limit. */
+export const DEFAULT_MAX_CHART_ROWS = 10_000;
+
+export interface BoundedRows<T> {
+  rows: T[];
+  downsampling: ChartData["downsampling"];
+  /** Present only when rows were cut; absent means the result is complete. The UI must show it as a label. */
+  truncation?: ResultTruncation;
+}
+
+/**
+ * The max-rows rule for chart data. `count` rows are produced lazily by `rowAt` (so a 5-million-row source is never held
+ * in memory). Within `maxRows` nothing changes. Beyond it: a time series (`yAt` given: y of row i, null for a gap) is
+ * min/max-bucket downsampled so spikes and gaps survive and the result is at most `maxRows` rows; any other result is
+ * truncated to its first `maxRows` rows. Both carry explicit `truncation` metadata with the original size.
+ */
+export function boundChartRows<T>(args: {
+  count: number;
+  rowAt: (i: number) => T;
+  yAt?: (i: number) => number | null;
+  maxRows?: number;
+}): BoundedRows<T> {
+  const maxRows = Math.max(4, Math.floor(args.maxRows ?? DEFAULT_MAX_CHART_ROWS));
+  const n = args.count;
+  if (n <= maxRows) {
+    const rows: T[] = [];
+    for (let i = 0; i < n; i++) rows.push(args.rowAt(i));
+    return { rows, downsampling: { method: "none", originalPoints: n } };
+  }
+  const trunc = (method: ResultTruncation["method"], returned: number): ResultTruncation => ({
+    truncated: true,
+    reason: "MAX_ROWS",
+    method,
+    requestedRows: n,
+    returnedRows: returned,
+    maxRows,
+  });
+  if (!args.yAt) {
+    const rows: T[] = [];
+    for (let i = 0; i < maxRows; i++) rows.push(args.rowAt(i));
+    return {
+      rows,
+      downsampling: { method: "none", originalPoints: n },
+      truncation: trunc("truncate", rows.length),
+    };
+  }
+  // Each bucket keeps its first, last, min, max and first gap: at most 5 rows, so size buckets for the bound.
+  const buckets = Math.max(1, Math.floor(maxRows / 5));
+  const size = Math.ceil(n / buckets);
+  const keep: number[] = [];
+  for (let start = 0; start < n; start += size) {
+    const end = Math.min(n, start + size);
+    let minI = -1;
+    let maxI = -1;
+    let gapI = -1;
+    let minV = 0;
+    let maxV = 0;
+    for (let i = start; i < end; i++) {
+      const y = args.yAt(i);
+      if (y === null) {
+        if (gapI < 0) gapI = i;
+        continue;
+      }
+      if (minI < 0 || y < minV) {
+        minI = i;
+        minV = y;
+      }
+      if (maxI < 0 || y > maxV) {
+        maxI = i;
+        maxV = y;
+      }
+    }
+    const idx = new Set<number>([start, end - 1]);
+    if (minI >= 0) idx.add(minI);
+    if (maxI >= 0) idx.add(maxI);
+    if (gapI >= 0) idx.add(gapI);
+    for (const i of [...idx].sort((a, b) => a - b)) keep.push(i);
+  }
+  const rows = keep.map((i) => args.rowAt(i));
+  return {
+    rows,
+    downsampling: { method: "min_max_bucket", originalPoints: n },
+    truncation: trunc("min_max_bucket", rows.length),
+  };
 }
 
 /** Builds the C13 selection context from a panel, its current data and a UTC interval. Never pixel-based. */

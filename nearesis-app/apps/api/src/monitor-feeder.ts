@@ -10,7 +10,22 @@ export interface WatermarkRow {
   version: number;
 }
 
+/** The slice of `DegradationGuard` the feeder uses (apps/api/src/overload). */
+export interface FeederDegradation {
+  markUnhealthy(sourceId: string): void;
+  markHealthy(sourceId: string): void;
+  isDegraded(sourceId: string): boolean;
+  tryProbe(sourceId: string): boolean;
+  recordFinalized(sourceId: string, values: Record<string, number>, watermark: string): void;
+}
+
 export interface FeederDeps {
+  /**
+   * Graceful degradation (ch.13 Backpressure). While a provider is `unavailable`, no watermark of it is published as a
+   * current value; after recovery exactly one cautious probe publishes first, and its success restores normal flow.
+   * Finalized values are kept as the snapshot to show, with a warning, in the meantime.
+   */
+  degradation?: FeederDegradation;
   /** Rows with `version > afterVersion`, oldest first. */
   readWatermarks(afterVersion: number): Promise<WatermarkRow[]>;
   /** Registry metric ids fed by this provider. */
@@ -38,6 +53,8 @@ export interface FeederPass {
   }>;
   skippedNoWatermark: number;
   failures: number;
+  /** Watermarks not published because their provider is degraded (retried once it recovers). */
+  blockedDegraded?: number;
 }
 
 /**
@@ -63,7 +80,14 @@ export class MonitorFeeder {
   }
 
   async pollOnce(): Promise<FeederPass> {
-    const pass: FeederPass = { rowsRead: 0, enqueued: [], skippedNoWatermark: 0, failures: 0 };
+    const pass: FeederPass = {
+      rowsRead: 0,
+      enqueued: [],
+      skippedNoWatermark: 0,
+      failures: 0,
+      blockedDegraded: 0,
+    };
+    const deg = this.d.degradation;
     const rows = await this.d.readWatermarks(this.cursor);
     pass.rowsRead = rows.length;
     // Newest row per (provider, watermark) carries the freshest state; older duplicates are dropped.
@@ -79,6 +103,23 @@ export class MonitorFeeder {
     let blocked = false;
     for (const r of [...rows].sort((a, b) => a.version - b.version)) {
       const key = r.newestEventTime === null ? null : `${r.providerId}|${r.newestEventTime}`;
+      if (deg && r.state === "unavailable") deg.markUnhealthy(r.providerId);
+      let probing = false;
+      if (
+        key !== null &&
+        !this.done.has(key) &&
+        latest.get(key) === r &&
+        !blocked &&
+        deg?.isDegraded(r.providerId)
+      ) {
+        if (r.state === "unavailable" || !deg.tryProbe(r.providerId)) {
+          pass.blockedDegraded!++;
+          this.d.log?.(`feeder: ${r.providerId} is degraded; watermark ${key} not published as current`);
+          if (!blocked) maxSafe = Math.max(maxSafe, r.version);
+          continue;
+        }
+        probing = true;
+      }
       if (key !== null && !this.done.has(key) && latest.get(key) === r && !blocked) {
         const watermark = new Date(`${r.newestEventTime!.replace(" ", "T")}Z`).toISOString();
         try {
@@ -98,9 +139,12 @@ export class MonitorFeeder {
           }
           await this.d.enqueue({ sourceId: r.providerId, watermark, mode: "live", values, maturity });
           this.done.add(key);
+          if (probing) deg!.markHealthy(r.providerId);
+          if (maturity === "final") deg?.recordFinalized(r.providerId, values, watermark);
           pass.enqueued.push({ sourceId: r.providerId, watermark, maturity, values, missing });
         } catch (e) {
           pass.failures++;
+          if (probing) deg!.markUnhealthy(r.providerId);
           blocked = true;
           this.d.log?.(
             `feeder: ${r.providerId} @ ${watermark} not enqueued (${(e as Error).name}); will retry`,

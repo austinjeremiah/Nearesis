@@ -274,7 +274,8 @@ export function createGateway(opts: GatewayOptions) {
               o.direction,
             ])
           : [[`${plan.view}.day`, "asc"]],
-        limit: ast.limit,
+        // One extra row tells the gateway that the limit cut the result, so it can say so (ResultTruncation).
+        limit: ast.limit + 1,
         timezone: "UTC",
         cache: "must-revalidate",
       };
@@ -559,7 +560,17 @@ export function buildEnvelope(a: BuildArgs): DataFrameEnvelope {
     rows.splice(0, rows.length, ...paired.map((p) => p.r));
     rowCoverage.splice(0, rowCoverage.length, ...paired.map((p) => p.c));
   }
+  let truncation: DataFrameEnvelope["truncation"];
   if (rows.length > ast.limit) {
+    truncation = {
+      truncated: true,
+      reason: "MAX_ROWS",
+      method: "truncate",
+      requestedRows: rows.length,
+      returnedRows: ast.limit,
+      maxRows: ast.limit,
+      requestedRowsIsLowerBound: true,
+    };
     rows.length = ast.limit;
     rowCoverage.length = ast.limit;
   }
@@ -599,5 +610,6 @@ export function buildEnvelope(a: BuildArgs): DataFrameEnvelope {
     cost: { bytesEstimated: a.estRows * 200, bytesBilled: 0 },
     planFingerprint: a.planFingerprint,
     generatedAt: a.generatedAt,
+    ...(truncation ? { truncation } : {}),
   };
 }

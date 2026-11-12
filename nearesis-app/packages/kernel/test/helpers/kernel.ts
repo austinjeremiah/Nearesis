@@ -6,6 +6,7 @@ import { generateSigningKeyPair, signManifest } from "@nearesis/plugin-sdk";
 import type { CapabilityDecl, PluginManifest } from "@nearesis/contracts";
 import { Kernel, DEFAULT_ENGINE_INTERFACES } from "../../src/index.ts";
 import type { PluginManagerConfig, Session } from "../../src/index.ts";
+import type { StreamOptions } from "../../src/stream.ts";
 import type { TestDb } from "./db.ts";
 
 export const FIXTURE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "fixtures", "plugins");
@@ -93,7 +94,7 @@ export function makeManifest(o: MakeManifest): PluginManifest {
 export function testKernel(
   db: TestDb,
   over: Partial<PluginManagerConfig> = {},
-  extra: { sessionSecret?: string; nodeEnv?: string } = {},
+  extra: { sessionSecret?: string; nodeEnv?: string; stream?: StreamOptions } = {},
 ): Kernel {
   return new Kernel({
     db: db.app,
@@ -109,6 +110,7 @@ export function testKernel(
     },
     sessionSecret: extra.sessionSecret ?? "test-session-secret-0123456789abcdef",
     nodeEnv: extra.nodeEnv ?? "test",
+    ...(extra.stream ? { stream: extra.stream } : {}),
   });
 }
 

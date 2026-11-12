@@ -29,6 +29,8 @@ if (process.env.DATABASE_URL) await migrate(process.env.DATABASE_URL);
 const db = Db.connect();
 const kernel = new Kernel({
   db,
+  // Idle event streams share one journal-head read per 100 ms per workspace (ch.13 per-browser SSE limits).
+  stream: { headCacheMs: 100 },
   plugins: {
     trustMode:
       nodeEnv === "production"

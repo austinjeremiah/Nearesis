@@ -9,6 +9,7 @@ import type {
 import { KernelError, canWrite, redact, writeAudit, zodDetails } from "@nearesis/kernel";
 import type { Kernel, Session, Tx } from "@nearesis/kernel";
 import { z } from "zod";
+import type { Occupancy, Priority, TenantAdmission } from "./overload/index.ts";
 
 /** The slice of @nearesis/workflow the API needs. The real implementation is `temporalEngine()` (src/temporal-engine.ts). */
 export interface InvestigationEngine {
@@ -32,6 +33,10 @@ export interface InvestigationEngine {
     payload: Record<string, unknown>,
   ): Promise<void>;
 }
+
+/** Run states in which agents are actually executing. A run waiting for a human decision holds no slot. */
+const OCCUPYING_STATES = ["REQUESTED", "PLANNING", "EXECUTING", "EVIDENCE_REVIEW", "CANVAS_PATCH_REVIEW"];
+const SYSTEM_USER = "00000000-0000-0000-0000-000000000000";
 
 const TERMINAL_STATES = new Set(["COMPLETE", "PARTIAL", "BLOCKED", "BLOCKED_SOURCE", "CANCELLED"]);
 
@@ -114,7 +119,48 @@ export class RunsService {
   constructor(
     private readonly kernel: Kernel,
     private readonly engine: InvestigationEngine,
+    /** Per-tenant concurrency cap and bounded wait queue for new investigations (ch.13 Backpressure). Absent = uncapped. */
+    public admission?: TenantAdmission,
   ) {}
+
+  /** What the admission controller compares with the cap: this tenant's unfinished runs, read from the runtime schema. */
+  occupancyOf = async (tenantId: string, heldIds: string[]): Promise<Occupancy> => {
+    try {
+      return await this.kernel.db.tx(
+        { orgId: tenantId, userId: SYSTEM_USER, actorKind: "service" },
+        async (tx) => {
+          const active = await tx.query<{ id: string }>(
+            "SELECT id::text AS id FROM runtime.runs WHERE tenant_id = $1 AND state = ANY($2::text[])",
+            [tenantId, OCCUPYING_STATES],
+          );
+          const held = heldIds.length
+            ? await tx.query<{ id: string }>(
+                "SELECT id::text AS id FROM runtime.runs WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND NOT (state = ANY($3::text[]))",
+                [tenantId, heldIds, OCCUPYING_STATES],
+              )
+            : { rows: [] as Array<{ id: string }> };
+          return { activeIds: active.rows.map((r) => r.id), terminalIds: held.rows.map((r) => r.id) };
+        },
+      );
+    } catch (e) {
+      // No runtime schema (or no access) means no run is recorded: only this process's own admissions count.
+      const c = (e as { code?: string } | null)?.code;
+      if (c === "42P01" || c === "3F000" || c === "42501") return { activeIds: [], terminalIds: [] };
+      throw e;
+    }
+  };
+
+  /** True when this Idempotency-Key already produced a run: a replay must not take (or wait for) a new slot. */
+  private async runExists(s: Session, runId: string): Promise<boolean> {
+    try {
+      return await this.kernel.db.tx(this.ctx(s), async (tx) => {
+        const r = await tx.query("SELECT 1 FROM runtime.runs WHERE id = $1", [runId]);
+        return r.rows.length > 0;
+      });
+    } catch {
+      return false;
+    }
+  }
 
   private ctx(s: Session) {
     return { orgId: s.principal.orgId, userId: s.userId };
@@ -148,7 +194,7 @@ export class RunsService {
     s: Session,
     workspaceId: string,
     rawBody: unknown,
-    opts: { idempotencyKey?: string } = {},
+    opts: { idempotencyKey?: string; priority?: Priority } = {},
   ): Promise<{ runId: string; workflowId: string }> {
     const body = parse(SubmitQuestionRequest, rawBody);
     const min = MIN_QUESTION_BUDGET;
@@ -178,6 +224,28 @@ export class RunsService {
       budgetId: id("budget"),
     };
 
+    // Overload protection: take a per-tenant investigation slot (or wait in the bounded queue, or get 429 + Retry-After)
+    // before anything is written. A replayed Idempotency-Key returns the original run and takes no slot.
+    let ticket: Awaited<ReturnType<TenantAdmission["admit"]>> | undefined;
+    if (this.admission && !(seed && (await this.runExists(s, ids.runId))))
+      ticket = await this.admission.admit(s.principal.orgId, {
+        priority: opts.priority ?? body.priority ?? "normal",
+      });
+    try {
+      return await this.submitAdmitted(s, workspaceId, body, ids, seed, ticket);
+    } finally {
+      ticket?.release(); // a no-op once the run is committed to the slot
+    }
+  }
+
+  private async submitAdmitted(
+    s: Session,
+    workspaceId: string,
+    body: z.infer<typeof SubmitQuestionRequest>,
+    ids: { runId: string; investigationId: string; questionId: string; budgetId: string },
+    seed: string | undefined,
+    ticket: { commit(runId: string): void } | undefined,
+  ): Promise<{ runId: string; workflowId: string }> {
     const snapshotRef = await this.kernel.db.tx(this.ctx(s), async (tx) => {
       const ws = (
         await tx.query<{ version: number }>("SELECT version FROM workspaces WHERE id = $1", [workspaceId])
@@ -219,7 +287,7 @@ export class RunsService {
     });
 
     try {
-      return await this.engine.start({
+      const started = await this.engine.start({
         workspaceId,
         investigationId: ids.investigationId,
         questionId: ids.questionId,
@@ -232,6 +300,8 @@ export class RunsService {
         ...(body.preregistrationHash ? { preregistrationHash: body.preregistrationHash } : {}),
         ...(body.grants ? { grants: body.grants } : {}),
       });
+      ticket?.commit(started.runId);
+      return started;
     } catch (e) {
       if ((e as { name?: string } | null)?.name === "WorkflowExecutionAlreadyStartedError" && seed)
         // Same Idempotency-Key replayed: the ids are deterministic, so this is the original run.

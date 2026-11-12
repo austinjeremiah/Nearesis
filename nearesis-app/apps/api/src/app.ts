@@ -14,6 +14,8 @@ import { publishRoutes } from "./publish-routes.ts";
 import { integrityRoutes } from "./integrity-routes.ts";
 import { gatewayRoutes } from "./gateway-routes.ts";
 import type { GatewayCredentialConfig } from "./gateway-routes.ts";
+import { OverloadError, SseConnectionLimiter, TenantAdmission, sseClientKey } from "./overload/index.ts";
+import type { AdmissionOptions, SseLimits } from "./overload/index.ts";
 import { requestGuards } from "./request-guards.ts";
 import type { RequestGuardOptions } from "./request-guards.ts";
 
@@ -44,6 +46,15 @@ export interface AppOptions {
   sseAuthRecheckMs?: number;
   /** Cross-origin, content-type and rate-limit guards for mutating requests. */
   guards?: RequestGuardOptions;
+  /**
+   * Overload protection (ch.13 Backpressure). `admission: false` switches the per-tenant investigation cap off (tests and
+   * the PERF09 negative control only). Defaults: 6 running and 16 queued per tenant, 128 queued overall, 5 s queue
+   * timeout; 6 event streams per browser.
+   */
+  overload?: {
+    admission?: Omit<AdmissionOptions, "occupancy"> | false;
+    sse?: SseLimits;
+  };
   /** Enables `GET /v1/gateway/runs/:id` for the MCP gateway's audience-constrained credential. Absent: route does not exist. */
   gatewayCredential?: GatewayCredentialConfig;
 }
@@ -52,6 +63,13 @@ declare module "fastify" {
   interface FastifyRequest {
     traceId: string;
     session?: Session;
+  }
+  interface FastifyInstance {
+    /** Live overload counters (queue depth, running per tenant, stream counts); read by the PERF09 harness and ops. */
+    overload: {
+      admission: TenantAdmission | undefined;
+      sse: SseConnectionLimiter;
+    };
   }
 }
 
@@ -71,7 +89,15 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     signal: () => Promise.reject(new Error("no investigation engine configured")),
   };
   const runs = new RunsService(kernel, opts.engine ?? unavailableEngine);
+  const admission =
+    opts.overload?.admission === false
+      ? undefined
+      : new TenantAdmission({ ...(opts.overload?.admission ?? {}), occupancy: runs.occupancyOf });
+  runs.admission = admission;
+  const sseLimiter = new SseConnectionLimiter(opts.overload?.sse);
   const app = Fastify({ logger: false, bodyLimit: BODY_LIMIT_BYTES, genReqId: () => randomUUID() });
+  app.decorate("overload", { admission, sse: sseLimiter });
+  app.addHook("onClose", async () => admission?.close());
 
   app.decorateRequest("traceId", "");
   app.addHook("onRequest", async (req, reply) => {
@@ -103,6 +129,11 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       e = new KernelError("VALIDATION_FAILED", "BAD_REQUEST", "Malformed request.");
     }
     const { status, body } = toErrorResponse(e, req.traceId);
+    if (e instanceof OverloadError) {
+      void reply.header("retry-after", String(e.retryAfterS));
+      void reply.status(status).send({ ...body, retryAfterSeconds: e.retryAfterS });
+      return;
+    }
     void reply.status(status).send(body);
   });
   /** Best effort: the workspace version for /v1/workspaces/:id/* requests from an authenticated member. */
@@ -223,6 +254,12 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
         if (e instanceof KernelError && e.code === "FORBIDDEN") throw workspaceNotFound();
         throw e;
       }
+      // Per-browser stream limit: refused as 429 + Retry-After before the response is hijacked.
+      const releaseStream = sseLimiter.acquire(
+        sseClientKey(req.headers.authorization, req.headers["x-client-id"]),
+      );
+      reply.raw.once("close", releaseStream);
+      req.raw.once("close", releaseStream);
       const rawCursor = (req.headers["last-event-id"] as string | undefined) ?? req.query.cursor ?? "0";
       const parsedCursor = /^\d+$/.test(rawCursor) ? Number(rawCursor) : Number.NaN;
       const res = reply.raw;
@@ -242,7 +279,45 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       const pollMs = opts.ssePollMs ?? 250;
       let cursor = Number.isNaN(parsedCursor) ? -1 : parsedCursor;
       let first = true;
+      let slow = false;
       let lastBeat = Date.now();
+      /**
+       * Backpressure: a client whose socket is blocked is "slow". It is not fed the backlog event by event (the next read
+       * coalesces anything beyond `slowMaxLag` into one aggregate), the unflushed bytes stay bounded by one journal
+       * batch, and a client that stays blocked past `slowDrainTimeoutMs` is disconnected (it resumes via Last-Event-ID).
+       * Returns false when the client was dropped.
+       */
+      const settle = async (): Promise<boolean> => {
+        sseLimiter.noteBuffered(res.writableLength);
+        if (!res.writableNeedDrain) {
+          slow = false;
+          return true;
+        }
+        // A write that fills the socket buffer is normal flow control; only a client that stays blocked is slow.
+        const waitedMs = Date.now();
+        const drained = await new Promise<boolean>((resolve) => {
+          const done = (v: boolean) => {
+            clearTimeout(t);
+            res.off("drain", onDrain);
+            res.off("close", onClose);
+            resolve(v);
+          };
+          const onDrain = () => done(true);
+          const onClose = () => done(true);
+          const t = setTimeout(() => done(false), sseLimiter.slowDrainTimeoutMs);
+          res.once("drain", onDrain);
+          res.once("close", onClose);
+        });
+        if (!drained) {
+          sseLimiter.noteDropped();
+          res.destroy();
+          return false;
+        }
+        const slowNow = Date.now() - waitedMs >= sseLimiter.slowAfterMs;
+        if (slowNow && !slow) sseLimiter.noteSlow();
+        slow = slowNow;
+        return true;
+      };
       // Token lifetime: the stream must not outlive the session (expiry) or the membership behind it (revocation).
       const bearerToken = (req.headers.authorization ?? "").slice(7).trim();
       const tokenExpMs = jwtExpiryMs(bearerToken);
@@ -284,7 +359,13 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
             });
             break;
           }
-          const r = await kernel.stream.read(session, req.params.id, cursor, first);
+          const r = await kernel.stream.read(
+            session,
+            req.params.id,
+            cursor,
+            first,
+            slow ? { maxLag: sseLimiter.slowMaxLag } : {},
+          );
           first = false;
           if (r.status === "reload_required") {
             frame("reload_required", r.head, {
@@ -294,13 +375,13 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
             });
             break;
           }
-          let ok = true;
           if (r.status === "coalesced") {
-            ok = frame("coalesced", r.aggregate.toSeq, r.aggregate);
+            frame("coalesced", r.aggregate.toSeq, r.aggregate);
+            sseLimiter.noteCoalesced();
             cursor = r.aggregate.toSeq;
           } else if (r.events.length) {
             for (const ev of r.events) {
-              ok = frame(ev.type, ev.seq, ev) && ok;
+              frame(ev.type, ev.seq, ev);
               cursor = ev.seq;
             }
           } else {
@@ -308,14 +389,11 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
               res.write(": ping\n\n");
               lastBeat = Date.now();
             }
+            if (!(await settle())) break;
             await sleep(pollMs);
             continue;
           }
-          if (!ok && !closed)
-            await new Promise<void>((resolve) => {
-              res.once("drain", resolve);
-              res.once("close", resolve);
-            });
+          if (!closed && !(await settle())) break;
         }
       } catch {
         // A read failing mid-stream is most often auth lost (membership revoked): say so instead of a silent close.

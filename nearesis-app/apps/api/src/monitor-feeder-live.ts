@@ -9,6 +9,7 @@ import {
 import { createGateway, DEFAULT_POLICY, type Session } from "@nearesis/semantic-gateway";
 import type { WatermarkEvent } from "@nearesis/contracts";
 import { MonitorFeeder, type FeederDeps, type WatermarkRow } from "./monitor-feeder.ts";
+import { DegradationGuard } from "./overload/index.ts";
 
 const DAY_MS = 86_400_000;
 const FEEDER_SESSION: Session = {
@@ -102,7 +103,12 @@ export function startLiveMonitorFeeder(
 ): MonitorFeeder {
   const scheduler = kernel.monitorScheduler();
   const live = liveFeederDeps((e) => scheduler.enqueue(e));
-  const feeder = new MonitorFeeder({ ...live.deps, log: (m) => console.log(`[monitor-feeder] ${m}`) });
+  const degradation = new DegradationGuard<Record<string, number>>({ openMs: 60_000, maxOpenMs: 600_000 });
+  const feeder = new MonitorFeeder({
+    ...live.deps,
+    degradation,
+    log: (m) => console.log(`[monitor-feeder] ${m}`),
+  });
   feeder.start(opts.intervalMs ?? Number(process.env.NEARESIS_MONITOR_FEEDER_INTERVAL_MS ?? 30_000));
   app.addHook("onClose", async () => {
     await feeder.stop();

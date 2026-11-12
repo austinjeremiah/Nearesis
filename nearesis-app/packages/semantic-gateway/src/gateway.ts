@@ -482,10 +482,19 @@ export function summariseRollupFreshness(insp: RollupInspection[] | null): Rollu
     return { state: "unknown", rollupBuiltAt: null, sourceChangedAt: null, lagSeconds: null };
   if (!insp.length)
     return { state: "not_used", rollupBuiltAt: null, sourceChangedAt: null, lagSeconds: null };
-  const stale = insp.filter((i) => i.rate.state === "stale");
-  if (stale.length) {
-    const built = Math.min(...stale.map((i) => i.builtAtSec ?? 0));
-    const src = Math.max(...stale.map((i) => i.sourceChangedAtSec ?? 0));
+  // The cost gate treats a rollup built in the same second as the last source write as stale (never an under-estimate). The
+  // label is stricter: it says stale only when the rollup is provably older than its source (timestamps have 1 s resolution,
+  // so a rollup finished within the same second as the write is not called stale).
+  const behind = insp.filter(
+    (i) =>
+      i.rate.state === "stale" &&
+      i.builtAtSec !== null &&
+      i.sourceChangedAtSec !== null &&
+      i.builtAtSec < i.sourceChangedAtSec,
+  );
+  if (behind.length) {
+    const built = Math.min(...behind.map((i) => i.builtAtSec ?? 0));
+    const src = Math.max(...behind.map((i) => i.sourceChangedAtSec ?? 0));
     return {
       state: "stale",
       rollupBuiltAt: iso(built),

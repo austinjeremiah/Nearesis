@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DataFrameEnvelope } from "@nearesis/contracts";
 import { migrate, createCh, loadLiveRegistry } from "@nearesis/analytics";
-import { createGateway } from "../../src/gateway.ts";
+import { createGateway, summariseRollupFreshness } from "../../src/gateway.ts";
 import { DEFAULT_POLICY } from "../../src/types.ts";
 
 // Disposable ClickHouse databases: fact tables + a stand-in for Cube's pre-aggregation schema; a stub Cube.
@@ -236,5 +236,25 @@ describe("F4 the envelope carries what the panel needs: coverage, gaps incl. par
     expect(Date.parse(e.generatedAt)).not.toBeNaN();
     expect(e.sources).toEqual(["near-explorer"]);
     expect(e.certification).toBe("partial");
+  });
+});
+
+describe("F5 label precision", () => {
+  const insp = (state: "fresh" | "stale", built: number, src: number) => [
+    {
+      rate: { preAggregationId: "x", table: "intents_swaps", state, rowsPerDay: 1 },
+      builtAtSec: built,
+      sourceChangedAtSec: src,
+    },
+  ];
+  it("a rollup built within the same second as the last source write is not called stale; one provably older is", () => {
+    expect(summariseRollupFreshness(insp("stale", 1000, 1000)).state).toBe("fresh");
+    expect(summariseRollupFreshness(insp("stale", 1000, 1001))).toMatchObject({
+      state: "stale",
+      lagSeconds: 1,
+    });
+    expect(summariseRollupFreshness(insp("fresh", 1002, 1000)).state).toBe("fresh");
+    expect(summariseRollupFreshness(null).state).toBe("unknown");
+    expect(summariseRollupFreshness([]).state).toBe("not_used");
   });
 });

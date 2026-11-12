@@ -43,6 +43,8 @@ export interface Facts {
   bqPending: number;
   pricePending: number;
   explorerInflight: boolean;
+  /** Pending days of the enabled forward jobs (0 when every flag is off). Optional so older callers keep working. */
+  forwardPending?: number;
 }
 
 /**
@@ -64,6 +66,7 @@ export function dueTasks(
   for (const t of only) {
     if (!ready(t)) continue;
     if (t === "bq" && f.bqPending > 0 && sinceMidnight >= cfg.dailyDelayMs) due.push(t);
+    if (t === "forward" && (f.forwardPending ?? 0) > 0 && sinceMidnight >= cfg.dailyDelayMs) due.push(t);
     if (t === "price" && f.pricePending > 0 && sinceMidnight >= cfg.dailyDelayMs) due.push(t);
     if (t === "explorer" && (f.explorerInflight || elapsed("explorer", cfg.explorerIntervalMs))) due.push(t);
     if (t === "quotes" && st.quotes.completedBucketMs !== quoteBucket(nowMs, cfg.quoteIntervalMs))

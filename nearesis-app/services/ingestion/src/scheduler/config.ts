@@ -8,6 +8,7 @@ export const SCHEDULER_DIR = join(APP_ROOT, ".data", "scheduler");
 export const SCHEDULER_STATE_PATH = join(SCHEDULER_DIR, "state.json");
 export const SCHEDULER_BQ_STATE_PATH = join(SCHEDULER_DIR, "bq-state.json");
 export const SCHEDULER_ACCOUNT_STATE_PATH = join(SCHEDULER_DIR, "account-state.json");
+export const SCHEDULER_FORWARD_STATE_PATH = join(SCHEDULER_DIR, "forward-state.json");
 export const SCHEDULER_LOAD_STATE_PATH = join(SCHEDULER_DIR, "explorer-load.json");
 export const SCHEDULER_RAW_DIR = join(SCHEDULER_DIR, "raw");
 export const SCHEDULER_CONTROL_PATH = join(SCHEDULER_DIR, "control.json");
@@ -18,8 +19,9 @@ export const FORWARD_FROM_DAY = "2026-11-10";
 
 export const PRIVACY_MODES = ["public", "basic", "advanced"] as const;
 export type PrivacyMode = (typeof PRIVACY_MODES)[number];
-export type TaskName = "bq" | "price" | "explorer" | "quotes";
-export const ALL_TASKS: readonly TaskName[] = ["bq", "price", "explorer", "quotes"];
+/** `forward`: the optional daily economics / accounts / settlement BigQuery jobs; due only when one of their NEARESIS_*_DAILY flags is set. */
+export type TaskName = "bq" | "price" | "explorer" | "quotes" | "forward";
+export const ALL_TASKS: readonly TaskName[] = ["bq", "price", "explorer", "quotes", "forward"];
 
 export interface SchedulerConfig {
   tickMs: number;

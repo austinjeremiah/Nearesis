@@ -19,12 +19,26 @@ import {
   FORWARD_FROM_DAY,
   SCHEDULER_ACCOUNT_STATE_PATH,
   SCHEDULER_BQ_STATE_PATH,
+  SCHEDULER_FORWARD_STATE_PATH,
   SCHEDULER_LOAD_STATE_PATH,
   type SchedulerConfig,
   type TaskName,
 } from "./config.ts";
 import { pendingAccountDays, runAccountDaily } from "./account-forward.ts";
 import { runBqDaily, runPriceDaily } from "./daily.ts";
+import {
+  accountsJob,
+  anyForwardEnabled,
+  economicsJobs,
+  forwardFlags,
+  pendingForwardDays,
+  runForwardJobs,
+  settlementJob,
+  type ForwardJobSpec,
+  type ForwardKind,
+} from "./forward-jobs.ts";
+import { loadSettlementDay } from "./forward-settlement.ts";
+import { ForwardStateStore } from "./forward-state.ts";
 import { runExplorerForward } from "./explorer-forward.ts";
 import { backoffMs, dueTasks, pendingBqDays, pendingPriceDays, type Facts } from "./plan.ts";
 import { runQuoteRound } from "./quotes.ts";
@@ -43,6 +57,8 @@ export interface SchedulerDeps {
   only?: readonly TaskName[];
   /** Loop-mode gate for the quote task; absent means enabled (explicit operator runs). */
   quotesEnabled?: () => boolean;
+  /** Test seam; defaults to the NEARESIS_*_DAILY environment flags. */
+  forwardFlags?: () => ReturnType<typeof forwardFlags>;
   shouldStop?: () => boolean;
   log?: (m: string) => void;
 }
@@ -54,6 +70,7 @@ export class Scheduler {
   private readonly log: (m: string) => void;
   private readonly bqStore = new StateStore(SCHEDULER_BQ_STATE_PATH, FORWARD_FROM_DAY, FORWARD_FROM_DAY);
   private readonly accountStore = new AccountStateStore(SCHEDULER_ACCOUNT_STATE_PATH);
+  private readonly forwardStore = new ForwardStateStore(SCHEDULER_FORWARD_STATE_PATH);
   private readonly loadStore = new StateStore(SCHEDULER_LOAD_STATE_PATH, FORWARD_FROM_DAY, FORWARD_FROM_DAY);
   constructor(private readonly d: SchedulerDeps) {
     this.clock = d.clock ?? systemClock;
@@ -67,7 +84,18 @@ export class Scheduler {
       bqPending: pendingBqDays(now, (id) => this.bqStore.isDone(id)).length + this.accountPending(now).length,
       pricePending: pendingPriceDays(now, this.d.sched.state.price).length,
       explorerInflight: this.d.sched.state.explorer.inflight !== null,
+      forwardPending: this.forwardPending(now),
     };
+  }
+
+  /** Forward daily jobs are opt-in (NEARESIS_ECONOMICS_DAILY / _ACCOUNTS_DAILY / _SETTLEMENT_DAILY); all off means nothing is ever pending. */
+  private forwardPending(now: number): number {
+    const f = (this.d.forwardFlags ?? forwardFlags)();
+    if (!anyForwardEnabled(f)) return 0;
+    const txDone = (day: string): boolean => this.bqStore.isDone(`transactions:${day}`);
+    return (["economics", "accounts", "settlement"] as ForwardKind[])
+      .filter((k) => f[k])
+      .reduce((n, k) => n + pendingForwardDays(now, k, this.forwardStore, txDone).length, 0);
   }
 
   private accountPending(now: number): string[] {
@@ -192,6 +220,68 @@ export class Scheduler {
         } finally {
           redis.disconnect();
         }
+      }
+      case "forward": {
+        const flags = (this.d.forwardFlags ?? forwardFlags)();
+        if (!anyForwardEnabled(flags)) return;
+        const bq = createBigQueryClient();
+        const runner = new BudgetedBigQuery(bq, archive);
+        const discovery = await runner.discover(adcCredentialKind());
+        const reading = await runner.billedSince(
+          discovery.datasetLocation,
+          quotaDayStart(nowMs()).toISOString(),
+        );
+        const ledger = new BudgetLedger(reading.bytes);
+        const txDone = (day: string): boolean => this.bqStore.isDone(`transactions:${day}`);
+        const jobs: ForwardJobSpec[] = [];
+        for (const kind of ["economics", "accounts", "settlement"] as ForwardKind[]) {
+          if (!flags[kind]) continue;
+          for (const day of pendingForwardDays(nowMs(), kind, this.forwardStore, txDone).slice(
+            0,
+            cfg.bqMaxDaysPerRun,
+          )) {
+            if (kind === "economics") jobs.push(...economicsJobs(day, ch));
+            else if (kind === "accounts") jobs.push(accountsJob(day, ch));
+            else
+              jobs.push(
+                settlementJob(day, {
+                  scratchProject: (await bq.getProjectId?.()) ?? "near-514307",
+                  location: discovery.datasetLocation,
+                  hashesForDay: async (d) =>
+                    (
+                      await db.query<{ h: string }>(
+                        `SELECT DISTINCT jsonb_array_elements_text(record->'nearTxHashes') AS h FROM ingestion.explorer_swaps
+                          WHERE created_at >= $1::date AND created_at < ($1::date + 1)`,
+                        [d],
+                      )
+                    ).rows.map((r) => r.h),
+                  loadScratch: (ref, hs, loc) => bq.loadScratchTable(ref, hs, loc),
+                  deleteScratch: (ref, loc) => bq.deleteScratchTable(ref, loc),
+                  loadDay: (d, rows, p) => loadSettlementDay(ch, d, rows, p),
+                }),
+              );
+          }
+        }
+        this.log(
+          `forward: billed so far in quota day ${Math.round(reading.bytes / 1048576)} MiB, ${jobs.length} jobs planned`,
+        );
+        const r = await runForwardJobs({
+          bq,
+          archive,
+          state: this.forwardStore,
+          ledger,
+          location: discovery.datasetLocation,
+          jobs,
+          readRaw: (h) => archive.store.get(h),
+          nowMs,
+          log: this.log,
+        });
+        this.log(
+          `forward: loaded ${r.loaded.length}, reloaded ${r.reloaded.length}, skipped ${r.skipped.length}, refused ${r.refused.length}, deferred(budget) ${r.deferredForBudget.length}`,
+        );
+        if (r.deferredForBudget.length > 0)
+          throw Object.assign(new Error("budget"), { name: "BudgetDeferred" });
+        return;
       }
       case "quotes": {
         const http = new HttpClient({ allow: [ALLOW_ONECLICK], credentials: this.creds, clock: this.clock });

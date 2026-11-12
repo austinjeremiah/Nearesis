@@ -52,7 +52,7 @@ const task = (): TaskStatus => ({
 
 export const emptySchedulerState = (): SchedulerState => ({
   version: 1,
-  tasks: { bq: task(), price: task(), explorer: task(), quotes: task() },
+  tasks: { bq: task(), price: task(), explorer: task(), quotes: task(), forward: task() },
   bqEmpty: {},
   price: { doneDays: [], gapDays: [], attempts: {}, requests: 0 },
   explorer: {

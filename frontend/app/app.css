@@ -1369,3 +1369,25 @@ table.table {
     transform: rotate(90deg);
   }
 }
+
+/* -----------------------------------------------------------------------------
+   layout corrections
+   -------------------------------------------------------------------------- */
+
+/* A long primary action plus context badges overflows a fixed-height header on
+   narrower desktops, so the header wraps instead of clipping. */
+.pagehead {
+  flex-wrap: wrap;
+  row-gap: var(--s2);
+}
+.pagehead .titles {
+  flex: 1 1 320px;
+}
+
+/* Controls default to full width for stacked forms. Inside a toolbar row they
+   should size to their content. */
+.row > .select,
+.row > .input,
+.row > .textarea {
+  width: auto;
+}

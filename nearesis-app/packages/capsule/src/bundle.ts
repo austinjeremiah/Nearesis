@@ -128,6 +128,8 @@ export function tarZstOf(dir: string): Buffer {
 export interface BundleOptions {
   snapshotDir: string;
   researchBundleDir?: string;
+  /** Capsule id when it is not the default `cap-<snapshotId>` (a capsule that was built under a chosen id). */
+  capsuleId?: string;
   /** Versions are created under this directory, one per capsule hash. */
   root: string;
 }
@@ -156,6 +158,7 @@ export function buildPublicationBundle(o: BundleOptions): BundleResult {
     const m = buildCapsule({
       snapshotDir: o.snapshotDir,
       outDir: capDir,
+      ...(o.capsuleId ? { capsuleId: o.capsuleId } : {}),
       ...(o.researchBundleDir ? { researchBundleDir: o.researchBundleDir } : {}),
     });
     const { descriptor, raw: snapRaw } = loadSnapshot(o.snapshotDir);

@@ -506,7 +506,9 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
       })),
       rebuildCommand,
       dataLines: metricLines,
-      ...(opts.registrationLabel ? { registrationLabel: opts.registrationLabel } : {}),
+      ...(opts.registrationLabel || isLive
+        ? { registrationLabel: opts.registrationLabel ?? "post-hoc registration" }
+        : {}),
     }),
   );
 

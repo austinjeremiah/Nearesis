@@ -98,37 +98,60 @@ export function AppShell({
         </div>
 
         <div className="nav-scroll">
-          <span className="nav-group-head" aria-hidden="true">
-            Portfolio
-          </span>
-          {GLOBAL_NAV.map((i) => (
-            <NavLink key={i.href} item={i} wid={null} />
-          ))}
-
-          {workspaceId &&
-            WORKSPACE_NAV.map((g) =>
-              g.label === '' ? (
-                <div key={g.id} style={{ marginTop: 'var(--s3)' }}>
-                  {g.items.map((i) => (
-                    <NavLink key={i.href} item={i} wid={workspaceId} />
-                  ))}
-                </div>
-              ) : (
-                <div key={g.id}>
-                  <button
-                    type="button"
-                    className="nav-group-head"
-                    aria-expanded={open.has(g.id)}
-                    onClick={() => toggleGroup(g.id)}
-                  >
-                    {g.label}
-                    <ChevronDown className="chev" size={13} />
-                  </button>
-                  {open.has(g.id) &&
-                    g.items.map((i) => <NavLink key={i.href} item={i} wid={workspaceId} />)}
-                </div>
-              ),
+          {/*
+            Spec 2.2 warns against twenty permanently visible nav items. With a
+            workspace open the portfolio list is not what the person is working
+            on, so it collapses behind its heading and the workspace block takes
+            the weight. Without a workspace it stays open, because then it is
+            the only menu there is.
+          */}
+          <div className="nav-section">
+            {workspaceId ? (
+              <button
+                type="button"
+                className="nav-group-head"
+                aria-expanded={open.has('portfolio')}
+                onClick={() => toggleGroup('portfolio')}
+              >
+                Portfolio
+                <ChevronDown className="chev" size={13} />
+              </button>
+            ) : (
+              <span className="nav-group-head" aria-hidden="true">
+                Portfolio
+              </span>
             )}
+            {(!workspaceId || open.has('portfolio')) &&
+              GLOBAL_NAV.map((i) => <NavLink key={i.href} item={i} wid={null} />)}
+          </div>
+
+          {workspaceId && (
+            <div className="nav-section workspace">
+              {WORKSPACE_NAV.map((g) =>
+                g.label === '' ? (
+                  <div key={g.id}>
+                    {g.items.map((i) => (
+                      <NavLink key={i.href} item={i} wid={workspaceId} />
+                    ))}
+                  </div>
+                ) : (
+                  <div key={g.id}>
+                    <button
+                      type="button"
+                      className="nav-group-head"
+                      aria-expanded={open.has(g.id)}
+                      onClick={() => toggleGroup(g.id)}
+                    >
+                      {g.label}
+                      <ChevronDown className="chev" size={13} />
+                    </button>
+                    {open.has(g.id) &&
+                      g.items.map((i) => <NavLink key={i.href} item={i} wid={workspaceId} />)}
+                  </div>
+                ),
+              )}
+            </div>
+          )}
         </div>
 
         <div className="nav-foot">
@@ -136,12 +159,12 @@ export function AppShell({
             WORKSPACE_EXTRA.map((i) => <NavLink key={i.href} item={i} wid={workspaceId} />)}
           <button
             type="button"
-            className="nav-item"
+            className="nav-collapse"
             onClick={() => setCollapsed((c) => !c)}
             aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+            title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
           >
-            <PanelLeftClose className="ico" size={15} strokeWidth={1.75} />
-            <span className="nav-label grow">Collapse</span>
+            <PanelLeftClose size={15} strokeWidth={1.75} />
           </button>
         </div>
       </nav>

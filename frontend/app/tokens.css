@@ -89,34 +89,39 @@
   --ls-display: -0.03em; /* matches the landing headline */
 
   /* --- layout, from spec 2.3 --------------------------------------------- */
-  --topbar-h: 56px;
-  --nav-w: 248px;
+  --topbar-h: 60px;
+  --nav-w: 264px;
   --nav-w-collapsed: 64px;
-  --pageheader-h: 60px;
+  --pageheader-h: 76px;
   --inspector-w: 344px;
   --inspector-w-max: 420px;
   --runstrip-h: 44px;
 
-  --row-compact: 36px;
-  --row-comfortable: 44px;
-  --control-h: 32px;
-  --control-h-lg: 40px;
+  --row-compact: 42px;
+  --row-comfortable: 50px;
+  --control-h: 36px;
+  --control-h-lg: 44px;
 
   /* --- space -------------------------------------------------------------- */
   --s1: 4px;
   --s2: 8px;
-  --s3: 12px;
-  --s4: 16px;
-  --s5: 20px;
-  --s6: 24px;
-  --s8: 32px;
-  --s10: 40px;
-  --s12: 48px;
+  --s3: 14px;
+  --s4: 20px;
+  --s5: 28px;
+  --s6: 36px;
+  --s8: 48px;
+  --s10: 64px;
+  --s12: 80px;
 
   /* --- corners -------------------------------------------------------------
-     Square. The landing page is square and the mix of radii is what makes an
-     interface read as a component-library default. */
-  --radius: 0px;
+     One radius scale, applied consistently. The landing page is square, but at
+     app density a hairline square grid reads as a spreadsheet; a small, uniform
+     softening keeps the same discipline while letting surfaces separate. The
+     scale stays tight on purpose: a mix of radii is what makes an interface
+     read as a component-library default. */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
 
   /* --- focus ---------------------------------------------------------------
      A solid offset ring rather than a glow, visible on cream and on ink. */

@@ -61,7 +61,10 @@ export default function Wordmark({
         </span>
         <span
           style={{
-            fontFamily: "var(--_base---font-family--third-family)",
+            // Named directly rather than via the Webflow variable: that variable only
+          // exists on the marketing stylesheet, so in the app the wordmark was
+          // silently falling back and rendering in a different face to the landing.
+          fontFamily: "'Stack Sans Notch', 'Inter Tight', system-ui, sans-serif",
             fontWeight: 400,
             fontSize: size * 0.94,
             letterSpacing: "-.03em",

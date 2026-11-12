@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Content, PageHeader } from '@/components/nx/shell';
-import { Card, EmptyState, KeyValues, LinkButton, Notice } from '@/components/nx/ui';
+import { Band } from '@/components/nx/band';
+import { Card, EmptyState, KeyValues, LinkButton } from '@/components/nx/ui';
 import {
   Badge,
   CoverageChip,
@@ -53,11 +54,25 @@ export default function HomePage() {
         }
       />
       <Content>
-        <Notice tone="warn" title="This instance runs on a frozen fixture snapshot">
-          The backend is not connected. Every number below comes from snapshot{' '}
-          <span className="mono">{db.SNAPSHOT_ID}</span> and is labelled FIXTURE. Nothing here is a
-          live observation.
-        </Notice>
+        <Band
+          eyebrow="By the numbers"
+          lead="A reader who disagrees with your conclusion should be able to recompute it from scratch."
+          stats={[
+            { value: '1', unit: 'command', detail: 'rebuilds every table and chart offline, with no credentials', lead: true },
+            { value: '0', unit: 'raw SQL', detail: 'reaches the warehouse. Agents compose certified measures or the query is refused' },
+            { value: '4', unit: 'verdicts', detail: 'supported, mixed, unsupported, insufficient data. A null result is still a result' },
+            { value: '72', unit: 'h', detail: 'of monitoring on finalized observations before a marker wakes its agent' },
+          ]}
+          footer={
+            <>
+              <span className="badge bad">Fixture</span>
+              <span>
+                The backend is not connected. Every number below comes from snapshot{' '}
+                <span className="mono">{db.SNAPSHOT_ID}</span>. Nothing here is a live observation.
+              </span>
+            </>
+          }
+        />
 
         <section className="col gap3">
           <h2 className="label">Continue researching</h2>

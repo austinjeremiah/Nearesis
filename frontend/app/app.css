@@ -1391,3 +1391,264 @@ table.table {
 .row > .textarea {
   width: auto;
 }
+
+/* =============================================================================
+   Pass 2: density, corners, and the landing page's dark statistics band.
+
+   Three complaints drove this. The grid was too tight to read, every surface was
+   a hard square so nothing separated from anything else, and the sidebar grew a
+   second full menu once a workspace opened. The dark band is lifted from the
+   marketing site's BY THE NUMBERS section, which is the strongest device the
+   template has and was going unused in the product.
+   ========================================================================== */
+
+/* --- corners -------------------------------------------------------------- */
+.card,
+.table-wrap,
+.empty,
+.notice,
+.dialog,
+.popover,
+.palette,
+.toast,
+.chain-step,
+.skel {
+  border-radius: var(--radius);
+}
+.btn,
+.input,
+.select,
+.textarea,
+.seg,
+.meter,
+.tooltip {
+  border-radius: var(--radius-sm);
+}
+.seg > button:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.seg > button:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.badge,
+.mode {
+  border-radius: 3px;
+}
+.nav-item {
+  border-radius: var(--radius-sm);
+  margin: 0 var(--s2) 1px;
+}
+/* The active rule reads better as an inset bar than a border on a rounded box. */
+.nav-item {
+  border-left: 0;
+  position: relative;
+}
+.nav-item[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.table-wrap {
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+/* --- breathing room ------------------------------------------------------- */
+.content {
+  padding: var(--s5) var(--s5) var(--s10);
+  gap: var(--s6);
+}
+.card-body {
+  padding: var(--s4);
+  gap: var(--s4);
+}
+.card-head {
+  padding: var(--s4);
+}
+.card-foot {
+  padding: var(--s3) var(--s4);
+}
+.pagehead {
+  padding: var(--s4) var(--s5);
+}
+.topbar {
+  padding: 0 var(--s5);
+}
+.table thead th {
+  padding: var(--s3);
+}
+.table tbody td {
+  padding: var(--s2) var(--s3);
+}
+.kv {
+  padding: var(--s2) 0;
+}
+.grid {
+  gap: var(--s4);
+}
+.inspector-body {
+  padding: var(--s4);
+  gap: var(--s5);
+}
+.empty {
+  padding: var(--s10) var(--s6);
+}
+
+/* A section heading needs air above it, not just a label floating on a card. */
+.content > section {
+  gap: var(--s4);
+}
+
+/* =============================================================================
+   Dark statistics band, from the landing page's BY THE NUMBERS section.
+   ========================================================================== */
+.band {
+  position: relative;
+  background: var(--ink-soft);
+  color: var(--text-on-dark);
+  border-radius: var(--radius-lg);
+  padding: var(--s6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+  overflow: hidden;
+}
+/* The same dot field the marketing illustrations use. */
+.band::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(241, 239, 226, 0.09) 1px, transparent 1px);
+  background-size: 26px 26px;
+  pointer-events: none;
+}
+.band > * {
+  position: relative;
+}
+.band-lead {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.3vw, 32px);
+  line-height: 1.14;
+  letter-spacing: var(--ls-display);
+  max-width: 30ch;
+}
+.band-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  align-self: flex-start;
+  background: var(--accent);
+  color: #000;
+  padding: var(--s1) var(--s3);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  border-radius: 3px;
+}
+.band-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--s5);
+}
+.band-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding-top: var(--s3);
+  border-top: 1px solid rgba(241, 239, 226, 0.22);
+}
+/* The landing's signature: an oversized numeral with its unit set small and
+   tight against it, so the number carries the line. */
+.band-stat .v {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 3.6vw, 52px);
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.band-stat .v .u {
+  font-size: 0.38em;
+  letter-spacing: 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+.band-stat .d {
+  font-size: var(--fs-small);
+  color: var(--text-on-dark-2);
+  line-height: 1.45;
+}
+.band-stat.lead .v {
+  color: var(--accent);
+}
+.band-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  padding-top: var(--s3);
+  border-top: 1px dashed rgba(241, 239, 226, 0.22);
+  font-size: var(--fs-small);
+  color: var(--text-on-dark-2);
+}
+.band a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* =============================================================================
+   Sidebar: stop the portfolio menu competing with the workspace menu.
+   ========================================================================== */
+.nav-scroll {
+  padding: var(--s3) 0 var(--s4);
+  gap: 0;
+}
+.nav-group-head {
+  margin: var(--s4) var(--s2) var(--s1);
+  padding: var(--s1) var(--s3);
+  width: calc(100% - var(--s4));
+  border-radius: var(--radius-sm);
+}
+.nav-group-head:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+.nav-section:first-child .nav-group-head {
+  margin-top: 0;
+}
+/* The workspace block is the subject of the page, so it gets the weight and the
+   portfolio list recedes behind a divider. */
+.nav-section.workspace {
+  margin-top: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+.nav-foot {
+  padding: var(--s2);
+  gap: var(--s1);
+}
+.nav-foot .nav-item {
+  margin-left: 0;
+  margin-right: 0;
+}
+.nav-collapse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  width: 34px;
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+}
+.nav-collapse:hover {
+  background: var(--sunken);
+  color: var(--text);
+}

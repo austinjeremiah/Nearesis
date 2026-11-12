@@ -16,6 +16,9 @@ import { gatewayRoutes } from "./gateway-routes.ts";
 import { costRoutes } from "./cost-routes.ts";
 import { entityRoutes } from "./entity-routes.ts";
 import { intentsRoutes } from "./intents-routes.ts";
+import { accountRoutes } from "./account-routes.ts";
+import { metricRoutes } from "./metric-routes.ts";
+import type { AuthoringService } from "@nearesis/semantic-gateway";
 import type { SloRecorder } from "@nearesis/workflow";
 import type { GatewayCredentialConfig } from "./gateway-routes.ts";
 import { OverloadError, SseConnectionLimiter, TenantAdmission, sseClientKey } from "./overload/index.ts";
@@ -41,6 +44,10 @@ export interface AppOptions {
   /** Start the monitor scheduler and marker-task dispatcher inside this API process. */
   monitorBackground?: { intervalMs?: number };
   kernel: Kernel;
+  /** Governed metric authoring service; when set, the /v1/workspaces/:id/metrics routes are served. */
+  authoring?: AuthoringService;
+  /** Model USD recorded outside Postgres (inference spend files); counted in the global ceiling view. */
+  externalModelSpend?: () => Promise<number>;
   /** Starts/signals investigation workflows (production: `temporalEngine()`). Without one, question/cancel/approval writes are 503. */
   engine?: InvestigationEngine;
   nodeEnv?: string | undefined;
@@ -525,9 +532,16 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   if (opts.gatewayCredential)
     await app.register(gatewayRoutes, { kernel, credential: opts.gatewayCredential });
   await app.register(monitoringRoutes, { kernel, runs, authenticate, background: opts.monitorBackground });
-  await app.register(costRoutes, { kernel, authenticate, slo: opts.sloRecorder });
+  await app.register(costRoutes, {
+    kernel,
+    authenticate,
+    slo: opts.sloRecorder,
+    ...(opts.externalModelSpend ? { externalModelSpend: opts.externalModelSpend } : {}),
+  });
   await app.register(entityRoutes, { authenticate });
   await app.register(intentsRoutes, { authenticate });
+  await app.register(accountRoutes, { authenticate });
+  if (opts.authoring) await app.register(metricRoutes, { kernel, authenticate, authoring: opts.authoring });
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.
   void HTTP_STATUS_FOR;

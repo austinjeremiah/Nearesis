@@ -38,3 +38,4 @@ export type {
   GlobalReconciliation,
 } from "@nearesis/agent-runtime";
 export * from "./cost-ops.ts";
+export { inferenceSpendUsd, externalModelSpend } from "./inference-spend.ts";

@@ -14,10 +14,13 @@ import { temporalEngine } from "./temporal-engine.ts";
 import { productionMonitoringConfig } from "./monitoring-config.ts";
 import {
   CostGovernor,
+  externalModelSpend,
   kernelAlertSink,
   kernelSpendGateFactory,
   paidEgressOpFromEnv,
 } from "@nearesis/workflow";
+import { AuthoredMetricStore, createCh, createPg, loadLiveRegistry } from "@nearesis/analytics";
+import { buildSourceCatalogue, createAuthoringService } from "@nearesis/semantic-gateway";
 import { startOpsBackground } from "./ops-background.ts";
 
 /** Minimal .env loader (server-side only; values are never logged). */
@@ -78,9 +81,32 @@ kernel.outbox.start();
 kernel.telemetry?.start();
 // SLO recording + burn alerts (needs runtime migration 005): NEARESIS_COST_CONTROL=1.
 const ops = costOn ? startOpsBackground(kernel) : undefined;
-if (costOn) apiCost = new CostGovernor({ pool: kernel.db.pool, sink: kernelAlertSink(kernel) });
+if (costOn)
+  apiCost = new CostGovernor({
+    pool: kernel.db.pool,
+    sink: kernelAlertSink(kernel),
+    externalModelSpend: externalModelSpend(),
+  });
+// Governed metric authoring: store in the shared Postgres (analytics_meta, migration 003), ClickHouse nearesis_live.
+const authoringCh = createCh({ database: "nearesis_live" });
+let catalogueCache: { at: number; value: ReturnType<typeof buildSourceCatalogue> } | undefined;
+const authoring = createAuthoringService({
+  store: new AuthoredMetricStore(createPg()),
+  ch: authoringCh,
+  catalogue: () => {
+    if (!catalogueCache || catalogueCache.at < Date.now() - 60_000)
+      catalogueCache = {
+        at: Date.now(),
+        value: buildSourceCatalogue(authoringCh, { database: "nearesis_live" }),
+      };
+    return catalogueCache.value;
+  },
+  registry: loadLiveRegistry(),
+});
 const app = await buildApp({
   kernel,
+  authoring,
+  externalModelSpend: externalModelSpend(),
   ...(ops ? { sloRecorder: ops.recorder } : {}),
   ...(process.env.NEARESIS_MONITOR_BACKGROUND === "1" ? { monitorBackground: {} } : {}),
   ...(process.env.NEARESIS_MCP_GATEWAY_SECRET

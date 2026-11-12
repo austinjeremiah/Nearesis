@@ -26,6 +26,7 @@ import {
   scenarioRules,
 } from "@nearesis/agent-runtime";
 import { createWorker } from "./worker.ts";
+import { externalModelSpend } from "./inference-spend.ts";
 
 const production = process.env.NEARESIS_PRODUCTION_WORKER === "1";
 const appUrl = process.env.DATABASE_APP_URL ?? (production ? DEFAULT_APP_URL : undefined)!;
@@ -52,7 +53,12 @@ const prodKernel = production
 // workspace spend policy BEFORE the call. Off by default so a worker started against an unmigrated database still runs.
 const cost =
   production && prodKernel && process.env.NEARESIS_COST_CONTROL === "1"
-    ? new CostGovernor({ pool, audit: new PgAudit(pool), sink: kernelAlertSink(prodKernel) })
+    ? new CostGovernor({
+        pool,
+        audit: new PgAudit(pool),
+        sink: kernelAlertSink(prodKernel),
+        externalModelSpend: externalModelSpend(),
+      })
     : undefined;
 costHolder.cost = cost;
 const deps = production

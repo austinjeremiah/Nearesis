@@ -1,0 +1,24 @@
+: a sample transcript of GET /v1/workspaces/6f1c2d7e-3a4b-4c5d-8e9f-0a1b2c3d4e5f/events with Last-Event-ID: 40
+: SYNTHETIC: payloads are illustrative; see docs/api/SSE.md for the schema of each frame.
+
+id: 41
+event: query.completed
+data: {"eventId":"4d1f0c3e-8a52-4b97-b6d0-2e9c7a1f5b38","orgId":"11111111-2222-4333-8444-555555555555","workspaceId":"6f1c2d7e-3a4b-4c5d-8e9f-0a1b2c3d4e5f","seq":41,"type":"query.completed","causationId":"0b8f6a52-7d31-4e0a-9c64-1f2e3d4c5b6a","correlationId":null,"actorId":"7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d","emittedAt":"2026-11-13T09:12:30.000Z","schemaVersion":1,"payloadHash":"0000000000000000000000000000000000000000000000000000000000000000","sourceRevision":null,"data":{"runId":"0b8f6a52-7d31-4e0a-9c64-1f2e3d4c5b6a","panelId":"a3c1e5f7-2b4d-4a6c-8e0f-1a2b3c4d5e6f","queryHash":null,"status":"QUERYING","index":0,"total":4}}
+
+id: 42
+event: query.completed
+data: {"eventId":"5e2a1d4f-9b63-4ca8-87e1-3f0d8b2a6c49","orgId":"11111111-2222-4333-8444-555555555555","workspaceId":"6f1c2d7e-3a4b-4c5d-8e9f-0a1b2c3d4e5f","seq":42,"type":"query.completed","causationId":"0b8f6a52-7d31-4e0a-9c64-1f2e3d4c5b6a","correlationId":null,"actorId":"7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d","emittedAt":"2026-11-13T09:12:33.000Z","schemaVersion":1,"payloadHash":"0000000000000000000000000000000000000000000000000000000000000000","sourceRevision":null,"data":{"runId":"0b8f6a52-7d31-4e0a-9c64-1f2e3d4c5b6a","panelId":"a3c1e5f7-2b4d-4a6c-8e0f-1a2b3c4d5e6f","queryHash":null,"status":"READY","index":0,"total":4}}
+
+: ping
+
+id: 43
+event: coalesced
+data: {"fromSeq":43,"toSeq":280,"count":238,"byType":{"query.completed":160,"panel.updated":70,"run.state_changed":8},"workspaceVersion":19}
+
+id: 280
+event: run.state_changed
+data: {"eventId":"6f3b2e5a-0c74-4db9-98f2-4a1e9c3b7d5a","orgId":"11111111-2222-4333-8444-555555555555","workspaceId":"6f1c2d7e-3a4b-4c5d-8e9f-0a1b2c3d4e5f","seq":280,"type":"run.state_changed","causationId":"0b8f6a52-7d31-4e0a-9c64-1f2e3d4c5b6a","correlationId":null,"actorId":null,"emittedAt":"2026-11-13T09:14:02.000Z","schemaVersion":1,"payloadHash":"0000000000000000000000000000000000000000000000000000000000000000","sourceRevision":null,"data":{"runId":"0b8f6a52-7d31-4e0a-9c64-1f2e3d4c5b6a","state":"COMPLETE"}}
+
+event: session_expired
+data: {"reason":"TOKEN_EXPIRED","nextAction":"Re-authenticate and reconnect with Last-Event-ID set to the last applied seq.","lastSeq":280}
+

@@ -1,0 +1,10 @@
+{
+  "state": "stale",
+  "reasonCode": "SOURCE_DEGRADED",
+  "freshness": {
+    "asOf": "2026-11-13T06:00:00.000Z",
+    "staleSeconds": 12600,
+    "degradedSince": "2026-11-13T07:10:00.000Z"
+  },
+  "nextAction": "Shown from the last finalized snapshot; do not publish as current."
+}

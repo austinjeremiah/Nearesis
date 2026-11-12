@@ -24,6 +24,8 @@ export interface Forecast {
   projectedExhaustionAt: string | null;
   /** "insufficient_data" when fewer than 3 settled entries or under one hour of the period have elapsed. */
   confidence: "ok" | "insufficient_data";
+  /** Plain-language assumptions behind the number; always shown with it (final_master_prompt s18). */
+  assumptions: string[];
 }
 
 export interface WorkspaceBurn {
@@ -43,6 +45,8 @@ export interface WorkspaceBurn {
   forecast: Forecast;
   blocks: { total: number; byReason: Record<string, number> };
   alerts: { sent: number; suppressed: number };
+  /** Entries whose price was unknown: never counted as USD 0, listed here so the figures are not read as complete. */
+  priceUnknown: { entries: number; byDimension: Record<string, number> };
   asOf: string;
 }
 
@@ -56,6 +60,7 @@ export function project(a: {
   capUsd: number | null;
   remainingUsd: number | null;
   rate24hUsdPerHour: number;
+  priceUnknownEntries?: number;
 }): Forecast {
   const elapsedMs = Math.max(0, a.now.getTime() - a.periodStart.getTime());
   const elapsedHours = elapsedMs / 3_600_000;
@@ -73,6 +78,14 @@ export function project(a: {
         ? new Date(a.now.getTime() + (a.remainingUsd / a.rate24hUsdPerHour) * 3_600_000).toISOString()
         : null,
     confidence: enough ? "ok" : "insufficient_data",
+    assumptions: [
+      "Linear: spend so far (settled plus reserved) is scaled to the whole policy period.",
+      "Exhaustion time assumes the trailing 24 hour spend rate continues unchanged.",
+      "Needs at least 3 settled entries and 1 hour of the period elapsed; otherwise no projection is made.",
+      a.priceUnknownEntries
+        ? `${a.priceUnknownEntries} entries with an unknown price are excluded; the real figure may be higher.`
+        : "No entries with an unknown price in the period.",
+    ],
   };
 }
 
@@ -130,6 +143,12 @@ export async function readBurn(
     "SELECT status, count(*)::int AS n FROM runtime.ops_alerts WHERE tenant_id=$1 AND workspace_id=$2 AND created_at >= $3 GROUP BY status",
     [tenantId, workspaceId, start],
   );
+  const pu = await q.query(
+    `SELECT dimension, count(*)::int AS n FROM runtime.cost_ledger
+      WHERE tenant_id=$1 AND workspace_id=$2 AND created_at >= $3 AND price_unknown AND state IN ('reserved','settled') GROUP BY dimension`,
+    [tenantId, workspaceId, start],
+  );
+  const unknownEntries = pu.rows.reduce((s2: number, r: { n: number }) => s2 + r.n, 0);
   const cap = policy?.capUsd ?? null;
   const committed = spent + reserved;
   return {
@@ -165,6 +184,7 @@ export async function readBurn(
       capUsd: cap,
       remainingUsd: cap === null ? null : Math.max(0, cap - committed),
       rate24hUsdPerHour: u24 / 24,
+      priceUnknownEntries: unknownEntries,
     }),
     blocks: {
       total: b.rows.reduce((s: number, r: { n: number }) => s + r.n, 0),
@@ -173,6 +193,12 @@ export async function readBurn(
     alerts: {
       sent: a.rows.find((r: { status: string }) => r.status === "sent")?.n ?? 0,
       suppressed: a.rows.find((r: { status: string }) => r.status === "suppressed")?.n ?? 0,
+    },
+    priceUnknown: {
+      entries: unknownEntries,
+      byDimension: Object.fromEntries(
+        pu.rows.map((r: { dimension: string; n: number }) => [r.dimension, r.n]),
+      ),
     },
     asOf: now.toISOString(),
   };
@@ -183,7 +209,9 @@ export interface LedgerExport {
     key: string;
     dimension: CostDimension;
     quantity: number;
-    usd: number;
+    /** null = the price was unknown (`priceUnknown`); never 0. */
+    usd: number | null;
+    priceUnknown: boolean;
     state: string;
     paidOp: string | null;
     createdAt: string;
@@ -192,7 +220,7 @@ export interface LedgerExport {
     key: string | null;
     dimension: string;
     reason: string;
-    requestedUsd: number;
+    requestedUsd: number | null;
     ledgerUsd: number;
     createdAt: string;
   }>;
@@ -205,7 +233,7 @@ export async function exportLedger(
   limit = 1000,
 ): Promise<LedgerExport> {
   const e = await q.query(
-    "SELECT entry_key, dimension, quantity::float8 AS quantity, usd::float8 AS usd, state, paid_op, created_at FROM runtime.cost_ledger WHERE tenant_id=$1 AND workspace_id=$2 ORDER BY id DESC LIMIT $3",
+    "SELECT entry_key, dimension, quantity::float8 AS quantity, usd::float8 AS usd, price_unknown, state, paid_op, created_at FROM runtime.cost_ledger WHERE tenant_id=$1 AND workspace_id=$2 ORDER BY id DESC LIMIT $3",
     [tenantId, workspaceId, limit],
   );
   const b = await q.query(
@@ -218,6 +246,7 @@ export async function exportLedger(
       dimension: r.dimension,
       quantity: r.quantity,
       usd: r.usd,
+      priceUnknown: !!r.price_unknown,
       state: r.state,
       paidOp: r.paid_op,
       createdAt: new Date(r.created_at).toISOString(),

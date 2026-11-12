@@ -1,0 +1,11 @@
+{
+  "state": "truncated",
+  "reasonCode": "MAX_ROWS",
+  "truncation": {
+    "reason": "MAX_ROWS",
+    "method": "min_max_bucket",
+    "requestedRows": 412000,
+    "returnedRows": 2000,
+    "maxRows": 2000
+  }
+}

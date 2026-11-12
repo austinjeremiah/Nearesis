@@ -15,6 +15,8 @@ export interface CostPolicy {
   dimensionLimits: Partial<Record<CostDimension, number>>;
   rates: Partial<Record<CostDimension, number>>;
   paidOpsPermitted: string[];
+  /** Dimensions refused with PRICE_UNKNOWN while no price is known (model spend is always refused). */
+  requirePriceFor: CostDimension[];
   inflightAllowanceUsd: number;
   alertThresholds: number[];
   alertMaxPerWindow: number;

@@ -1,4 +1,4 @@
-import { HTTP_STATUS_FOR } from "@nearesis/contracts";
+import { HTTP_STATUS_FOR, stateOfError } from "@nearesis/contracts";
 import type { ErrorCode, ErrorResponse } from "@nearesis/contracts";
 import { redactString } from "./redact.ts";
 
@@ -42,6 +42,9 @@ export function toErrorResponse(err: unknown, traceId: string): { status: number
         : {}),
       ...(err.opts.details ? { details: err.opts.details.slice(0, 100) } : {}),
     };
+    // v1.7.0 (additive): the frontend state taxonomy; absent for errors that are none of the twelve states.
+    const state = stateOfError(err.code, err.reasonCode);
+    if (state) body.state = state;
     return { status: HTTP_STATUS_FOR[err.code], body };
   }
   const pg = (err as PgLikeError | null)?.code;

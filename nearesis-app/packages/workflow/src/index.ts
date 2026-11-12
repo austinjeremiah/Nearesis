@@ -16,6 +16,10 @@ export {
   SloRecorder,
   exportLedger,
   readBurn,
+  readGlobalSpend,
+  reconcileGlobal,
+  reconcileWorkspace,
+  MODEL_SPEND_CEILING_USD,
   resumeWorkspace,
   sloStatus,
   evaluateAndAlert,
@@ -25,5 +29,12 @@ export {
   kernelSpendGateFactory,
   paidEgressOpFromEnv,
 } from "@nearesis/agent-runtime";
-export type { PolicyInput, WorkspaceBurn, SloStatus } from "@nearesis/agent-runtime";
+export type {
+  PolicyInput,
+  WorkspaceBurn,
+  SloStatus,
+  GlobalSpendStatus,
+  WorkspaceReconciliation,
+  GlobalReconciliation,
+} from "@nearesis/agent-runtime";
 export * from "./cost-ops.ts";

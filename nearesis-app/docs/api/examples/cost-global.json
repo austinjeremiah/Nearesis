@@ -1,0 +1,51 @@
+{
+  "scope": "global",
+  "currency": "USD",
+  "ceilingUsd": 5,
+  "hardMaxUsd": 5,
+  "settledUsd": 0.031,
+  "reservedUsd": 0.0,
+  "externalUsd": 0.0,
+  "committedUsd": 0.031,
+  "remainingUsd": 4.969,
+  "fraction": 0.0062,
+  "state": "ok",
+  "unknownPriceEntries": 0,
+  "thresholds": [
+    {
+      "fraction": 0.5,
+      "usd": 2.5,
+      "reached": false
+    },
+    {
+      "fraction": 0.8,
+      "usd": 4,
+      "reached": false
+    },
+    {
+      "fraction": 0.95,
+      "usd": 4.75,
+      "reached": false
+    },
+    {
+      "fraction": 1,
+      "usd": 5,
+      "reached": false
+    }
+  ],
+  "forecast": {
+    "label": "projection",
+    "method": "trailing_24h_rate",
+    "assumptions": [
+      "Linear: the trailing 24 hour model spend rate continues unchanged.",
+      "Counts reserved (not yet settled) spend as spent; counts spend recorded outside the ledger when configured.",
+      "Entries with an unknown price are excluded from the rate and listed separately; the real figure may be higher.",
+      "Needs at least 3 entries in the last 24 hours; with fewer, no projection is made."
+    ],
+    "rate24hUsdPerHour": 0.0004,
+    "projectedExhaustionAt": null,
+    "projected30DayUsd": null,
+    "confidence": "insufficient_data"
+  },
+  "asOf": "2026-11-13T09:30:00.000Z"
+}

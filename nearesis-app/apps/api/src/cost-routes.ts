@@ -8,6 +8,9 @@ import {
   SloRecorder,
   exportLedger,
   readBurn,
+  readGlobalSpend,
+  reconcileGlobal,
+  reconcileWorkspace,
   resumeWorkspace,
   sloStatus,
   upsertPolicy,
@@ -20,6 +23,8 @@ export interface CostRoutesOptions {
   /** Optional recorder: every response feeds the `api_availability` SLO (status < 500 is good). */
   slo?: SloRecorder | undefined;
   clock?: () => Date;
+  /** Model spend recorded outside the Postgres ledger (the inference spend file); counted in the global ceiling view. */
+  externalModelSpend?: () => Promise<number>;
 }
 
 const Uuid = z.uuid();
@@ -30,6 +35,7 @@ const PolicyBody = z.strictObject({
   dimensionLimits: z.partialRecord(Dim, z.number().finite().min(0)).optional(),
   rates: z.partialRecord(Dim, z.number().finite().min(0)).optional(),
   paidOpsPermitted: z.array(z.string().min(1).max(100)).max(50).optional(),
+  requirePriceFor: z.array(Dim).max(9).optional(),
   inflightAllowanceUsd: z.number().finite().min(0).optional(),
   alertThresholds: z.array(z.number().gt(0).max(1)).max(10).optional(),
   alertMaxPerWindow: z.number().int().min(0).max(1000).optional(),
@@ -44,6 +50,11 @@ const PolicyBody = z.strictObject({
  *   GET  /v1/workspaces/:id/cost/ledger   -> LedgerExport (metering entries and blocked spends), `?limit=` (default 200)
  *   PUT  /v1/workspaces/:id/cost/policy   -> CostPolicy   (owner/admin; cap, per-dimension limits, paid-op permissions, alert caps)
  *   POST /v1/workspaces/:id/cost/resume   -> { resumed }  (owner/admin; clears a hard stop)
+ *   GET  /v1/workspaces/:id/cost/reconciliation -> WorkspaceReconciliation (reserved vs settled, estimate vs actual, stale
+ *                                            reservations, unknown prices, global-mirror agreement)
+ *   GET  /v1/cost/global                  -> GlobalSpendStatus (the ONE global USD 5 model-spend ceiling across every workspace;
+ *                                            owner/admin; forecast carries its assumptions)
+ *   GET  /v1/cost/global/reconciliation   -> GlobalReconciliation (owner/admin)
  *   GET  /v1/ops/slo                      -> { slos: SloStatus[] } (multi-window burn state of the declared SLOs)
  * Foreign and unknown workspaces are one 404 (RLS hides foreign rows).
  */
@@ -100,6 +111,30 @@ export const costRoutes: FastifyPluginAsync<CostRoutesOptions> = async (app, opt
     inWorkspace(req as R, true, async (tx, s, ws) => ({
       resumed: await resumeWorkspace(tx, s.principal.orgId, ws, now()),
     })),
+  );
+  app.get<{ Params: { id: string } }>("/v1/workspaces/:id/cost/reconciliation", (req) =>
+    inWorkspace(req as R, false, (tx, s, ws) => reconcileWorkspace(tx, s.principal.orgId, ws, now())),
+  );
+  const platformTx = async <T>(req: FastifyRequest, fn: (tx: Tx) => Promise<T>): Promise<T> => {
+    const s = await authenticate(req);
+    if (s.role !== "owner" && s.role !== "admin")
+      throw new KernelError("FORBIDDEN", "ACCESS_DENIED", "Only an owner or admin may read global spend.");
+    return kernel.db.tx(ctx(s), async (tx) => {
+      await tx.query("SELECT set_config('search_path', 'runtime, public', true)");
+      return fn(tx);
+    });
+  };
+  app.get("/v1/cost/global", (req) =>
+    platformTx(req, (tx) => readGlobalSpend(tx, now(), opts.externalModelSpend)),
+  );
+  app.get("/v1/cost/global/reconciliation", (req) =>
+    platformTx(req, (tx) =>
+      reconcileGlobal(
+        tx,
+        now(),
+        opts.externalModelSpend ? { externalModelSpend: opts.externalModelSpend } : {},
+      ),
+    ),
   );
   app.get("/v1/ops/slo", async (req) => {
     const s = await authenticate(req);

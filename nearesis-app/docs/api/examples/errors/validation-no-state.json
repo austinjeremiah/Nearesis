@@ -1,0 +1,13 @@
+{
+  "traceId": "7f3a9c1e-52d4-4b86-9a07-3c5e8d1f2a64",
+  "retryable": false,
+  "errorCode": "VALIDATION_FAILED",
+  "reasonCode": "INVALID_BODY",
+  "message": "Invalid request body.",
+  "details": [
+    {
+      "path": "budget.usd",
+      "issue": "Too small: expected number to be >=0"
+    }
+  ]
+}

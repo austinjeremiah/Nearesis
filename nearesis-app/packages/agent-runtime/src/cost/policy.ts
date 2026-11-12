@@ -15,6 +15,7 @@ export function rowToPolicy(r: Record<string, unknown>): CostPolicy {
     dimensionLimits: r.dimension_limits as CostPolicy["dimensionLimits"],
     rates: r.rates as CostPolicy["rates"],
     paidOpsPermitted: r.paid_ops_permitted as string[],
+    requirePriceFor: ((r.require_price_for as string[] | null) ?? []) as CostDimension[],
     inflightAllowanceUsd: num(r.inflight_allowance_usd),
     alertThresholds: r.alert_thresholds as number[],
     alertMaxPerWindow: r.alert_max_per_window as number,
@@ -43,6 +44,7 @@ export function validatePolicy(p: PolicyInput): string | null {
   if (!Number.isFinite(p.capUsd) || p.capUsd < 0) return "capUsd must be a finite number >= 0";
   for (const [k, v] of Object.entries({ ...(p.dimensionLimits ?? {}), ...(p.rates ?? {}) }))
     if (!isCostDimension(k) || !Number.isFinite(v) || (v as number) < 0) return `bad dimension entry ${k}`;
+  for (const d of p.requirePriceFor ?? []) if (!isCostDimension(d)) return `bad requirePriceFor entry ${d}`;
   for (const t of p.alertThresholds ?? [])
     if (!(t > 0 && t <= 1)) return "alertThresholds must be fractions in (0, 1]";
   if (
@@ -66,9 +68,9 @@ export async function upsertPolicy(
   const r = await q.query(
     `INSERT INTO runtime.cost_policies (tenant_id, workspace_id, cap_usd, period_start, period_days, dimension_limits, rates,
        paid_ops_permitted, inflight_allowance_usd, alert_thresholds, alert_max_per_window, alert_window_seconds,
-       alert_cooldown_seconds, updated_at)
+       alert_cooldown_seconds, require_price_for, updated_at)
      VALUES ($1,$2,$3,$4,COALESCE($5,30),COALESCE($6,'{}'::jsonb),COALESCE($7,'{}'::jsonb),COALESCE($8,ARRAY['inference']::text[]),
-       COALESCE($9::numeric,0),COALESCE($10,'[0.5,0.8,0.95]'::jsonb),COALESCE($11,3),COALESCE($12,3600),COALESCE($13,300),$14)
+       COALESCE($9::numeric,0),COALESCE($10,'[0.5,0.8,0.95]'::jsonb),COALESCE($11,3),COALESCE($12,3600),COALESCE($13,300),COALESCE($15::text[],'{}'::text[]),$14)
      ON CONFLICT (tenant_id, workspace_id) DO UPDATE SET
        cap_usd=EXCLUDED.cap_usd, period_start=$4,
        period_days=COALESCE($5,cost_policies.period_days),
@@ -78,7 +80,8 @@ export async function upsertPolicy(
        alert_thresholds=COALESCE($10,cost_policies.alert_thresholds),
        alert_max_per_window=COALESCE($11,cost_policies.alert_max_per_window),
        alert_window_seconds=COALESCE($12,cost_policies.alert_window_seconds),
-       alert_cooldown_seconds=COALESCE($13,cost_policies.alert_cooldown_seconds), updated_at=$14
+       alert_cooldown_seconds=COALESCE($13,cost_policies.alert_cooldown_seconds),
+       require_price_for=COALESCE($15::text[],cost_policies.require_price_for), updated_at=$14
      RETURNING *`,
     [
       tenantId,
@@ -95,6 +98,7 @@ export async function upsertPolicy(
       p.alertWindowSeconds ?? null,
       p.alertCooldownSeconds ?? null,
       now.toISOString(),
+      p.requirePriceFor ?? null,
     ],
   );
   return rowToPolicy(r.rows[0]);

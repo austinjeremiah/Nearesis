@@ -51,12 +51,14 @@ const store = () => ({
   [d("a")]: { sha: SHA_CUR },
   [d("b")]: { sha: SHA_CUR },
   [d("c")]: { sha: SHA_CUR },
+  [d("d")]: { sha: SHA_CUR },
   [d("1")]: { sha: SHA_PREV },
   [d("2")]: { sha: SHA_PREV },
   [d("3")]: { sha: SHA_PREV },
+  [d("4")]: { sha: SHA_PREV },
 });
-const CUR = { api: d("a"), worker: d("b"), web: d("c") };
-const PREV = { api: d("1"), worker: d("2"), web: d("3") };
+const CUR = { api: d("a"), worker: d("b"), web: d("c"), sandbox: d("d") };
+const PREV = { api: d("1"), worker: d("2"), web: d("3"), sandbox: d("4") };
 
 function manifests(over: { prev?: typeof PREV | null } = {}): { m: ReleaseManifest; rb: RollbackManifest } {
   const { manifest, rollback: rb } = buildManifest({
@@ -78,6 +80,7 @@ describe("rollback against an in-memory image store", () => {
     expect(liveDigests(fd.run)).toEqual(CUR);
     const { m, rb } = manifests();
     const dry = rollback({ run: fd.run, current: m, rollback: rb, dryRun: true });
+    expect(dry.plan.problems).toEqual([]);
     expect(dry.plan.ok).toBe(true);
     expect(dry.applied).toBe(false);
     expect(liveDigests(fd.run)).toEqual(CUR);
@@ -138,7 +141,7 @@ describe("rollback against an in-memory image store", () => {
     expect(wres.plan.problems.join("\n")).toMatch(/was built from/);
 
     expect(liveDigests(fd.run)).toEqual(CUR);
-    expect(fd.calls.filter((c) => c[1] === "tag").length).toBe(3); // only the initial promote
+    expect(fd.calls.filter((c) => c[1] === "tag").length).toBe(4); // only the initial promote
   });
 });
 

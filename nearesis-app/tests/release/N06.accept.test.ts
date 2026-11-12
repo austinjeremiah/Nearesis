@@ -24,7 +24,7 @@ import { readbackLive } from "../../plugins/chain-commit/src/live.ts";
 import type { ReleaseManifest } from "../../scripts/release/manifest.ts";
 import { readSec11Sbom } from "../../scripts/release/sbom.ts";
 import { scanProblems } from "../../scripts/release/manifest.ts";
-import { evaluatePolicy, scanImage, scannerInfo } from "../../scripts/release/vuln-scan.ts";
+import { MANDATORY_IMAGES, evaluatePolicy, scanImage, scannerInfo } from "../../scripts/release/vuln-scan.ts";
 import type { ScanRecord } from "../../scripts/release/vuln-scan.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..");
@@ -50,10 +50,16 @@ const realImages = (r: NonNullable<typeof candidate>) => ({
   api: r.images.api.digest,
   worker: r.images.worker.digest,
   web: r.images.web.digest,
+  // a build record from before the sandbox joined the mandatory set has no sandbox image: it stays null and BLOCKs
+  sandbox: r.images.sandbox?.digest ?? null,
 });
 // With no build records the fixture digests below keep the validator half running; the verdict is then BLOCKED_DEPENDENCY.
-const IMAGES = candidate ? realImages(candidate) : { api: d("1"), worker: d("2"), web: d("3") };
-const PREVIOUS = previous ? realImages(previous) : { api: d("4"), worker: d("5"), web: d("6") };
+const IMAGES = candidate
+  ? realImages(candidate)
+  : { api: d("1"), worker: d("2"), web: d("3"), sandbox: d("7") };
+const PREVIOUS = previous
+  ? realImages(previous)
+  : { api: d("4"), worker: d("5"), web: d("6"), sandbox: d("8") };
 
 it("N06: the manifest builder and validator reject every bad variant naming the field; the genuine candidate carries real image digests and a real testnet transaction; the operator signature verifies", async () => {
   const sbom = readSec11Sbom(ROOT);
@@ -69,7 +75,9 @@ it("N06: the manifest builder and validator reject every bad variant naming the 
   const genuine = buildManifest(base);
   const genuineProblems = validateManifest({ ...genuine.manifest });
   const missing = genuineProblems.map((p) => p.field).sort();
-  expect(missing).toEqual(["approver", "images.api", "images.web", "images.worker", "testnetTxHash"].sort());
+  expect(missing).toEqual(
+    ["approver", "images.api", "images.sandbox", "images.web", "images.worker", "testnetTxHash"].sort(),
+  );
   expect(genuine.manifest.gitSha).toMatch(/^[0-9a-f]{40}$/);
   for (const f of [
     "semanticModelSha",
@@ -98,7 +106,7 @@ it("N06: the manifest builder and validator reject every bad variant naming the 
   // each image digest equals the digest recomputed from the local image store; each other hash equals its artefact's hash
   const recomputed = candidate ? recomputeDigests(realRun, candidate) : null;
   const built = recomputed
-    ? { api: recomputed.api!, worker: recomputed.worker!, web: recomputed.web! }
+    ? { api: recomputed.api!, worker: recomputed.worker!, web: recomputed.web!, sandbox: recomputed.sandbox! }
     : IMAGES;
   expect(verifyHashes(complete.manifest, ROOT, built)).toEqual([]);
   const prevRecomputed = previous ? recomputeDigests(realRun, previous) : null;
@@ -140,7 +148,7 @@ it("N06: the manifest builder and validator reject every bad variant naming the 
     ).toBe(true);
     named[k] = p.map((x) => x.field);
   }
-  const imageMismatch = verifyHashes(M, ROOT, { ...IMAGES, web: d("7") });
+  const imageMismatch = verifyHashes(M, ROOT, { ...IMAGES, web: d("9") });
   expect(imageMismatch.map((p) => p.field)).toEqual(["images.web"]);
   expect(validateManifest({ ...M }).filter((p) => /contains/.test(p.problem))).toEqual([]); // secret scan of the genuine manifest: 0
   const transferRejected = validateManifest(variants.transferOnly!.m).some(
@@ -185,7 +193,7 @@ it("N06: the manifest builder and validator reject every bad variant naming the 
     expect(ran.scanner.name).toBe("trivy");
     expect(ran.scanner.pinOk).toBe(true);
     expect(ran.scanner.dbUpdatedAt).toMatch(/^20\d\d-/);
-    for (const k of ["api", "worker", "web"] as const) {
+    for (const k of MANDATORY_IMAGES) {
       const r = ran.images[k]!;
       expect(r.digest, k).toBe(candidate!.images[k].digest);
       expect(r.verdict.verdict === "BLOCK", k).toBe(r.verdict.blockers.length > 0);
@@ -197,7 +205,7 @@ it("N06: the manifest builder and validator reject every bad variant naming the 
     );
     if (live && scannerInfo()) {
       rescanned = {};
-      for (const k of ["api", "worker", "web"] as const) {
+      for (const k of MANDATORY_IMAGES) {
         const again = evaluatePolicy(scanImage(candidate!.images[k].tag), [], new Date(), { artifact: k });
         rescanned[k] = again.verdict;
         expect(again.verdict, `${k} re-scan must reproduce the recorded verdict`).toBe(
@@ -232,6 +240,33 @@ it("N06: the manifest builder and validator reject every bad variant naming the 
     expect(
       scanProblems({ ...withScan, vulnerabilityScan: missingImg }).some((p) => /images\.web/.test(p.field)),
     ).toBe(true);
+    // the sandbox executes untrusted code: a scan without it, or with a BLOCK on it, stops the release like any other image
+    const noSandbox = structuredClone(ran);
+    delete (noSandbox.images as Record<string, unknown>).sandbox;
+    expect(
+      scanProblems({ ...withScan, vulnerabilityScan: noSandbox }).some(
+        (p) => /images\.sandbox/.test(p.field) && /not scanned/.test(p.problem),
+      ),
+    ).toBe(true);
+    const sbxBlocked = structuredClone(ran);
+    sbxBlocked.images.sandbox!.verdict = {
+      ...sbxBlocked.images.sandbox!.verdict,
+      verdict: "BLOCK",
+      blockers: [
+        {
+          kind: "vulnerability",
+          id: "CVE-X",
+          target: "t",
+          rule: "HIGH_NO_FIX_UNACCEPTED",
+          detail: "planted",
+        },
+      ],
+    };
+    expect(
+      scanProblems({ ...withScan, vulnerabilityScan: sbxBlocked }).some(
+        (p) => /images\.sandbox/.test(p.field) && /BLOCK/.test(p.problem),
+      ),
+    ).toBe(true);
   }
   const releaseBlockers = scanProblems(withScan);
   if (!ran)
@@ -255,7 +290,7 @@ it("N06: the manifest builder and validator reject every bad variant naming the 
   observe({
     testId: "N06",
     ...(blockedBy.length ? { blocked: `${blockedBy.join("; ")}. Fixture half passed` } : {}),
-    observed: `genuine candidate manifest: all required fields non-null with real values: gitSha ${genuine.manifest.gitSha?.slice(0, 12)}, image digests api ${IMAGES.api.slice(0, 19)}, worker ${IMAGES.worker.slice(0, 19)}, web ${IMAGES.web.slice(0, 19)} ${candidate ? "(locally built, recomputed from the image store, equal)" : "(FIXTURE digests: no build record)"}, semantic model, plugin manifest set, source snapshot, preregistration and test suite hashes (each equals the recomputed artefact hash), testnet tx ${tn?.txHash.slice(0, 12) ?? "(none)"} ${txOk ? "read back at FINAL, succeeded, payload equal" : "(readback not run)"}, approver fixture test principal; mainnetAllowedActions is exactly [commit_preregistration_hash], expectedMaxSpend 0.05 NEAR; the completed manifest validates with 0 problems; ${Object.keys(variants).length} variants rejected naming the field (placeholder hash, placeholder token, missing field, extra allowed action, transfer, no max spend, null testnet tx, private-key-like, JWT-like), image digest mismatch rejected, secret scan 0 findings, transfer variant rejected; rollback manifest names the previous images by digest ${prevOk ? "(real previous build, present in the store)" : "(fixture)"}, migration range ${genuine.rollback.migrationCompatibility.from} to ${genuine.rollback.migrationCompatibility.to} with 0 destructive migrations, frozen metric versions, hash bound to the manifest; ${ran ? `vulnerability scan (${ran.scanner.name} ${ran.scanner.version}, DB ${ran.scanner.dbUpdatedAt}) recorded for api, worker and web plus lockfiles, policy verdict ${ran.verdict}${rescanned ? `, live re-scan of the three images reproduced the verdicts (${JSON.stringify(rescanned)})` : ""}; release blockers: ${releaseBlockers.length ? releaseBlockers.map((b) => `${b.field}: ${b.problem}`).join(" | ") : "none"}; scan-record negative controls (missing, NOT_RUN, BLOCK, missing image) rejected` : "vulnerability scan NOT RUN"}; Ed25519 test-key signature verifies over the manifest hash and a changed manifest or one flipped signature byte fails; manifest sbomSha256 ${sbomLinked ? "equals" : "NOT linked to"} SEC11's value ${sbom ? sbom.sbomSha256.slice(0, 16) : "(none)"}. The operator's own approval and signature are HUMAN`,
+    observed: `genuine candidate manifest: all required fields non-null with real values: gitSha ${genuine.manifest.gitSha?.slice(0, 12)}, image digests api ${IMAGES.api.slice(0, 19)}, worker ${IMAGES.worker.slice(0, 19)}, web ${IMAGES.web.slice(0, 19)} ${candidate ? "(locally built, recomputed from the image store, equal)" : "(FIXTURE digests: no build record)"}, semantic model, plugin manifest set, source snapshot, preregistration and test suite hashes (each equals the recomputed artefact hash), testnet tx ${tn?.txHash.slice(0, 12) ?? "(none)"} ${txOk ? "read back at FINAL, succeeded, payload equal" : "(readback not run)"}, approver fixture test principal; mainnetAllowedActions is exactly [commit_preregistration_hash], expectedMaxSpend 0.05 NEAR; the completed manifest validates with 0 problems; ${Object.keys(variants).length} variants rejected naming the field (placeholder hash, placeholder token, missing field, extra allowed action, transfer, no max spend, null testnet tx, private-key-like, JWT-like), image digest mismatch rejected, secret scan 0 findings, transfer variant rejected; rollback manifest names the previous images by digest ${prevOk ? "(real previous build, present in the store)" : "(fixture)"}, migration range ${genuine.rollback.migrationCompatibility.from} to ${genuine.rollback.migrationCompatibility.to} with 0 destructive migrations, frozen metric versions, hash bound to the manifest; ${ran ? `vulnerability scan (${ran.scanner.name} ${ran.scanner.version}, DB ${ran.scanner.dbUpdatedAt}) recorded for api, worker, web and sandbox plus lockfiles, policy verdict ${ran.verdict}${rescanned ? `, live re-scan of the four images reproduced the verdicts (${JSON.stringify(rescanned)})` : ""}; release blockers: ${releaseBlockers.length ? releaseBlockers.map((b) => `${b.field}: ${b.problem}`).join(" | ") : "none"}; scan-record negative controls (missing, NOT_RUN, BLOCK, missing image) rejected` : "vulnerability scan NOT RUN"}; Ed25519 test-key signature verifies over the manifest hash and a changed manifest or one flipped signature byte fails; manifest sbomSha256 ${sbomLinked ? "equals" : "NOT linked to"} SEC11's value ${sbom ? sbom.sbomSha256.slice(0, 16) : "(none)"}. The operator's own approval and signature are HUMAN`,
     fixtureHash: genuine.manifest.testSuiteReportSha,
     evidence: {
       genuineMissingFields: missing,

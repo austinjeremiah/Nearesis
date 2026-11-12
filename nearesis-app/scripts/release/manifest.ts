@@ -19,12 +19,12 @@ export const REQUIRED_FIELDS = [
   "mainnetAllowedActions",
   "expectedMaxSpend",
 ] as const;
-/** The 12th required item of N06(a) is the images record's three members. */
-export const IMAGE_KEYS = ["api", "worker", "web"] as const;
+/** The 12th required item of N06(a) is the images record's four members (api, worker, web, sandbox). */
+export const IMAGE_KEYS = ["api", "worker", "web", "sandbox"] as const;
 
 export interface ReleaseManifest {
   gitSha: string | null;
-  images: { api: string | null; worker: string | null; web: string | null };
+  images: { api: string | null; worker: string | null; web: string | null; sandbox: string | null };
   semanticModelSha: string | null;
   pluginManifestSetSha: string | null;
   sourceSnapshotSha: string | null;
@@ -44,7 +44,7 @@ export interface ReleaseManifest {
 }
 export interface RollbackManifest {
   previousGitSha: string | null;
-  previousImages: { api: string | null; worker: string | null; web: string | null };
+  previousImages: { api: string | null; worker: string | null; web: string | null; sandbox: string | null };
   migrationCompatibility: { from: string; to: string; strategy: "expand-contract"; destructive: string[] };
   frozenMetricVersions: Record<string, string>;
 }
@@ -132,7 +132,7 @@ export function buildManifest(i: BuildInputs): { manifest: ReleaseManifest; roll
   const mig = scanMigrations(i.root);
   const rollback: RollbackManifest = {
     previousGitSha: i.previous?.gitSha ?? null,
-    previousImages: { api: null, worker: null, web: null, ...i.previous?.images },
+    previousImages: { api: null, worker: null, web: null, sandbox: null, ...i.previous?.images },
     migrationCompatibility: {
       from: mig.from,
       to: mig.to,
@@ -143,7 +143,7 @@ export function buildManifest(i: BuildInputs): { manifest: ReleaseManifest; roll
   };
   const manifest: ReleaseManifest = {
     gitSha: gitSha || null,
-    images: { api: null, worker: null, web: null, ...i.images },
+    images: { api: null, worker: null, web: null, sandbox: null, ...i.images },
     semanticModelSha: hashPaths(i.root, ["packages/semantic-gateway/src", "docs/metrics"]),
     pluginManifestSetSha: hashPaths(i.root, ["plugins/near-thesis/src/manifest.ts"]),
     sourceSnapshotSha: hashPaths(i.root, ["packages/capsule/fixtures/snapshot-synthetic"]),

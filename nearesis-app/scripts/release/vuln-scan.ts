@@ -370,6 +370,8 @@ export interface ScanRecord {
   verdict: "PASS" | "BLOCK";
   lockfiles: { findings: number; verdict: PolicyVerdict };
   images: Record<string, ImageScanResult>;
+  /** Mandatory images (MANDATORY_IMAGES) that were not scanned; any entry makes the verdict BLOCK. */
+  missingMandatory?: string[];
 }
 export interface NotRunRecord {
   status: "NOT_RUN";
@@ -428,6 +430,12 @@ export function summariseImage(tag: string, digest: string, f: Finding[], v: Pol
   };
 }
 
+/**
+ * Images that must be built and scanned for a release. The agent sandbox executes untrusted code, so it is mandatory like
+ * the production images (owner decision 2026-11-13): a release whose scan lacks any of them is BLOCKed, never skipped.
+ */
+export const MANDATORY_IMAGES = ["api", "worker", "web", "sandbox"] as const;
+
 /** Scan the lockfiles under `dir` and each built image; every verdict uses the waiver file. */
 export function scanRelease(opts: {
   dir: string;
@@ -450,13 +458,15 @@ export function scanRelease(opts: {
     );
   }
   const all = [lockVerdict, ...Object.values(images).map((i) => i.verdict)];
+  const missingMandatory = MANDATORY_IMAGES.filter((n) => !images[n]);
   return {
     status: "RAN",
     scanner,
     scannedAt: (opts.now ?? new Date()).toISOString(),
     policy: POLICY_RULE,
-    verdict: all.every((v) => v.verdict === "PASS") ? "PASS" : "BLOCK",
+    verdict: all.every((v) => v.verdict === "PASS") && missingMandatory.length === 0 ? "PASS" : "BLOCK",
     lockfiles: { findings: lock.length, verdict: lockVerdict },
     images,
+    missingMandatory,
   };
 }

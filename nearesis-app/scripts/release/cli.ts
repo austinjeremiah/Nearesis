@@ -2,7 +2,7 @@
  * Release tooling CLI (read-only, offline).
  *   tsx scripts/release/cli.ts manifest [--out DIR] [--approver ID]   build manifest, rollback manifest and SBOM record; print validation problems
  *   tsx scripts/release/cli.ts check FILE              validate a manifest file
- *   tsx scripts/release/cli.ts build-images --label L [--ref REF] [--no-cache]   build api, worker, web locally from a clean export (never pushed)
+ *   tsx scripts/release/cli.ts build-images --label L [--ref REF] [--no-cache]   build api, worker, web and sandbox locally from a clean export (never pushed)
  *   tsx scripts/release/cli.ts scan --label L                                      trivy scan of that build's lockfiles and images; exit 1 on a BLOCK verdict
  *   tsx scripts/release/cli.ts scan-fs                                             CI: trivy over the lockfiles and secrets of the working tree, same policy
  *   tsx scripts/release/cli.ts promote --label L                                  point the local `live` tags at that build
@@ -40,6 +40,7 @@ if (cmd === "manifest") {
     api: r.images.api.digest,
     worker: r.images.worker.digest,
     web: r.images.web.digest,
+    sandbox: r.images.sandbox.digest,
   });
   const tnFile = join(
     root,

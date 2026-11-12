@@ -3,13 +3,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * The sandbox base image (SEC06, SEC12, `sandbox-exec.ts`). `node:24-bookworm-slim` carries the CRITICAL zlib
- * CVE-2023-45853 (will_not_fix), so the sandbox uses `infrastructure/sandbox/Dockerfile`: node 24 trixie-slim pinned by
- * index digest, zlib1g upgraded to the fixed package, npm and corepack removed. It scans PASS under the release
- * vulnerability policy (`scripts/release/vuln-scan.ts`: no CRITICAL, no HIGH with a fix). The runner never pulls
- * (`--pull never`), so a clone builds it once here.
+ * The sandbox image (SEC06, SEC12, `sandbox-exec.ts`): `infrastructure/sandbox/Dockerfile`, Google distroless nodejs24 on
+ * Debian 13 pinned by index digest (node only: no shell, package manager, npm, util-linux, perl or ncurses). It is a
+ * mandatory member of the release image set and scan (`scripts/release/vuln-scan.ts` MANDATORY_IMAGES): 0 CRITICAL and
+ * 0 HIGH. The runner never pulls (`--pull never`), so a clone builds it once here.
  */
-export const SANDBOX_IMAGE = "nearesis-sandbox:trixie-1";
+export const SANDBOX_IMAGE = "nearesis-sandbox:distroless-1";
 export const SANDBOX_DOCKERFILE_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",

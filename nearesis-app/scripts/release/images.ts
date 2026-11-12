@@ -1,5 +1,5 @@
 /**
- * Local release image builds (ch.17): api, worker and web production images from the repository's pinned-base Dockerfiles,
+ * Local release image builds (ch.17): api, worker, web and sandbox images from the repository's pinned-base Dockerfiles,
  * built from a clean `git archive` export of a ref (never the dirty working tree), never pushed. The "digest" recorded for
  * each image is its content-addressed local image ID (`sha256:...`, the digest of the image config); a registry manifest
  * digest only exists after a push, which this tooling never performs.
@@ -17,6 +17,8 @@ export const IMAGE_DOCKERFILES = {
   /** The background worker is the ingestion scheduler image. */
   worker: "infrastructure/deploy/Dockerfile.ingestion",
   web: "infrastructure/deploy/Dockerfile.web",
+  /** The agent sandbox executes untrusted code, so it is a mandatory member of the build, scan, manifest and rollback set. */
+  sandbox: "infrastructure/sandbox/Dockerfile",
 } as const;
 export type ImageName = keyof typeof IMAGE_DOCKERFILES;
 export const IMAGE_NAMES = Object.keys(IMAGE_DOCKERFILES) as ImageName[];

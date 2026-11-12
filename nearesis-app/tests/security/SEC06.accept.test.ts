@@ -21,12 +21,26 @@ import { SANDBOX_IMAGE, ensureSandboxImage } from "../../packages/kernel/src/plu
 import { hostileManifest, rig } from "./_plugin-harness.ts";
 
 const IMAGE = SANDBOX_IMAGE;
+/**
+ * The shipped sandbox image is distroless (node only: no shell, mount, chroot, unshare, su or nsenter), so those escape
+ * binaries cannot be probed from inside it. The SAME hostile probe therefore also runs, under the SAME runner flags, in a
+ * test-only tool image that does carry them (the digest-pinned node trixie-slim used as the build base elsewhere). The
+ * confinement comes from the runner flags and the kernel (capabilities, no_new_privs, seccomp, namespaces), not from which
+ * binaries exist, so the tool-image run is a real attempt of every escape primitive; the shipped image run proves the
+ * image adds no shell and no escape binary. A tool image that is unavailable is reported as blocked, never as a pass.
+ */
+const TOOL_IMAGE =
+  "node:24-trixie-slim@sha256:af02d57b57719b9657a45199a79264a9437940cd55b3c7b3fc99615654f124a0";
 const docker = (...a: string[]) => spawnSync("docker", a, { encoding: "utf8" });
 const dockerUp = docker("version", "--format", "{{.Server.Version}}").status === 0;
 const imageId =
   dockerUp && ensureSandboxImage()
     ? docker("image", "inspect", IMAGE, "--format", "{{.Id}}").stdout.trim()
     : "";
+
+const toolImageId = dockerUp
+  ? docker("image", "inspect", TOOL_IMAGE, "--format", "{{.Id}}").stdout.trim()
+  : "";
 
 let work = "";
 let canaryFile = "";
@@ -74,7 +88,7 @@ const fs = require("fs"), net = require("net"), cp = require("child_process"), d
 const out = {};
 const t = (name, fn) => { try { out[name] = fn(); } catch (e) { out[name] = "denied:" + (e.code || e.message || String(e)).slice(0, 40); } };
 const tcp = (host, port) => new Promise((res) => { const s = net.connect({ host, port, timeout: 1500 }); s.on("connect", () => { s.destroy(); res("CONNECTED"); }); s.on("timeout", () => { s.destroy(); res("denied:timeout"); }); s.on("error", (e) => res("denied:" + (e.code || e.message))); });
-const sh = (c) => { const r = cp.spawnSync("/bin/sh", ["-c", c], { encoding: "utf8", timeout: 4000 }); return { status: r.status, out: ((r.stdout||"") + (r.stderr||"")).slice(0, 200) }; };
+const sh = (c) => { const r = cp.spawnSync("/bin/sh", ["-c", c], { encoding: "utf8", timeout: 4000 }); return { status: r.status, spawnError: r.error ? (r.error.code || "error") : null, out: ((r.stdout||"") + (r.stderr||"")).slice(0, 200) }; };
 (async () => {
   // identity and confinement flags as the kernel sees them
   const st = fs.readFileSync("/proc/self/status", "utf8");
@@ -82,6 +96,8 @@ const sh = (c) => { const r = cp.spawnSync("/bin/sh", ["-c", c], { encoding: "ut
   out.capEff = /CapEff:\\s*(\\w+)/.exec(st)[1];
   out.noNewPrivs = /NoNewPrivs:\\s*(\\d)/.exec(st)[1];
   out.seccomp = /Seccomp:\\s*(\\d)/.exec(st)[1];
+  out.shellPresent = fs.existsSync("/bin/sh");
+  out.escapeBinaries = ["mount", "chroot", "unshare", "su", "nsenter"].filter((b) => ["/bin/", "/usr/bin/", "/sbin/", "/usr/sbin/"].some((d) => fs.existsSync(d + b)));
   out.interfaces = Object.keys(os.networkInterfaces()).filter((n) => n !== "lo");
   // host filesystem reads
   t("read_host_canary", () => fs.readFileSync(${JSON.stringify(canaryPath)}, "utf8"));
@@ -111,7 +127,7 @@ const sh = (c) => { const r = cp.spawnSync("/bin/sh", ["-c", c], { encoding: "ut
   out.net_external_ip = await tcp("1.1.1.1", 443);
   out.net_dns = await new Promise((res) => dns.lookup("example.com", (e, a) => res(e ? "denied:" + e.code : "RESOLVED " + a)));
   // resources
-  out.fork_children_started = (() => { let n = 0; for (let i = 0; i < 200; i++) { try { const c = cp.spawn("/bin/sleep", ["5"], { stdio: "ignore", detached: true }); if (c.pid) n++; c.on("error", () => {}); } catch { break; } } return n; })();
+  out.fork_children_started = (() => { let n = 0; for (let i = 0; i < 200; i++) { try { const c = fs.existsSync("/bin/sleep") ? cp.spawn("/bin/sleep", ["5"], { stdio: "ignore", detached: true }) : cp.spawn(process.execPath, ["-e", "setTimeout(()=>{},5000)"], { stdio: "ignore", detached: true }); if (c.pid) n++; c.on("error", () => {}); } catch { break; } } return n; })();
   console.log("PROBE_JSON " + JSON.stringify(out));
   process.exit(0);
 })();
@@ -193,32 +209,61 @@ it("SEC06: a hostile job inside the read-only sandbox reaches no host file, host
   const line = r.stdout.split("\n").find((l) => l.startsWith("PROBE_JSON "));
   expect(line, r.stderr).toBeTruthy();
   const p = JSON.parse(line!.slice("PROBE_JSON ".length)) as Record<string, unknown>;
-  const denied = (k: string) => String(p[k]).startsWith("denied:");
 
-  // host filesystem
-  for (const k of ["read_host_canary", "read_docker_sock", "read_proc1_root", "read_host_mnt"])
-    expect(p[k], k).toMatch(/^denied:/);
-  expect(p.read_env_canary).toBe("absent");
-  expect(p.read_proc_environ).toBe("clean");
-  expect(`${r.stdout}${r.stderr}`).not.toContain(CANARY_TEXT);
-  expect(`${r.stdout}${r.stderr}`).not.toContain(CANARY_ENV);
-  // read-only: nothing writable except the small non-executable scratch
-  for (const k of ["write_rootfs", "write_etc", "write_snapshot", "delete_snapshot"])
-    expect(denied(k), `${k}=${String(p[k])}`).toBe(true);
-  expect(p.write_scratch).toBe("scratch-writable");
-  expect(p.exec_from_scratch).toMatch(/^denied:/);
-  expect(dirHash(snapshot)).toBe(snapBefore);
-  // privilege
-  expect(p.uid).toBe(65534);
-  expect(String(p.capEff).replace(/0/g, "")).toBe("");
-  expect(p.noNewPrivs).toBe("1");
-  expect(p.seccomp).toBe("2");
-  for (const k of ["mount", "chroot", "unshare", "setuid_bin", "nsenter"])
-    expect(JSON.stringify(p[k]), k).not.toMatch(/rc=0/);
-  // network
-  expect(p.interfaces).toEqual([]);
-  for (const k of ["net_host_gateway", "net_bridge_gw", "net_metadata", "net_external_ip", "net_dns"])
-    expect(denied(k), `${k}=${String(p[k])}`).toBe(true);
+  // The tool image (shell, mount, chroot, unshare, su, nsenter present) under the identical runner flags.
+  const toolRun = toolImageId ? await run({ image: toolImageId }) : null;
+  const toolLine = toolRun?.stdout.split("\n").find((l) => l.startsWith("PROBE_JSON "));
+  const pt = toolLine ? (JSON.parse(toolLine.slice("PROBE_JSON ".length)) as Record<string, unknown>) : null;
+  if (!pt) {
+    observe({
+      testId: "SEC06",
+      observed: `the shipped distroless sandbox image has no escape binaries to probe, and the tool image ${TOOL_IMAGE} that would carry mount/chroot/unshare/su/nsenter is not available locally, so those escape primitives were NOT attempted`,
+      blocked:
+        "tool image unavailable: privilege-escape probes (mount, chroot, unshare, su, nsenter) could not run",
+    });
+    return;
+  }
+  const ESCAPES = ["mount", "chroot", "unshare", "setuid_bin", "nsenter"] as const;
+  const escapeCommandRan = (v: unknown) => {
+    const o = v as { spawnError: string | null; out: string };
+    return !o.spawnError && o.out.length > 0 && !/not found|No such file/i.test(o.out);
+  };
+  const verify = (label: string, q: Record<string, unknown>, res: { stdout: string; stderr: string }) => {
+    const d = (k: string) => String(q[k]).startsWith("denied:");
+    // host filesystem
+    for (const k of ["read_host_canary", "read_docker_sock", "read_proc1_root", "read_host_mnt"])
+      expect(q[k], `${label} ${k}`).toMatch(/^denied:/);
+    expect(q.read_env_canary, label).toBe("absent");
+    expect(q.read_proc_environ, label).toBe("clean");
+    expect(`${res.stdout}${res.stderr}`, label).not.toContain(CANARY_TEXT);
+    expect(`${res.stdout}${res.stderr}`, label).not.toContain(CANARY_ENV);
+    // read-only: nothing writable except the small non-executable scratch
+    for (const k of ["write_rootfs", "write_etc", "write_snapshot", "delete_snapshot"])
+      expect(d(k), `${label} ${k}=${String(q[k])}`).toBe(true);
+    expect(q.write_scratch, label).toBe("scratch-writable");
+    expect(q.exec_from_scratch, label).toMatch(/^denied:/);
+    expect(dirHash(snapshot), label).toBe(snapBefore);
+    // privilege: kernel-reported identity and confinement flags
+    expect(q.uid, label).toBe(65534);
+    expect(String(q.capEff).replace(/0/g, ""), label).toBe("");
+    expect(q.noNewPrivs, label).toBe("1");
+    expect(q.seccomp, label).toBe("2");
+    // network
+    expect(q.interfaces, label).toEqual([]);
+    for (const k of ["net_host_gateway", "net_bridge_gw", "net_metadata", "net_external_ip", "net_dns"])
+      expect(d(k), `${label} ${k}=${String(q[k])}`).toBe(true);
+  };
+  verify("shipped", p, r);
+  verify("tool", pt, toolRun!);
+  // shipped image: distroless, so no shell and none of the escape binaries exist (recorded, not counted as a probe pass)
+  expect(p.shellPresent).toBe(false);
+  expect(p.escapeBinaries).toEqual([]);
+  // tool image: every escape primitive was really attempted (the command ran and was refused), none succeeded
+  for (const k of ESCAPES) {
+    expect(escapeCommandRan(pt[k]), `${k} did not actually run: ${JSON.stringify(pt[k])}`).toBe(true);
+    expect(JSON.stringify(pt[k]), k).not.toMatch(/rc=0/);
+  }
+  expect(pt.escapeBinaries).toEqual(["mount", "chroot", "unshare", "su", "nsenter"]);
   expect(hits).toBe(0);
   const hardenedHits = hits;
   // probe validity: the same canary listener IS reachable from an unhardened default-network container, so the zero
@@ -236,6 +281,7 @@ it("SEC06: a hostile job inside the read-only sandbox reaches no host file, host
   expect(hits).toBeGreaterThan(hardenedHits);
   // resources: the pid cap holds
   expect(Number(p.fork_children_started)).toBeLessThanOrEqual(64);
+  expect(Number(pt.fork_children_started)).toBeLessThanOrEqual(64);
 
   // ---- bounded resources: memory bomb and endless loop are stopped
   const mem = await runSandboxed({
@@ -323,11 +369,13 @@ it("SEC06: a hostile job inside the read-only sandbox reaches no host file, host
   const probes = Object.keys(p).length;
   observe({
     testId: "SEC06",
-    observed: `hostile job in a --network none, read-only, cap-drop ALL, no-new-privileges, uid 65534 container (${probes} probe results): host canary file, docker socket, /proc/1/root and host env read attempts all denied (canary text and env value never in output); writes to root fs, /etc, the read-only snapshot mount and exec from scratch denied (snapshot hash unchanged); mount/chroot/unshare/su/nsenter failed; effective capabilities 0; network interfaces besides lo: 0; host canary listener connections ${hardenedHits} (an unhardened control container reaches it: ${hits - hardenedHits}); metadata, host-gateway, external IP and DNS all failed; processes capped at ${p.fork_children_started}/200 (limit 64); ${refused.length} forbidden specs refused by policy; memory bomb exit ${mem.exitCode}, endless loop killed at timeout, honest control job read the mounted input; real path: a hostile plugin installed with isolation "sandbox" and invoked through the kernel tool gateway ran only in containers (never imported into the kernel), reached no canary, saw neither the host canary file nor env, and was stopped with reason codes ${JSON.stringify(pluginRuns)}`,
+    observed: `hostile job in a --network none, read-only, cap-drop ALL, no-new-privileges, uid 65534 container (${probes} probe results): host canary file, docker socket, /proc/1/root and host env read attempts all denied (canary text and env value never in output); writes to root fs, /etc, the read-only snapshot mount and exec from scratch denied (snapshot hash unchanged); mount/chroot/unshare/su/nsenter each ran in the tool image under the same flags and was refused (the shipped distroless image has no shell and none of those binaries: ${JSON.stringify(p.escapeBinaries)}, shell present ${p.shellPresent}); effective capabilities 0; network interfaces besides lo: 0; host canary listener connections ${hardenedHits} (an unhardened control container reaches it: ${hits - hardenedHits}); metadata, host-gateway, external IP and DNS all failed; processes capped at ${p.fork_children_started}/200 (limit 64); ${refused.length} forbidden specs refused by policy; memory bomb exit ${mem.exitCode}, endless loop killed at timeout, honest control job read the mounted input; real path: a hostile plugin installed with isolation "sandbox" and invoked through the kernel tool gateway ran only in containers (never imported into the kernel), reached no canary, saw neither the host canary file nor env, and was stopped with reason codes ${JSON.stringify(pluginRuns)}`,
     fixtureHash: createHash("sha256").update(PROBE(0, "")).digest("hex"),
     evidence: {
       imageId,
       probes: p,
+      toolImageProbes: pt,
+      toolImage: TOOL_IMAGE,
       policyRefusals: refused,
       memExit: mem.exitCode,
       spinTimedOut: spin.timedOut,

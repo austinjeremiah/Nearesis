@@ -10,8 +10,10 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   acceptanceProblem,
+  MANDATORY_IMAGES,
   evaluatePolicy,
   readAcceptances,
+  scanRelease,
   plantedArtifactDir,
   readWaivers,
   scanFs,
@@ -240,4 +242,21 @@ describe.skipIf(!info)("real trivy scan of planted artifacts (negative control)"
     },
     300_000,
   );
+});
+
+describe("the agent sandbox image is mandatory in the release scan", () => {
+  it("names api, worker, web and sandbox; a scan that lacks the sandbox image BLOCKs and lists it", () => {
+    expect([...MANDATORY_IMAGES]).toEqual(["api", "worker", "web", "sandbox"]);
+    if (!scannerInfo()) return;
+    const dir = mkdtempSync(join(tmpdir(), "vuln-empty-"));
+    try {
+      const r = scanRelease({ dir, images: {} });
+      expect(r.status).toBe("RAN");
+      if (r.status !== "RAN") return;
+      expect(r.verdict).toBe("BLOCK");
+      expect(r.missingMandatory).toEqual(["api", "worker", "web", "sandbox"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

@@ -11,7 +11,7 @@ import { normalize } from "../normalize.ts";
 import { coverageRows, insertLive, refreshWatermarks, swapRows } from "./ch.ts";
 import { REDIS_URL } from "./env.ts";
 import { addDays, WINDOW_FROM, WINDOW_TO } from "./plan.ts";
-import type { StateStore } from "./state.ts";
+import type { BackfillState, StateStore } from "./state.ts";
 
 export const EXPLORER_STREAM = "transactions:live-backfill";
 const PAGE_SIZE = 1000;
@@ -34,7 +34,7 @@ export interface ExplorerResult {
 export async function loadSwapsToClickHouse(
   db: Db,
   ch: ClickHouseClient,
-  store: StateStore,
+  store: { state: Pick<BackfillState, "explorerLoad">; save(): void },
   nowMs: number,
 ): Promise<number> {
   let loaded = 0;

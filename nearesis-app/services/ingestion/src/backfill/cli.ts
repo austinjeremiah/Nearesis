@@ -25,12 +25,18 @@ const { values } = parseArgs({
     status: { type: "boolean" },
     "report-only": { type: "boolean" },
     reconcile: { type: "boolean" },
+    "replay-raw": { type: "boolean" },
   },
   allowPositionals: true,
 });
 const only = values["explorer-only"] ? "explorer" : values["bigquery-only"] ? "bq" : values.only;
 const want = (p: string): boolean => !values.reconcile && (only === undefined || only === p);
 const log = (m: string): void => console.log(`[backfill ${new Date().toISOString()}] ${m}`);
+
+if (values["replay-raw"]) {
+  await import("./replay-cli.ts");
+  process.exit(0);
+}
 
 const store = new StateStore(STATE_PATH, WINDOW_FROM, WINDOW_TO);
 let chunks = planChunks();

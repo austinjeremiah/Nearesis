@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { SourceWatermark } from "@nearesis/contracts";
 import type { Redis } from "ioredis";
+import type pg from "pg";
 import type { RawArchive } from "../archive/archive.ts";
 import type { Clock } from "../clock.ts";
 import type { Db } from "../db.ts";
@@ -563,79 +564,7 @@ export class ExplorerCollector {
     const hash = arch.observation.payloadObjectHash;
     const tally = { inserted: 0, updated: 0, skipped: 0 };
     await this.d.db.tx(async (c) => {
-      for (const t of items) {
-        const incoming: StoredSwap = {
-          swapKey: swapKeyOf(t),
-          status: normStatus(t.status),
-          createdAt: t.createdAt,
-          amountIn: amountOrNull(t.amountIn),
-          amountOut: amountOrNull(t.amountOut),
-          rawObjectHash: hash,
-          record: t,
-        };
-        const ex = await c.query<{
-          status: string;
-          created_at: Date;
-          amount_in: string | null;
-          amount_out: string | null;
-          raw_object_hash: string;
-          record: ExplorerTx;
-        }>(
-          "SELECT status, created_at, amount_in, amount_out, raw_object_hash, record FROM ingestion.explorer_swaps WHERE swap_key=$1 FOR UPDATE",
-          [incoming.swapKey],
-        );
-        const row = ex.rows[0];
-        const existing: StoredSwap | undefined = row
-          ? {
-              swapKey: incoming.swapKey,
-              status: row.status,
-              createdAt: row.created_at.toISOString(),
-              amountIn: row.amount_in,
-              amountOut: row.amount_out,
-              rawObjectHash: row.raw_object_hash,
-              record: row.record,
-            }
-          : undefined;
-        // normalise createdAt for comparison (DB returns ms ISO)
-        incoming.createdAt = new Date(incoming.createdAt).toISOString();
-        const action = reconcileSwap(existing, incoming);
-        await c.query(
-          "INSERT INTO ingestion.explorer_swap_versions(swap_key, raw_object_hash, status, observed_at) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING",
-          [incoming.swapKey, hash, incoming.status, fetchedAtUTC],
-        );
-        if (action === "insert" || action === "update") {
-          await c.query(
-            `INSERT INTO ingestion.explorer_swaps(swap_key, status, created_at, amount_in, amount_out, raw_object_hash, version_ms, record)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-             ON CONFLICT (swap_key) DO UPDATE SET status=$2, amount_in=$4, amount_out=$5, raw_object_hash=$6, version_ms=$7, record=$8`,
-            [
-              incoming.swapKey,
-              incoming.status,
-              incoming.createdAt,
-              incoming.amountIn,
-              incoming.amountOut,
-              hash,
-              out.receivedAtMs,
-              JSON.stringify(t),
-            ],
-          );
-          if (action === "insert") tally.inserted++;
-          else tally.updated++;
-        } else if (action === "conflict") {
-          await c.query(
-            "INSERT INTO ingestion.quarantine(provider_id, kind, reason_code, raw_object_hash, detail) VALUES ($1,'swap_conflict','KEY_COLLISION',$2,$3)",
-            [
-              PROVIDER,
-              hash,
-              JSON.stringify({
-                swapKey: incoming.swapKey,
-                existingStatus: existing?.status,
-                incomingStatus: incoming.status,
-              }),
-            ],
-          );
-        } else tally.skipped++;
-      }
+      await upsertSwapPage(c, items, hash, fetchedAtUTC, out.receivedAtMs, tally);
       this.d.faults?.midPage?.(pageNo);
       await c.query(
         `INSERT INTO ingestion.cursor_state(provider_id, stream_key, cursor, page_hash, retrieved_at, schema_version, latest_event_time, pages_committed, updated_at)
@@ -730,6 +659,90 @@ export class ExplorerCollector {
       out.push({ day, state, rows: state === "unavailable" ? 0 : rows, reason });
     }
     return out;
+  }
+}
+
+/** Reconciles one validated page into ingestion.explorer_swaps (inside the caller's transaction). Shared with the raw-archive replay. */
+export async function upsertSwapPage(
+  c: Pick<pg.PoolClient, "query">,
+  items: ExplorerTx[],
+  hash: string,
+  fetchedAtUTC: string,
+  receivedAtMs: number,
+  tally: { inserted: number; updated: number; skipped: number },
+): Promise<void> {
+  for (const t of items) {
+    const incoming: StoredSwap = {
+      swapKey: swapKeyOf(t),
+      status: normStatus(t.status),
+      createdAt: t.createdAt,
+      amountIn: amountOrNull(t.amountIn),
+      amountOut: amountOrNull(t.amountOut),
+      rawObjectHash: hash,
+      record: t,
+    };
+    const ex = await c.query<{
+      status: string;
+      created_at: Date;
+      amount_in: string | null;
+      amount_out: string | null;
+      raw_object_hash: string;
+      record: ExplorerTx;
+    }>(
+      "SELECT status, created_at, amount_in, amount_out, raw_object_hash, record FROM ingestion.explorer_swaps WHERE swap_key=$1 FOR UPDATE",
+      [incoming.swapKey],
+    );
+    const row = ex.rows[0];
+    const existing: StoredSwap | undefined = row
+      ? {
+          swapKey: incoming.swapKey,
+          status: row.status,
+          createdAt: row.created_at.toISOString(),
+          amountIn: row.amount_in,
+          amountOut: row.amount_out,
+          rawObjectHash: row.raw_object_hash,
+          record: row.record,
+        }
+      : undefined;
+    // normalise createdAt for comparison (DB returns ms ISO)
+    incoming.createdAt = new Date(incoming.createdAt).toISOString();
+    const action = reconcileSwap(existing, incoming);
+    await c.query(
+      "INSERT INTO ingestion.explorer_swap_versions(swap_key, raw_object_hash, status, observed_at) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+      [incoming.swapKey, hash, incoming.status, fetchedAtUTC],
+    );
+    if (action === "insert" || action === "update") {
+      await c.query(
+        `INSERT INTO ingestion.explorer_swaps(swap_key, status, created_at, amount_in, amount_out, raw_object_hash, version_ms, record)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         ON CONFLICT (swap_key) DO UPDATE SET status=$2, amount_in=$4, amount_out=$5, raw_object_hash=$6, version_ms=$7, record=$8`,
+        [
+          incoming.swapKey,
+          incoming.status,
+          incoming.createdAt,
+          incoming.amountIn,
+          incoming.amountOut,
+          hash,
+          receivedAtMs,
+          JSON.stringify(t),
+        ],
+      );
+      if (action === "insert") tally.inserted++;
+      else tally.updated++;
+    } else if (action === "conflict") {
+      await c.query(
+        "INSERT INTO ingestion.quarantine(provider_id, kind, reason_code, raw_object_hash, detail) VALUES ($1,'swap_conflict','KEY_COLLISION',$2,$3)",
+        [
+          PROVIDER,
+          hash,
+          JSON.stringify({
+            swapKey: incoming.swapKey,
+            existingStatus: existing?.status,
+            incomingStatus: incoming.status,
+          }),
+        ],
+      );
+    } else tally.skipped++;
   }
 }
 

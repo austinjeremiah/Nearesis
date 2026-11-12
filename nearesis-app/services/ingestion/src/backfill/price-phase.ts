@@ -51,6 +51,69 @@ export function priceWindows(
   return out;
 }
 
+/** One request window of hourly points -> the exact-text daily candle file the price builder consumes. */
+export function dailyFileBytes(
+  body: Uint8Array,
+  w: { from: string; to: string },
+): { dedupCount: number; dailyCount: number; bytes: Uint8Array } {
+  const fromMs = Date.parse(`${w.from}T00:00:00Z`);
+  const toMs = Date.parse(`${w.to}T00:00:00Z`);
+  const inWindow = parseHourlyPoints(body).filter((c) => c.tsMs >= fromMs && c.tsMs < toMs);
+  const dedup = [...new Map(inWindow.map((c) => [c.tsMs, c])).values()];
+  const daily = aggregateToDaily(dedup, HOUR); // only days with all 24 samples; the rest stay gaps
+  const bytes = new TextEncoder().encode(
+    `[${daily.map((c) => `[${c.tsMs},${c.open},${c.high},${c.low},${c.close}]`).join(",")}]`,
+  );
+  return { dedupCount: dedup.length, dailyCount: daily.length, bytes };
+}
+
+/** Builds and loads price candles, coverage and gaps from the per-window fetches. Idempotent (ReplacingMergeTree). */
+export async function loadPriceFetches(
+  ch: ClickHouseClient,
+  fetches: Parameters<typeof buildPriceRows>[1],
+  version: number,
+): Promise<{ days: number; gaps: number; from: string | null; to: string | null }> {
+  const cfg = {
+    coinId: "near",
+    symbol: "NEAR",
+    quoteCurrency: "usd",
+    window: { from: WINDOW_FROM, to: WINDOW_TO },
+  };
+  const built = buildPriceRows(cfg, fetches);
+  await insertLive(ch, "price_candles", priceRows(built.rows, PRICE_BASIS));
+  const have = new Set(built.rows.map((r) => r.bucketStartUTC.slice(0, 10)));
+  await insertLive(
+    ch,
+    "source_coverage",
+    coverageRows(
+      eachDay(WINDOW_FROM, WINDOW_TO).map((day) => ({
+        provider_id: "coingecko",
+        dataset: "price_candles",
+        day,
+        state: have.has(day) ? ("complete" as const) : ("unavailable" as const),
+        reason: have.has(day) ? null : "PROVIDER_GAP",
+        version,
+      })),
+    ),
+  );
+  await insertLive(
+    ch,
+    "quality_gaps",
+    built.gaps.map((g) => ({
+      provider_id: "coingecko",
+      dataset: "price_candles",
+      from_utc: `${g.day}T00:00:00.000Z`,
+      to_utc: `${g.day}T23:59:59.999Z`,
+      state: "unavailable",
+      reason_code: g.reason,
+      source_label: "LIVE",
+      version,
+    })),
+  );
+  const days = [...have].sort();
+  return { days: built.rows.length, gaps: built.gaps.length, from: days[0] ?? null, to: days.at(-1) ?? null };
+}
+
 export interface PriceResult {
   skipped: boolean;
   requests: number;
@@ -86,12 +149,6 @@ export async function runPricePhase(d: {
     credentials: d.creds,
     ...(d.fetchImpl ? { fetchImpl: d.fetchImpl } : {}),
   });
-  const cfg = {
-    coinId: "near",
-    symbol: "NEAR",
-    quoteCurrency: "usd",
-    window: { from: WINDOW_FROM, to: WINDOW_TO },
-  };
   const fetches: Parameters<typeof buildPriceRows>[1] = [];
   for (const w of priceWindows(WINDOW_FROM, WINDOW_TO)) {
     const url = `https://api.coingecko.com/api/v3/coins/near/market_chart/range?vs_currency=usd&from=${Date.parse(`${w.from}T00:00:00Z`) / 1000}&to=${Date.parse(`${w.to}T00:00:00Z`) / 1000}`;
@@ -125,65 +182,27 @@ export async function runPricePhase(d: {
       privacyVisibility: "public",
       completeness: "complete",
     });
-    const fromMs = Date.parse(`${w.from}T00:00:00Z`);
-    const toMs = Date.parse(`${w.to}T00:00:00Z`);
-    const inWindow = parseHourlyPoints(res.body).filter((c) => c.tsMs >= fromMs && c.tsMs < toMs);
-    const dedup = [...new Map(inWindow.map((c) => [c.tsMs, c])).values()];
-    const daily = aggregateToDaily(dedup, HOUR); // only days with all 24 samples; the rest stay gaps
-    const bytes = new TextEncoder().encode(
-      `[${daily.map((c) => `[${c.tsMs},${c.open},${c.high},${c.low},${c.close}]`).join(",")}]`,
-    );
+    const { dedupCount, dailyCount, bytes } = dailyFileBytes(res.body, w);
     fetches.push({
       fileBytes: bytes,
       fetchedAtUTC,
       rawObjectHash: a.observation.payloadObjectHash,
       sourceLabel: "LIVE",
     });
-    d.log(`price window ${w.from}..${w.to}: ${dedup.length} hourly points, ${daily.length} complete days`);
+    d.log(`price window ${w.from}..${w.to}: ${dedupCount} hourly points, ${dailyCount} complete days`);
     await new Promise((r) => setTimeout(r, d.sleepMs ?? 2500));
   }
-  const built = buildPriceRows(cfg, fetches);
-  await insertLive(d.ch, "price_candles", priceRows(built.rows, PRICE_BASIS));
-  const have = new Set(built.rows.map((r) => r.bucketStartUTC.slice(0, 10)));
-  const v = Date.now();
-  await insertLive(
-    d.ch,
-    "source_coverage",
-    coverageRows(
-      eachDay(WINDOW_FROM, WINDOW_TO).map((day) => ({
-        provider_id: "coingecko",
-        dataset: "price_candles",
-        day,
-        state: have.has(day) ? ("complete" as const) : ("unavailable" as const),
-        reason: have.has(day) ? null : "PROVIDER_GAP",
-        version: v,
-      })),
-    ),
-  );
-  await insertLive(
-    d.ch,
-    "quality_gaps",
-    built.gaps.map((g) => ({
-      provider_id: "coingecko",
-      dataset: "price_candles",
-      from_utc: `${g.day}T00:00:00.000Z`,
-      to_utc: `${g.day}T23:59:59.999Z`,
-      state: "unavailable",
-      reason_code: g.reason,
-      source_label: "LIVE",
-      version: v,
-    })),
-  );
-  const days = built.rows.length;
+  const loaded = await loadPriceFetches(d.ch, fetches, Date.now());
+  const days = loaded.days;
   d.store.state.price = { done: true, requests: http.requestLog.length, days };
   d.store.save();
   return {
     skipped: false,
     requests: http.requestLog.length,
     days,
-    gaps: built.gaps.length,
-    from: [...have].sort()[0] ?? null,
-    to: [...have].sort().at(-1) ?? null,
+    gaps: loaded.gaps,
+    from: loaded.from,
+    to: loaded.to,
     authMode: hasKey ? "x-cg-demo-api-key on api.coingecko.com" : "none (public)",
   };
 }

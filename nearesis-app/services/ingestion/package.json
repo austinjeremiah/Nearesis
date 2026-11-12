@@ -16,6 +16,7 @@
     "scheduler": "tsx src/scheduler/cli.ts",
     "quotes:validate": "tsx src/scheduler/validate-quotes.ts",
     "test:scheduler": "vitest run test/scheduler",
+    "backfill:replay-raw": "tsx src/backfill/replay-cli.ts",
     "backfill:account": "tsx src/backfill/account-cli.ts"
   },
   "dependencies": {

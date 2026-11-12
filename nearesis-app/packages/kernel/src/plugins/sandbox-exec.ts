@@ -7,6 +7,7 @@ import { definePlugin } from "@nearesis/plugin-sdk";
 import type { InvocationContext, PluginModule } from "@nearesis/plugin-sdk";
 import { startSandboxed } from "../sandbox.ts";
 import { outsideConfinement } from "./confine.ts";
+import { SANDBOX_IMAGE } from "./sandbox-image.ts";
 
 /**
  * Sandboxed plugin execution (ch.08 sandbox, ch.12 "remote plugins need sandbox resource limits", FND-20261111-014).
@@ -68,7 +69,7 @@ export function sandboxedModule(
       let settled: { ok: true; value: unknown } | { ok: false; code: string; message: string } | undefined;
       const session = startSandboxed(
         {
-          image: cfg.image ?? "node:24-bookworm-slim",
+          image: cfg.image ?? SANDBOX_IMAGE,
           command: ["node", "/bootstrap/bootstrap.mjs"],
           readOnlyMounts: [
             { host: dir, container: "/plugin" },

@@ -12,13 +12,17 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { observe } from "@nearesis/acceptance";
 import { McpEndpointPolicy } from "../../packages/kernel/src/index.ts";
+import { SANDBOX_IMAGE, ensureSandboxImage } from "../../packages/kernel/src/plugins/sandbox-image.ts";
 import { hostileManifest, rig } from "./_plugin-harness.ts";
 import type { Rig } from "./_plugin-harness.ts";
 
-const IMAGE = "node:24-bookworm-slim";
+const IMAGE = SANDBOX_IMAGE;
 const docker = (...a: string[]) => spawnSync("docker", a, { encoding: "utf8" });
 const dockerUp = docker("version", "--format", "{{.Server.Version}}").status === 0;
-const imageId = dockerUp ? docker("image", "inspect", IMAGE, "--format", "{{.Id}}").stdout.trim() : "";
+const imageId =
+  dockerUp && ensureSandboxImage()
+    ? docker("image", "inspect", IMAGE, "--format", "{{.Id}}").stdout.trim()
+    : "";
 
 let canary: net.Server;
 let port = 0;

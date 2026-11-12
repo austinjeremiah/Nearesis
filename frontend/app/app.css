@@ -2235,3 +2235,34 @@ table.table {
 .table td.n {
   text-align: right;
 }
+
+/* -----------------------------------------------------------------------------
+   The collapse control sits with the wordmark at the top of the rail. Collapsed,
+   the pair stacks so both stay centred in the 64px column, and the icon turns to
+   point the way it will move.
+   -------------------------------------------------------------------------- */
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.nav-brand > a {
+  flex: 1;
+  min-width: 0;
+}
+.nav-brand .nav-collapse {
+  flex: none;
+}
+.shell[data-nav='collapsed'] .nav-brand {
+  flex-direction: column;
+  gap: var(--s2);
+}
+.shell[data-nav='collapsed'] .nav-brand > a {
+  flex: none;
+}
+.shell[data-nav='collapsed'] .nav-collapse svg {
+  transform: rotate(180deg);
+}
+.nav-foot:empty {
+  display: none;
+}

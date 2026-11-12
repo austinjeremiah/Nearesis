@@ -84,9 +84,22 @@ export function AppShell({
     <div className="shell" data-nav={navState}>
       <nav className="nav" aria-label="Primary">
         <div className="nav-top">
-          <Link href="/home" aria-label="Nearesis home">
-            <Wordmark tone="black" size={24} />
-          </Link>
+          {/* The collapse control belongs with the mark it collapses, not at the
+              far bottom of the rail where it reads as a stray button. */}
+          <div className="nav-brand">
+            <Link href="/home" aria-label="Nearesis home">
+              <Wordmark tone="black" size={24} />
+            </Link>
+            <button
+              type="button"
+              className="nav-collapse"
+              onClick={() => setCollapsed((c) => !c)}
+              aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+              title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+            >
+              <PanelLeftClose size={15} strokeWidth={1.75} />
+            </button>
+          </div>
           {workspaceName && (
             <div className="nav-label col gap1">
               <span className="label">Workspace</span>
@@ -157,15 +170,6 @@ export function AppShell({
         <div className="nav-foot">
           {workspaceId &&
             WORKSPACE_EXTRA.map((i) => <NavLink key={i.href} item={i} wid={workspaceId} />)}
-          <button
-            type="button"
-            className="nav-collapse"
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-            title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-          >
-            <PanelLeftClose size={15} strokeWidth={1.75} />
-          </button>
         </div>
       </nav>
 

@@ -4,6 +4,7 @@
  *   tsx scripts/release/cli.ts check FILE              validate a manifest file
  *   tsx scripts/release/cli.ts build-images --label L [--ref REF] [--no-cache]   build api, worker, web locally from a clean export (never pushed)
  *   tsx scripts/release/cli.ts scan --label L                                      trivy scan of that build's lockfiles and images; exit 1 on a BLOCK verdict
+ *   tsx scripts/release/cli.ts scan-fs                                             CI: trivy over the lockfiles and secrets of the working tree, same policy
  *   tsx scripts/release/cli.ts promote --label L                                  point the local `live` tags at that build
  *   tsx scripts/release/cli.ts preflight --network testnet|mainnet --contract C --method M --payload HEX64 --signer S --max-cost N --fee-ceiling N --balance-ceiling N
  *       read-only dry pre-flight (chain id read from the RPC, balance, fee estimate, on-chain readback of the payload); never signs or broadcasts
@@ -19,6 +20,7 @@ import type { ReleaseManifest, RollbackManifest } from "./manifest.ts";
 import { readSec11Sbom } from "./sbom.ts";
 import { buildImages, readBuildRecord, realRun, rescanRecord, writeSbom } from "./images.ts";
 import type { BuildRecord, ImageName } from "./images.ts";
+import { evaluatePolicy, readWaivers, scanFs, scannerInfo } from "./vuln-scan.ts";
 import { promote, rollback } from "./rollback.ts";
 import { actionHash } from "./approval.ts";
 import { LivePreflightChain } from "./near-live-chain.ts";
@@ -109,6 +111,16 @@ if (cmd === "manifest") {
       2,
     ),
   );
+} else if (cmd === "scan-fs") {
+  // CI: lockfiles and secrets of the working tree with the pinned trivy and the release policy; exit 1 on a BLOCK verdict
+  const scanner = scannerInfo();
+  if (!scanner || !scanner.pinOk) {
+    console.error("trivy is missing or is not the pinned version/binary (sh scripts/ci/install-trivy.sh)");
+    process.exit(2);
+  }
+  const verdict = evaluatePolicy(scanFs(root), readWaivers());
+  console.log(JSON.stringify({ scanner, verdict }, null, 2));
+  process.exit(verdict.verdict === "PASS" ? 0 : 1);
 } else if (cmd === "scan") {
   // re-scan a recorded build (lockfiles of its commit and its local images) with the pinned trivy
   const label = rest[rest.indexOf("--label") + 1] ?? "candidate";

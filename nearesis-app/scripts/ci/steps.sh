@@ -12,7 +12,7 @@ APP="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$APP"
 NEARESIS_APP_ROOT="$APP"; export NEARESIS_APP_ROOT
 
-STEPS="toolchain install-js install-py wasm playwright services-up db-roles migrate typecheck lint format test e2e pytest security boot deps accept-fixture"
+STEPS="toolchain install-js install-py wasm playwright services-up db-roles migrate typecheck lint format test e2e pytest security vuln-scan boot deps accept-fixture"
 
 compose() {
   set -- -f infrastructure/compose/docker-compose.yml -f infrastructure/compose/analytics.yml \
@@ -62,6 +62,12 @@ case "$step" in
   e2e) env_on; pnpm --filter @nearesis/build-monitor test:e2e ;;
   pytest) env_on; uv run pytest ;;
   security) env_on; pnpm security:all ;;
+  # Pinned trivy (checksum-verified download) over every lockfile (pnpm, uv, npm, Cargo) and for secrets; the release policy decides.
+  vuln-scan)
+    env_on
+    sh scripts/ci/install-trivy.sh
+    pnpm exec tsx scripts/release/cli.ts scan-fs
+    ;;
   boot) env_on; pnpm exec vitest run tests/boot/secret-scan.test.ts ;;
   # Test-dependency graph: acyclic, known IDs, gate order (reads tests/TEST_INDEX.json only), plus its unit test.
   deps) env_on; pnpm test:deps && pnpm exec vitest run scripts/tests/validate-deps.test.ts ;;

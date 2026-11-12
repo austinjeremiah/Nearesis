@@ -9,7 +9,8 @@
  */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -238,12 +239,19 @@ const SKIP_DIRS = [
 
 function runTrivy(args: string[]): Finding[] {
   mkdirSync(env().TRIVY_CACHE_DIR!, { recursive: true });
-  const r = spawnSync(trivyBin(), ["--quiet", ...args, "--format", "json"], {
-    encoding: "utf8",
-    env: env(),
-    maxBuffer: 512 * 1024 * 1024,
-    timeout: 900_000,
-  });
+  // Without --live the cached DB is used as is (no network); the release CLI and live runs refresh it.
+  const offline =
+    !process.env.NEARESIS_ACCEPT_LIVE && existsSync(join(env().TRIVY_CACHE_DIR!, "db", "trivy.db"));
+  const r = spawnSync(
+    trivyBin(),
+    [args[0]!, "--quiet", ...(offline ? ["--skip-db-update"] : []), ...args.slice(1), "--format", "json"],
+    {
+      encoding: "utf8",
+      env: env(),
+      maxBuffer: 512 * 1024 * 1024,
+      timeout: 900_000,
+    },
+  );
   if (r.status !== 0) throw new Error(`trivy failed (${r.status}): ${(r.stderr || r.stdout).slice(-400)}`);
   return parseTrivy(r.stdout);
 }
@@ -287,6 +295,44 @@ export interface ScanRecord {
 export interface NotRunRecord {
   status: "NOT_RUN";
   reason: string;
+}
+
+/**
+ * A temporary tree holding a lockfile that pins a known-vulnerable package (decode-uri-component 0.2.2, fix available) and a
+ * file with a credential-shaped token assembled at run time (no literal in the repository). Negative control for the scanners.
+ */
+export function plantedArtifactDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), "vuln-planted-"));
+  writeFileSync(
+    join(dir, "package-lock.json"),
+    JSON.stringify({
+      name: "planted",
+      version: "1.0.0",
+      lockfileVersion: 3,
+      requires: true,
+      packages: {
+        "": { name: "planted", version: "1.0.0", dependencies: { "decode-uri-component": "0.2.2" } },
+        "node_modules/decode-uri-component": {
+          version: "0.2.2",
+          resolved: "https://registry.npmjs.org/decode-uri-component/-/decode-uri-component-0.2.2.tgz",
+        },
+      },
+    }),
+  );
+  const rnd = (n: number) =>
+    createHash("sha256")
+      .update(String(Math.random()))
+      .digest("base64")
+      .replace(/[^A-Za-z0-9]/g, "")
+      .slice(0, n);
+  writeFileSync(
+    join(dir, "config.txt"),
+    `aws_access_key_id = AKIA${rnd(16)
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "Q")
+      .padEnd(16, "Q")}\naws_secret_access_key = ${rnd(40)}\ntoken = ghp_${rnd(36)}\n`,
+  );
+  return dir;
 }
 
 const count = (f: Finding[], pred: (x: Finding) => boolean) => f.filter(pred).length;

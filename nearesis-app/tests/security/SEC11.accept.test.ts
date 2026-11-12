@@ -11,6 +11,13 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, relative } from "node:path";
 import { afterAll, expect, it } from "vitest";
 import { observe } from "@nearesis/acceptance";
+import {
+  evaluatePolicy,
+  plantedArtifactDir,
+  readWaivers,
+  scanFs,
+  scannerInfo,
+} from "../../scripts/release/vuln-scan.ts";
 
 const ROOT = process.cwd();
 const SKIP = new Set([
@@ -197,6 +204,28 @@ it("SEC11: locked, pinned inputs with an SBOM; the negative-control branch is re
   });
   const sbomSha256 = createHash("sha256").update(combined).digest("hex");
 
+  // scanner pin and a real scan of exactly the SBOM inputs (the two lockfiles), with a planted negative control
+  const scanner = scannerInfo();
+  let scan: Record<string, unknown> = { ran: false, reason: "trivy not installed" };
+  if (scanner) {
+    expect(scanner.pinOk, "trivy must be the pinned version and binary").toBe(true);
+    const found = scanFs(work);
+    const v = evaluatePolicy(found, readWaivers());
+    expect(v.blockers).toEqual([]);
+    const planted = plantedArtifactDir();
+    tmp.push(planted);
+    const neg = evaluatePolicy(scanFs(planted), []);
+    expect(neg.verdict).toBe("BLOCK");
+    scan = {
+      ran: true,
+      scanner: `${scanner.name} ${scanner.version}`,
+      dbUpdatedAt: scanner.dbUpdatedAt,
+      lockfileFindings: found.length,
+      verdict: v.verdict,
+      negativeControlBlockers: neg.blockers.length,
+    };
+  }
+
   // (e) negative control: the same checkers over a branch with a `latest` image and an unpinned dependency
   const bad = [
     ...checkImages(
@@ -278,7 +307,8 @@ it("SEC11: locked, pinned inputs with an SBOM; the negative-control branch is re
     manifestsChecked: manifests.length + pyprojects.length,
     productionContainerDefinitions: dockerfiles.map((f) => relative(ROOT, f)),
     devComposeRootUsers: rootUsers,
+    vulnerabilityScan: scan,
   };
-  const observed = `${imageRefs.length} image references in ${composeFiles.length} compose/Dockerfile(s), all with sha256 digests; ${manifests.length} package.json and ${pyprojects.length} pyproject files with exact pins only (0 findings); pnpm install --frozen-lockfile --lockfile-only exit ${pnpmCheck.status}, uv lock --check exit ${uvCheck.status}; SBOM (syft ${"v1.56.0"}) lists ${lockedJs.length} locked JS and ${lockedPy.length} locked Python packages (0 missing) plus ${new Set(imageRefs).size} images, sbomSha256 ${sbomSha256.slice(0, 16)}; negative-control branch (latest tag, unpinned FROM, ^ and latest npm specs, unpinned python) rejected with ${bad.length} findings; production container definitions (infrastructure/deploy): ${dockerfiles.length} Dockerfiles and ${prodComposes.length} compose file, all final stages numeric non-root, read-only rootfs, cap_drop ALL, no secret in image or compose (0 findings), container negative control (root user, baked secret, writable rootfs) rejected with ${badContainers.length} findings; images are not built or deployed by this test; the dev compose root user entries (infrastructure/compose, not production) are in: ${rootUsers.join(", ") || "none"}`;
+  const observed = `${imageRefs.length} image references in ${composeFiles.length} compose/Dockerfile(s), all with sha256 digests; ${manifests.length} package.json and ${pyprojects.length} pyproject files with exact pins only (0 findings); pnpm install --frozen-lockfile --lockfile-only exit ${pnpmCheck.status}, uv lock --check exit ${uvCheck.status}; SBOM (syft ${"v1.56.0"}) lists ${lockedJs.length} locked JS and ${lockedPy.length} locked Python packages (0 missing) plus ${new Set(imageRefs).size} images, sbomSha256 ${sbomSha256.slice(0, 16)}; negative-control branch (latest tag, unpinned FROM, ^ and latest npm specs, unpinned python) rejected with ${bad.length} findings; production container definitions (infrastructure/deploy): ${dockerfiles.length} Dockerfiles and ${prodComposes.length} compose file, all final stages numeric non-root, read-only rootfs, cap_drop ALL, no secret in image or compose (0 findings), container negative control (root user, baked secret, writable rootfs) rejected with ${badContainers.length} findings; pinned trivy scan of the two SBOM lockfiles: ${JSON.stringify(scan)}; images are not built or deployed by this test; the dev compose root user entries (infrastructure/compose, not production) are in: ${rootUsers.join(", ") || "none"}`;
   observe({ testId: "SEC11", observed, fixtureHash: sbomSha256, evidence });
 }, 600_000);

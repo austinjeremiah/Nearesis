@@ -75,6 +75,8 @@ jobs:
         run: sh scripts/ci/steps.sh pytest
       - name: Security scans (secrets, URL and source-register audit)
         run: sh scripts/ci/steps.sh security
+      - name: Vulnerability scan (pinned trivy, lockfiles and secrets)
+        run: sh scripts/ci/steps.sh vuln-scan
       - name: Boot unit tests
         run: sh scripts/ci/steps.sh boot
       - name: Fixture-mode acceptance (live tests skipped)

@@ -7,7 +7,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
@@ -19,6 +19,13 @@ import {
   parseEnv,
   scanRepo,
 } from "../../scripts/security/secret-scan.ts";
+import {
+  evaluatePolicy,
+  plantedArtifactDir,
+  readWaivers,
+  scanFs,
+  scannerInfo,
+} from "../../scripts/release/vuln-scan.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(here, "..", "..");
@@ -128,6 +135,38 @@ it("SEC05: no critical dependency finding and no committed or recorded credentia
         unpinnedImages.push(`${f.replace(APP, "")}:${m[1]}`);
   expect(unpinnedImages).toEqual([]);
 
+  // ---- trivy: lockfiles (pnpm-lock.yaml, uv.lock, other package locks, Cargo.lock) and secrets over the app tree, same policy as the release
+  const scanner = scannerInfo();
+  let trivySummary = "trivy not installed: lockfile scan NOT RUN";
+  let trivyEvidence: Record<string, unknown> = { ran: false };
+  if (scanner) {
+    expect(scanner.pinOk, "trivy must be the pinned version and binary").toBe(true);
+    const found = scanFs(APP);
+    const verdict = evaluatePolicy(found, readWaivers());
+    expect(verdict.blockers.map((b) => `${b.rule}:${b.id}:${b.target}:${b.detail}`)).toEqual([]);
+    // negative control: a planted vulnerable lockfile and a planted secret through the same code path must be rejected
+    const planted = plantedArtifactDir();
+    const negative = evaluatePolicy(scanFs(planted), []);
+    rmSync(planted, { recursive: true, force: true });
+    expect(negative.verdict).toBe("BLOCK");
+    expect(negative.blockers.some((b) => b.rule === "SECRET")).toBe(true);
+    expect(negative.blockers.some((b) => b.rule === "HIGH_WITH_FIX" || b.rule === "CRITICAL")).toBe(true);
+    if (process.env.NEARESIS_ACCEPT_LIVE === "1" && scanner.dbUpdatedAt)
+      expect(Date.now() - Date.parse(scanner.dbUpdatedAt), "vulnerability DB older than 7 days").toBeLessThan(
+        7 * 86_400_000,
+      );
+    trivySummary = `trivy ${scanner.version} (DB ${scanner.dbUpdatedAt}) over pnpm-lock.yaml, uv.lock and every other lockfile/secret in the app tree: ${found.length} CRITICAL/HIGH findings, ${verdict.informational.highNoFix} HIGH without a fix, policy ${verdict.verdict}; planted vulnerable lockfile + secret rejected with ${negative.blockers.length} blockers`;
+    trivyEvidence = {
+      ran: true,
+      scanner,
+      findings: found.length,
+      verdict: verdict.verdict,
+      waived: verdict.waived,
+      invalidWaivers: verdict.invalidWaivers,
+      negativeControlBlockers: negative.blockers.length,
+    };
+  }
+
   // ---- dependency scan: npm workspace
   const audit = spawnSync("pnpm", ["audit", "--json"], { cwd: APP, encoding: "utf8", maxBuffer: 1 << 28 });
   let npm: {
@@ -173,7 +212,7 @@ it("SEC05: no critical dependency finding and no committed or recorded credentia
   const bySev = npm.metadata.vulnerabilities;
   observe({
     testId: "SEC05",
-    observed: `credential scan: ${tracked.length} findings in tracked files, ${sweep.length} in ${scanned} untracked/evidence files (0 .env values or token patterns); lockfiles present, ${pkgFiles.length} package.json files all exact-pinned (${unpinned.length} unpinned), every compose image digest-pinned (${unpinnedImages.length} unpinned); pnpm audit over ${npm.metadata.totalDependencies} npm packages: critical ${bySev.critical ?? 0} (${criticalUnmitigated.length} unmitigated), high ${bySev.high ?? 0}, moderate ${bySev.moderate ?? 0}, low ${bySev.low ?? 0}; uv audit: ${uvOut}`,
+    observed: `${trivySummary}; credential scan: ${tracked.length} findings in tracked files, ${sweep.length} in ${scanned} untracked/evidence files (0 .env values or token patterns); lockfiles present, ${pkgFiles.length} package.json files all exact-pinned (${unpinned.length} unpinned), every compose image digest-pinned (${unpinnedImages.length} unpinned); pnpm audit over ${npm.metadata.totalDependencies} npm packages: critical ${bySev.critical ?? 0} (${criticalUnmitigated.length} unmitigated), high ${bySev.high ?? 0}, moderate ${bySev.moderate ?? 0}, low ${bySev.low ?? 0}; uv audit: ${uvOut}`,
     fixtureHash: sha(join(APP, "pnpm-lock.yaml")),
     evidence: {
       npm: bySev,
@@ -184,6 +223,7 @@ it("SEC05: no critical dependency finding and no committed or recorded credentia
         title: a.title,
       })),
       uv: uvOut,
+      trivy: trivyEvidence,
       pnpmLockSha256: sha(join(APP, "pnpm-lock.yaml")),
       uvLockSha256: sha(join(APP, "uv.lock")),
       filesSwept: scanned,

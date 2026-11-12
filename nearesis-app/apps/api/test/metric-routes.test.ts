@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import Fastify from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 import { toErrorResponse } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
 import { metricRoutes } from "../src/metric-routes.ts";
@@ -13,7 +13,7 @@ import {
 const WS = "5a1b6c70-0000-4000-8000-000000000001";
 const ORG = "5a1b6c70-0000-4000-8000-0000000000aa";
 let h: Harness;
-let app: ReturnType<typeof Fastify>;
+let app: FastifyInstance;
 
 beforeAll(async () => {
   h = await setup();

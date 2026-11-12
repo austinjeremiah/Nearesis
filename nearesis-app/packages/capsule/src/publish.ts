@@ -4,6 +4,7 @@ import { join, relative } from "node:path";
 import { buildPublicationBundle, verifyBundleHashes } from "./bundle.ts";
 import type { BundleOptions, BundleResult } from "./bundle.ts";
 import { canonicalJson, canonicalSha256, sha256Hex } from "./canonical.ts";
+import { liveQueryId } from "./live.ts";
 
 /**
  * Static publication pipeline (ch.25: "The publisher consumes a signed manifest referencing all completed outputs, not
@@ -45,6 +46,8 @@ export interface LineageEntry {
   computation: string;
   queryId: string;
   querySha256: string;
+  /** Every executed query the result derives from (live bundles); `queryId` is the first. Absent for fixtures. */
+  queryIds?: string[];
   sourceSnapshotId: string;
   sourceDataHash: string;
   citedIn: string[];
@@ -61,11 +64,17 @@ export interface PublishManifestBody {
   bundle: { bundleHash: string; fileCount: number };
   snapshot: { snapshotId: string; label: string; dataHash: string };
   artifacts: Array<{ path: string; sha256: string; bytes: number }>;
-  queries: Array<{ queryId: string; path: string; sha256: string }>;
+  queries: Array<{
+    queryId: string;
+    path: string;
+    sha256: string;
+    /** Present for executed queries: where the result went and its hash (must equal the snapshot's raw file hash). */
+    execution?: { resultFile: string; resultSha256: string; rows: number; params: { s: string; e: string } };
+  }>;
   lineage: LineageEntry[];
   memo: {
     findings: Array<{ number: string; range: [string, string]; cites: string[] }>;
-    charts: Array<{ queryId: string; querySha256: string }>;
+    charts: Array<{ queryId: string; querySha256: string; queryIds?: string[] }>;
   };
 }
 export interface PublishManifest extends PublishManifestBody {
@@ -116,6 +125,38 @@ export function buildPublishManifest(b: BundleResult, signer?: PublishSigner): P
       sha256: artifacts.find((a) => a.path === p)!.sha256,
     }));
   const queryHash = new Map(queries.map((q) => [q.queryId, q.sha256]));
+  // executed queries (live bundles): every query file must be backed by an execution record that matches the snapshot
+  const executed = files.includes("sources/queries.json")
+    ? (JSON.parse(readFileSync(join(dir, "sources/queries.json"), "utf8")) as {
+        queries: Array<{
+          queryId: string;
+          resultFile: string;
+          resultSha256: string;
+          rows: number;
+          params: { s: string; e: string };
+        }>;
+        inputs: { series: string[]; research: string[] };
+      })
+    : null;
+  const execOf = new Map((executed?.queries ?? []).map((q) => [q.queryId, q]));
+  if (m.label !== "SYNTHETIC")
+    for (const q of queries)
+      if (!execOf.has(q.queryId))
+        throw new PublishBlockedError([
+          `query ${q.queryId} has no execution record: a ${m.label} bundle publishes executed queries only`,
+        ]);
+  const snapFiles = new Map<string, string>(
+    (
+      JSON.parse(readFileSync(join(dir, "snapshot-manifest.json"), "utf8")) as {
+        files: Array<{ path: string; sha256: string }>;
+      }
+    ).files.map((f) => [f.path, f.sha256]),
+  );
+  for (const q of executed?.queries ?? [])
+    if (snapFiles.get(q.resultFile) !== q.resultSha256)
+      throw new PublishBlockedError([
+        `query ${q.queryId}: result hash is not the snapshot's ${q.resultFile}`,
+      ]);
   const byResult = new Map(m.results.map((r) => [r.id, r]));
 
   // who cites what: [R:id] markers in the documents, plus the memo findings
@@ -143,14 +184,23 @@ export function buildPublishManifest(b: BundleResult, signer?: PublishSigner): P
       if (!vals.has(end)) unresolved.push(`MEMO.pdf: range end ${end} matches none of its cited results`);
   }
   for (const c of b.memo.charts)
-    if (!queryHash.has(c.queryId)) unresolved.push(`MEMO.pdf: chart query ${c.queryId} is not in the bundle`);
+    for (const id of c.queryIds ?? [c.queryId])
+      if (!queryHash.has(id)) unresolved.push(`MEMO.pdf: chart query ${id} is not in the bundle`);
   if (unresolved.length) throw new PublishBlockedError(unresolved.slice(0, 20));
 
   const lineage: LineageEntry[] = m.results.map((r) => {
-    const queryId = queryIdFor(r.id);
-    const qh = queryHash.get(queryId);
-    if (!qh) throw new PublishBlockedError([`no query ${queryId} for result ${r.id}`]);
+    const ids = executed
+      ? r.id.startsWith("research-")
+        ? executed.inputs.research
+        : executed.inputs.series
+      : [queryIdFor(r.id)];
+    const queryId = executed ? liveQueryId(ids[0]!) : ids[0]!;
+    const qids = executed ? ids.map(liveQueryId) : null;
+    for (const id of qids ?? [queryId])
+      if (!queryHash.has(id)) throw new PublishBlockedError([`no query ${id} for result ${r.id}`]);
+    const qh = queryHash.get(queryId)!;
     return {
+      ...(qids ? { queryIds: qids } : {}),
       resultId: r.id,
       label: r.label,
       value: r.value,
@@ -179,7 +229,20 @@ export function buildPublishManifest(b: BundleResult, signer?: PublishSigner): P
       dataHash: m.snapshot.dataHash,
     },
     artifacts,
-    queries,
+    queries: queries.map((q) => {
+      const e = execOf.get(q.queryId);
+      return e
+        ? {
+            ...q,
+            execution: {
+              resultFile: e.resultFile,
+              resultSha256: e.resultSha256,
+              rows: e.rows,
+              params: e.params,
+            },
+          }
+        : q;
+    }),
     lineage,
     memo: {
       findings: b.memo.findings.map((f) => ({
@@ -187,7 +250,11 @@ export function buildPublishManifest(b: BundleResult, signer?: PublishSigner): P
         range: [f.range[0], f.range[1]],
         cites: f.cites,
       })),
-      charts: b.memo.charts.map((c) => ({ queryId: c.queryId, querySha256: queryHash.get(c.queryId)! })),
+      charts: b.memo.charts.map((c) => ({
+        queryId: c.queryId,
+        querySha256: queryHash.get(c.queryId)!,
+        ...(c.queryIds ? { queryIds: c.queryIds } : {}),
+      })),
     },
   };
   const manifestHash = canonicalSha256(body);
@@ -279,15 +346,38 @@ export function verifyPublishManifest(
   }
   for (const extra of actual) problems.push(`artifact not in manifest: ${extra}`);
   const queries = new Map(m.queries.map((q) => [q.queryId, q.sha256]));
+  let snapshotFiles = new Map<string, string>();
+  try {
+    snapshotFiles = new Map(
+      (
+        JSON.parse(readFileSync(join(versionDir, "snapshot-manifest.json"), "utf8")) as {
+          files: Array<{ path: string; sha256: string }>;
+        }
+      ).files.map((f) => [f.path, f.sha256]),
+    );
+  } catch {
+    problems.push("snapshot-manifest.json unreadable");
+  }
+  for (const q of m.queries) {
+    if (m.snapshot.label !== "SYNTHETIC" && !q.execution)
+      problems.push(`query ${q.queryId} was never executed (no execution record)`);
+    if (q.execution && snapshotFiles.get(q.execution.resultFile) !== q.execution.resultSha256)
+      problems.push(`query ${q.queryId}: result hash is not the source snapshot's ${q.execution.resultFile}`);
+  }
   for (const l of m.lineage) {
+    for (const id of l.queryIds ?? [])
+      if (!queries.has(id)) problems.push(`lineage ${l.resultId}: query ${id} is not in the manifest`);
     if (queries.get(l.queryId) !== l.querySha256)
       problems.push(`lineage ${l.resultId}: query ${l.queryId} hash differs`);
     if (l.sourceSnapshotId !== m.snapshot.snapshotId || l.sourceDataHash !== m.snapshot.dataHash)
       problems.push(`lineage ${l.resultId}: source snapshot differs from the manifest's`);
   }
-  for (const c of m.memo.charts)
+  for (const c of m.memo.charts) {
     if (queries.get(c.queryId) !== c.querySha256)
       problems.push(`memo chart ${c.queryId}: query hash differs`);
+    for (const id of c.queryIds ?? [])
+      if (!queries.has(id)) problems.push(`memo chart ${c.queryId}: query ${id} is not in the manifest`);
+  }
   let sig: PublishVerification["signature"] = "unsigned";
   let signerKeyId: string | null = null;
   if (signature.alg === "ed25519") {

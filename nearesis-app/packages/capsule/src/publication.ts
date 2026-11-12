@@ -1,7 +1,7 @@
 /**
  * Publication check (V06): every number in published prose must carry a citation `[R:<resultId>]` on the same line, the
  * cited result must exist, and the number must appear in that result's value. Anything else blocks publication.
- * Exempt (not claims): ISO dates, hex digests, URLs, ordered-list markers, fenced code, and the citation tags themselves.
+ * Exempt (not claims): ISO dates, hex digests, snapshot/capsule/version identifiers (`live-...`, `cap-...`, `v-<hex12>`), URLs, ordered-list markers, fenced code, and the citation tags themselves.
  */
 export interface CitableResult {
   id: string;
@@ -41,6 +41,8 @@ export function checkPublication(markdown: string, results: CitableResult[]): Pu
       .replace(/^\s*\d+[.)]\s+/, "")
       .replace(/https?:\/\/\S+/g, " ")
       .replace(/\b[0-9a-f]{16,}\b/gi, " ")
+      .replace(/\b(?:live|cap)-[A-Za-z0-9._-]+/g, " ")
+      .replace(/\bv-[0-9a-f]{12}\b/g, " ")
       .replace(/\b\d{4}-\d{2}-\d{2}(?:T[\d:.]+Z?)?\b/g, " ");
     for (const m of stripped.matchAll(NUM)) {
       const num = m[0];

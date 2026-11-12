@@ -10,7 +10,14 @@ export interface MemoInput {
   bear: string;
   falsification: string;
   findings: Array<{ text: string; cites: string[]; number: string; range: [string, string] }>;
-  charts: Array<{ queryId: string; title: string; alt: string; kind: "lines" | "interval" | "bars" }>;
+  charts: Array<{
+    queryId: string;
+    /** Every executed query the chart's data derives from (live bundles); `queryId` is the first. */
+    queryIds?: string[];
+    title: string;
+    alt: string;
+    kind: "lines" | "interval" | "bars";
+  }>;
   series: Array<{ name: string; values: number[] }>;
   interval: { point: number; lo: number; hi: number } | null;
   bars: Array<{ label: string; value: number }>;

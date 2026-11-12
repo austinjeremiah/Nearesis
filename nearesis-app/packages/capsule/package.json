@@ -12,6 +12,7 @@
     "research:rebuild": "tsx src/cli.ts rebuild",
     "research:verify": "tsx src/cli.ts verify",
     "research:publish": "tsx src/cli.ts publish",
+    "research:live-input": "tsx src/cli.ts live-input",
     "research:publish-verify": "tsx src/cli.ts publish-verify",
     "capsule:build": "tsx src/cli.ts build"
   },

@@ -8,6 +8,7 @@ import { canonicalJson, canonicalSha256, sha256Hex } from "./canonical.ts";
 import { renderMemoPdf } from "./memo.ts";
 import type { MemoInput } from "./memo.ts";
 import { checkPublication } from "./publication.ts";
+import { LIVE_SNAPSHOT_FILE, liveExecutions, liveQueriesDocument, parseLiveSnapshot } from "./live.ts";
 import { loadSnapshot } from "./snapshot.ts";
 import { treeHashOf } from "./tree.ts";
 
@@ -157,7 +158,11 @@ export function buildPublicationBundle(o: BundleOptions): BundleResult {
       outDir: capDir,
       ...(o.researchBundleDir ? { researchBundleDir: o.researchBundleDir } : {}),
     });
-    const { descriptor } = loadSnapshot(o.snapshotDir);
+    const { descriptor, raw: snapRaw } = loadSnapshot(o.snapshotDir);
+    const liveFile = snapRaw.get(LIVE_SNAPSHOT_FILE);
+    const live = descriptor.label === "LIVE" && liveFile ? parseLiveSnapshot(liveFile) : null;
+    if (descriptor.label === "LIVE" && !live)
+      throw new Error("a LIVE snapshot must carry its executed queries (raw/live-snapshot.json)");
     const version = `v-${m.capsuleHash.slice(0, 12)}`;
     const target = join(o.root, version);
     const research = o.researchBundleDir
@@ -180,13 +185,22 @@ export function buildPublicationBundle(o: BundleOptions): BundleResult {
       "q-research-primary": `${synthetic}-- Daily organic actions used by the primary forecast comparison (chart two).\nSELECT block_date, COUNT(*) AS organic_actions\nFROM \`near_public.actions\`\nWHERE block_date BETWEEN @from_date AND @to_date\n  AND signer_id NOT IN UNNEST(@intents_generated_accounts)\nGROUP BY block_date\nORDER BY block_date;\n`,
       "q-lag-correlation": `${synthetic}-- Aligned daily pairs for the lag correlation (chart three).\nSELECT a.block_date, a.intents_volume_usd, b.active_signers\nFROM \`near_public.intents_daily\` AS a\nJOIN \`near_public.intents_daily\` AS b ON b.block_date = DATE_ADD(a.block_date, INTERVAL @lag_days DAY)\nWHERE a.block_date BETWEEN @from_date AND @to_date\nORDER BY a.block_date;\n`,
     };
-    for (const [id, text] of Object.entries(sql)) write(out, `sql/${id}.sql`, text);
+    if (live) {
+      // LIVE: only queries that were executed. Each file is the executed text with its parameters and result hash.
+      for (const q of liveExecutions(live))
+        write(
+          out,
+          `sql/${q.queryId}.sql`,
+          `-- EXECUTED against ${q.database} at snapshot freeze ${live.frozenAt}; snapshot ${live.snapshotId}.\n-- Parameters: s=${q.params.s}, e=${q.params.e} (UTC dates, inclusive).\n-- Result: ${q.resultFile}, ${q.rows} rows, sha256 ${q.resultSha256}.\n${q.sql};\n`,
+        );
+    } else for (const [id, text] of Object.entries(sql)) write(out, `sql/${id}.sql`, text);
 
     write(
       out,
       "sources/snapshot.json",
-      `${JSON.stringify({ snapshotId: descriptor.snapshotId, label: descriptor.label, dataset: descriptor.dataset, frozenAt: descriptor.frozenAt, files: descriptor.files, retrieval: "frozen fixture; no live retrieval", dataHash: m.snapshot.dataHash }, null, 2)}\n`,
+      `${JSON.stringify({ snapshotId: descriptor.snapshotId, label: descriptor.label, dataset: descriptor.dataset, frozenAt: descriptor.frozenAt, files: descriptor.files, retrieval: live ? `live read from ${live.database} at freeze ${live.frozenAt}; executed queries in sources/queries.json` : "frozen fixture; no live retrieval", dataHash: m.snapshot.dataHash }, null, 2)}\n`,
     );
+    if (live) write(out, "sources/queries.json", liveQueriesDocument(live));
     write(out, "snapshot-manifest.json", readFileSync(join(capDir, "snapshot", "snapshot.json")));
     for (const [from, to] of [
       ["THESIS.md", "THESIS.md"],
@@ -219,7 +233,9 @@ export function buildPublicationBundle(o: BundleOptions): BundleResult {
         "# Preregistration",
         "",
         pre
-          ? `Preregistration hash recorded in the research run: ${num(pre.hash)}. No chain commitment was made for this fixture build.`
+          ? live
+            ? `Preregistration hash recorded in the research run: ${num(pre.hash)}. This is a POST-HOC registration: the frozen fixture-evaluation parameters were applied unchanged to this live window; the live-study fields are not frozen, and no chain commitment exists for this preregistration document in this capsule.`
+            : `Preregistration hash recorded in the research run: ${num(pre.hash)}. No chain commitment was made for this fixture build.`
           : "This build ran no research experiment and has no preregistration.",
         "",
         "## Frozen block",
@@ -235,7 +251,9 @@ export function buildPublicationBundle(o: BundleOptions): BundleResult {
         "# Experiments",
         "",
         research
-          ? `Experiment verdict: ${r("research-status") ?? "unknown"} ${cite("research-status")}. ${(Array.isArray(verdict?.reasons) ? (verdict.reasons as string[]) : []).join(" ")}`
+          ? live
+            ? `Experiment verdict: ${r("research-status") ?? "unknown"} ${cite("research-status")}, exploratory. Only ${r("research-n-origins")} scored development origins exist against a preregistered minimum of ${r("research-min-origins")} ${cite("research-n-origins", "research-min-origins")}, so the run supports no conclusion. The forecast comparisons are METHOD_NOT_VALIDATED (every candidate nests the baseline) and no statistical significance is claimed.`
+            : `Experiment verdict: ${r("research-status") ?? "unknown"} ${cite("research-status")}. ${(Array.isArray(verdict?.reasons) ? (verdict.reasons as string[]) : []).join(" ")}`
           : "No experiment was run for this build.",
         "",
         "## Run summary",
@@ -260,7 +278,30 @@ export function buildPublicationBundle(o: BundleOptions): BundleResult {
 
     // memo: three findings, each a number with its interval from result artifacts
     const findings: MemoInput["findings"] = [];
-    if (r("research-delta-mae") && r("research-delta-mae-lo") && r("research-delta-mae-hi"))
+    if (live) {
+      // LIVE: direction-neutral, exploratory wording. Numbers are the cited results' values, never rounded or restated.
+      if (r("research-delta-mae") && r("research-delta-mae-lo") && r("research-delta-mae-hi"))
+        findings.push({
+          text: `Exploratory, no conclusion: the change in out-of-sample forecast error from adding lagged Intents volume is ${r("research-delta-mae")} (bootstrap interval ${r("research-delta-mae-lo")} to ${r("research-delta-mae-hi")} log1p units; negative means higher error than the baseline). The interval contains zero and the comparison method is not validated for this nested comparison, so no significance is claimed.`,
+          cites: ["research-delta-mae", "research-delta-mae-lo", "research-delta-mae-hi"],
+          number: r("research-delta-mae")!,
+          range: [r("research-delta-mae-lo")!, r("research-delta-mae-hi")!],
+        });
+      if (r("research-n-origins") && r("research-min-origins"))
+        findings.push({
+          text: `The verdict is ${r("research-status")}: ${r("research-n-origins")} scored development origins against a preregistered minimum of ${r("research-min-origins")}. The run is exploratory and post-hoc registered.`,
+          cites: ["research-status", "research-n-origins", "research-min-origins"],
+          number: r("research-n-origins")!,
+          range: [r("research-n-origins")!, r("research-min-origins")!],
+        });
+      if (r("n"))
+        findings.push({
+          text: `The aligned live window covers ${r("n")} consecutive days of Intents volume and organic NEAR transactions; the correlations in THESIS.md are descriptive only.`,
+          cites: ["n"],
+          number: r("n")!,
+          range: [r("n")!, r("n")!],
+        });
+    } else if (r("research-delta-mae") && r("research-delta-mae-lo") && r("research-delta-mae-hi"))
       findings.push({
         text: `Out-of-sample forecast error fell by ${r("research-delta-mae")} (bootstrap interval ${r("research-delta-mae-lo")} to ${r("research-delta-mae-hi")} log1p units) when lagged Intents volume was added.`,
         cites: ["research-delta-mae", "research-delta-mae-lo", "research-delta-mae-hi"],
@@ -268,7 +309,7 @@ export function buildPublicationBundle(o: BundleOptions): BundleResult {
         range: [r("research-delta-mae-lo")!, r("research-delta-mae-hi")!],
       });
     const lagIds = m.results.filter((x) => /^lag-\d+-pearson$/.test(x.id)).map((x) => x.id);
-    if (r("pearson") && lagIds[0] && /^-?\d/.test(r(lagIds[0]) ?? "")) {
+    if (!live && r("pearson") && lagIds[0] && /^-?\d/.test(r(lagIds[0]) ?? "")) {
       const a = Number(r("pearson"));
       const b = Number(r(lagIds[0]));
       const [lo, hi] = a <= b ? [r("pearson")!, r(lagIds[0])!] : [r(lagIds[0])!, r("pearson")!];
@@ -279,7 +320,7 @@ export function buildPublicationBundle(o: BundleOptions): BundleResult {
         range: [lo, hi],
       });
     }
-    if (r("x-growth") && r("y-growth")) {
+    if (!live && r("x-growth") && r("y-growth")) {
       const [lo, hi] =
         Number(r("x-growth")) <= Number(r("y-growth"))
           ? [r("x-growth")!, r("y-growth")!]
@@ -291,7 +332,7 @@ export function buildPublicationBundle(o: BundleOptions): BundleResult {
         range: [lo, hi],
       });
     }
-    if (findings.length < 3 && r("n"))
+    if (!live && findings.length < 3 && r("n"))
       findings.push({
         text: `The aligned window covers ${r("n")} days.`,
         cites: ["n"],
@@ -299,32 +340,61 @@ export function buildPublicationBundle(o: BundleOptions): BundleResult {
         range: [r("n")!, r("n")!],
       });
     const memo: MemoInput = {
-      title: `${descriptor.label === "SYNTHETIC" ? "SYNTHETIC: " : ""}Research memo: ${descriptor.claimId}`,
-      bull: "Bull case: lagged Intents volume carries information about later organic NEAR activity that a plain baseline lacks, and the improvement survives out-of-sample.",
-      bear: "Bear case: the signal is predictive only, the window is short, private settlement after the regime change is unobserved, and a fixture run supports no live claim.",
-      falsification:
-        "Falsification: the reading fails if the interval for the improvement includes zero, if the placebo test is not passed, or if a lockbox holdout shows no gain.",
+      title: `${descriptor.label === "SYNTHETIC" ? "SYNTHETIC: " : live ? "LIVE, EXPLORATORY (INSUFFICIENT_DATA): " : ""}Research memo: ${descriptor.claimId}`,
+      bull: live
+        ? "Bull case: if lagged Intents volume does carry information about later organic NEAR activity, a longer pre-regime history would show it as a lower out-of-sample error than the baseline; this run cannot show that."
+        : "Bull case: lagged Intents volume carries information about later organic NEAR activity that a plain baseline lacks, and the improvement survives out-of-sample.",
+      bear: live
+        ? "Bear case: the development sample is below the preregistered minimum, the registration is post-hoc, the comparison method is not validated for nested models, private settlement is unobserved, and the observed error is not lower with Intents volume."
+        : "Bear case: the signal is predictive only, the window is short, private settlement after the regime change is unobserved, and a fixture run supports no live claim.",
+      falsification: live
+        ? "Falsification: the reading fails if a properly registered study with enough origins shows no lower error, or if a validated comparison cannot separate the models; the lockbox holdout is sealed and was not opened."
+        : "Falsification: the reading fails if the interval for the improvement includes zero, if the placebo test is not passed, or if a lockbox holdout shows no gain.",
       findings: findings.slice(0, 3),
-      charts: [
-        {
-          queryId: "q-series-daily",
-          title: "Intents volume and signers, indexed",
-          alt: `Two indexed lines for ${descriptor.series.x.name} and ${descriptor.series.y.name}`,
-          kind: "lines",
-        },
-        {
-          queryId: "q-research-primary",
-          title: "Primary improvement with interval",
-          alt: "Point estimate with a 95 percent interval",
-          kind: "interval",
-        },
-        {
-          queryId: "q-lag-correlation",
-          title: "Correlation by lag",
-          alt: "Bars for same-day and lagged correlation",
-          kind: "bars",
-        },
-      ],
+      charts: live
+        ? [
+            {
+              queryId: "q-swaps",
+              queryIds: ["q-swaps", "q-account_daily_activity"],
+              title: "Intents volume and organic transactions, indexed",
+              alt: `Two indexed lines for ${descriptor.series.x.name} and ${descriptor.series.y.name}`,
+              kind: "lines",
+            },
+            {
+              queryId: "q-account_daily_activity",
+              queryIds: ["q-account_daily_activity", "q-price", "q-swaps"],
+              title: "Primary error change with interval (exploratory)",
+              alt: "Point estimate with a 95 percent interval that contains zero",
+              kind: "interval",
+            },
+            {
+              queryId: "q-swaps",
+              queryIds: ["q-swaps", "q-account_daily_activity"],
+              title: "Descriptive correlation by lag",
+              alt: "Bars for same-day and lagged correlation",
+              kind: "bars",
+            },
+          ]
+        : [
+            {
+              queryId: "q-series-daily",
+              title: "Intents volume and signers, indexed",
+              alt: `Two indexed lines for ${descriptor.series.x.name} and ${descriptor.series.y.name}`,
+              kind: "lines",
+            },
+            {
+              queryId: "q-research-primary",
+              title: "Primary improvement with interval",
+              alt: "Point estimate with a 95 percent interval",
+              kind: "interval",
+            },
+            {
+              queryId: "q-lag-correlation",
+              title: "Correlation by lag",
+              alt: "Bars for same-day and lagged correlation",
+              kind: "bars",
+            },
+          ],
       series: [
         { name: descriptor.series.x.name, values: loadSeries(o.snapshotDir, "x") },
         { name: descriptor.series.y.name, values: loadSeries(o.snapshotDir, "y") },

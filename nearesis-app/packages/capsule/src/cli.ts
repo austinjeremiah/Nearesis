@@ -2,6 +2,7 @@
  * pnpm --filter @nearesis/capsule research:rebuild --snapshot <dir> --out <dir> [--research-bundle <dir>] [--expect <manifest.json>]
  * pnpm --filter @nearesis/capsule research:verify --capsule <dir>
  * pnpm --filter @nearesis/capsule research:publish --snapshot <dir> --root <dir> [--research-bundle <dir>] [--key <ed25519.pem>]
+ * pnpm --filter @nearesis/capsule research:live-input --live-snapshot <docs/research/live-snapshots/id> --out <dir> --commit <analysis-commit>
  * pnpm --filter @nearesis/capsule research:publish-verify --version-dir <dir> [--trusted-key <keyId>]
  *
  * Rebuild is offline and needs no credentials: it reads only the frozen snapshot directory (plus an optional research
@@ -13,6 +14,7 @@ import { PublishBlockedError, publishStatic, verifyPublishManifest } from "./pub
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { APP_ROOT, PublicationBlockedError, buildCapsule } from "./build.ts";
+import { buildLiveCapsuleInput } from "./live.ts";
 import { writeCapsuleOwnership } from "./ownership.ts";
 import { SnapshotError } from "./snapshot.ts";
 import { verifyCapsule } from "./verify.ts";
@@ -33,6 +35,8 @@ const { values: a } = parseArgs({
     root: { type: "string" },
     key: { type: "string" },
     "version-dir": { type: "string" },
+    "live-snapshot": { type: "string" },
+    commit: { type: "string" },
     "trusted-key": { type: "string", multiple: true },
   },
 });
@@ -149,6 +153,19 @@ async function main(): Promise<number> {
       }
       throw e;
     }
+  }
+  if (cmd === "live-input") {
+    if (!a["live-snapshot"] || !a.out || !a.commit) {
+      console.error("usage: live-input --live-snapshot <dir> --out <dir> --commit <analysis-commit>");
+      return 2;
+    }
+    const r = buildLiveCapsuleInput({
+      liveSnapshotDir: abs(a["live-snapshot"]),
+      outDir: abs(a.out),
+      analysisCodeCommit: a.commit,
+    });
+    console.log(JSON.stringify({ status: "written", ...r, out: abs(a.out) }));
+    return 0;
   }
   if (cmd === "publish-verify") {
     if (!a["version-dir"]) {

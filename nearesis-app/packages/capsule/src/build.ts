@@ -101,6 +101,7 @@ export function buildResults(
   results: Record<string, unknown>,
   names: { x: string; y: string },
   research: Record<string, unknown> | null,
+  live = false,
 ): ResultSpec[] {
   const out: ResultSpec[] = [];
   const n = results.n as string;
@@ -202,6 +203,42 @@ export function buildResults(
       computation: "estimates.primary.delta_mae_ci.hi from research_run.json",
     });
   }
+  if (live && research) {
+    // Live exploratory run: the numbers the prose needs to state why no claim is made are results too (cited, not typed).
+    const prim = get(research, "estimates", "primary") as Record<string, unknown> | undefined;
+    const minOrigins = get(research, "preregistration", "thresholds", "minDevOrigins");
+    const add = (id: string, label: string, v: unknown, unit: string | null, computation: string) => {
+      if (typeof v === "number") out.push({ id, label, value: String(v), unit, computation });
+    };
+    add(
+      "research-n-origins",
+      "Scored development origins in the primary comparison",
+      prim?.n_origins,
+      "origins",
+      "estimates.primary.n_origins from research_run.json",
+    );
+    add(
+      "research-min-origins",
+      "Preregistered minimum of scored development origins",
+      minOrigins,
+      "origins",
+      "preregistration.thresholds.minDevOrigins from research_run.json",
+    );
+    add(
+      "research-mae-baseline",
+      "Baseline out-of-sample MAE (primary comparison)",
+      prim?.mae_baseline,
+      "log1p units",
+      "estimates.primary.mae_baseline from research_run.json",
+    );
+    add(
+      "research-mae-candidate",
+      "Candidate (with lagged Intents volume) out-of-sample MAE (primary comparison)",
+      prim?.mae_candidate,
+      "log1p units",
+      "estimates.primary.mae_candidate from research_run.json",
+    );
+  }
   return out;
 }
 
@@ -218,6 +255,7 @@ export function buildClaims(
   last: string,
   names: { x: string; y: string },
   research: Record<string, unknown> | null,
+  live = false,
 ): ClaimSpec[] {
   const v = (id: string): string | undefined => results.find((r) => r.id === id)?.value;
   const claims: ClaimSpec[] = [
@@ -264,7 +302,10 @@ export function buildClaims(
       id: "c-hypothesis",
       claimClass: "hypothesis",
       resultIds: ["research-status"],
-      text: `Pre-registered hypothesis that ${names.x} improves forecasts of the target beyond a baseline: the research run verdict is ${v("research-status")}. This is a fixture run and makes no live claim.${significanceNote}`,
+      text: live
+        ? `Hypothesis that ${names.x} improves forecasts of the target beyond a baseline: the research run verdict is ${v("research-status")}, exploratory. Only ${v("research-n-origins")} scored development origins are available against a preregistered minimum of ${v("research-min-origins")}, so no conclusion is drawn; the registration is post-hoc and the forecast comparison is METHOD_NOT_VALIDATED.${significanceNote}`
+        : `Pre-registered hypothesis that ${names.x} improves forecasts of the target beyond a baseline: the research run verdict is ${v("research-status")}. This is a fixture run and makes no live claim.${significanceNote}`,
+      ...(live ? { resultIds: ["research-status", "research-n-origins", "research-min-origins"] } : {}),
     });
   }
   claims.push({
@@ -288,7 +329,12 @@ function limitationsFor(label: string, hasResearch: boolean): string[] {
     l.unshift(
       "This capsule is built on SYNTHETIC data. No statement in it describes NEAR production activity.",
     );
-  if (hasResearch)
+  if (hasResearch && label === "LIVE")
+    l.push(
+      "LIVE exploratory capsule: the research verdict is INSUFFICIENT_DATA, so it supports no conclusion about Intents and organic NEAR activity. The registration is post-hoc (frozen fixture-evaluation parameters applied unchanged to a live window) and the forecast comparisons are METHOD_NOT_VALIDATED because every candidate model nests the baseline. No statistical significance is claimed anywhere in this capsule.",
+      "Pearson correlations here are descriptive statistics of two daily level series; they are not forecasting evidence and not causal. Private Intents settlement after the regime change is unobserved, not zero. The research run is a recorded run (checked by file hash), re-run from the pinned snapshot by the research engine.",
+    );
+  else if (hasResearch)
     l.push(
       "The research run is re-executed offline from its seed when it is a fixture run; its own limitations are listed in research_run.json.",
     );
@@ -339,10 +385,11 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
 
   // 4. claims, results, publication
   const names = { x: descriptor.series.x.name, y: descriptor.series.y.name };
-  const rs = buildResults(results, names, research);
+  const isLive = descriptor.label === "LIVE";
+  const rs = buildResults(results, names, research, isLive);
   const first = input.series.x.points[0]![0];
   const last = input.series.x.points[input.series.x.points.length - 1]![0];
-  const claims = buildClaims(rs, first, last, names, research);
+  const claims = buildClaims(rs, first, last, names, research, isLive);
   const limitations = limitationsFor(descriptor.label, research !== null);
   const wasmPath = opts.wasmPath ?? DEFAULT_WASM;
   const wasmSha = existsSync(wasmPath) ? sha256Hex(readFileSync(wasmPath)) : null;
@@ -365,6 +412,12 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
     "",
     ...(descriptor.label === "SYNTHETIC"
       ? ["> SYNTHETIC DATA. This is a test fixture, not NEAR production activity.", ""]
+      : []),
+    ...(isLive
+      ? [
+          "> LIVE DATA, EXPLORATORY. The research verdict is INSUFFICIENT_DATA and the forecast comparisons are METHOD_NOT_VALIDATED. Nothing here is a finding of significance.",
+          "",
+        ]
       : []),
     "## Claims",
     "",
@@ -510,13 +563,21 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
       jobId: null,
       reason: "No OutLayer job has been submitted for this capsule.",
     },
-    chainCommitment: {
-      status: "blocked" as const,
-      network: null,
-      txHash: null,
-      reason:
-        "No chain commitment was made: signing and chain writes are not permitted in this build (BLK-20261110-003).",
-    },
+    chainCommitment: isLive
+      ? {
+          status: "unverified" as const,
+          network: null,
+          txHash: null,
+          reason:
+            "The capsule hash cannot contain its own commitment: a testnet hash commitment, when made, is recorded beside the publish manifest.",
+        }
+      : {
+          status: "blocked" as const,
+          network: null,
+          txHash: null,
+          reason:
+            "No chain commitment was made: signing and chain writes are not permitted in this build (BLK-20261110-003).",
+        },
   };
   const manifest = CapsuleManifest.parse({ ...body, capsuleHash: canonicalSha256(body) });
   write(out, "manifest.json", `${JSON.stringify(manifest, null, 2)}\n`);

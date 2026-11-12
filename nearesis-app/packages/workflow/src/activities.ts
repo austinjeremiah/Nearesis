@@ -2,6 +2,7 @@ import { CATALOG_UNAVAILABLE, catalogUnreadable, contextNeedsRebind } from "./so
 import { randomUUID } from "node:crypto";
 import { meterActivities } from "./cost-ops.ts";
 import {
+  analyticsCallOf,
   previewQueriesOf,
   runInterpretation,
   type FindingSink,
@@ -229,6 +230,7 @@ function createActivitiesRaw(d: ActivityDeps) {
     const validator = validatorActorId(i.runId);
     // A28: the executable queries behind the previewed panels, kept with the proposal so the interpretation stage can read their results
     let previewQueries: ReturnType<typeof previewQueriesOf> = [];
+    const analyticsCalls: NonNullable<ReturnType<typeof analyticsCallOf>>[] = [];
     // taken synchronously per call: the composer issues its tool calls concurrently, and each needs its own idempotency step
     let nextStep = 0;
     const invoke = async (capability: string, input: unknown): Promise<unknown> => {
@@ -295,6 +297,10 @@ function createActivitiesRaw(d: ActivityDeps) {
           {},
         );
       if (capability === "canvas.preview@1") previewQueries = previewQueriesOf(shaped);
+      if (capability.endsWith(".analyze@1")) {
+        const c = analyticsCallOf(capability, shaped, out.response.payload);
+        if (c) analyticsCalls.push(c);
+      }
       return out.response.payload;
     };
     const ledgerProvider: InferenceProvider = {
@@ -410,6 +416,7 @@ function createActivitiesRaw(d: ActivityDeps) {
           patch: res.patch,
           plan: res.plan,
           queries: previewQueries,
+          analyticsCalls,
           modelRequestId: res.modelRequestId,
           // analytics panels are ANALYTICS_RESULT (source tables, not certified metrics); skipped asks stay visible here
           ...(res.analytics?.length ? { analytics: res.analytics, skipped: res.issues } : {}),

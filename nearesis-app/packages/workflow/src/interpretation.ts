@@ -12,6 +12,7 @@ import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import { guardInference, modelPolicyFromEnv } from "@nearesis/kernel";
 import type {
+  AnalyticsOkResult,
   DataFrameEnvelope,
   ExecutionRequest,
   InferenceProvider,
@@ -52,6 +53,23 @@ export function previewQueriesOf(input: unknown): PanelQuery[] {
       title: String(r.title ?? "").slice(0, 180),
       query: r.query,
     }));
+}
+
+/** An analytics-capability call that produced a panel (ANALYTICS_RESULT): re-executed through the gateway for its rows. */
+export interface AnalyticsCallRecord {
+  callHash: string;
+  capability: string;
+  input: unknown;
+}
+export function analyticsCallOf(
+  capability: string,
+  input: unknown,
+  payload: unknown,
+): AnalyticsCallRecord | null {
+  const p = payload as { ok?: boolean; outcome?: string; callHash?: string } | null;
+  return p?.ok && p.outcome === "OK" && typeof p.callHash === "string"
+    ? { callHash: p.callHash, capability, input }
+    : null;
 }
 
 /** Where the findings go beyond the runtime tables: the evidence graph and the SSE stream (kernel-backed in production). */
@@ -113,10 +131,15 @@ interface PanelRef {
   analytics: boolean;
 }
 
-function panelsOfProposal(proposal: unknown): { panels: PanelRef[]; queries: Map<string, PanelQuery> } {
+function panelsOfProposal(proposal: unknown): {
+  panels: PanelRef[];
+  queries: Map<string, PanelQuery>;
+  analytics: Map<string, AnalyticsCallRecord>;
+} {
   const p = proposal as {
     patch?: { operations?: Array<Record<string, unknown>> };
     queries?: PanelQuery[];
+    analyticsCalls?: AnalyticsCallRecord[];
   } | null;
   const panels: PanelRef[] = [];
   for (const op of p?.patch?.operations ?? []) {
@@ -136,7 +159,11 @@ function panelsOfProposal(proposal: unknown): { panels: PanelRef[]; queries: Map
       analytics: sp.queryRef.resultKind === "analytics_result",
     });
   }
-  return { panels, queries: new Map((p?.queries ?? []).map((q) => [q.panelId, q])) };
+  return {
+    panels,
+    queries: new Map((p?.queries ?? []).map((q) => [q.panelId, q])),
+    analytics: new Map((p?.analyticsCalls ?? []).map((c) => [c.callHash, c])),
+  };
 }
 
 const COLUMN_TYPES = new Set(["time", "string", "number", "decimal", "boolean"]);
@@ -163,13 +190,38 @@ export function panelResultOf(ref: PanelRef, env: DataFrameEnvelope): PanelResul
   };
 }
 
+/** An analytics (ANALYTICS_RESULT) table as a panel result: unknown days are gaps, never zeros; certification is never `certified`. */
+export function analyticsResultOf(ref: PanelRef, a: AnalyticsOkResult): PanelResult {
+  const days = (xs: string[]) =>
+    xs.map((d) => ({ from: d, to: d, reason: "no coverage record (unknown, not zero)" }));
+  return {
+    panelId: ref.panelId,
+    title: ref.title,
+    queryHash: a.callHash,
+    semanticVersion: a.provenance.metricVersion || "1.0.0",
+    columns: a.table.columns.map((c) => ({
+      name: c.name,
+      type: c.type === "category" ? "string" : c.type,
+      unit: c.unit,
+    })),
+    rows: a.table.rows,
+    certification: "experimental",
+    nullCount: a.table.rows.reduce((n, r) => n + r.filter((x) => x === null).length, 0),
+    partialCount: a.coverage.incompleteDays.length,
+    gaps: days(a.coverage.missingDays),
+    sourceWatermarks: { analytics: a.provenance.asOf },
+    truncated: a.table.truncated,
+    completeness: a.coverage.state,
+  };
+}
+
 /** Reads one panel's result through the gateway. Returns null (with why) when it cannot be read; never throws for a denied or failed read. */
 async function readPanel(
   d: InterpretationDeps,
   i: InterpretInputs,
   actor: string,
   ref: PanelRef,
-  query: unknown,
+  call: { capability: string; input: unknown },
 ): Promise<{ ok: true; result: PanelResult } | { ok: false; why: string }> {
   const req: ExecutionRequest = {
     requestId: randomUUID(),
@@ -177,8 +229,8 @@ async function readPanel(
     tenantId: i.tenantId,
     workspaceId: i.workspaceId,
     actor: { kind: "agent", actorId: actor, parentRunId: i.runId },
-    capability: "semantic.query@1",
-    input: query,
+    capability: call.capability,
+    input: call.input,
     deadlineMs: 60_000,
     trace: { traceId: `${i.runId}/${actor}`, researchRunId: i.runId },
   };
@@ -189,6 +241,12 @@ async function readPanel(
     );
     if (r.state !== "ok" && r.state !== "partial")
       return { ok: false, why: `read ${r.state}${r.reasonCode ? `: ${r.reasonCode}` : ""}` };
+    if (call.capability !== "semantic.query@1") {
+      const a = r.payload as { ok?: boolean; outcome?: string; error?: { reasonCode?: string } } | null;
+      if (!a?.ok || a.outcome !== "OK")
+        return { ok: false, why: `read refused: ${a?.error?.reasonCode ?? a?.outcome ?? "no table"}` };
+      return { ok: true, result: analyticsResultOf(ref, a as unknown as AnalyticsOkResult) };
+    }
     const payload = r.payload as {
       ok?: boolean;
       envelope?: DataFrameEnvelope;
@@ -239,7 +297,15 @@ export async function runInterpretation(
     );
     return r.rows[0]?.proposal ?? null;
   });
-  const { panels, queries } = panelsOfProposal(composed);
+  const { panels, queries, analytics } = panelsOfProposal(composed);
+  const callFor = (p: PanelRef): { capability: string; input: unknown } | null => {
+    if (p.analytics) {
+      const c = analytics.get(p.hash);
+      return c ? { capability: c.capability, input: c.input } : null;
+    }
+    const q = queries.get(p.panelId);
+    return q ? { capability: "semantic.query@1", input: q.query } : null;
+  };
 
   let outcome: InterpretationOutcome;
   const usedQueries: Array<{
@@ -249,7 +315,7 @@ export async function runInterpretation(
     title: string;
     certification: string;
   }> = [];
-  const readable = panels.filter((p) => !p.analytics && queries.has(p.panelId));
+  const readable = panels.filter((p) => callFor(p) !== null);
   if (!readable.length) {
     outcome = {
       state: "none",
@@ -266,10 +332,10 @@ export async function runInterpretation(
       parentTaskId: i.directorTaskId,
       taskId: actor,
       role: "semantic_analyst",
-      capabilities: ["semantic.query@1"],
+      capabilities: ["semantic.query@1", "intents.analyze@1", "entities.analyze@1", "accounts.analyze@1"],
     });
     const reads = await mapLimit(readable, d.readConcurrency ?? 4, (p) =>
-      readPanel(d, i, actor, p, queries.get(p.panelId)!.query),
+      readPanel(d, i, actor, p, callFor(p)!),
     );
     const results = reads.flatMap((r) => (r.ok ? [r.result] : []));
     const failures = reads.flatMap((r, k) => (r.ok ? [] : [`${readable[k]!.title}: ${r.why}`]));

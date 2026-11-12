@@ -23,3 +23,5 @@ export * from "./testing/scenarios.ts";
 export * from "./review.ts";
 export * from "./graphs/adversarial.ts";
 export * from "./adversarial-port.ts";
+export * from "./research-inference-guard.ts";
+export * from "./research-inference-wiring.ts";

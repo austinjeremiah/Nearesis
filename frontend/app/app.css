@@ -1255,3 +1255,78 @@ table.table {
     display: inline-flex;
   }
 }
+
+/* -----------------------------------------------------------------------------
+   auth and entry pages, spec 5.1
+   -------------------------------------------------------------------------- */
+.auth-page {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.auth-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--s6);
+  padding: var(--s12) clamp(24px, 6vw, 80px);
+  max-width: 560px;
+  width: 100%;
+  margin-left: auto;
+}
+/* The right half carries the product claim, in the marketing voice. */
+.auth-aside {
+  background: var(--ink-soft);
+  color: var(--text-on-dark);
+  padding: var(--s12) clamp(24px, 5vw, 64px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--s6);
+}
+.auth-aside .claim {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 3.4vw, 46px);
+  line-height: 1.04;
+  letter-spacing: var(--ls-display);
+  text-transform: uppercase;
+}
+.auth-aside .claim .hl {
+  background: var(--accent);
+  color: #000;
+  padding: 0 0.12em;
+}
+.auth-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+.auth-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: start;
+}
+.auth-step .n {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #000;
+  font-weight: 700;
+  font-size: var(--fs-small);
+}
+@media (max-width: 900px) {
+  .auth-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .auth-aside {
+    order: -1;
+    padding: var(--s8) var(--s5);
+  }
+  .auth-panel {
+    margin: 0;
+    padding: var(--s8) var(--s5);
+  }
+}

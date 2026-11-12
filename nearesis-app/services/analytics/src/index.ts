@@ -16,3 +16,4 @@ export * from "./live/registry.ts";
 export * from "./live/catalog.ts";
 export * from "./entities/index.ts";
 export * from "./registry/authored.ts";
+export * from "./intents/index.ts";

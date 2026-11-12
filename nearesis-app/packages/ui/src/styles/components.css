@@ -908,6 +908,11 @@ button.nz-chip:hover {
   flex-direction: column;
   gap: var(--space-4);
 }
+/* Messages and run cards keep their natural height so the panel scrolls instead of squeezing and clipping them
+   (a squeezed .nz-run hid its approve button behind overflow: hidden). */
+.nz-chat-scroll > * {
+  flex-shrink: 0;
+}
 .nz-msg-user {
   align-self: flex-end;
   max-width: 88%;

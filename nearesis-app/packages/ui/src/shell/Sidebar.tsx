@@ -50,7 +50,16 @@ const RUN_TONE: Record<RunState, { tone: Tone; pulse: boolean; label: string }> 
   BLOCKED: { tone: "bad", pulse: false, label: "Blocked" },
   CANCELLED: { tone: "neutral", pulse: false, label: "Cancelled" },
 };
-export const runStatusLabel = (s: RunState) => RUN_TONE[s].label;
+type RunTone = { tone: Tone; pulse: boolean; label: string };
+// States the API can return that this table doesn't list yet (BLOCKED_SOURCE since contracts 1.5.0), plus a safe fallback,
+// so an unknown run state renders a label instead of crashing the sidebar.
+const RUN_TONE_EXTRA: Record<string, RunTone> = {
+  BLOCKED_SOURCE: { tone: "bad", pulse: false, label: "Source unavailable" },
+};
+const UNKNOWN_RUN_TONE: RunTone = { tone: "neutral", pulse: false, label: "Unknown state" };
+const runTone = (s: string): RunTone =>
+  (RUN_TONE as Record<string, RunTone>)[s] ?? RUN_TONE_EXTRA[s] ?? UNKNOWN_RUN_TONE;
+export const runStatusLabel = (s: RunState) => runTone(s).label;
 
 const FRESH_DOT: Record<Freshness, Tone> = {
   fresh: "ok",
@@ -278,7 +287,7 @@ export function Sidebar({
         <div className="nz-sb-group">
           <div className="nz-sb-label nz-hide-collapsed">Investigations</div>
           {data.investigations.map((i) => {
-            const s = RUN_TONE[i.state];
+            const s = runTone(i.state);
             return (
               <Item
                 key={i.id}

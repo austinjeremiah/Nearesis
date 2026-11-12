@@ -6,13 +6,20 @@ import { observe } from "@nearesis/acceptance";
 import { runFlow } from "./lib/flow.ts";
 import { pdfText, scanCited, scanSurface, type SurfaceFact, type SurfaceReport } from "./lib/scan.ts";
 import { APP_ROOT } from "./lib/research.ts";
+
+const ARTIFACTS = join(APP_ROOT, "test-results", "integration-B07");
 import { openStack, q, stopIfBlocked, type Stack } from "./lib/stack.ts";
+import { harvestCanvasHover, startBrowser, type BrowserSession, type HoverHarvest } from "./lib/browser.ts";
 
 let s: Stack;
+let web: BrowserSession | undefined;
 beforeAll(async () => {
   s = await openStack();
 }, 180_000);
-afterAll(async () => s?.close(), 120_000);
+afterAll(async () => {
+  await web?.close();
+  await s?.close();
+}, 120_000);
 
 it("B07: every number a user can read resolves to a result, a query and a source snapshot", async () => {
   if (await stopIfBlocked(s, "B07", "the real-stack flow")) return;
@@ -73,7 +80,41 @@ it("B07: every number a user can read resolves to a result, a query and a source
   const expectedBlock =
     /```[a-z]*\n(?:expected output|output)[^\n]*\n([\s\S]*?)```/i.exec(readmeText)?.[1] ?? "";
   surfaces["README expected-output block"] = expectedBlock;
-  surfaces["UI tooltips (rendered by apps/web)"] = ""; // needs the browser; recorded below
+
+  // UI tooltips: the golden-flow workspace rendered by the production build of apps/web in Chromium. Every chart
+  // position is hovered (ECharts richText tooltip read from the chart's scene graph) and every title, aria-label,
+  // aria-description and role=tooltip text of every panel is read.
+  const uiSurface = "UI tooltips (rendered by apps/web)";
+  let harvest: HoverHarvest | undefined;
+  let uiError: string | undefined;
+  try {
+    web = await startBrowser(s);
+    harvest = await harvestCanvasHover(web, ws, join(ARTIFACTS, "canvas-tooltips.png"));
+  } catch (e) {
+    uiError = String(e instanceof Error ? e.message : e).slice(0, 600);
+  }
+  // facts of the rendered panels: the numeric cells of the data the page itself fetched, tied to the panel's query
+  // hash and result hash. The panel provenance carries no source snapshot id (sourceSnapshotId is null), so the
+  // matches report the snapshot the run is pinned to (the capsule manifest's) and say so.
+  for (const pd of harvest?.panels ?? []) {
+    const prov = (pd.data.provenance ?? {}) as { resultHash?: string; sourceSnapshotId?: string | null };
+    const cols = pd.data.chart.columns;
+    pd.data.chart.rows.forEach((row) =>
+      row.forEach((cell, ci) => {
+        if (typeof cell !== "number" || !cols[ci]) return;
+        facts.push({
+          value: String(cell),
+          ...(cols[ci]!.unit ? { unit: cols[ci]!.unit! } : {}),
+          resultId: `panel-result:${(prov.resultHash ?? pd.queryHash).slice(0, 12)}`,
+          queryHash: pd.queryHash,
+          snapshotId:
+            prov.sourceSnapshotId ?? `${snapshotId} (run-pinned; panel provenance sourceSnapshotId=null)`,
+        });
+      }),
+    );
+  }
+  const uiItems = harvest?.items ?? [];
+  surfaces[uiSurface] = uiItems.map((i) => i.text).join("\n");
 
   const ctx = { queryHash: manifest.hashes.resultManifestHash, snapshotId };
   const reports: SurfaceReport[] = [
@@ -96,12 +137,25 @@ it("B07: every number a user can read resolves to a result, a query and a source
   // (b) planted numbers are detected and located (agent message, panel subtitle, README block, memo)
   const plant = (name: string, text: string) =>
     scanSurface(name, `${text} Volume grew by 73.9% last week.`, facts, ["2026-10-20", "2026-10-27"]);
-  const planted = [
+  const planted: SurfaceReport[] = [
     plant("agent messages", surfaces["agent messages"]!),
     plant("panel titles and notes", surfaces["panel titles and notes"]!),
     plant("README expected-output block", surfaces["README expected-output block"]!),
     scanCited("memo.pdf", `${cited["memo.pdf"]!}\nVolume grew by 73.9% last week.`, manifest.results, ctx),
   ];
+  // the planted tooltip: the sentence is injected into one rendered chart tooltip's text before the surface is scanned
+  const plantAt = uiItems.findIndex((i) => i.kind === "chart-tooltip");
+  if (plantAt >= 0)
+    planted.push(
+      scanSurface(
+        uiSurface,
+        uiItems
+          .map((i, k) => (k === plantAt ? `${i.text}\nVolume grew by 73.9% last week.` : i.text))
+          .join("\n"),
+        facts,
+        ["2026-10-20", "2026-10-27"],
+      ),
+    );
   for (const p of planted) expect(p.unmatched.join("|"), p.surface).toContain("73.9");
   // a scanner that skips a surface is exposed by the coverage rule below
 
@@ -119,7 +173,7 @@ it("B07: every number a user can read resolves to a result, a query and a source
   const blockedWhy = [
     ...unscanned.map((u) =>
       u.startsWith("UI tooltips")
-        ? `${u}: needs a browser render of apps/web (Engine B)`
+        ? `${u}: no numeric strings were scanned (${uiError ? `browser render failed: ${uiError}` : `${uiItems.length} hover texts harvested`})`
         : `${u}: surface has no numeric strings (the README has no expected-output block)`,
     ),
   ];
@@ -130,11 +184,23 @@ it("B07: every number a user can read resolves to a result, a query and a source
     fixtureHash: createHash("sha256")
       .update(JSON.stringify(facts.map((x) => x.value)))
       .digest("hex"),
-    observed: `scanned ${backend.length} backend surfaces with the frozen A19 grammar (${coverage.map((c) => `${c.surface}=${c.numericStrings}`).join(", ")}): 0 unmatched numbers, every match resolved to a result id, query hash and snapshot ${snapshotId}; 4/4 planted numbers (agent message, panel subtitle, README block, memo) detected and located; rounding rule checked both ways. ${verdictBlocked ? `NOT PASSED: ${verdictBlocked}.` : "All surfaces scanned."}`,
+    observed: `scanned ${backend.length} backend surfaces with the frozen A19 grammar (${coverage.map((c) => `${c.surface}=${c.numericStrings}`).join(", ")}): 0 unmatched numbers, every match resolved to a result id, query hash and snapshot ${snapshotId}; ${planted.length}/${planted.length} planted numbers (${planted.map((p) => p.surface).join(", ")}) detected and located; rounding rule checked both ways. ${verdictBlocked ? `NOT PASSED: ${verdictBlocked}.` : "All surfaces scanned."}`,
     evidence: {
       coverage,
       planted: planted.map((p) => ({ surface: p.surface, unmatched: p.unmatched })),
       unscanned,
+      uiTooltips: {
+        harvested: uiItems.length,
+        byKind: Object.fromEntries(
+          [...new Set(uiItems.map((i) => i.kind))].map((k) => [
+            k,
+            uiItems.filter((i) => i.kind === k).length,
+          ]),
+        ),
+        panelSnapshotIds: (harvest?.panels ?? []).map((p) => p.data.provenance?.sourceSnapshotId ?? null),
+        screenshot: harvest?.screenshot,
+        error: uiError,
+      },
     },
     ...(verdictBlocked ? { blocked: verdictBlocked } : {}),
   });

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { hashOf } from "../canonical.ts";
 import { AgentRuntimeError } from "../errors.ts";
 import type { LedgerInference } from "../inference.ts";
+import { scanSignificanceClaims, type InferenceSummaryLike } from "../research-inference-guard.ts";
 
 /**
  * Bull, bear and adjudicator workflows (ch.27 adversarial bull/bear protocol, ch.16b Q19).
@@ -71,6 +72,8 @@ export interface AdversarialDeps {
   results: Record<string, number>;
   /** Explicit per-branch inputs. Default: identical deep copies. Supplying unequal packages makes the run refuse. */
   inputsOverride?: Partial<Record<Side, BranchInputs>>;
+  /** When set, branch arguments asserting significance the inference does not support are dropped before adjudication. */
+  inferenceSummary?: InferenceSummaryLike;
   heartbeat?: () => void;
 }
 
@@ -81,6 +84,8 @@ export interface AdversarialResult {
   protocol: ProtocolResult;
   /** Final verdict status of the adjudicator (INSUFFICIENT_DATA when refused). */
   verdictStatus: string;
+  /** Arguments removed by the inference guard before the engine saw them. */
+  guardRejections?: Array<{ side: Side; claim: string; rule: string }>;
 }
 
 const S = Annotation.Root({
@@ -129,10 +134,19 @@ export function buildAdversarialGraph(d: AdversarialDeps) {
     const given = s.given!;
     const bull = s.bull!;
     const bear = s.bear!;
+    const guardRejections: NonNullable<AdversarialResult["guardRejections"]> = [];
+    const guarded = (side: Side, args: BranchOutput["arguments"]): BranchOutput["arguments"] =>
+      d.inferenceSummary
+        ? args.filter((a) => {
+            const v = a.claim ? scanSignificanceClaims(a.claim, d.inferenceSummary!) : [];
+            for (const x of v) guardRejections.push({ side, claim: a.claim ?? "", rule: x.rule });
+            return v.length === 0;
+          })
+        : args;
     const protocol = await d.port.protocol({
       given,
       results: d.results,
-      branchArgs: { bull: bull.arguments, bear: bear.arguments },
+      branchArgs: { bull: guarded("bull", bull.arguments), bear: guarded("bear", bear.arguments) },
       stances: { bull: bull.stance, bear: bear.stance },
     });
     const refused = !protocol.inputsEqual;
@@ -142,6 +156,7 @@ export function buildAdversarialGraph(d: AdversarialDeps) {
       givenHashes: protocol.branchInputHashes,
       protocol,
       verdictStatus: refused ? "INSUFFICIENT_DATA" : protocol.adjudication.status,
+      ...(d.inferenceSummary ? { guardRejections } : {}),
     };
     if (protocol.secondRunHash !== protocol.adjudicationHash)
       throw new AgentRuntimeError(
@@ -156,13 +171,13 @@ export function buildAdversarialGraph(d: AdversarialDeps) {
   };
   return new StateGraph(S)
     .addNode("prepare", prepare)
-    .addNode("bull", branch("bull"))
-    .addNode("bear", branch("bear"))
+    .addNode("bull_branch", branch("bull"))
+    .addNode("bear_branch", branch("bear"))
     .addNode("adjudicate", adjudicate)
     .addEdge(START, "prepare")
-    .addEdge("prepare", "bull")
-    .addEdge("bull", "bear")
-    .addEdge("bear", "adjudicate")
+    .addEdge("prepare", "bull_branch")
+    .addEdge("bull_branch", "bear_branch")
+    .addEdge("bear_branch", "adjudicate")
     .addEdge("adjudicate", END)
     .compile();
 }

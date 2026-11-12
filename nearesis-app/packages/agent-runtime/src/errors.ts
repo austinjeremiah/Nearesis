@@ -17,6 +17,7 @@ export type ReasonCode =
   | "CANNOT_COMPUTE"
   | "UNGROUNDED_NUMBER"
   | "ADJUDICATION_NOT_PURE"
+  | "INFERENCE_CLAIM_GUARD"
   | "CANCELLED";
 
 export class AgentRuntimeError extends Error {

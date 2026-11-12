@@ -9,6 +9,7 @@ import type { RoleConfig } from "../roles.ts";
 import { AgentToolClient, wrapAsData } from "../tools.ts";
 import { taskIdFromHash } from "../supervisor.ts";
 import { Decision, type RoleResult, type ToolLogEntry } from "../schemas.ts";
+import { assertGuardedRoleOutput, type ResearchInferenceContext } from "../research-inference-wiring.ts";
 
 export interface RoleDeps {
   tenantId: string;
@@ -30,6 +31,8 @@ export interface RoleDeps {
   /** Optional hard cap on decide/act turns (defence in depth; the tool meter is the real cap). */
   maxTurns?: number;
   clock?: () => string;
+  /** When set, the finding is checked by the research inference guards (Amendment 002) before it can leave the graph. */
+  inferenceGuard?: ResearchInferenceContext;
 }
 
 const S = Annotation.Root({
@@ -162,6 +165,9 @@ export function buildRoleGraph(d: RoleDeps) {
       throw new AgentRuntimeError("UNGROUNDED_NUMBER", "statement contains unsupported numbers", {
         flagged: scan.flagged.map((x) => x.token),
       });
+    const limitations = d.inferenceGuard
+      ? assertGuardedRoleOutput(d.role, d.taskId, dec.statement, dec.limitations, d.inferenceGuard)
+      : dec.limitations;
     const finding: ResearchFinding = {
       id: taskIdFromHash(sha256Hex(`finding:${d.taskId}`)),
       workspaceId: d.workspaceId,
@@ -170,7 +176,7 @@ export function buildRoleGraph(d: RoleDeps) {
       status: dec.status,
       statement: dec.statement,
       facts,
-      limitations: dec.limitations,
+      limitations,
       createdAt: (d.clock ?? (() => new Date(0).toISOString()))(),
     };
     const art = {

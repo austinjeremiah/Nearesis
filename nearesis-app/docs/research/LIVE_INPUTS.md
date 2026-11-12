@@ -30,7 +30,20 @@ Preregistration status: the frozen document is the fixture-evaluation freeze (li
 
 ## Open gaps (honest)
 
-- Stablecoin-only/non-stablecoin routes: NOT_COMPUTABLE live, `intents_swaps.canonical_origin_asset` is NULL for every row (no versioned asset registry, ch.02).
-- Segment targets: NOT_COMPUTABLE live (no per-account daily rows beyond heavy signers).
+- Stablecoin-only/non-stablecoin routes: the registry gap is closed (2026-11-12). `intents_swaps.canonical_origin_asset` was NULL because `loadSwapsToClickHouse` (`services/ingestion/src/backfill/explorer-session.ts`) called `normalize()` without a `registry`, so `AssetRegistry` was never consulted, and no registry was ever populated. Now `asset_registry` (migration 006) is filled from the archived official 1Click token list (`pnpm --filter @nearesis/ingestion registry:refresh`), the loader resolves through it, and existing rows were re-derived by version+1 re-insert. 99.90 percent of swaps have a canonical origin asset (3,568,401 of 3,571,825); the rest stay NULL with a queryable reason in view `intents_swap_asset_status` (`conflicting_identity_for_symbol`, `no_coingecko_identity`, `not_in_registry`). The pinned run `live-20260603-20261111-live-organic-v2-15fe2ad62d6c` is unchanged and still says NOT_COMPUTABLE (its inputs were frozen before the registry existed); computing stablecoin routes needs a NEW input method (for example `live-organic-v3`) with a stablecoin symbol set declared before the run, a new snapshot id and a new freeze. Not started here (research owner).
+- Segment targets: NOT_COMPUTABLE live, and the cause is not the `account_daily_*` tables. The engine's segment cell (`robustness.py`) splits per account into head and tail accounts (`segmentHeadAccounts`), which needs per-account daily organic counts for the whole account universe. `account_daily_activity` holds exact day aggregates plus top-1/5 percent concentration, and `account_daily_heavy_signers` only signers with at least 1000 transactions a day, so a head/tail split on them would be a biased subset. The chapter-02 contract segments (Rhea, Aurora, Sputnik, Trezu, meme.cooking and so on) could come from `contract_interactions` (named receivers with at least 100 interactions a day, 1,773 receivers, 2025-11-10..2026-11-11) but the contract registry that assigns receivers to segments with source, contract IDs, effective date and confidence is empty (`project` is NULL on every row); only the Intents verifier and bridge receivers are documented (account rule v1) and those are excluded from the organic target by design. No mapping was invented. Missing source, proposed for the lead (not run): one per-signer daily organic scan, per month chunk, same scan shape as the existing account backfill (billed 34.9 GiB for 13 months, 4.6 to 6.3 GiB per month, daily budget 97,280 MiB):
+
+```sql
+SELECT t.block_date AS block_date, t.signer_account_id AS signer, COUNT(*) AS n_org
+FROM `bigquery-public-data.crypto_near_mainnet_us.transactions` t
+WHERE t.block_date >= DATE '2026-10-01' AND t.block_date < DATE '2026-11-01'
+  AND t.receiver_account_id NOT IN ('intents.near', 'verifier2.near', 'bridge.near', 'omft.near', 'v2_1.omni.hot.tg')
+  AND NOT ENDS_WITH(t.receiver_account_id, '.omft.near')
+GROUP BY block_date, signer
+HAVING COUNT(*) >= 100   -- keeps the head; the long tail stays an exact remainder row per day (never stored per account)
+```
+
+Estimated bytes: about 35 GiB for the 13-month window, about 6 GiB per month (the same signer, receiver and date columns as `accountSql`); it fits in one daily budget only if the ledger is otherwise untouched, so run it by month through the scheduler's budgeted runner. The head/tail definition also needs a loader table (`account_daily_signers`) and a live loader path in `live.py` (new input method, new snapshot).
+
 - Verdict engine still gates on legacy one-sided HAC `p_raw` for nested comparisons (owner tension, ADR-20261111-004).
-- Skeptic/Auditor/Composer guards exist as a tested pure module; wiring into `packages/agent-runtime/src/index.ts` and the graphs belongs to the agent-runtime owner (integration queue).
+- Skeptic/Auditor/Composer guards are wired into the adversarial graph and exported from `packages/agent-runtime` (see the agent-runtime tests).

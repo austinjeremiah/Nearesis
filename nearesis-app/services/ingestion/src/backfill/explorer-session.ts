@@ -16,6 +16,7 @@ import type { CredentialSource } from "../http/credentials.ts";
 import { normalize } from "../normalize.ts";
 import { coverageRows, insertLive, refreshWatermarks, swapRows } from "./ch.ts";
 import { REDIS_URL } from "./env.ts";
+import { loadLiveAssetRegistry } from "../registry/live-registry.ts";
 import { addDays, WINDOW_FROM, WINDOW_TO } from "./plan.ts";
 import type { BackfillState, StateStore } from "./state.ts";
 
@@ -46,6 +47,8 @@ export async function loadSwapsToClickHouse(
   nowMs: number,
 ): Promise<number> {
   let loaded = 0;
+  // Effective-dated registry derived from the archived 1Click token list; null (canonical stays NULL) until one is stored.
+  const assetRegistry = await loadLiveAssetRegistry(ch).catch(() => null);
   let afterV = store.state.explorerLoad?.afterVersionMs ?? 0;
   let afterK = store.state.explorerLoad?.afterKey ?? "";
   for (;;) {
@@ -70,6 +73,19 @@ export async function loadSwapsToClickHouse(
       snapshotId: "live-backfill",
       mode: "live",
       nowMs,
+      ...(assetRegistry
+        ? {
+            registry: {
+              label: "LIVE" as const,
+              adapterVersion: "asset-registry-1",
+              aliases: assetRegistry.aliases,
+              assets: assetRegistry,
+              contracts: null,
+              rawHash: "live-asset-registry",
+              version: nowMs,
+            },
+          }
+        : {}),
       explorer: {
         label: "LIVE",
         adapterVersion: EXPLORER_ADAPTER_VERSION,

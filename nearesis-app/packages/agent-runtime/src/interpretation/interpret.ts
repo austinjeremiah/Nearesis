@@ -56,6 +56,8 @@ export interface InterpretInput {
 // A live call takes 5 to 40 s: the provider also waits for the generation's billing metadata before it returns.
 const DEFAULT_ANALYST_MS = 110_000;
 const DEFAULT_SKEPTIC_MS = 80_000;
+/** Upper bound on concurrent skeptic calls for one interpretation (see the skeptic stage). */
+export const SKEPTIC_PARALLEL = 3;
 
 class Timeout extends Error {}
 async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
@@ -372,47 +374,61 @@ export async function interpretRun(input: InterpretInput): Promise<Interpretatio
   }
   if (!kept.length) return { state: "unavailable", reason: "NO_GROUNDED_FINDING", findings: [], rejected };
 
-  // ---- skeptic: one model call; failure keeps the findings with the deterministic caveats
-  let notes: SkepticNote[] = [];
-  let skepticDegraded = false;
-  let skepticReason: string | null = null;
-  try {
-    const sp = [
-      `[run=${input.runId}] [stage=skeptic]`,
-      `<untrusted_data name="findings">${JSON.stringify(
-        kept.map((k, i) => ({
-          index: i,
-          kind: k.d.kind,
-          basis: k.d.basis,
-          status: k.d.status,
-          statement: k.d.statement,
-          limitations: k.limitations.slice(0, 6),
-        })),
-      )}</untrusted_data>`,
-      ...kept
-        .flatMap((k) => k.panelIds)
-        .filter((id, i, a) => a.indexOf(id) === i)
-        .map((id) => {
-          const p = panels.get(id)!;
-          return `<untrusted_data name="coverage">${p.title}: rows=${p.rows.length} gaps=${p.gaps.length} partial=${p.partialCount} nulls=${p.nullCount} certification=${p.certification} completeness=${p.completeness}</untrusted_data>`;
-        }),
-    ].join("\n");
-    notes = (
-      await withTimeout(
-        input.model.generate({
-          key: `${input.runId}:skeptic`,
-          system: SKEPTIC_SYSTEM,
-          prompt: sp,
-          schema: SkepticDraft,
-          maxTokens: 3000,
-        }),
-        input.skepticTimeoutMs ?? DEFAULT_SKEPTIC_MS,
-      )
-    ).notes;
-  } catch (e) {
-    skepticReason = failureReason(e);
-    skepticDegraded = true;
-  }
+  // ---- skeptic: failure keeps the findings with the deterministic caveats. Three or more findings are challenged by up to
+  // SKEPTIC_PARALLEL concurrent calls over disjoint subsets (each finding is challenged on its own rows and caveats, so the
+  // verdicts do not depend on the grouping); wall time is that of the slowest group instead of the whole list. The reserved
+  // output tokens are split in proportion, so the total reservation equals the single call's.
+  const notes: SkepticNote[] = [];
+  const degradedReason = new Map<number, string>();
+  const skepticCall = async (idx: number[], key: string, maxTokens: number): Promise<void> => {
+    try {
+      const sp = [
+        `[run=${input.runId}] [stage=skeptic]`,
+        `<untrusted_data name="findings">${JSON.stringify(
+          idx.map((i) => {
+            const k = kept[i]!;
+            return {
+              index: i,
+              kind: k.d.kind,
+              basis: k.d.basis,
+              status: k.d.status,
+              statement: k.d.statement,
+              limitations: k.limitations.slice(0, 6),
+            };
+          }),
+        )}</untrusted_data>`,
+        ...idx
+          .flatMap((i) => kept[i]!.panelIds)
+          .filter((id, i, a) => a.indexOf(id) === i)
+          .map((id) => {
+            const p = panels.get(id)!;
+            return `<untrusted_data name="coverage">${p.title}: rows=${p.rows.length} gaps=${p.gaps.length} partial=${p.partialCount} nulls=${p.nullCount} certification=${p.certification} completeness=${p.completeness}</untrusted_data>`;
+          }),
+      ].join("\n");
+      const got = (
+        await withTimeout(
+          input.model.generate({ key, system: SKEPTIC_SYSTEM, prompt: sp, schema: SkepticDraft, maxTokens }),
+          input.skepticTimeoutMs ?? DEFAULT_SKEPTIC_MS,
+        )
+      ).notes;
+      notes.push(...got);
+    } catch (e) {
+      const reason = failureReason(e);
+      for (const i of idx) degradedReason.set(i, reason);
+    }
+  };
+  const groups = Math.min(SKEPTIC_PARALLEL, kept.length >= 3 ? kept.length : 1);
+  const subsets: number[][] = Array.from({ length: groups }, () => []);
+  kept.forEach((_k, i) => subsets[i % groups]!.push(i));
+  await Promise.all(
+    subsets.map((idx, g) =>
+      skepticCall(
+        idx,
+        groups === 1 ? `${input.runId}:skeptic` : `${input.runId}:skeptic:${g}`,
+        groups === 1 ? 3000 : Math.max(1200, Math.ceil((3000 * idx.length) / kept.length)),
+      ),
+    ),
+  );
 
   const findings: InterpretedFinding[] = kept.map((k, i) => {
     const facts = k.facts;
@@ -430,8 +446,10 @@ export async function interpretRun(input: InterpretInput): Promise<Interpretatio
           k.panelIds.map((id) => panels.get(id)!),
         ),
         ...modelNotes,
-        ...(skepticDegraded
-          ? [`The skeptic pass was unavailable (${skepticReason}); only the standard caveats above apply.`]
+        ...(degradedReason.has(i)
+          ? [
+              `The skeptic pass was unavailable (${degradedReason.get(i)}); only the standard caveats above apply.`,
+            ]
           : []),
       ]),
     ].slice(0, 20);
@@ -459,7 +477,7 @@ export async function interpretRun(input: InterpretInput): Promise<Interpretatio
       basis: k.d.basis,
       panelIds: k.panelIds,
       skepticNotes,
-      skepticDegraded,
+      skepticDegraded: degradedReason.has(i),
     };
   });
   return { state: "ready", reason: null, findings, rejected };

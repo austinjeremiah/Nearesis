@@ -152,7 +152,8 @@ describe.skipIf(!liveWarehouse)("owner question: refunds by status per week (moc
 
   it("composes ANALYTICS_RESULT panels from the intents analytics and the owner can approve them", async () => {
     const a = await ask(env, api);
-    expect(m.prompts.length).toBe(1); // one model call for the whole composition
+    // one model call for the whole composition (the interpretation's analyst may already be running: it starts while the approval is pending)
+    expect(m.prompts.filter((p) => p.includes("<analytics_tools")).length).toBe(1);
     const proposal = a.composer.result.result.proposal;
     expect(proposal.analytics.map((c) => c.outcome)).toEqual(["OK", "OK", "OK", "OK"]);
     const panels = proposal.patch.operations.map((o) => PanelSpec.parse(o.panel));

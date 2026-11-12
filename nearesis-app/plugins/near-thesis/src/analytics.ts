@@ -51,6 +51,26 @@ async function admitted<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * Pre-warm (production worker only): the first analytics call after a worker start used to pay the cold costs itself (3 s on the
+ * Intents summary). At start the daily rollup is brought up to date, the data windows are cached and the default-window summary
+ * is run once so the verification cache, the connection pool and ClickHouse's page cache are warm. Best effort, never throws.
+ */
+export async function warmAnalytics(): Promise<void> {
+  try {
+    const d = wire();
+    const [w] = await Promise.all([d.intents.defaultWindow(30), analyticsWindows()]);
+    if (!w) return;
+    const from = new Date(Date.parse(`${w.to}T00:00:00Z`) - 400 * 86_400_000).toISOString().slice(0, 10);
+    await d.intents.rollup?.refresh({ from, to: w.to });
+    await d.intents.summary(w);
+  } catch {
+    /* a cold start is slower, not wrong */
+  }
+}
+if (process.env.NEARESIS_PRODUCTION_WORKER === "1" && process.env.NEARESIS_ANALYTICS_PREWARM !== "0")
+  setTimeout(() => void warmAnalytics(), 0);
+
 export function analyticsHandler(
   capability: AnalyticsCapabilityId,
   isLive: (ctx: InvocationContext) => boolean,

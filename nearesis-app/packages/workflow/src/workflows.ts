@@ -20,6 +20,7 @@ import {
 import { WorkflowExecutionAlreadyStartedError } from "@temporalio/common";
 import { RUN_TRANSITIONS, type RunState } from "@nearesis/contracts";
 import type { Activities } from "./activities.ts";
+import type { ComputedInterpretation } from "./interpretation.ts";
 import { childWorkflowId, privilegedActionHash, type DedupKey } from "./pure.ts";
 import type {
   ChildInput,
@@ -401,6 +402,34 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
 
       // ---- privileged step (only when every branch produced a result) ----
       const anyFailed = outcomes.some((o) => o.status !== "finished");
+      // Interpretation, first half (A37): the analyst and skeptic read the PREVIEWED panels (the ones the approval hash binds) while
+      // the owner decides, so their model time overlaps the approval wait. Nothing is recorded or published until the patch is
+      // approved and applied (interpretCommit below); a rejected, modified, failed or cancelled run drops the result unread.
+      let speculation: Promise<ComputedInterpretation | null> | null = null;
+      let speculationScope: CancellationScope | null = null;
+      const dropSpeculation = () => speculationScope?.cancel();
+      if (
+        plan.privilegedAction &&
+        !anyFailed &&
+        !abstained &&
+        outcomes.some((o) => o.role === "composer" && o.status === "finished") &&
+        patched("interpretation-2")
+      ) {
+        const sc = new CancellationScope({ cancellable: true });
+        speculationScope = sc;
+        speculation = sc
+          .run(() =>
+            interpret.interpretCompute({
+              tenantId,
+              workspaceId,
+              runId,
+              budgetId: input.budgetId,
+              directorTaskId,
+              question: input.question ?? "investigate",
+            }),
+          )
+          .catch(() => null);
+      }
       if (plan.privilegedAction && !anyFailed && !abstained) {
         currentAction = plan.privilegedAction;
         // live composer: the approved action must carry the exact verified patch
@@ -457,6 +486,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
             ttlMs: 1000,
           });
           const f = failureFor("APPROVAL_REJECTED", wfId, `event:${seq}`);
+          dropSpeculation();
           await transition("BLOCKED", { actionHash: h }, f);
           return result(f);
         }
@@ -471,6 +501,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
             currentActionHash: h,
             presented: approvals.map((a) => a.actionHash),
           });
+          dropSpeculation();
           await transition("BLOCKED", { actionHash: h }, f);
           return result(f);
         }
@@ -497,6 +528,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
         } catch (e) {
           if (isCancellation(e)) throw e;
           const f = failureFor(reasonOf(e), wfId, `event:${seq}`);
+          dropSpeculation();
           await transition("BLOCKED", {}, f);
           return result(f);
         }
@@ -506,6 +538,7 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
       // ---- evidence review and terminal state ----
       await transition("EVIDENCE_REVIEW");
       const verdict = await heavy.reviewEvidence({ tenantId, workspaceId, runId, outcomes });
+      if (verdict.outcome !== "COMPLETE") dropSpeculation();
       if (verdict.outcome === "COMPLETE") {
         const composed = outcomes.some((o) => o.role === "composer" && o.status === "finished");
         if (composed) {
@@ -516,18 +549,25 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
         // Interpretation (A28): read what the approved panels show. Best effort by construction: it never fails the run.
         if (composed && patched("interpretation-1")) {
           try {
-            const it = await interpret.interpretRun({
+            const iargs = {
               tenantId,
               workspaceId,
               runId,
               budgetId: input.budgetId,
               directorTaskId,
               question: input.question ?? "investigate",
-            });
+            };
+            // A modified action no longer matches the previewed panels: its speculation is discarded and the full stage runs.
+            if (actionVersion > 0) dropSpeculation();
+            const early = speculation && actionVersion === 0 ? await speculation : null;
+            const it = early
+              ? await quick.interpretCommit({ ...iargs, computed: early })
+              : await interpret.interpretRun(iargs);
             await note("interpretation.finished", {
               state: it.state,
               reason: it.reason,
               findings: it.findingCount,
+              ...(it.timings ? { timings: it.timings } : {}),
             });
           } catch (e) {
             if (isCancellation(e)) throw e;

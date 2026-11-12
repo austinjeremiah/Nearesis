@@ -121,6 +121,8 @@ export interface InterpretationSummary {
   state: "ready" | "unavailable" | "none";
   reason: string | null;
   findingCount: number;
+  /** Wall time of the stages when this call computed them (see ComputedInterpretation.timings). */
+  timings?: ComputedInterpretation["timings"];
 }
 
 interface PanelRef {
@@ -275,11 +277,21 @@ async function mapLimit<T, R>(xs: T[], n: number, f: (x: T) => Promise<R>): Prom
   return out;
 }
 
-export async function runInterpretation(
-  d: InterpretationDeps,
-  i: InterpretInputs,
-): Promise<InterpretationSummary> {
-  // Replay-safe: a retried activity returns the recorded outcome instead of paying for a second model call.
+/** What the interpretation read and concluded, before anything is recorded or published. JSON-serialisable (an activity result). */
+export interface ComputedInterpretation {
+  /** Wall time of the read, analyst and skeptic stages (ms), for the latency report; absent when nothing was read. */
+  timings?: { readMs: number; modelMs: Array<{ stage: string; ms: number }> };
+  outcome: InterpretationOutcome;
+  usedQueries: Array<{
+    queryHash: string;
+    semanticVersion: string;
+    panelId: string;
+    title: string;
+    certification: string;
+  }>;
+}
+
+async function recorded(d: InterpretationDeps, i: InterpretInputs): Promise<InterpretationSummary | null> {
   const done = await withTenant(d.pool, i.tenantId, async (c) => {
     const r = await c.query<{
       state: InterpretationSummary["state"];
@@ -288,8 +300,28 @@ export async function runInterpretation(
     }>("SELECT state, reason, finding_count FROM run_interpretation WHERE run_id = $1", [i.runId]);
     return r.rows[0];
   });
-  if (done) return { state: done.state, reason: done.reason, findingCount: done.finding_count };
+  return done ? { state: done.state, reason: done.reason, findingCount: done.finding_count } : null;
+}
 
+export async function runInterpretation(
+  d: InterpretationDeps,
+  i: InterpretInputs,
+): Promise<InterpretationSummary> {
+  // Replay-safe: a retried activity returns the recorded outcome instead of paying for a second model call.
+  const done = await recorded(d, i);
+  if (done) return done;
+  return commitInterpretation(d, i, await computeInterpretation(d, i));
+}
+
+/**
+ * Reads the run's panels through the gateway and runs analyst + skeptic. Records and publishes NOTHING: the caller commits the
+ * result (commitInterpretation) once the owner has approved the patch. Started while the approval is pending, the model time
+ * overlaps the wait instead of following it; the panels read are the previewed ones the approval hash binds.
+ */
+export async function computeInterpretation(
+  d: InterpretationDeps,
+  i: InterpretInputs,
+): Promise<ComputedInterpretation> {
   const composed = await withTenant(d.pool, i.tenantId, async (c) => {
     const r = await c.query<{ proposal: unknown }>(
       "SELECT result->'result'->'proposal' AS proposal FROM tasks WHERE run_id=$1 AND role='composer' AND status='DONE' ORDER BY created_at LIMIT 1",
@@ -308,6 +340,7 @@ export async function runInterpretation(
   };
 
   let outcome: InterpretationOutcome;
+  let timings: ComputedInterpretation["timings"];
   const usedQueries: Array<{
     queryHash: string;
     semanticVersion: string;
@@ -334,9 +367,11 @@ export async function runInterpretation(
       role: "semantic_analyst",
       capabilities: ["semantic.query@1", "intents.analyze@1", "entities.analyze@1", "accounts.analyze@1"],
     });
+    const tRead = Date.now();
     const reads = await mapLimit(readable, d.readConcurrency ?? 4, (p) =>
       readPanel(d, i, actor, p, callFor(p)!),
     );
+    timings = { readMs: Date.now() - tRead, modelMs: [] };
     const results = reads.flatMap((r) => (r.ok ? [r.result] : []));
     const failures = reads.flatMap((r, k) => (r.ok ? [] : [`${readable[k]!.title}: ${r.why}`]));
     if (!results.length) {
@@ -369,7 +404,19 @@ export async function runInterpretation(
         runId: i.runId,
         question: i.question,
         panels: results,
-        model: inference,
+        model: {
+          generate: async (a) => {
+            const t = Date.now();
+            try {
+              return await inference.generate(a);
+            } finally {
+              timings?.modelMs.push({
+                stage: a.key.includes(":skeptic") ? "skeptic" : "analyst",
+                ms: Date.now() - t,
+              });
+            }
+          },
+        },
         ...(d.clock ? { clock: d.clock } : {}),
         ...(d.analystTimeoutMs ? { analystTimeoutMs: d.analystTimeoutMs } : {}),
         ...(d.skepticTimeoutMs ? { skepticTimeoutMs: d.skepticTimeoutMs } : {}),
@@ -397,6 +444,18 @@ export async function runInterpretation(
     }
   }
 
+  return { outcome, usedQueries, ...(timings ? { timings } : {}) };
+}
+
+/** Records the findings and the interpretation row (idempotent) and publishes them to the evidence graph and the SSE stream. */
+export async function commitInterpretation(
+  d: InterpretationDeps,
+  i: InterpretInputs,
+  computed: ComputedInterpretation,
+): Promise<InterpretationSummary> {
+  const done = await recorded(d, i);
+  if (done) return done;
+  const { outcome, usedQueries } = computed;
   await withTenant(d.pool, i.tenantId, async (c) => {
     for (const [pos, f] of outcome.findings.entries())
       await c.query(
@@ -429,5 +488,10 @@ export async function runInterpretation(
         queries: usedQueries,
       })
       .catch(() => undefined);
-  return { state: outcome.state, reason: outcome.reason, findingCount: outcome.findings.length };
+  return {
+    state: outcome.state,
+    reason: outcome.reason,
+    findingCount: outcome.findings.length,
+    ...(computed.timings ? { timings: computed.timings } : {}),
+  };
 }

@@ -52,6 +52,7 @@ function parseDigests(prompt: string): Digest[] {
 function mockModel(o: { analyst?: "hang" } = {}): {
   provider: InferenceProvider;
   calls: Array<{ stage: string; prompt: string }>;
+  times: Array<{ stage: string; at: number }>;
 } {
   const calls: Array<{ stage: string; prompt: string }> = [];
   const respond = (a: { system: string; prompt: string; schema: z.ZodType<unknown> }): unknown => {
@@ -142,6 +143,7 @@ function mockModel(o: { analyst?: "hang" } = {}): {
     }
     throw new Error(`unexpected model call: ${a.system.slice(0, 60)}`);
   };
+  const times: Array<{ stage: string; at: number }> = [];
   const provider = {
     id: "scripted",
     health: async () => ({ ok: true, detail: "mock" }),
@@ -151,6 +153,14 @@ function mockModel(o: { analyst?: "hang" } = {}): {
       prompt: string;
       schema: z.ZodType<T>;
     }): Promise<StructuredResult<T>> => {
+      times.push({
+        stage: a.system.includes("Nearesis analyst")
+          ? "analyst"
+          : a.system.includes("Nearesis skeptic")
+            ? "skeptic"
+            : "composer",
+        at: Date.now(),
+      });
       if (o.analyst === "hang" && a.system.includes("Nearesis analyst")) {
         calls.push({ stage: "analyst", prompt: a.prompt });
         return new Promise<StructuredResult<T>>(() => undefined);
@@ -168,7 +178,7 @@ function mockModel(o: { analyst?: "hang" } = {}): {
     streamText: async function* () {},
     verifyResponse: async () => ({ verified: false, status: "unattested_dev" as const, checks: [] }),
   } as unknown as InferenceProvider;
-  return { provider, calls };
+  return { provider, calls, times };
 }
 
 async function askAndApprove(env: Env, api: Api, question = QUESTION) {
@@ -203,7 +213,7 @@ async function askAndApprove(env: Env, api: Api, question = QUESTION) {
   });
   expect(d.status).toBe(202);
   const res = await env.client.workflow.getHandle(workflowId).result();
-  return { runId, state: res.state as string, afterApprovalMs: Date.now() - t0 };
+  return { runId, state: res.state as string, afterApprovalMs: Date.now() - t0, approvedAt: t0 };
 }
 
 describe.skipIf(!cube)("interpretation: the owner's question with mock inference", () => {
@@ -226,7 +236,12 @@ describe.skipIf(!cube)("interpretation: the owner's question with mock inference
     const run = await askAndApprove(env, api);
     expect(run.state).toBe("COMPLETE");
     // one composer call, one analyst call, one skeptic call: within the run's own budget
-    expect(m.calls.map((c) => c.stage)).toEqual(["composer", "analyst", "skeptic"]);
+    // (four findings: the skeptic challenges them in up to three concurrent calls over disjoint subsets)
+    expect(m.calls.map((c) => c.stage).slice(0, 2)).toEqual(["composer", "analyst"]);
+    expect(m.calls.slice(2).length).toBeGreaterThanOrEqual(1);
+    expect(m.calls.slice(2).every((c) => c.stage === "skeptic")).toBe(true);
+    // A37: the analyst started while the approval was pending (its model time overlaps the wait); only the commit follows approval
+    expect(m.times.find((t) => t.stage === "analyst")!.at).toBeLessThan(run.approvedAt);
 
     const view = (await api.call("GET", `/v1/runs/${run.runId}`)).json as {
       findings: InterpretedFinding[];
@@ -287,6 +302,67 @@ describe.skipIf(!cube)("interpretation: the owner's question with mock inference
         findings: view.findings.map((f) => ({ basis: f.basis, status: f.status, statement: f.statement })),
       },
     });
+  }, 480_000);
+});
+
+describe.skipIf(!cube)("a rejected approval drops the speculative interpretation", () => {
+  let env: Env;
+  let api: Api;
+  let worker: Awaited<ReturnType<typeof startWorker>>;
+  const m = mockModel();
+  beforeAll(async () => {
+    env = await makeEnv({ kernel: true });
+    api = await startApi(env);
+    worker = await startWorker(env, { live: true, provider: m.provider });
+  }, 180_000);
+  afterAll(async () => {
+    await worker?.stop();
+    await api?.close();
+    await env?.stop();
+  });
+
+  it("records no findings, no interpretation row and no finding.created event", async () => {
+    const r = await api.call(
+      "POST",
+      `/v1/workspaces/${env.workspaceId}/questions`,
+      {
+        question: QUESTION,
+        snapshotPolicy: "live",
+        source: "live",
+        budget: { tokens: 200_000, toolCalls: 24, usd: 10 },
+      },
+      { "idempotency-key": `interp-rej-${Date.now()}-abcdefgh` },
+    );
+    expect(r.status).toBe(202);
+    const { runId, workflowId } = r.json as { runId: string; workflowId: string };
+    const pending = await waitFor(async () => {
+      const list = await api.call("GET", `/v1/runs/${runId}/approvals`);
+      return (list.json.approvals as Array<{ approvalId: string; actionHash: string }> | undefined)?.[0];
+    }, 240_000);
+    // let the speculative analyst finish so the drop is a real decision, not a race
+    await waitFor(async () => (m.calls.some((c) => c.stage === "skeptic") ? true : undefined), 60_000);
+    await new Promise((r) => setTimeout(r, 500)); // the other concurrent skeptic calls and the compute activity return
+    const d = await api.call("POST", `/v1/runs/${runId}/approvals/${pending.approvalId}`, {
+      decision: "reject",
+      actionHash: pending.actionHash,
+    });
+    expect(d.status).toBe(202);
+    const res = await env.client.workflow.getHandle(workflowId).result();
+    expect(res.state).not.toBe("COMPLETE");
+    const n = await q<{ findings: number; interp: number }>(
+      env,
+      env.tenantId,
+      "SELECT (SELECT count(*)::int FROM run_findings WHERE run_id=$1) AS findings, (SELECT count(*)::int FROM run_interpretation WHERE run_id=$1) AS interp",
+      [runId],
+    );
+    expect(n[0]).toEqual({ findings: 0, interp: 0 });
+    const ev = await env.kernel!.kernelAdmin.query(
+      "SELECT count(*)::int AS n FROM workspace_events WHERE workspace_id=$1 AND event_type='finding.created'",
+      [env.workspaceId],
+    );
+    expect(ev.rows[0].n).toBe(0);
+    const doc = await env.kernel!.kernel.canvas.get(env.kernel!.session, env.workspaceId);
+    expect(doc.panels).toHaveLength(0);
   }, 480_000);
 });
 

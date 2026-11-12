@@ -86,7 +86,7 @@ function model(
     calls,
     async generate<T>(a: { key: string }): Promise<T> {
       calls.push(a.key);
-      const v = a.key.endsWith(":skeptic") ? skeptic : analyst;
+      const v = a.key.includes(":skeptic") ? skeptic : analyst;
       if (v === "hang") return new Promise<T>(() => undefined);
       if (v instanceof Error) throw v;
       return v as T;
@@ -272,6 +272,50 @@ describe("interpretation stage", () => {
     });
     expect(out.findings).toHaveLength(1);
     expect(out.rejected.map((r) => r.reasonCode)).toEqual(["GUARD_VIOLATION", "GUARD_VIOLATION"]);
+  });
+
+  it("challenges four or more findings with concurrent skeptic calls over disjoint subsets (same verdict rules, one failure degrades only its own findings)", async () => {
+    const four = [0, 1, 2, 3].map((i) =>
+      finding({
+        statement: `Daily NEAR transactions rose from 1000 to 1800, a 80% increase, in reading ${i === 0 ? "one" : i === 1 ? "two" : i === 2 ? "three" : "four"} of the window.`,
+      }),
+    );
+    const WORDS = ["alpha", "beta", "gamma", "delta"];
+    const seen: Array<{ key: string; indexes: number[] }> = [];
+    const m: InterpretationModel & { calls: string[] } = {
+      calls: [],
+      async generate<T>(a: { key: string; prompt?: string }): Promise<T> {
+        m.calls.push(a.key);
+        if (!a.key.includes(":skeptic")) return { findings: four } as T;
+        const indexes = [...(a.prompt ?? "").matchAll(/"index":(\d+)/g)].map((x) => Number(x[1]));
+        seen.push({ key: a.key, indexes });
+        if (a.key.endsWith(":skeptic:2")) throw new Error("provider hiccup");
+        return {
+          notes: indexes.map((i) => ({
+            findingIndex: i,
+            alternativeExplanations: [`Another reading could explain finding ${WORDS[i]}.`],
+            selectionEffects: [],
+            coverageCaveats: [],
+            verdict: i === 1 ? "weakened" : "holds",
+          })),
+        } as T;
+      },
+    };
+    const out = await interpretRun({ ...base, panels: [TX], model: m });
+    expect(out.state).toBe("ready");
+    // one analyst call, three skeptic calls with distinct keys, each finding challenged exactly once
+    expect(m.calls.filter((k) => k.includes(":skeptic")).sort()).toEqual([
+      `${base.runId}:skeptic:0`,
+      `${base.runId}:skeptic:1`,
+      `${base.runId}:skeptic:2`,
+    ]);
+    expect(seen.flatMap((x) => x.indexes).sort()).toEqual([0, 1, 2, 3]);
+    expect(out.findings[0]!.skepticNotes).toContain("Another reading could explain finding alpha.");
+    expect(out.findings[3]!.skepticNotes).toContain("Another reading could explain finding delta.");
+    expect(out.findings[1]!.status).toBe("mixed"); // a weakened verdict lowers the status exactly as with one call
+    // the failed group (indexes 2) is flagged and carries the standard caveats; the others are not degraded
+    expect(out.findings.map((f) => f.skepticDegraded)).toEqual([false, false, true, false]);
+    expect(out.findings[2]!.skepticNotes.join(" ")).toContain("skeptic pass was unavailable");
   });
 
   it("adds skeptic notes: deterministic caveats always, model notes when clean, and a verdict can only lower the status", async () => {

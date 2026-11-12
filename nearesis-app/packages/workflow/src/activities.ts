@@ -3,9 +3,13 @@ import { randomUUID } from "node:crypto";
 import { meterActivities } from "./cost-ops.ts";
 import {
   analyticsCallOf,
+  commitInterpretation,
+  computeInterpretation,
   previewQueriesOf,
   runInterpretation,
+  type ComputedInterpretation,
   type FindingSink,
+  type InterpretationDeps,
   type InterpretationSummary,
 } from "./interpretation.ts";
 import { guardInference, modelPolicyFromEnv, type InferenceVerification } from "@nearesis/kernel";
@@ -151,6 +155,15 @@ export interface ActivityDeps {
 
 const model = (d: ActivityDeps) => d.model ?? "scripted-1";
 
+export interface InterpretActivityInput {
+  tenantId: string;
+  workspaceId: string;
+  runId: string;
+  budgetId: string;
+  directorTaskId: string;
+  question: string;
+}
+
 /** Policy decisions become non-retryable ApplicationFailures typed by reasonCode (brief §10). */
 export function toApplicationFailure(e: unknown): unknown {
   if (e instanceof AgentRuntimeError)
@@ -189,6 +202,20 @@ function createActivitiesRaw(d: ActivityDeps) {
           },
         }
       : {};
+
+  const interpretationDeps = (i: { tenantId: string; workspaceId: string }): InterpretationDeps => ({
+    pool: d.pool,
+    gateway: d.gateway,
+    leases: d.leases,
+    supervisor,
+    provider: d.providerForRun?.() ?? d.provider,
+    model: model(d),
+    ...(d.cost ? { cost: d.cost } : {}),
+    ...(d.findingSink ? { sink: d.findingSink } : {}),
+    ...(d.interpretation?.analystTimeoutMs ? { analystTimeoutMs: d.interpretation.analystTimeoutMs } : {}),
+    ...(d.interpretation?.skepticTimeoutMs ? { skepticTimeoutMs: d.interpretation.skepticTimeoutMs } : {}),
+    ...onResult(i.tenantId, i.workspaceId),
+  });
 
   async function guarded<T>(fn: () => Promise<T>): Promise<T> {
     try {
@@ -1302,37 +1329,11 @@ function createActivitiesRaw(d: ActivityDeps) {
      * Interpretation stage: an analyst reads the executed panel results and a skeptic challenges the findings. It never
      * fails the run: any error degrades to an `unavailable` record (the panels are untouched). Cancellation propagates.
      */
-    async interpretRun(i: {
-      tenantId: string;
-      workspaceId: string;
-      runId: string;
-      budgetId: string;
-      directorTaskId: string;
-      question: string;
-    }): Promise<InterpretationSummary> {
+    async interpretRun(i: InterpretActivityInput): Promise<InterpretationSummary> {
       const ctx = Context.current();
       const timer = setInterval(() => ctx.heartbeat(), 1000);
       try {
-        return await runInterpretation(
-          {
-            pool: d.pool,
-            gateway: d.gateway,
-            leases: d.leases,
-            supervisor,
-            provider: d.providerForRun?.() ?? d.provider,
-            model: model(d),
-            ...(d.cost ? { cost: d.cost } : {}),
-            ...(d.findingSink ? { sink: d.findingSink } : {}),
-            ...(d.interpretation?.analystTimeoutMs
-              ? { analystTimeoutMs: d.interpretation.analystTimeoutMs }
-              : {}),
-            ...(d.interpretation?.skepticTimeoutMs
-              ? { skepticTimeoutMs: d.interpretation.skepticTimeoutMs }
-              : {}),
-            ...onResult(i.tenantId, i.workspaceId),
-          },
-          { ...i, signal: ctx.cancellationSignal },
-        );
+        return await runInterpretation(interpretationDeps(i), { ...i, signal: ctx.cancellationSignal });
       } catch (e) {
         if (e instanceof AbortedError) throw new CancelledFailure("interpretation cancelled");
         const reason = (e instanceof AgentRuntimeError ? e.reasonCode : "INTERPRETATION_ERROR").slice(0, 80);
@@ -1347,6 +1348,32 @@ function createActivitiesRaw(d: ActivityDeps) {
       } finally {
         clearInterval(timer);
       }
+    },
+
+    /**
+     * Interpretation, first half (A37): reads the proposal's panels and runs analyst + skeptic while the owner's approval is
+     * pending. Writes and publishes nothing (interpretCommit does, after approval). An error is returned, not thrown, so the
+     * workflow falls back to the full `interpretRun` after approval exactly as before.
+     */
+    async interpretCompute(i: InterpretActivityInput): Promise<ComputedInterpretation | null> {
+      const ctx = Context.current();
+      const timer = setInterval(() => ctx.heartbeat(), 1000);
+      try {
+        return await computeInterpretation(interpretationDeps(i), { ...i, signal: ctx.cancellationSignal });
+      } catch (e) {
+        if (e instanceof AbortedError) throw new CancelledFailure("interpretation cancelled");
+        return null;
+      } finally {
+        clearInterval(timer);
+      }
+    },
+
+    /** Interpretation, second half: records and publishes a computed interpretation (idempotent per run). */
+    async interpretCommit(
+      i: InterpretActivityInput & { computed: ComputedInterpretation },
+    ): Promise<InterpretationSummary> {
+      const { computed, ...rest } = i;
+      return commitInterpretation(interpretationDeps(rest), rest, computed);
     },
 
     /** CANVAS_PATCH_REVIEW: every composer proposal must have exactly one ledger row. */

@@ -13,6 +13,7 @@ import {
   UNK,
   VOL,
 } from "./sql.ts";
+import { IntentsRollup, rollupCte, type RollupOptions } from "./rollup.ts";
 import { UNUSUAL_METHOD, concentration, detectUnusual, type UnusualOpts } from "./stats.ts";
 import {
   INTENTS_METRICS_VERSION,
@@ -29,6 +30,11 @@ import {
 export interface IntentsOptions {
   database?: string;
   now?: () => Date;
+  /**
+   * Serve the common analyses from the verified daily rollup (see rollup.ts) when it covers the window; false (or
+   * NEARESIS_INTENTS_ROLLUP=0) always reads the raw swaps. The result is identical either way.
+   */
+  rollup?: boolean | RollupOptions;
 }
 
 type Row = Record<string, string>;
@@ -49,18 +55,45 @@ export const SIZE_BUCKETS = [
   { label: ">=100k", lo: 100_000, hi: null },
 ] as const;
 
+/** Rollup forms of VOL / UNK / the terminal count: the rollup rows already hold the per-group sums (see rollup.ts). */
+const RVOL = `sum(v_usd)`;
+const RUNK = `sum(n_unk)`;
+const RTERMINAL = `sumIf(n_swaps, ${TERMINAL})`;
+
 const bucketExpr = `multiIf(usd_in IS NULL, 'unknown_usd',
   usd_in < 10, '<10', usd_in < 100, '10-100', usd_in < 1000, '100-1k', usd_in < 10000, '1k-10k', usd_in < 100000, '10k-100k', '>=100k')`;
 
 export class IntentsAnalytics {
   readonly db: string;
   private readonly now: () => Date;
+  /** The verified daily rollup, or null when disabled. */
+  readonly rollup: IntentsRollup | null;
   constructor(
     private readonly ch: ClickHouseClient,
     opts: IntentsOptions = {},
   ) {
     this.db = assertDb(opts.database ?? "nearesis_live");
     this.now = opts.now ?? (() => new Date());
+    const on = opts.rollup !== false && process.env.NEARESIS_INTENTS_ROLLUP !== "0";
+    this.rollup = on
+      ? new IntentsRollup(ch, this.db, typeof opts.rollup === "object" ? opts.rollup : {})
+      : null;
+  }
+
+  /**
+   * Runs the rollup form of a query when the rollup covers the window, else the raw form (the two return the same columns and
+   * the same values). `roll` is a function of the rollup CTE so the raw path never builds it.
+   */
+  private async swapRows(
+    w: IntentsWindow,
+    era: string | undefined,
+    raw: string,
+    roll: string | null,
+    params: Record<string, unknown>,
+  ): Promise<Row[]> {
+    if (roll && this.rollup && (await this.rollup.covers(w)))
+      return queryRows<Row>(this.ch, `${rollupCte(this.db, !!era)} ${roll}`, params);
+    return queryRows<Row>(this.ch, raw, params);
   }
 
   private params(
@@ -104,9 +137,11 @@ export class IntentsAnalytics {
        FROM ${this.db}.source_coverage WHERE provider_id = 'near-explorer' AND dataset = 'intents_swaps' AND day >= {from:Date} AND day <= {to:Date} GROUP BY day ORDER BY day`,
       { from: w.from, to: w.to },
     );
-    const eras = await queryRows<Row>(
-      this.ch,
+    const eras = await this.swapRows(
+      w,
+      undefined,
       `SELECT privacy_era AS era, count() AS c, countIf(amount_in_usd IS NULL) AS usd_unknown FROM ${this.db}.intents_swaps FINAL WHERE created_day >= {from:Date} AND created_day <= {to:Date} GROUP BY era`,
+      `SELECT era, sum(n_swaps) AS c, sum(n_usd_null) AS usd_unknown FROM rsw GROUP BY era`,
       { from: w.from, to: w.to },
     );
     const sel = era ? eras.filter((r) => r.era === era) : eras;
@@ -213,11 +248,15 @@ export class IntentsAnalytics {
 
   async summary(w: IntentsWindow, era?: string): Promise<IntentsResult<Record<string, unknown>>> {
     assertWindow(w);
-    const [r] = await queryRows<Row>(
-      this.ch,
+    const [r] = await this.swapRows(
+      w,
+      era,
       `${swapsCte(this.db, !!era)} SELECT count() AS swaps, countIf(status='SUCCESS') AS success, countIf(status='REFUNDED') AS refunded, countIf(status='FAILED') AS failed,
          countIf(status NOT IN ('SUCCESS','REFUNDED','FAILED')) AS in_flight, ${VOL} AS vol, ${UNK} AS unk,
          countIf(chain_o = 'unknown' OR chain_d = 'unknown') AS chain_unknown, countIf(canon_o IS NULL OR canon_d IS NULL) AS asset_unmapped FROM sw`,
+      `SELECT sum(n_swaps) AS swaps, sumIf(n_swaps, status='SUCCESS') AS success, sumIf(n_swaps, status='REFUNDED') AS refunded, sumIf(n_swaps, status='FAILED') AS failed,
+         sumIf(n_swaps, status NOT IN ('SUCCESS','REFUNDED','FAILED')) AS in_flight, ${RVOL} AS vol, ${RUNK} AS unk,
+         sumIf(n_swaps, chain_o = 'unknown' OR chain_d = 'unknown') AS chain_unknown, sumIf(n_swaps, NOT mapped_o OR NOT mapped_d) AS asset_unmapped FROM rsw`,
       this.params(w, era),
     );
     const terminal = n(r?.success) + n(r?.refunded) + n(r?.failed);
@@ -252,9 +291,11 @@ export class IntentsAnalytics {
     by: "none" | "day" = "none",
   ): Promise<IntentsResult<Array<Record<string, unknown>>>> {
     assertWindow(w);
-    const rows = await queryRows<Row>(
-      this.ch,
+    const rows = await this.swapRows(
+      w,
+      undefined,
       `${swapsCte(this.db, false)} SELECT ${by === "day" ? "toString(day) AS dstr," : ""} status, count() AS swaps, ${VOL} AS vol, ${UNK} AS unk FROM sw GROUP BY ${by === "day" ? "dstr, " : ""}status ORDER BY ${by === "day" ? "dstr, " : ""}swaps DESC`,
+      `SELECT ${by === "day" ? "toString(day) AS dstr," : ""} status, sum(n_swaps) AS swaps, ${RVOL} AS vol, ${RUNK} AS unk FROM rsw GROUP BY ${by === "day" ? "dstr, " : ""}status ORDER BY ${by === "day" ? "dstr, " : ""}swaps DESC, status`,
       this.params(w),
     );
     const totals = new Map<string, number>();
@@ -290,10 +331,13 @@ export class IntentsAnalytics {
   ): Promise<IntentsResult<Array<Record<string, unknown>>>> {
     assertWindow(w);
     const s = side === "origin" ? "o" : "d";
-    const rows = await queryRows<Row>(
-      this.ch,
+    const rows = await this.swapRows(
+      w,
+      undefined,
       `${swapsCte(this.db, false)} SELECT ${assetLabel(s)} AS asset, chain_${s} AS chain, canon_${s} IS NOT NULL AS mapped, countIf(status='SUCCESS') AS swaps, ${VOL} AS vol, ${UNK} AS unk
        FROM sw GROUP BY asset, chain, mapped HAVING swaps > 0 ORDER BY vol DESC, swaps DESC LIMIT {top:UInt32}`,
+      `SELECT asset_${s} AS asset, chain_${s} AS chain, mapped_${s} AS mapped, sumIf(n_swaps, status='SUCCESS') AS swaps, ${RVOL} AS vol, ${RUNK} AS unk
+       FROM rsw GROUP BY asset, chain, mapped HAVING swaps > 0 ORDER BY vol DESC, swaps DESC, asset, chain LIMIT {top:UInt32}`,
       this.params(w, undefined, { top: topN }),
     );
     return this.ok(
@@ -322,10 +366,13 @@ export class IntentsAnalytics {
     IntentsResult<{ matrix: Array<Record<string, unknown>>; netFlow: Array<Record<string, unknown>> }>
   > {
     assertWindow(w);
-    const rows = await queryRows<Row>(
-      this.ch,
+    const rows = await this.swapRows(
+      w,
+      undefined,
       `${swapsCte(this.db, false)} SELECT chain_o AS origin_chain, chain_d AS destination_chain, countIf(status='SUCCESS') AS swaps, ${VOL} AS vol, ${UNK} AS unk,
          countIf(status='REFUNDED') AS refunded, countIf(${TERMINAL}) AS terminal FROM sw GROUP BY chain_o, chain_d HAVING terminal > 0 ORDER BY vol DESC`,
+      `SELECT chain_o AS origin_chain, chain_d AS destination_chain, sumIf(n_swaps, status='SUCCESS') AS swaps, ${RVOL} AS vol, ${RUNK} AS unk,
+         sumIf(n_swaps, status='REFUNDED') AS refunded, ${RTERMINAL} AS terminal FROM rsw GROUP BY chain_o, chain_d HAVING terminal > 0 ORDER BY vol DESC, origin_chain, destination_chain`,
       this.params(w),
     );
     const matrix = rows.map((r) => ({
@@ -372,11 +419,15 @@ export class IntentsAnalytics {
 
   async assetPairs(w: IntentsWindow, topN = 25): Promise<IntentsResult<Array<Record<string, unknown>>>> {
     assertWindow(w);
-    const rows = await queryRows<Row>(
-      this.ch,
+    const rows = await this.swapRows(
+      w,
+      undefined,
       `${swapsCte(this.db, false)} SELECT ${assetLabel("o")} AS asset_o, chain_o, ${assetLabel("d")} AS asset_d, chain_d, countIf(status='SUCCESS') AS swaps, ${VOL} AS vol,
          ${UNK} AS unk, countIf(status='SUCCESS' AND usd_in IS NOT NULL) AS known, countIf(status='REFUNDED') AS refunded, countIf(${TERMINAL}) AS terminal
        FROM sw GROUP BY asset_o, chain_o, asset_d, chain_d HAVING swaps > 0 ORDER BY vol DESC, swaps DESC LIMIT {top:UInt32}`,
+      `SELECT asset_o, chain_o, asset_d, chain_d, sumIf(n_swaps, status='SUCCESS') AS swaps, ${RVOL} AS vol,
+         ${RUNK} AS unk, sum(n_known) AS known, sumIf(n_swaps, status='REFUNDED') AS refunded, ${RTERMINAL} AS terminal
+       FROM rsw GROUP BY asset_o, chain_o, asset_d, chain_d HAVING swaps > 0 ORDER BY vol DESC, swaps DESC, asset_o, chain_o, asset_d, chain_d LIMIT {top:UInt32}`,
       this.params(w, undefined, { top: topN }),
     );
     return this.ok(
@@ -412,10 +463,14 @@ export class IntentsAnalytics {
         ? "chain_o, chain_d"
         : `${assetLabel("o")} AS asset_o, ${assetLabel("d")} AS asset_d`;
     const grp = by === "chain_pair" ? "chain_o, chain_d" : "asset_o, asset_d";
-    const rows = await queryRows<Row>(
-      this.ch,
+    const rkey = by === "chain_pair" ? "chain_o, chain_d" : "asset_o, asset_d";
+    const rows = await this.swapRows(
+      w,
+      undefined,
       `${swapsCte(this.db, false)} SELECT ${key}, countIf(${TERMINAL}) AS terminal, countIf(status='SUCCESS') AS success, countIf(status='REFUNDED') AS refunded, countIf(status='FAILED') AS failed
        FROM sw GROUP BY ${grp} HAVING terminal >= {min:UInt32} ORDER BY refunded / terminal DESC, terminal DESC LIMIT {top:UInt32}`,
+      `SELECT ${rkey}, ${RTERMINAL} AS terminal, sumIf(n_swaps, status='SUCCESS') AS success, sumIf(n_swaps, status='REFUNDED') AS refunded, sumIf(n_swaps, status='FAILED') AS failed
+       FROM rsw GROUP BY ${rkey} HAVING terminal >= {min:UInt32} ORDER BY refunded / terminal DESC, terminal DESC, ${rkey} LIMIT {top:UInt32}`,
       this.params(w, undefined, { min: minTerminal, top: topN }),
     );
     return this.ok(
@@ -465,13 +520,17 @@ export class IntentsAnalytics {
                 grp: "chain_o, chain_d,",
                 ord: "chain_o, chain_d, refunded DESC, reason",
               };
-    const rows = await queryRows<Row>(
-      this.ch,
+    const rows = await this.swapRows(
+      w,
+      undefined,
       `${swapsCte(this.db, false)}, rf AS (SELECT swap_key, refund_reason, refund_type FROM ${this.db}.intents_swap_refunds FINAL)
        SELECT ${group.sel} multiIf(rf.swap_key = '', 'NOT_LOADED', rf.refund_reason IS NULL, 'NOT_REPORTED', rf.refund_reason) AS reason,
               count() AS refunded, ${VOL} AS vol, ${UNK} AS unk
        FROM sw LEFT JOIN rf ON rf.swap_key = sw.swap_key
        WHERE status = 'REFUNDED'
+       GROUP BY ${group.grp} reason ORDER BY ${group.ord}`,
+      `SELECT ${group.sel} refund_reason AS reason, sum(n_swaps) AS refunded, ${RVOL} AS vol, ${RUNK} AS unk
+       FROM rsw WHERE status = 'REFUNDED'
        GROUP BY ${group.grp} reason ORDER BY ${group.ord}`,
       this.params(w),
     );
@@ -594,10 +653,13 @@ export class IntentsAnalytics {
   ): Promise<IntentsResult<Array<Record<string, unknown>>>> {
     assertWindow(w);
     const g = { day: "day", week: "toStartOfWeek(day, 1)", month: "toStartOfMonth(day)" }[granularity];
-    const rows = await queryRows<Row>(
-      this.ch,
+    const rows = await this.swapRows(
+      w,
+      undefined,
       `${swapsCte(this.db, false)} SELECT toString(${g}) AS period, count() AS swaps, countIf(status='SUCCESS') AS success, countIf(status='REFUNDED') AS refunded, countIf(${TERMINAL}) AS terminal,
          ${VOL} AS vol, ${UNK} AS unk, uniqExact(day) AS days FROM sw GROUP BY period ORDER BY period`,
+      `SELECT toString(${g}) AS period, sum(n_swaps) AS swaps, sumIf(n_swaps, status='SUCCESS') AS success, sumIf(n_swaps, status='REFUNDED') AS refunded, ${RTERMINAL} AS terminal,
+         ${RVOL} AS vol, ${RUNK} AS unk, uniqExact(day) AS days FROM rsw GROUP BY period ORDER BY period`,
       this.params(w),
     );
     return this.ok(
@@ -682,18 +744,31 @@ export class IntentsAnalytics {
       chain_pair: "concat(chain_o, '->', chain_d)",
     }[dimension];
     const val = measure === "volume" ? VOL : "countIf(status='SUCCESS')";
-    const rows = await queryRows<Row>(
-      this.ch,
+    const rkeyExpr = {
+      origin_asset: "asset_o",
+      destination_asset: "asset_d",
+      origin_chain: "chain_o",
+      destination_chain: "chain_d",
+      chain_pair: "concat(chain_o, '->', chain_d)",
+    }[dimension];
+    const rval = measure === "volume" ? RVOL : "sumIf(n_swaps, status='SUCCESS')";
+    // one pass answers both the groups and the excluded/settled counts the second query used to scan for
+    const rows = await this.swapRows(
+      w,
+      undefined,
       `${swapsCte(this.db, false)} SELECT ${keyExpr} AS k, ${val} AS v FROM sw GROUP BY k HAVING v > 0`,
+      `SELECT ${rkeyExpr} AS k, ${rval} AS v FROM rsw GROUP BY k HAVING v > 0`,
       this.params(w),
     );
     const c = concentration(
       rows.map((r) => ({ key: r.k as string, value: r.v ?? "0" })),
       topN,
     );
-    const [u] = await queryRows<Row>(
-      this.ch,
+    const [u] = await this.swapRows(
+      w,
+      undefined,
       `${swapsCte(this.db, false)} SELECT ${UNK} AS unk, countIf(status='SUCCESS') AS s FROM sw`,
+      `SELECT ${RUNK} AS unk, sumIf(n_swaps, status='SUCCESS') AS s FROM rsw`,
       this.params(w),
     );
     return this.ok(

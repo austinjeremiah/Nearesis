@@ -1702,3 +1702,9 @@ table.table {
   background-repeat: repeat;
   opacity: 0.2;
 }
+
+/* The marketing texture is a field of question-mark glyphs. At hero scale it
+   reads as noise; at card scale it reads as literal punctuation. Flat panel. */
+.band::before {
+  display: none;
+}

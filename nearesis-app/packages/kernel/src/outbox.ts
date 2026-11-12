@@ -128,7 +128,17 @@ export class OutboxPublisher {
 
   start(intervalMs = 500): void {
     if (this.timer) return;
-    this.timer = setInterval(() => void this.runOnce().catch(() => undefined), intervalMs);
+    // One poll at a time: a poll holds a connection for its whole batch and every delivery needs a second one, so
+    // overlapping polls (a backlog that takes longer than the interval) would each hold a connection while waiting for
+    // another until the pool is exhausted and nothing moves. A tick that finds the previous poll still running is skipped.
+    let polling = false;
+    this.timer = setInterval(() => {
+      if (polling) return;
+      polling = true;
+      void this.runOnce()
+        .catch(() => undefined)
+        .finally(() => (polling = false));
+    }, intervalMs);
     this.timer.unref();
   }
   stop(): void {

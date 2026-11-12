@@ -12,9 +12,10 @@ export interface StreamOptions {
   /** Max events read (and therefore buffered) per subscriber per step. */
   batch?: number;
   /**
-   * Idle-poll sharing (ms, default 0 = off). When on, a subscriber that is caught up skips the database for this long
-   * after any subscriber of the same workspace last read the journal head, so N idle streams cost one read per window
-   * instead of N. New events are delayed by at most this long.
+   * Poll sharing (ms, default 0 = off). When on, subscribers of one workspace share the last journal window for this
+   * long: a caught-up subscriber gets "nothing new" and one slightly behind gets the cached events, both without a
+   * database read, so N streams cost about one read per window instead of N. Events are delayed by at most this long.
+   * Authorisation is unchanged: every first read and every read that misses the window goes through the tenant tx.
    */
   headCacheMs?: number;
 }
@@ -45,7 +46,11 @@ export class EventStreamService {
   readonly maxLag: number;
   readonly batch: number;
   private readonly headCacheMs: number;
-  private readonly headCache = new Map<string, { at: number; head: number }>();
+  /** Last journal window read per workspace: `events` cover seq fromSeq..through (at most one batch). */
+  private readonly tail = new Map<
+    string,
+    { at: number; fromSeq: number; through: number; events: DomainEvent[] }
+  >();
   constructor(
     private readonly db: Db,
     private readonly journal: EventJournal,
@@ -73,17 +78,29 @@ export class EventStreamService {
     ro: ReadOptions = {},
   ): Promise<ReadResult> {
     if (this.headCacheMs > 0 && !firstRead) {
-      const c = this.headCache.get(workspaceId);
-      const t = Date.now();
-      if (c && t - c.at < this.headCacheMs && c.head <= afterSeq)
-        return { status: "ok", events: [], head: afterSeq };
-      // This reader probes the journal for everyone in the window; the entry is corrected with the real head below.
-      if (this.headCache.size > 5000) this.headCache.clear();
-      this.headCache.set(workspaceId, { at: t, head: Math.min(c?.head ?? afterSeq, afterSeq) });
+      const key = `${session.principal.orgId}:${workspaceId}`;
+      const c = this.tail.get(key);
+      if (c && Date.now() - c.at < this.headCacheMs) {
+        // Caught up as of the last read: nothing new. Slightly behind but inside the cached window: serve it from memory.
+        if (c.through <= afterSeq) return { status: "ok", events: [], head: afterSeq };
+        if (afterSeq >= c.fromSeq - 1 && c.through - afterSeq <= (ro.maxLag ?? this.maxLag))
+          return {
+            status: "ok",
+            events: c.events.filter((e) => e.seq > afterSeq).slice(0, this.batch),
+            head: c.through,
+          };
+      }
     }
     const r = await this.readOnce(session, workspaceId, afterSeq, firstRead, ro);
-    if (this.headCacheMs > 0 && "head" in r)
-      this.headCache.set(workspaceId, { at: Date.now(), head: r.head });
+    if (this.headCacheMs > 0 && r.status === "ok") {
+      if (this.tail.size > 5000) this.tail.clear();
+      this.tail.set(`${session.principal.orgId}:${workspaceId}`, {
+        at: Date.now(),
+        fromSeq: afterSeq + 1,
+        through: r.events.length ? r.events[r.events.length - 1]!.seq : afterSeq,
+        events: r.events,
+      });
+    }
     return r;
   }
 

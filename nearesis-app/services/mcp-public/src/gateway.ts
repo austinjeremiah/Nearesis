@@ -7,7 +7,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { APP_ROOT, loadSnapshot, readManifest, verifyCapsule } from "@nearesis/capsule";
+import { APP_ROOT, isCapsulePublic, loadSnapshot, readManifest, verifyCapsule } from "@nearesis/capsule";
 
 /**
  * MCP gateway (ch.11 "MCP gateway", V17): exactly six read-only operations with a schema, a description and a narrow scope
@@ -192,7 +192,10 @@ export function createGatewayServer(opts: GatewayOptions): McpServer {
           .sort()
           .filter(
             (id) =>
-              /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(id) && existsSync(join(root, id, "manifest.json")),
+              /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(id) &&
+              existsSync(join(root, id, "manifest.json")) &&
+              // Only explicitly published capsules are served; see isCapsulePublic.
+              isCapsulePublic(join(root, id)),
           )
           .map((id) => ({ id, dir: join(root, id) }))
       : [];

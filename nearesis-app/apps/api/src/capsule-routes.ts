@@ -2,11 +2,15 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { KernelError } from "@nearesis/kernel";
+import { KernelError, writeAudit } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
 import {
   APP_ROOT,
+  cautionStatuses,
+  isCapsulePublic,
   loadCapsuleView,
+  readCapsulePublicationState,
+  writeCapsulePublicationState,
   readCapsuleOwnership,
   readManifest,
   verifyCapsule,
@@ -92,6 +96,126 @@ export const capsuleRoutes: FastifyPluginAsync<CapsuleRoutesOptions> = async (ap
           status: "unavailable" as const,
           reason: "Capsule manifest failed validation; nothing is shown as verified.",
         };
+  });
+
+  /**
+   * Explicit publication to the public MCP gateway (ch.12). Only members who can write (not viewers) may publish; the capsule
+   * must be visible to the caller. The verification state comes from the verified-state gate (FND-072) and its badge is
+   * recorded with the publication. A capsule carrying a cautionary status (INSUFFICIENT_DATA, METHOD_NOT_VALIDATED,
+   * NOT_REPRODUCIBLE, a blocked attestation, or a failed local verification) is published only when the caller names every
+   * such status in `acknowledge`. Publication and withdrawal are audited.
+   */
+  const AckBody = (b: unknown): string[] => {
+    const a = (b as { acknowledge?: unknown } | null | undefined)?.acknowledge;
+    return Array.isArray(a) ? a.filter((x): x is string => typeof x === "string") : [];
+  };
+  const audit = (
+    s: Session,
+    workspaceId: string,
+    action: string,
+    id: string,
+    outcome: "ok" | "denied",
+    reasonCode: string | null,
+    detail: Record<string, unknown> = {},
+  ) =>
+    kernel.db.tx({ orgId: s.principal.orgId, userId: s.userId, actorKind: s.principal.kind }, (tx) =>
+      writeAudit(tx, {
+        orgId: s.principal.orgId,
+        workspaceId,
+        actorId: s.userId,
+        action,
+        subject: `capsule:${id}`,
+        outcome,
+        reasonCode,
+        detail,
+      }),
+    );
+
+  app.post<{ Params: { id: string }; Body: { acknowledge?: string[] } | undefined }>(
+    "/v1/capsules/:id/publish",
+    async (req) => {
+      const s = await authenticate(req);
+      const d = await visibleDir(s, req.params.id);
+      const owner = d ? readCapsuleOwnership(d) : null;
+      const m = d ? readManifest(d) : null;
+      if (!d || !owner || !m) throw new KernelError("NOT_FOUND", "CAPSULE_NOT_FOUND", "Capsule not found.");
+      if (s.role === "viewer") {
+        await audit(s, owner.workspaceId, "capsule.publish", req.params.id, "denied", "ROLE_CANNOT_PUBLISH");
+        throw new KernelError("FORBIDDEN", "ROLE_CANNOT_PUBLISH", "Viewers cannot publish capsules.");
+      }
+      const gate = await kernel.verifiedState.gate(s, owner.workspaceId, "capsule", req.params.id);
+      const need = new Set(cautionStatuses(m));
+      const rep = await verifyCapsule(d, { research: "skip", wasm: "skip" });
+      if (rep.status !== "reproduced") need.add("VERIFICATION_FAILED");
+      if (gate.state === "failed") need.add("VERIFIED_STATE_FAILED");
+      const ack = new Set(AckBody(req.body));
+      const missing = [...need].filter((x) => !ack.has(x)).sort();
+      if (missing.length) {
+        await audit(
+          s,
+          owner.workspaceId,
+          "capsule.publish",
+          req.params.id,
+          "denied",
+          "ACKNOWLEDGEMENT_REQUIRED",
+          {
+            missing,
+          },
+        );
+        throw new KernelError(
+          "DOMAIN_INVARIANT",
+          "ACKNOWLEDGEMENT_REQUIRED",
+          `Publishing needs an explicit acknowledgement of: ${missing.join(", ")}.`,
+          { details: missing.map((issue) => ({ path: "acknowledge", issue })) },
+        );
+      }
+      writeCapsulePublicationState(d, {
+        state: "published",
+        orgId: owner.orgId,
+        workspaceId: owner.workspaceId,
+        actorId: s.userId,
+        at: new Date().toISOString(),
+        acknowledged: [...need].sort(),
+        badge: gate.badge.label,
+      });
+      await audit(s, owner.workspaceId, "capsule.publish", req.params.id, "ok", null, {
+        badge: gate.badge.label,
+        acknowledged: [...need].sort(),
+      });
+      return { capsuleId: req.params.id, state: "published" as const, badge: gate.badge };
+    },
+  );
+
+  app.post<{ Params: { id: string } }>("/v1/capsules/:id/unpublish", async (req) => {
+    const s = await authenticate(req);
+    const d = await visibleDir(s, req.params.id);
+    const owner = d ? readCapsuleOwnership(d) : null;
+    if (!d || !owner) throw new KernelError("NOT_FOUND", "CAPSULE_NOT_FOUND", "Capsule not found.");
+    if (s.role === "viewer") {
+      await audit(s, owner.workspaceId, "capsule.unpublish", req.params.id, "denied", "ROLE_CANNOT_PUBLISH");
+      throw new KernelError("FORBIDDEN", "ROLE_CANNOT_PUBLISH", "Viewers cannot unpublish capsules.");
+    }
+    const prev = readCapsulePublicationState(d);
+    writeCapsulePublicationState(d, {
+      state: "unpublished",
+      orgId: owner.orgId,
+      workspaceId: owner.workspaceId,
+      actorId: s.userId,
+      at: new Date().toISOString(),
+      acknowledged: prev?.acknowledged ?? [],
+      badge: prev?.badge ?? "unverified",
+    });
+    await audit(s, owner.workspaceId, "capsule.unpublish", req.params.id, "ok", null, {
+      wasPublic: prev?.state === "published",
+    });
+    return { capsuleId: req.params.id, state: "unpublished" as const };
+  });
+
+  app.get<{ Params: { id: string } }>("/v1/capsules/:id/publication", async (req) => {
+    const s = await authenticate(req);
+    const d = await visibleDir(s, req.params.id);
+    if (!d) throw new KernelError("NOT_FOUND", "CAPSULE_NOT_FOUND", "Capsule not found.");
+    return { capsuleId: req.params.id, public: isCapsulePublic(d), record: readCapsulePublicationState(d) };
   });
 
   /** Full local verification (re-runs the WASM under a local wasmtime when present). Labelled local, never OutLayer. */

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { APP_ROOT, loadCapsuleView, readManifest, verifyCapsule } from "@nearesis/capsule";
+import { APP_ROOT, isCapsulePublic, loadCapsuleView, readManifest, verifyCapsule } from "@nearesis/capsule";
 
 /**
  * Public, read-only MCP server over research capsules (ch.15 P09, V08).
@@ -65,7 +65,9 @@ export function createPublicMcpServer(opts: PublicMcpOptions): McpServer {
 
   const dirOf = (id: string): string | null => {
     const d = join(root, id);
-    return existsSync(join(d, "manifest.json")) ? d : null;
+    // Only an explicitly published capsule is served (publication-state.json, matching ownership). Everything else,
+    // drafts, failed, METHOD_NOT_VALIDATED, INSUFFICIENT_DATA and other tenants' unpublished capsules, does not exist here.
+    return existsSync(join(d, "manifest.json")) && isCapsulePublic(d) ? d : null;
   };
   const manifestOf = (id: string) => {
     const d = dirOf(id);
@@ -110,7 +112,10 @@ export function createPublicMcpServer(opts: PublicMcpOptions): McpServer {
     const ids = existsSync(root) ? readdirSync(root).sort() : [];
     return ok({
       capsules: ids.flatMap((id) => {
-        const m = /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(id) ? readManifest(join(root, id)) : null;
+        const m =
+          /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(id) && isCapsulePublic(join(root, id))
+            ? readManifest(join(root, id))
+            : null;
         return m ? [{ capsuleId: m.capsuleId, title: m.title, label: m.label, createdAt: m.createdAt }] : [];
       }),
     });

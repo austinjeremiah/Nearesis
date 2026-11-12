@@ -35,6 +35,54 @@ describe("explorerCoverageDays (pure)", () => {
   });
 });
 
+describe("explorerCoverageDays: a day with no loaded swap is never complete without provider evidence", () => {
+  const swapDays = (ds: string[]) => new Set(ds);
+  const base = { minDay: "2026-04-01", maxDay: "2026-04-08", windowFrom: "2026-04-01", gaps: [] };
+  it("an interior hole (cursor jump) is partial NO_SWAPS_LOADED and its neighbours are partial too", () => {
+    const d = explorerCoverageDays({
+      ...base,
+      swapDays: swapDays([
+        "2026-04-01",
+        "2026-04-02",
+        "2026-04-05",
+        "2026-04-06",
+        "2026-04-07",
+        "2026-04-08",
+      ]),
+    });
+    expect(d.map((x) => [x.day, x.state, x.reason])).toEqual([
+      ["2026-04-01", "complete", null],
+      ["2026-04-02", "partial", "ADJACENT_TO_EMPTY_DAYS"],
+      ["2026-04-03", "partial", "NO_SWAPS_LOADED"],
+      ["2026-04-04", "partial", "NO_SWAPS_LOADED"],
+      ["2026-04-05", "partial", "ADJACENT_TO_EMPTY_DAYS"],
+      ["2026-04-06", "complete", null],
+      ["2026-04-07", "complete", null],
+      ["2026-04-08", "partial", "STILL_FILLING"],
+    ]);
+  });
+  it("days the provider confirmed empty are complete (zero swaps), and stop making their neighbours partial", () => {
+    const d = explorerCoverageDays({
+      ...base,
+      swapDays: swapDays([
+        "2026-04-01",
+        "2026-04-02",
+        "2026-04-05",
+        "2026-04-06",
+        "2026-04-07",
+        "2026-04-08",
+      ]),
+      confirmedEmptyDays: swapDays(["2026-04-03", "2026-04-04"]),
+    });
+    expect(d.map((x) => [x.day, x.state, x.reason]).slice(1, 5)).toEqual([
+      ["2026-04-02", "complete", null],
+      ["2026-04-03", "complete", "PROVIDER_EMPTY_CONFIRMED"],
+      ["2026-04-04", "complete", "PROVIDER_EMPTY_CONFIRMED"],
+      ["2026-04-05", "complete", null],
+    ]);
+  });
+});
+
 describe("refreshExplorerCoverage (disposable ClickHouse database)", () => {
   const db = `nearesis_t_a13_cov${Date.now().toString(36)}`;
   let ch: ReturnType<typeof createLiveCh>;
@@ -122,5 +170,59 @@ describe("refreshExplorerCoverage (disposable ClickHouse database)", () => {
       ]),
     );
     expect(await refreshExplorerCoverage(ch, 40)).toBe(0);
+  });
+
+  it("a hole inside the loaded range is partial, becomes complete once the days are loaded, and a confirmed-empty day survives refreshes", async () => {
+    await ch.command({ query: "TRUNCATE TABLE intents_swaps" });
+    await ch.command({ query: "TRUNCATE TABLE source_coverage" });
+    const put = (rows: ReturnType<typeof swap>[]) =>
+      ch.insert({
+        table: "intents_swaps",
+        values: rows,
+        format: "JSONEachRow",
+        clickhouse_settings: { input_format_defaults_for_omitted_fields: 1 },
+      });
+    await put(
+      ["2026-08-01", "2026-08-02", "2026-08-06", "2026-08-07", "2026-08-08"].map((d, i) =>
+        swap(`h${i}`, d, 1),
+      ),
+    );
+    await refreshExplorerCoverage(ch, 100);
+    expect(await states()).toEqual([
+      "2026-08-01:partial:OLDEST_EDGE_DAY",
+      "2026-08-02:partial:ADJACENT_TO_EMPTY_DAYS",
+      "2026-08-03:partial:NO_SWAPS_LOADED",
+      "2026-08-04:partial:NO_SWAPS_LOADED",
+      "2026-08-05:partial:NO_SWAPS_LOADED",
+      "2026-08-06:partial:ADJACENT_TO_EMPTY_DAYS",
+      "2026-08-07:complete:",
+      "2026-08-08:partial:STILL_FILLING",
+    ]);
+    // the refetch tool proves 08-04 empty at the provider; 08-03 and 08-05 get loaded
+    await insertLive(
+      ch,
+      "source_coverage",
+      coverageRows([
+        {
+          provider_id: "near-explorer",
+          dataset: "intents_swaps",
+          day: "2026-08-04",
+          state: "complete",
+          reason: "PROVIDER_EMPTY_CONFIRMED",
+          version: 200,
+        },
+      ]),
+    );
+    await put(["2026-08-03", "2026-08-05"].map((d, i) => swap(`r${i}`, d, 2)));
+    await refreshExplorerCoverage(ch, 300);
+    expect((await states()).slice(1, 7)).toEqual([
+      "2026-08-02:complete:",
+      "2026-08-03:complete:",
+      "2026-08-04:complete:PROVIDER_EMPTY_CONFIRMED",
+      "2026-08-05:complete:",
+      "2026-08-06:complete:",
+      "2026-08-07:complete:",
+    ]);
+    expect(await refreshExplorerCoverage(ch, 400)).toBe(0);
   });
 });

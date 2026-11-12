@@ -1,13 +1,24 @@
-import { NotConnected } from '@/components/nx/states';
 import { Content, PageHeader } from '@/components/nx/shell';
+import { LinkButton } from '@/components/nx/ui';
+import CanvasView from '@/components/nx/panel/CanvasView';
 
-/** Not connected to the API yet (WS3). Renders an honest typed state, never placeholder figures. */
-export default function Page() {
+/**
+ * Spec 5.7 canvas. Panels come from GET /v1/workspaces/{id}/canvas; each one loads
+ * its own data from the panel data route as it scrolls into view, and live events
+ * (query.completed, panel.updated, canvas.patched) refresh them without a reload.
+ */
+export default async function Page({ params }: { params: Promise<{ wid: string }> }) {
+  const { wid } = await params;
   return (
     <>
-      <PageHeader title="Canvas" description="Panels and markers." />
+      <PageHeader
+        title="Canvas"
+        description="Panels draw real query results with their provenance, coverage and freshness."
+        crumbs={[{ label: 'Workspace', href: `/w/${wid}/overview` }, { label: 'Canvas' }]}
+        actions={<LinkButton href={`/w/${wid}/investigate`}>Ask a question</LinkButton>}
+      />
       <Content>
-        <NotConnected what="Canvas" stream="WS3" />
+        <CanvasView wid={wid} />
       </Content>
     </>
   );

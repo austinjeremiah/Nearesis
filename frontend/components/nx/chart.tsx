@@ -9,11 +9,13 @@ import {
   CustomChart,
   HeatmapChart,
   LineChart,
+  PieChart,
   ScatterChart,
 } from 'echarts/charts';
 import {
   BrushComponent,
   DataZoomComponent,
+  GraphicComponent,
   GridComponent,
   LegendComponent,
   MarkAreaComponent,
@@ -22,6 +24,7 @@ import {
   VisualMapComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
+import { LegacyGridContainLabel } from 'echarts/features';
 
 /**
  * Chart engine.
@@ -36,12 +39,14 @@ import { CanvasRenderer } from 'echarts/renderers';
  */
 echarts.use([
   LineChart,
+  PieChart,
   BarChart,
   ScatterChart,
   HeatmapChart,
   CandlestickChart,
   BoxplotChart,
   CustomChart,
+  GraphicComponent,
   GridComponent,
   TooltipComponent,
   LegendComponent,
@@ -50,6 +55,7 @@ echarts.use([
   MarkAreaComponent,
   MarkLineComponent,
   VisualMapComponent,
+  LegacyGridContainLabel,
   CanvasRenderer,
 ]);
 
@@ -141,12 +147,15 @@ export function Chart({
   /** Called when the user finishes dragging a range. The caller decides whether
    *  that becomes a marker; spec 5.7 says a selection alone spawns nothing. */
   onBrushEnd,
+  /** Arms drag-to-select of a horizontal range inside the plot area. */
+  brushActive,
   ariaLabel,
   className,
 }: {
   option: (t: ChartTheme) => Record<string, unknown>;
   height?: number;
   onBrushEnd?: (range: { start: string; end: string }) => void;
+  brushActive?: boolean;
   ariaLabel: string;
   className?: string;
 }) {
@@ -154,33 +163,63 @@ export function Chart({
   const inst = useRef<echarts.ECharts | null>(null);
   const brushCb = useRef(onBrushEnd);
   brushCb.current = onBrushEnd;
+  const optRef = useRef(option);
+  optRef.current = option;
+  const brushRef = useRef(brushActive);
+  brushRef.current = brushActive;
 
+  const paint = (chart: echarts.ECharts, el: HTMLElement) => {
+    chart.setOption(optRef.current(readTheme(el)), { notMerge: true });
+  };
+
+  // Create once per mount: disposal, resize and theme observers stay tied to this element.
   useEffect(() => {
     const el = host.current;
     if (!el) return;
-
     const chart = echarts.init(el, undefined, { renderer: 'canvas' });
     inst.current = chart;
-    chart.setOption(option(readTheme(el)));
+    paint(chart, el);
 
-    if (brushCb.current) {
-      chart.on('brushEnd', (params: unknown) => {
-        const areas = (params as { areas?: { coordRange?: [number, number] }[] }).areas;
-        const range = areas?.[0]?.coordRange;
-        if (!range) return;
-        brushCb.current?.({
-          start: new Date(range[0]).toISOString(),
-          end: new Date(range[1]).toISOString(),
-        });
+    // Horizontal range selection by dragging inside the plot area. Done on the zrender layer so
+    // it needs no toolbox component; the caller receives ISO strings and decides what to do.
+    const zr = chart.getZr();
+    let from: number | null = null;
+    const gridRect = () => {
+      const m = (chart as unknown as { getModel(): { getComponent(n: string, i: number): { coordinateSystem?: { getRect(): { x: number; y: number; width: number; height: number } } } | undefined } }).getModel();
+      return m.getComponent('grid', 0)?.coordinateSystem?.getRect() ?? null;
+    };
+    const clampX = (x: number, r: { x: number; width: number }) => Math.max(r.x, Math.min(r.x + r.width, x));
+    zr.on('mousedown', (e: { offsetX: number; offsetY: number }) => {
+      if (!brushRef.current || !brushCb.current) return;
+      const r = gridRect();
+      if (r && e.offsetX >= r.x && e.offsetX <= r.x + r.width && e.offsetY >= r.y && e.offsetY <= r.y + r.height) from = e.offsetX;
+    });
+    zr.on('mousemove', (e: { offsetX: number }) => {
+      const r = gridRect();
+      if (from === null || !r) return;
+      const x2 = clampX(e.offsetX, r);
+      chart.setOption({
+        graphic: [{ id: 'nx-brush', type: 'rect', silent: true, z: 100, shape: { x: Math.min(from, x2), y: r.y, width: Math.abs(x2 - from), height: r.height }, style: { fill: 'rgba(0,236,151,0.16)', stroke: readTheme(el).accent } }],
       });
-    }
+    });
+    const finish = (x: number | null) => {
+      const r = gridRect();
+      const a = from;
+      from = null;
+      if (a === null || !r) return;
+      chart.setOption({ graphic: [{ id: 'nx-brush', $action: 'remove' }] });
+      if (x === null || Math.abs(x - a) < 4) return;
+      const lo = chart.convertFromPixel({ xAxisIndex: 0 }, Math.min(a, clampX(x, r))) as unknown as number;
+      const hi = chart.convertFromPixel({ xAxisIndex: 0 }, Math.max(a, clampX(x, r))) as unknown as number;
+      if (Number.isFinite(lo) && Number.isFinite(hi)) brushCb.current?.({ start: new Date(lo).toISOString(), end: new Date(hi).toISOString() });
+    };
+    zr.on('mouseup', (e: { offsetX: number }) => finish(e.offsetX));
+    zr.on('globalout', () => finish(null));
 
     const ro = new ResizeObserver(() => chart.resize());
     ro.observe(el);
-
-    // Re-read the palette when the theme attribute flips, so a dark-mode switch
-    // does not leave charts drawn in light-mode ink.
-    const mo = new MutationObserver(() => chart.setOption(option(readTheme(el))));
+    // Re-read the palette when the theme attribute flips.
+    const mo = new MutationObserver(() => paint(chart, el));
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
     return () => {
@@ -189,14 +228,12 @@ export function Chart({
       chart.dispose();
       inst.current = null;
     };
-    // `option` is a closure over the caller's data; re-running on identity change
-    // is intended and setOption merges rather than rebuilding.
-  }, [option]);
+  }, []);
 
   useEffect(() => {
     const el = host.current;
-    if (el && inst.current) inst.current.setOption(option(readTheme(el)));
-  }, [option]);
+    if (el && inst.current) paint(inst.current, el);
+  }, [option, brushActive]);
 
   return (
     <div

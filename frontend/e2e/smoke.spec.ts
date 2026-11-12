@@ -31,10 +31,10 @@ test.describe('real stack smoke: dev login, workspaces, overview', () => {
     // SSE hub: one proxied stream reaches "open".
     await expect(page.getByTestId('stream-status')).toHaveAttribute('data-status', 'open');
 
-    // A page still awaiting its stream says so, with no figures.
+    // The canvas is connected: it renders real panels or the honest empty state.
     const wid = page.url().match(/\/w\/([0-9a-f-]{36})\//)![1];
     await page.goto(`/w/${wid}/canvas`);
-    await expect(page.getByTestId('not-connected')).toHaveAttribute('data-stream', 'WS3');
+    await expect(page.getByTestId('canvas-revision').or(page.getByText('No panels yet'))).toBeVisible();
 
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/login/);

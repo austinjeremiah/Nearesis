@@ -84,7 +84,7 @@ export function DataModeIndicator({
       </span>
       {showOrigin && (
         <span className="mode" data-origin={origin} title={ORIGIN_TITLE[origin]}>
-          {origin === 'live_provider' ? 'live' : origin}
+          {origin}
         </span>
       )}
       {watermark !== undefined && (

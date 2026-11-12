@@ -1,0 +1,61 @@
+<svg width="450" height="620" viewBox="0 0 450 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Browser window: the Klero web app's race dashboard -->
+<rect x="1" y="1" width="448" height="618" rx="14" fill="#1F1F21" stroke="#3A3A3A" stroke-width="2"/>
+<!-- Browser chrome -->
+<path d="M1 15 A14 14 0 0 1 15 1 H435 A14 14 0 0 1 449 15 V52 H1 Z" fill="#2A2A2A"/>
+<circle cx="24" cy="27" r="5" fill="#FF8A82"/>
+<circle cx="42" cy="27" r="5" fill="#F5D76E"/>
+<circle cx="60" cy="27" r="5" fill="#D3FB43"/>
+<rect x="84" y="15" width="300" height="24" rx="12" fill="#1F1F21"/>
+<path d="M98 25.5 V23.5 A3.5 3.5 0 0 1 105 23.5 V25.5" stroke="#8A8A8A" stroke-width="1.4"/>
+<rect x="96" y="25" width="11" height="8" rx="1.5" fill="#8A8A8A"/>
+<text x="116" y="31.5" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#BDBDBD">klero / race</text>
+<g fill="#8A8A8A"><circle cx="410" cy="27" r="2"/><circle cx="418" cy="27" r="2"/><circle cx="426" cy="27" r="2"/></g>
+
+<!-- App header -->
+<rect x="16" y="66" width="418" height="40" fill="#FAFAFA"/>
+<rect x="26" y="74" width="24" height="24" fill="#000"/>
+<path d="M33.5 79 V93 M43 79 L35 86 L43 93" stroke="#D3FB43" stroke-width="2.6" stroke-linecap="square"/>
+<text x="60" y="91" font-family="Courier New, monospace" font-size="13" letter-spacing="2" fill="#333">THE RACE</text>
+<rect x="330" y="76" width="94" height="20" rx="10" fill="#D3FB43"/>
+<text x="377" y="90" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#1F1F21">LIVE · TESTNET</text>
+
+<!-- Two lanes -->
+<rect x="16" y="120" width="203" height="128" fill="#2A2A2A"/>
+<text x="30" y="144" font-family="Courier New, monospace" font-size="11" letter-spacing="1.5" fill="#8A8A8A">BASELINE</text>
+<text x="30" y="200" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="52" fill="#FF8A82">3</text>
+<text x="70" y="200" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#BDBDBD">payments</text>
+<text x="30" y="230" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#8A8A8A">same job, every agent paid</text>
+
+<rect x="231" y="120" width="203" height="128" fill="#2A2A2A" stroke="#D3FB43" stroke-width="1.5"/>
+<text x="245" y="144" font-family="Courier New, monospace" font-size="11" letter-spacing="1.5" fill="#D3FB43">KLERO</text>
+<text x="245" y="200" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="52" fill="#FAFAFA">1</text>
+<text x="280" y="200" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#BDBDBD">payment</text>
+<text x="245" y="230" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#8A8A8A">counted from Mirror Node</text>
+
+<!-- Death clock -->
+<rect x="16" y="262" width="418" height="104" fill="#2A2A2A"/>
+<circle cx="72" cy="314" r="34" stroke="#3A3A3A" stroke-width="7"/>
+<path d="M72 280 A34 34 0 1 1 41.6 329.2" stroke="#D3FB43" stroke-width="7" stroke-linecap="round"/>
+<text x="72" y="319" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="16" fill="#FAFAFA">84 s</text>
+<text x="128" y="296" font-family="Courier New, monospace" font-size="11" letter-spacing="1.5" fill="#8A8A8A">DEATH CLOCK</text>
+<text x="128" y="320" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="17" fill="#FAFAFA">Intent 3fa1c0d2-r0</text>
+<text x="128" y="344" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#BDBDBD">PAID or provably VOID, never re-signed</text>
+
+<!-- HCS timeline -->
+<rect x="16" y="380" width="418" height="172" fill="#2A2A2A"/>
+<text x="30" y="404" font-family="Courier New, monospace" font-size="11" letter-spacing="1.5" fill="#8A8A8A">HCS TIMELINE</text>
+<g font-family="Arial, Helvetica, sans-serif" font-size="12">
+  <text x="30" y="432" fill="#8A8A8A">#41</text><text x="70" y="432" fill="#FAFAFA">CLAIM</text><text x="150" y="432" fill="#BDBDBD">agent A · Claude</text>
+  <rect x="368" y="421" width="52" height="16" rx="8" fill="#D3FB43"/><text x="394" y="433" text-anchor="middle" font-size="9" font-weight="700" fill="#1F1F21">WON</text>
+  <text x="30" y="458" fill="#8A8A8A">#42</text><text x="70" y="458" fill="#FAFAFA">CLAIM</text><text x="150" y="458" fill="#BDBDBD">agent B · script</text>
+  <rect x="368" y="447" width="52" height="16" rx="8" fill="#3A3A3A"/><text x="394" y="459" text-anchor="middle" font-size="9" font-weight="700" fill="#BDBDBD">LOST</text>
+  <text x="30" y="484" fill="#8A8A8A">#43</text><text x="70" y="484" fill="#FAFAFA">INTENT</text><text x="150" y="484" fill="#BDBDBD">0.05 FUSD · Scribe B</text>
+  <text x="30" y="510" fill="#8A8A8A">#44</text><text x="70" y="510" fill="#FAFAFA">SETTLED</text><text x="150" y="510" fill="#BDBDBD">view on HashScan</text>
+  <text x="30" y="536" fill="#8A8A8A">#45</text><text x="70" y="536" fill="#FAFAFA">DONE</text><text x="150" y="536" fill="#BDBDBD">transcript + summary</text>
+</g>
+
+<!-- Footer action -->
+<rect x="16" y="566" width="418" height="38" fill="#D7FD41"/>
+<text x="225" y="590" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="14" fill="#1F1F21">TRY TO MAKE US PAY TWICE</text>
+</svg>

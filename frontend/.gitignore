@@ -1,0 +1,9 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# local env (holds the demo key) and backups — never commit
+.env*.local
+.env.local.bak*
+.contract-check.local.*

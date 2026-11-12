@@ -1,0 +1,15 @@
+<svg width="385" height="178" viewBox="0 0 385 178" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="385" height="178" rx="6" fill="#2A2A2A"/>
+<text x="18" y="38" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#FFFFFF">MERCHANT TERMINAL</text>
+<text x="367" y="38" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#FFFFFF">Live feed</text>
+<g font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#FFFFFF" text-anchor="middle">
+<circle cx="52" cy="82" r="24" fill="#3A3A3A" stroke="#D3FB43" stroke-width="2"/><path d="M41 82 L49 90 L63 74" stroke="#D3FB43" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="52" y="126">Merchant</text>
+<circle cx="192" cy="82" r="24" fill="#3A3A3A" stroke="#D3FB43" stroke-width="2"/><path d="M181 82 L189 90 L203 74" stroke="#D3FB43" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="192" y="126">Intent</text>
+<circle cx="332" cy="82" r="24" fill="#3A3A3A" stroke="#D3FB43" stroke-width="2"/><path d="M321 82 L329 90 L343 74" stroke="#D3FB43" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="332" y="126">Settled</text>
+</g>
+<rect x="8" y="140" width="369" height="30" fill="#D7FD41"/>
+<text x="192" y="161" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="15" fill="#1F1F21">NEW INVOICE</text>
+</svg>

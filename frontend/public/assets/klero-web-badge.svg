@@ -1,0 +1,11 @@
+<svg width="540" height="155" viewBox="0 0 540 155" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="3" y="3" width="534" height="149" rx="30" fill="#FFFFFF" stroke="#9A9A9A" stroke-width="5"/>
+<!-- Browser window icon -->
+<rect x="36" y="42" width="84" height="70" rx="8" stroke="#000" stroke-width="7"/>
+<path d="M36 62 H120" stroke="#000" stroke-width="7"/>
+<circle cx="50" cy="52" r="3" fill="#000"/>
+<circle cx="61" cy="52" r="3" fill="#000"/>
+<path d="M70 78 L86 88 L70 98 Z" stroke="#000" stroke-width="6" stroke-linejoin="round" fill="#000"/>
+<text x="140" y="68" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="#000">Open the</text>
+<text x="140" y="118" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="48" fill="#000" textLength="370" lengthAdjust="spacingAndGlyphs">Klero Web App</text>
+</svg>

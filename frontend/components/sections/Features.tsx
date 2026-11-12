@@ -5,7 +5,7 @@ export default function Features() {
         <div className="container title-container top-border">
           <div className="section-title-flex">
             <h2 className="section-title">
-              THE FEATURES
+              THE CANVAS
             </h2>
             <div className="section-title section-number">
               002
@@ -23,19 +23,19 @@ export default function Features() {
           <div className="feature-flex">
             <div className="feature-banner-wrap">
               <div scale-up="True" className="feature-banner-box">
-                <img src="/assets/klero-pay-card.svg" loading="lazy" alt="Banner" className="feature-banner" />
+                <img src="/assets/nearesis-panel-card.svg" loading="lazy" alt="Banner" className="feature-banner" />
               </div>
             </div>
             <div className="feature-content-wrap">
               <div fade-anim="True" className="feature-content-flex">
                 <div className="feature-content-tag">
-                  X402
+                  PANELS
                 </div>
                 <div className="feature-content-title">
-                  Payments Built For Autonomous Agents
+                  Panels Your Agents Compose, You Edit
                 </div>
                 <p className="feature-content-description paragraph-small">
-                  Agents find paid services in a directory on Hedera and pay over x402 with no human in the loop. They never hold payment keys: Klero signs only for the HCS winner, within the budget you set.
+                  Ask in plain language. Agents return a typed panel spec — never arbitrary code — and the canvas renders it with its query, units and vintage attached. Drag it, fork it, or highlight a stretch of the line and hand that exact selection to an agent.
                 </p>
               </div>
               <div fade-anim="True" className="feature-content-slider-wrap">
@@ -52,11 +52,11 @@ export default function Features() {
                             <rect width="324" height="228" fill="#2A2A2A" />
                             <rect x="8" y="8" width="308" height="29.85" fill="#fff" />
                             <text x="20" y="27" fill="#1F1F21" fillOpacity=".74" fontFamily="Arial, sans-serif" fontSize="8" letterSpacing="1">
-                              KLERO
+                              NEARESIS
                             </text>
-                            <rect x="209.8" y="12" width="69.2" height="21.85" rx="10.9" fill="#D3FB43" />
+                            <rect x="209.8" y="12" width="69.2" height="21.85" rx="10.9" fill="#00EC97" />
                             <text x="219" y="26" fill="#1F1F21" fillOpacity=".74" fontFamily="Arial, sans-serif" fontSize="8">
-                              Per job
+                              Per claim
                             </text>
                             <path d="M266 22.3L268.6 25L271.3 22.3" stroke="#1F1F21" strokeOpacity=".74" strokeWidth=".8" strokeLinecap="round" strokeLinejoin="round" />
                             <circle cx="293" cy="22.9" r="10.9" fill="#1F1F21" fillOpacity=".04" />
@@ -66,23 +66,23 @@ export default function Features() {
                               <circle cx="296.4" cy="22.9" r=".55" />
                             </g>
                             <g className="circle-bars">
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(-84 161.5 181)" fill="#D3FB43" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(-72 161.5 181)" fill="#D3FB43" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(-60 161.5 181)" fill="#D3FB43" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(-48 161.5 181)" fill="#D3FB43" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(-36 161.5 181)" fill="#D7FD41" opacity=".5" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(-24 161.5 181)" fill="#D7FD41" opacity=".5" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(-12 161.5 181)" fill="#D7FD41" opacity=".5" />
-                              <use className="circle-bar" href="#outer-bar" fill="#D7FD41" opacity=".5" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(12 161.5 181)" fill="#D7FD41" opacity=".5" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(24 161.5 181)" fill="#D7FD41" opacity=".5" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(36 161.5 181)" fill="#D7FD41" opacity=".5" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(48 161.5 181)" fill="#D7FD41" opacity=".1" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(60 161.5 181)" fill="#D7FD41" opacity=".1" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(72 161.5 181)" fill="#D7FD41" opacity=".1" />
-                              <use className="circle-bar" href="#outer-bar" transform="rotate(84 161.5 181)" fill="#D7FD41" opacity=".1" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(-84 161.5 181)" fill="#00EC97" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(-72 161.5 181)" fill="#00EC97" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(-60 161.5 181)" fill="#00EC97" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(-48 161.5 181)" fill="#00EC97" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(-36 161.5 181)" fill="#19FFAA" opacity=".5" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(-24 161.5 181)" fill="#19FFAA" opacity=".5" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(-12 161.5 181)" fill="#19FFAA" opacity=".5" />
+                              <use className="circle-bar" href="#outer-bar" fill="#19FFAA" opacity=".5" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(12 161.5 181)" fill="#19FFAA" opacity=".5" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(24 161.5 181)" fill="#19FFAA" opacity=".5" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(36 161.5 181)" fill="#19FFAA" opacity=".5" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(48 161.5 181)" fill="#19FFAA" opacity=".1" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(60 161.5 181)" fill="#19FFAA" opacity=".1" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(72 161.5 181)" fill="#19FFAA" opacity=".1" />
+                              <use className="circle-bar" href="#outer-bar" transform="rotate(84 161.5 181)" fill="#19FFAA" opacity=".1" />
                             </g>
-                            <g className="circle-dots" fill="#D3FB43">
+                            <g className="circle-dots" fill="#00EC97">
                               <use className="circle-dot" href="#inner-dot" transform="rotate(-84 161.5 181)" />
                               <use className="circle-dot" href="#inner-dot" transform="rotate(-76 161.5 181)" />
                               <use className="circle-dot" href="#inner-dot" transform="rotate(-68 161.5 181)" />
@@ -107,23 +107,23 @@ export default function Features() {
                               <use className="circle-dot" href="#inner-dot" transform="rotate(84 161.5 181)" opacity=".08" />
                             </g>
                             <text className="circle-label" x="162" y="143" textAnchor="middle" fill="#FAFAFA" fillOpacity=".56" fontFamily="Arial, sans-serif" fontSize="8">
-                              Payments settled
+                              Reproduced panels
                             </text>
                             <text className="circle-counter" x="162" y="166" textAnchor="middle" fill="#FAFAFA" fontFamily="Arial, sans-serif" fontSize="18" fontWeight="600">
-                              1
+                              12
                             </text>
                             <g fontFamily="Arial, sans-serif" fontSize="8" fill="#FAFAFA" fillOpacity=".56">
-                              <circle cx="20.3" cy="212" r="3" fill="none" stroke="#D3FB43" strokeWidth="2" />
+                              <circle cx="20.3" cy="212" r="3" fill="none" stroke="#00EC97" strokeWidth="2" />
                               <text x="29" y="215">
-                                Claim
+                                Query
                               </text>
-                              <circle cx="131.8" cy="212" r="3" fill="none" stroke="#D7FD41" strokeOpacity=".5" strokeWidth="2" />
+                              <circle cx="131.8" cy="212" r="3" fill="none" stroke="#19FFAA" strokeOpacity=".5" strokeWidth="2" />
                               <text x="141" y="215">
-                                Intent
+                                Panel
                               </text>
-                              <circle cx="239.3" cy="212" r="3" fill="none" stroke="#D7FD41" strokeOpacity=".1" strokeWidth="2" />
+                              <circle cx="239.3" cy="212" r="3" fill="none" stroke="#19FFAA" strokeOpacity=".1" strokeWidth="2" />
                               <text x="248" y="215">
-                                Settled
+                                Finding
                               </text>
                             </g>
                           </svg>
@@ -167,7 +167,7 @@ export default function Features() {
                     </div>
                   </div>
                   <div className="paragraph-small feature-tags">
-                    Public audit
+                    Living markers
                   </div>
                 </div>
                 <div className="feature-slider-height">

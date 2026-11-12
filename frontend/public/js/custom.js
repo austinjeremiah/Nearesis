@@ -146,7 +146,7 @@ __avandeDomReady(() => {
 
     if (!bars.length) return;
 
-    const fillColor = "#D3FB43";
+    const fillColor = "#00EC97";
     const emptyOpacity = 0.12;
     const fillDuration = 5;
     const completedPause = 1;

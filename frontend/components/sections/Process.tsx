@@ -13,7 +13,7 @@ export default function Process() {
               HOW IT WORKS
             </h2>
             <div className="section-title section-number">
-              007
+              005
             </div>
           </div>
         </div>
@@ -28,7 +28,7 @@ export default function Process() {
           <div className="process-title-flex">
             <div scale-up="True" className="process-title-box">
               <div className="process-title">
-                FOUR STEPS FROM FORK TO RECEIPT
+                FOUR STEPS FROM QUESTION TO CAPSULE
               </div>
             </div>
             <div scale-up="True" className="process-button-box">
@@ -36,10 +36,10 @@ export default function Process() {
                 <div className="primary-button-text-items w-variant-5c198abb-72b9-9083-ac28-2758d34ab69e">
                   <div className="primary-button-text-wrap w-variant-5c198abb-72b9-9083-ac28-2758d34ab69e">
                     <div className="primary-button-text one">
-                      TRY KLERO
+                      TRY NEARESIS
                     </div>
                     <div className="primary-button-text two">
-                      TRY KLERO
+                      TRY NEARESIS
                     </div>
                   </div>
                 </div>
@@ -64,7 +64,7 @@ export default function Process() {
             <div className="process-tabs-menu w-tab-menu">
               <a data-w-tab="Tab 1" className="process-tabs-link border-none w-inline-block w-tab-link w--current">
                 <div className="process-tabs-link-text">
-                  Claim
+                  Ask
                 </div>
                 <div className="process-tabs-link-text">
                   01
@@ -72,7 +72,7 @@ export default function Process() {
               </a>
               <a data-w-tab="Tab 2" className="process-tabs-link border-none w-inline-block w-tab-link">
                 <div className="process-tabs-link-text">
-                  Referee
+                  Compose
                 </div>
                 <div className="process-tabs-link-text">
                   02
@@ -80,7 +80,7 @@ export default function Process() {
               </a>
               <a data-w-tab="Tab 3" className="process-tabs-link w-inline-block w-tab-link">
                 <div className="process-tabs-link-text">
-                  Intent
+                  Delegate
                 </div>
                 <div className="process-tabs-link-text">
                   03
@@ -88,7 +88,7 @@ export default function Process() {
               </a>
               <a data-w-tab="Tab 4" className="process-tabs-link last w-inline-block w-tab-link">
                 <div className="process-tabs-link-text">
-                  Settle
+                  Publish
                 </div>
                 <div className="process-tabs-link-text">
                   04
@@ -101,19 +101,19 @@ export default function Process() {
                   <div className="process-tabs-contents-wrap">
                     <div fade-anim="True" className="process-tabs-contents-flex">
                       <div className="process-tabs-title">
-                        Claim
+                        Ask
                       </div>
                       <div className="process-tabs-contents-box">
                         <div className="process-tabs-contents-tags-flex">
                           <div className="process-tabs-contents-tags">
-                            Job key
+                            Scope
                           </div>
                           <div className="process-tabs-contents-tags">
-                            HCS
+                            Budget
                           </div>
                         </div>
                         <p className="process-contents-description">
-                          Every agent computes the same job key from your human id, the capability and the input hash, then posts a claim on the HCS topic, paid by its own Hedera account.
+                          You open a workspace around exactly one objective, pick the source scope and set a spending cap. The director decomposes it into certified queries, coverage checks and the alternatives a skeptic would raise.
                         </p>
                       </div>
                     </div>
@@ -130,19 +130,19 @@ export default function Process() {
                   <div className="process-tabs-contents-wrap">
                     <div className="process-tabs-contents-flex">
                       <div className="process-tabs-title">
-                        Referee
+                        Compose
                       </div>
                       <div className="process-tabs-contents-box">
                         <div className="process-tabs-contents-tags-flex">
                           <div className="process-tabs-contents-tags">
-                            Consensus
+                            Panel spec
                           </div>
                           <div className="process-tabs-contents-tags">
-                            Mirror Node
+                            Cube
                           </div>
                         </div>
                         <p className="process-contents-description">
-                          Hedera Consensus Service orders the claims. The first valid claim for the round wins and every agent reads the same winner from Mirror Node. The others back off.
+                          Agents return typed, declarative panels — timeseries, cohort, diagnostics, provenance — never arbitrary code. The composer lays out the canvas and you edit it like any document, with immediate undo.
                         </p>
                       </div>
                     </div>
@@ -159,26 +159,26 @@ export default function Process() {
                   <div className="process-tabs-contents-wrap">
                     <div className="process-tabs-contents-flex">
                       <div className="process-tabs-title">
-                        Intent
+                        Delegate
                       </div>
                       <div className="process-tabs-contents-box">
                         <div className="process-tabs-contents-tags-flex">
                           <div className="process-tabs-contents-tags">
-                            120 s
+                            Marker
                           </div>
                           <div className="process-tabs-contents-tags">
-                            Stored first
+                            72 h watch
                           </div>
                         </div>
                         <p className="process-contents-description">
-                          Klero builds the winner's payment as an intent: a Hedera transfer with a known transaction id that dies 120 seconds after its valid start. It is stored before it is sent.
+                          Highlight a surge and the selection becomes a marker carrying its panel id, series, window and filter hash. A child workflow investigates while the chart stays live, and a rule can keep watching it.
                         </p>
                       </div>
                     </div>
                   </div>
                   <div className="process-tabs-banner-items">
                     <div className="process-tabs-banner-box">
-                      <img src="/assets/klero-safeguards.svg" loading="lazy" alt="Process Tabs Banner" className="process-tabs-banner" />
+                      <img src="/assets/nearesis-method.svg" loading="lazy" alt="Process Tabs Banner" className="process-tabs-banner" />
                     </div>
                   </div>
                 </div>
@@ -188,19 +188,19 @@ export default function Process() {
                   <div className="process-tabs-contents-wrap">
                     <div className="process-tabs-contents-flex">
                       <div className="process-tabs-title">
-                        Settle
+                        Publish
                       </div>
                       <div className="process-tabs-contents-box">
                         <div className="process-tabs-contents-tags-flex">
                           <div className="process-tabs-contents-tags">
-                            x402
+                            THESIS.md
                           </div>
                           <div className="process-tabs-contents-tags">
-                            HTS
+                            Capsule
                           </div>
                         </div>
                         <p className="process-contents-description">
-                          The provider checks HCS, settles through our x402 facilitator in FUSD, then runs the job. If the job fails it refunds in HTS. Unknown outcomes resolve to PAID or VOID.
+                          You get a claim table with verdicts, uncertainty, counterexamples and falsification conditions, plus a capsule that rebuilds every chart offline. No private credentials required.
                         </p>
                       </div>
                     </div>

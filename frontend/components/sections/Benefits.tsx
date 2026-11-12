@@ -1,11 +1,11 @@
 export default function Benefits() {
   return (
-    <section id="safeguards" className="benefits-section">
+    <section id="method" className="benefits-section">
       <div data-wf--section-wrap--variant="main-mood" className="section-wrap">
         <div className="container title-container top-border">
           <div className="section-title-flex">
             <h2 className="section-title">
-              BENEFITS
+              THE METHOD
             </h2>
             <div className="section-title section-number">
               004
@@ -23,10 +23,10 @@ export default function Benefits() {
           <div className="benefits-content-flex">
             <div fade-anim="True" className="benefits-content-box">
               <div className="paragraph-small benefits-content-title">
-                ONE PAYMENT, EVER
+                THREE THINGS WE WON’T FAKE
               </div>
               <div className="paragraph-small short-description">
-                Every job carries three guarantees, each enforced by a public network rather than our server: one winner, one payment, one live authority.
+                Every finding carries three guarantees, each enforced by a published artifact rather than our word: one governed definition, one frozen vintage, one attested run.
               </div>
             </div>
             <div fade-anim="True" className="benefits-content-button-box">
@@ -34,10 +34,10 @@ export default function Benefits() {
                 <div className="primary-button-text-items w-variant-5c198abb-72b9-9083-ac28-2758d34ab69e">
                   <div className="primary-button-text-wrap w-variant-5c198abb-72b9-9083-ac28-2758d34ab69e">
                     <div className="primary-button-text one">
-                      TRY KLERO
+                      TRY NEARESIS
                     </div>
                     <div className="primary-button-text two">
-                      TRY KLERO
+                      TRY NEARESIS
                     </div>
                   </div>
                 </div>
@@ -62,7 +62,7 @@ export default function Benefits() {
             <div fade-anim="True" data-wf--benefits-card-items--variant="main-card" className="benefits-card-items">
               <div className="benefits-card-info-flex">
                 <div className="benefits-card-info-text">
-                  (hcs)
+                  (cube)
                 </div>
                 <div className="benefits-card-num">
                   01
@@ -73,17 +73,17 @@ export default function Benefits() {
               </div>
               <div className="benefits-card-content-box">
                 <div className="benefits-card-content-title">
-                  One Winner
+                  Governed Semantics
                 </div>
                 <p className="paragraph-small benefits-card-content-description">
-                  Claims are ordered by Hedera Consensus Service. The first valid claim for a job round wins, and every agent, provider and auditor computes the same winner.
+                  Certified measures and dimensions live in Cube. A workspace can draft an experimental metric, but nothing is promoted into the global catalog quietly.
                 </p>
               </div>
             </div>
             <div fade-anim="True" data-wf--benefits-card-items--variant="main-card" className="benefits-card-items">
               <div className="benefits-card-info-flex">
                 <div className="benefits-card-info-text">
-                  (hedera)
+                  (near)
                 </div>
                 <div className="benefits-card-num">
                   02
@@ -94,17 +94,17 @@ export default function Benefits() {
               </div>
               <div className="benefits-card-content-box">
                 <div className="benefits-card-content-title">
-                  One Payment
+                  Frozen Vintages
                 </div>
                 <p className="paragraph-small benefits-card-content-description">
-                  Payment intents die 120 seconds after their valid start. Hedera's transaction-id dedupe and our facilitator's replay table stop any second settlement.
+                  Features use only what was knowable at each prediction origin. The snapshot manifest pins every input version, so a rerun six months from now produces the same tables.
                 </p>
               </div>
             </div>
             <div fade-anim="True" data-wf--benefits-card-items--variant="right-border-none" className="benefits-card-items w-variant-fd48819a-9177-0907-a45c-824c4c76c822">
               <div className="benefits-card-info-flex">
                 <div className="benefits-card-info-text">
-                  (world)
+                  (outlayer)
                 </div>
                 <div className="benefits-card-num">
                   03
@@ -115,10 +115,10 @@ export default function Benefits() {
               </div>
               <div className="benefits-card-content-box">
                 <div className="benefits-card-content-title">
-                  One Live Authority
+                  Attested Runs
                 </div>
                 <p className="paragraph-small benefits-card-content-description">
-                  Agents link to their human with World ID. Firing an agent or spending above the cap needs a fresh approval, and providers check the agent's live authority on HCS before they run a job.
+                  Reproducibility, input integrity and TEE attestation are reported as three separate claims. An enclave never stands in for evidence that the source data was right.
                 </p>
               </div>
             </div>

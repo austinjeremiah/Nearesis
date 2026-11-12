@@ -1,0 +1,38 @@
+<svg width="584" height="500" viewBox="0 0 584 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="584" height="500" fill="#FFFFFF"/>
+<rect x="16" y="16" width="552" height="58" fill="#2A2A2A"/>
+<text x="40" y="52" font-family="Courier New, monospace" font-size="18" letter-spacing="2" fill="#B8B8B8">REBUILDABLE</text>
+<g fill="#CFCFCF"><circle cx="512" cy="45" r="2.5"/><circle cx="522" cy="45" r="2.5"/><circle cx="532" cy="45" r="2.5"/></g>
+<rect x="16" y="88" width="268" height="212" fill="#F5F5F5"/>
+<rect x="28" y="104" width="44" height="44" fill="#000"/>
+<text x="50" y="135" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="24" fill="#00EC97">A</text>
+<text x="86" y="133" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#222">Ask</text>
+<text x="28" y="188" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="22" fill="#111">One question</text>
+<text x="28" y="212" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#8A8A8A">Scoped workspace</text>
+<rect x="28" y="234" width="244" height="46" rx="23" fill="#E9E9E9"/>
+<text x="150" y="263" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#555">Budget set up front</text>
+<rect x="300" y="88" width="268" height="212" fill="#F5F5F5"/>
+<rect x="312" y="104" width="44" height="44" fill="#000"/>
+<text x="334" y="135" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="24" fill="#00EC97">C</text>
+<text x="370" y="133" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#222">Compose</text>
+<text x="312" y="188" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="22" fill="#111">Typed panels</text>
+<text x="312" y="212" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#8A8A8A">Never raw JSX</text>
+<rect x="312" y="234" width="244" height="46" rx="23" fill="#E9E9E9"/>
+<text x="434" y="263" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#555">Edit what agents lay out</text>
+<rect x="16" y="300" width="268" height="212" fill="#F5F5F5"/>
+<rect x="28" y="316" width="44" height="44" fill="#000"/>
+<text x="50" y="347" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="24" fill="#00EC97">D</text>
+<text x="86" y="345" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#222">Delegate</text>
+<text x="28" y="400" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="22" fill="#111">Markers</text>
+<text x="28" y="424" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#8A8A8A">Child workflows</text>
+<rect x="28" y="446" width="244" height="46" rx="23" fill="#E9E9E9"/>
+<text x="150" y="475" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#555">The chart stays live</text>
+<rect x="300" y="300" width="268" height="212" fill="#F5F5F5"/>
+<rect x="312" y="316" width="44" height="44" fill="#000"/>
+<text x="334" y="347" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="24" fill="#00EC97">P</text>
+<text x="370" y="345" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#222">Publish</text>
+<text x="312" y="400" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="22" fill="#111">THESIS.md</text>
+<text x="312" y="424" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#8A8A8A">Claims and counterevidence</text>
+<rect x="312" y="446" width="244" height="46" rx="23" fill="#E9E9E9"/>
+<text x="434" y="475" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#555">One command rebuilds it</text>
+</svg>

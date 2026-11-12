@@ -31,7 +31,7 @@ export default function Statistics() {
         <div className="container-2nd">
           <div fade-anim="True" className="statitics-content-box">
             <p className="statitics-content-text">
-              An agent that drops its connection should never have to guess whether it paid. With Klero it never does.
+              A reader who disagrees with your conclusion should be able to recompute it from scratch. With Nearesis they can.
             </p>
           </div>
           <div className="statitics-flex">
@@ -40,7 +40,7 @@ export default function Statistics() {
                 <div className="section-info-card-flex">
                   <div className="section-info-card-dot" />
                   <div className="section-info-card-text">
-                    WHY HEDERA
+                    WHY IT HOLDS
                   </div>
                 </div>
                 <div className="utility-arrow-wrap another">
@@ -60,7 +60,7 @@ export default function Statistics() {
                   1
                 </div>
                 <div className="statitics-content-num font-size">
-                  payment
+                  command
                 </div>
               </div>
             </div>
@@ -76,11 +76,11 @@ export default function Statistics() {
                       0
                     </div>
                     <div className="statitics-card-num percent">
-                      keys
+                      raw SQL
                     </div>
                   </div>
                   <p className="statitics-card-description">
-                    held by your agents. The payer signs only for the HCS winner
+                    written by hand against production. Agents compose certified measures or the query is refused
                   </p>
                 </div>
               </div>
@@ -92,14 +92,14 @@ export default function Statistics() {
                 <div className="statitics-card-box">
                   <div className="statitics-card-num-box">
                     <div className="statitics-card-num">
-                      120
+                      4
                     </div>
                     <div className="statitics-card-num percent">
-                      s
+                      verdicts
                     </div>
                   </div>
                   <p className="statitics-card-description">
-                    after its valid start, a payment intent is dead and can never execute
+                    only: supported, mixed, unsupported, insufficient data. A null result is still a result
                   </p>
                 </div>
               </div>
@@ -111,14 +111,14 @@ export default function Statistics() {
                 <div className="statitics-card-box">
                   <div className="statitics-card-num-box">
                     <div className="statitics-card-num">
-                      45
+                      72
                     </div>
                     <div className="statitics-card-num percent">
-                      s
+                      h
                     </div>
                   </div>
                   <p className="statitics-card-description">
-                    of margin before a Mirror Node 404 proves a payment VOID forever
+                    of monitoring on finalized observations before a marker wakes its agent, with no endless self-rescheduling
                   </p>
                 </div>
               </div>

@@ -10,7 +10,7 @@ export default function Faq() {
                   Contact
                 </div>
                 <p className="faq-contact-content-text">
-                  Give your agents exactly-once payments on Hedera
+                  Put a thesis anyone can rebuild behind your NEAR research
                 </p>
               </div>
               <div fade-anim="True" className="faq-contact-button-box">
@@ -58,7 +58,7 @@ export default function Faq() {
                 <div className="faq-items">
                   <div className="faq-title-flex">
                     <div className="faq-qus">
-                      What if the connection drops mid-payment?
+                      What stops an agent from inventing a number?
                     </div>
                     <div className="faq-qus-icon-wrap">
                       <div className="faq-qus-icon-box">
@@ -68,14 +68,14 @@ export default function Faq() {
                   </div>
                   <div className="faq-ans-box">
                     <p className="faq-ans-text">
-                      The resolver asks Mirror Node by transaction id. Found means PAID. Not found after the 120 s death clock plus a 45 s margin means VOID forever, and the next round opens.
+                      Panels are typed specs bound to a query id and a semantic model version. If the measure is not certified in Cube, the panel does not render. There is no path from prose straight to a chart.
                     </p>
                   </div>
                 </div>
                 <div className="faq-items">
                   <div className="faq-title-flex">
                     <div className="faq-qus">
-                      What if two of my agents buy the same thing?
+                      What if the result contradicts the thesis?
                     </div>
                     <div className="faq-qus-icon-wrap">
                       <div className="faq-qus-icon-box">
@@ -85,14 +85,14 @@ export default function Faq() {
                   </div>
                   <div className="faq-ans-box">
                     <p className="faq-ans-text">
-                      Both post a claim. Hedera Consensus Service orders them, the first valid claim wins and the other backs off. One job, one payment, even across Claude, Cursor and scripts.
+                      It gets published anyway. The claim table carries the counterevidence, the falsification condition and a verdict: supported, mixed, unsupported or insufficient data. A null result passes the gate if the protocol held.
                     </p>
                   </div>
                 </div>
                 <div className="faq-items">
                   <div className="faq-title-flex">
                     <div className="faq-qus">
-                      Do my agents hold payment keys?
+                      Can I rebuild it without your backend?
                     </div>
                     <div className="faq-qus-icon-wrap">
                       <div className="faq-qus-icon-box">
@@ -102,14 +102,14 @@ export default function Faq() {
                   </div>
                   <div className="faq-ans-box">
                     <p className="faq-ans-text">
-                      No. Agents hold only an identity key. The Klero payer signs for the HCS winner, within the per-payment cap, daily cap and allowlist you set.
+                      Yes. {"pnpm research:rebuild --snapshot <id>"} runs offline against frozen raw data and never needs a private partner JWT. The separate refresh command is the one that wants live credentials.
                     </p>
                   </div>
                 </div>
                 <div className="faq-items">
                   <div className="faq-title-flex">
                     <div className="faq-qus">
-                      Why World ID?
+                      Why pre-register at all?
                     </div>
                     <div className="faq-qus-icon-wrap">
                       <div className="faq-qus-icon-box">
@@ -119,14 +119,14 @@ export default function Faq() {
                   </div>
                   <div className="faq-ans-box">
                     <p className="faq-ans-text">
-                      Each agent links to its human once with World ID Agent Pass. Firing an agent or spending above the autonomous cap needs a fresh approval bound to that exact action.
+                      Because the loss function, lag grid and sample rules are easy to pick after seeing the answer. Freezing them and hashing the document on NEAR makes that choice auditable instead of invisible.
                     </p>
                   </div>
                 </div>
                 <div className="faq-items">
                   <div className="faq-title-flex">
                     <div className="faq-qus">
-                      Can I verify it myself?
+                      Does a TEE prove the conclusion is right?
                     </div>
                     <div className="faq-qus-icon-wrap">
                       <div className="faq-qus-icon-box">
@@ -136,7 +136,7 @@ export default function Faq() {
                   </div>
                   <div className="faq-ans-box">
                     <p className="faq-ans-text">
-                      Yes. Every event is written to a public HCS topic. Run npx klero audit to rebuild and check the whole history from Mirror Node, without trusting our server.
+                      No, and we never claim it does. Attestation proves which code ran on which inputs. Whether that source data described reality is a separate claim, graded and reported separately.
                     </p>
                   </div>
                 </div>

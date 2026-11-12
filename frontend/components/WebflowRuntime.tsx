@@ -96,6 +96,11 @@ export default function WebflowRuntime() {
   useEffect(() => {
     if (started) return;
     started = true;
+    // Webflow's inline head script set this; it only forces background-attachment: scroll
+    // on touch devices, so applying it after hydration is soon enough.
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      document.documentElement.classList.add('w-mod-touch');
+    }
     boot().catch((err) => console.error('[webflow runtime]', err));
   }, []);
   return null;

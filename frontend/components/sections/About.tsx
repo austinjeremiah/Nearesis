@@ -5,7 +5,7 @@ export default function About() {
         <div className="container title-container top-border">
           <div className="section-title-flex">
             <h2 className="section-title">
-              ABOUT KLERO
+              ABOUT NEARESIS
             </h2>
             <div className="section-title section-number">
               001
@@ -38,7 +38,7 @@ export default function About() {
                   </div>
                 </div>
                 <div className="section-info-card-text">
-                  PAY ONCE
+                  PROVE IT
                 </div>
                 <div className="section-info-card-shape" />
               </div>
@@ -47,22 +47,18 @@ export default function About() {
               <div className="home-about-content-wrap">
                 <div fade-anim="True" className="home-about-content-title-box">
                   <div className="home-about-content-title">
-                    {"The exactly-once layer for AI agent payments\u2028built on Hedera and World ID\u2028"}
+                    {"Nearesis is a living-thesis workspace for NEAR.\u2028Not a dashboard gallery, not a chat box over SQL.\u2028"}
                     <br />
-                    One job, one winner, one payment
+                    One question, one workspace, one answer you can rebuild
                   </div>
                 </div>
                 <div fade-anim="True" className="home-about-author-wrap">
                   <div className="home-about-author-img-box">
-                    <img src="/assets/klero-mark.svg" loading="lazy" alt="Klero" className="home-about-author-img" />
+                    <img src="/assets/nearesis-mark.svg" loading="lazy" alt="Nearesis" className="home-about-author-img" />
                   </div>
                   <div className="home-about-author-info-box">
                     <div className="home-about-author-name">
-                      KLERO
                     </div>
-                    <p className="home-about-author-designation">
-                      ETHGLOBAL MUMBAI · 2026
-                    </p>
                   </div>
                 </div>
               </div>
@@ -72,10 +68,10 @@ export default function About() {
                     <div className="primary-button-text-items">
                       <div className="primary-button-text-wrap">
                         <div className="primary-button-text one">
-                          TRY KLERO
+                          TRY NEARESIS
                         </div>
                         <div className="primary-button-text two">
-                          TRY KLERO
+                          TRY NEARESIS
                         </div>
                       </div>
                     </div>
@@ -103,10 +99,10 @@ export default function About() {
                     </div>
                     <div className="home-about-card-box">
                       <div className="home-about-card-title">
-                        One winner per job
+                        Evidence, not vibes
                       </div>
                       <p className="home-about-card-text">
-                        Every claim lands on a Hedera Consensus Service topic. The first valid claim wins, and anyone can recompute the winner from public data.
+                        Every panel declares its query id, semantic model version, units and data age. A chart that cannot name its source does not render.
                       </p>
                     </div>
                   </div>
@@ -117,10 +113,10 @@ export default function About() {
                     </div>
                     <div className="home-about-card-box">
                       <div className="home-about-card-title">
-                        Payments that expire
+                        Registered before it runs
                       </div>
                       <p className="home-about-card-text">
-                        Each payment has a known transaction id and dies 120 seconds after its valid start. Retries resend the same bytes and never sign a new payment.
+                        The hypothesis, loss function and falsification threshold are frozen and hashed on NEAR before the holdout is touched. Moving the goalposts leaves a trace.
                       </p>
                     </div>
                   </div>

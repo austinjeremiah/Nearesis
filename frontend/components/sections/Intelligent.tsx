@@ -22,17 +22,17 @@ export default function Intelligent() {
                     </div>
                   </div>
                   <div className="section-info-card-text">
-                    PAY ONCE
+                    PROVE IT
                   </div>
                   <div className="section-info-card-shape" />
                 </div>
               </div>
               <div className="intelligent-text-wrap">
                 <div className="intelligent-text">
-                  FORK-SAFE
+                  EVIDENCE-FIRST
                 </div>
                 <div className="hero-banner-title bg intelligent-text">
-                  {" PAYMENTS"}
+                  {" RESEARCH"}
                 </div>
               </div>
             </div>
@@ -41,10 +41,10 @@ export default function Intelligent() {
                 <div className="primary-button-text-items">
                   <div className="primary-button-text-wrap">
                     <div className="primary-button-text one">
-                      TRY KLERO
+                      TRY NEARESIS
                     </div>
                     <div className="primary-button-text two">
-                      TRY KLERO
+                      TRY NEARESIS
                     </div>
                   </div>
                 </div>

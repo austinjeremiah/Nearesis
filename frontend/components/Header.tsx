@@ -1,11 +1,13 @@
+import Wordmark from '@/components/Wordmark';
+
 export default function Header() {
   return (
     <header data-wf--main-header-section--variant="base" className="main-header-section">
       <div className="section-wrap">
         <div className="main-header-flex">
           <a href="/" aria-current="page" className="main-header-logo-box w-inline-block w--current">
-            <img loading="lazy" src="/assets/klero_logo.svg" alt="Klero logo" className="main-header-logo black" style={{ height: "40px", width: "auto" }} />
-            <img loading="lazy" src="/assets/klero_logo_white.svg" alt="Klero logo" className="main-header-logo white" style={{ height: "40px", width: "auto" }} />
+            <Wordmark tone="black" className="main-header-logo black" />
+            <Wordmark tone="white" className="main-header-logo white" />
           </a>
           <div className="main-header-navbar">
             <div className="main-header-navigation">
@@ -13,8 +15,8 @@ export default function Header() {
                 ABOUT
               </a>
               <div className="main-header-navigation-dot" />
-              <a href="#safeguards" className="main-header-navigation-link">
-                SAFEGUARDS
+              <a href="#method" className="main-header-navigation-link">
+                METHOD
               </a>
               <div className="main-header-navigation-dot" />
               <a href="#how-it-works" className="main-header-navigation-link">
@@ -36,10 +38,10 @@ export default function Header() {
               <div className="primary-button-text-items">
                 <div className="primary-button-text-wrap">
                   <div className="primary-button-text one">
-                    TRY KLERO
+                    TRY NEARESIS
                   </div>
                   <div className="primary-button-text two">
-                    TRY KLERO
+                    TRY NEARESIS
                   </div>
                 </div>
               </div>

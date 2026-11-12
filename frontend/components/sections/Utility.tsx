@@ -20,7 +20,7 @@ export default function Utility() {
                 <strong>
                   {" "}
                 </strong>
-                Pay Exactly Once
+                Rebuild It Yourself
               </div>
               <div className="utility-arrow-wrap two">
                 <div className="utility-arrow-box">

@@ -1,0 +1,27 @@
+<svg width="824" height="896" viewBox="0 0 824 896" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="824" height="896" fill="#2A2A2A"/>
+<rect x="16" y="16" width="792" height="76" fill="#FAFAFA"/>
+<text x="40" y="66" font-family="Courier New, monospace" font-size="26" letter-spacing="2" fill="#333">PANEL SPEC</text>
+<circle cx="753" cy="54" r="31" fill="#EDEDED"/>
+<g fill="#555"><circle cx="738" cy="54" r="3.5"/><circle cx="753" cy="54" r="3.5"/><circle cx="768" cy="54" r="3.5"/></g>
+<text x="412" y="146" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#C9C9C9">Every visual is executable.</text>
+<path d="M70 448 H754" stroke="#3A3A3A" stroke-width="2"/><path d="M70 380 H754" stroke="#3A3A3A" stroke-width="2"/><path d="M70 312 H754" stroke="#3A3A3A" stroke-width="2"/><path d="M70 244 H754" stroke="#3A3A3A" stroke-width="2"/><path d="M70 176 H754" stroke="#3A3A3A" stroke-width="2"/>
+<rect x="502" y="176" width="48" height="272" fill="#00EC97" fill-opacity="0.14"/>
+<path d="M526 160 V448" stroke="#00EC97" stroke-width="2" stroke-dasharray="8 8"/>
+<path d="M70 420 L118 404 L166 412 L214 386 L262 392 L310 360 L358 368 L406 330 L454 300 L502 252 L550 214 L598 236 L646 198 L694 176 L742 150 L742 448 L70 448 Z" fill="#00EC97" fill-opacity="0.10"/>
+<path d="M70 420 L118 404 L166 412 L214 386 L262 392 L310 360 L358 368 L406 330 L454 300 L502 252 L550 214 L598 236 L646 198 L694 176 L742 150" stroke="#00EC97" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<circle cx="70" cy="420" r="5" fill="#00EC97"/><circle cx="214" cy="386" r="5" fill="#00EC97"/><circle cx="358" cy="368" r="5" fill="#00EC97"/><circle cx="502" cy="252" r="5" fill="#00EC97"/><circle cx="646" cy="198" r="5" fill="#00EC97"/>
+<rect x="470" y="110" width="112" height="38" fill="#00EC97"/>
+<text x="526" y="137" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="20" fill="#1F1F21">MARKER</text>
+<text x="70" y="500" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="40" fill="#FFFFFF">Why did this move?</text>
+<rect x="70" y="528" width="340" height="68" rx="34" fill="#3A3A3A"/>
+<text x="106" y="571" font-family="Arial, Helvetica, sans-serif" font-size="27" fill="#FFFFFF">Assign the skeptic</text>
+<path d="M352 557 L364 569 L376 557" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="16" y="632" width="792" height="154" fill="#434343"/>
+<text x="40" y="690" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#BDBDBD">Query id</text>
+<text x="784" y="690" text-anchor="end" font-family="Courier New, monospace" font-size="24" fill="#BDBDBD">q_4f81c…</text>
+<text x="40" y="750" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#BDBDBD">Data age</text>
+<text x="784" y="754" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="42" fill="#FFFFFF">26 h</text>
+<rect x="16" y="800" width="792" height="96" fill="#00EC97"/>
+<text x="412" y="860" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="34" fill="#1F1F21">Rebuilt from snapshot</text>
+</svg>

@@ -1,3 +1,5 @@
+import Wordmark from '@/components/Wordmark';
+
 export default function Footer() {
   return (
     <footer className="footer-section">
@@ -12,7 +14,7 @@ export default function Footer() {
                   </div>
                 </div>
                 <div className="footer-social-media-wrap">
-                  <a href="https://github.com/sylesh7/Klero-1" target="_blank" rel="noreferrer" className="footer-page-link w-inline-block"><div className="footer-page-link-box"><div className="footer-page-link-text one">GitHub</div><div className="footer-page-link-text two">GitHub</div></div></a>
+                  <a href="https://github.com/austinjeremiah/nearesis" target="_blank" rel="noreferrer" className="footer-page-link w-inline-block"><div className="footer-page-link-box"><div className="footer-page-link-text one">GitHub</div><div className="footer-page-link-text two">GitHub</div></div></a>
                 </div>
               </div>
               <div fade-anim="True" className="footer-page-items">
@@ -42,13 +44,13 @@ export default function Footer() {
                       </div>
                     </div>
                   </a>
-                  <a href="#safeguards" className="footer-page-link w-inline-block">
+                  <a href="#method" className="footer-page-link w-inline-block">
                     <div className="footer-page-link-box">
                       <div className="footer-page-link-text one">
-                        Safeguards
+                        Method
                       </div>
                       <div className="footer-page-link-text two">
-                        Safeguards
+                        Method
                       </div>
                     </div>
                   </a>
@@ -71,33 +73,33 @@ export default function Footer() {
                   </div>
                 </div>
                 <div className="footer-page-wrap">
-                  <a href="/dashboard" className="footer-page-link w-inline-block">
+                  <a href="/workspace" className="footer-page-link w-inline-block">
                     <div className="footer-page-link-box">
                       <div className="footer-page-link-text one">
-                        Dashboard
+                        Workspace
                       </div>
                       <div className="footer-page-link-text two">
-                        Dashboard
+                        Workspace
                       </div>
                     </div>
                   </a>
-                  <a href="/race" className="footer-page-link w-inline-block">
+                  <a href="/rebuild" className="footer-page-link w-inline-block">
                     <div className="footer-page-link-box">
                       <div className="footer-page-link-text one">
-                        Race demo
+                        Rebuild demo
                       </div>
                       <div className="footer-page-link-text two">
-                        Race demo
+                        Rebuild demo
                       </div>
                     </div>
                   </a>
-                  <a href="/directory" className="footer-page-link w-inline-block">
+                  <a href="/agents" className="footer-page-link w-inline-block">
                     <div className="footer-page-link-box">
                       <div className="footer-page-link-text one">
-                        Directory
+                        Agents
                       </div>
                       <div className="footer-page-link-text two">
-                        Directory
+                        Agents
                       </div>
                     </div>
                   </a>
@@ -120,23 +122,23 @@ export default function Footer() {
                   </div>
                 </div>
                 <div className="footer-page-wrap">
-                  <a href="https://hedera.com/" target="_blank" rel="noreferrer" className="footer-page-link w-inline-block">
+                  <a href="https://near.org/" target="_blank" rel="noreferrer" className="footer-page-link w-inline-block">
                     <div className="footer-page-link-box">
                       <div className="footer-page-link-text one">
-                        Hedera
+                        NEAR
                       </div>
                       <div className="footer-page-link-text two">
-                        Hedera
+                        NEAR
                       </div>
                     </div>
                   </a>
-                  <a href="https://world.org/" target="_blank" rel="noreferrer" className="footer-page-link w-inline-block">
+                  <a href="https://cube.dev/" target="_blank" rel="noreferrer" className="footer-page-link w-inline-block">
                     <div className="footer-page-link-box">
                       <div className="footer-page-link-text one">
-                        World
+                        Cube
                       </div>
                       <div className="footer-page-link-text two">
-                        World
+                        Cube
                       </div>
                     </div>
                   </a>
@@ -149,7 +151,7 @@ export default function Footer() {
                   </div>
                 </div>
                 <div className="footer-page-wrap">
-                  <a href="https://github.com/sylesh7/Klero-1" target="_blank" rel="noreferrer" className="footer-page-link w-inline-block">
+                  <a href="https://github.com/austinjeremiah/nearesis" target="_blank" rel="noreferrer" className="footer-page-link w-inline-block">
                     <div className="footer-page-link-box">
                       <div className="footer-page-link-text one">
                         GitHub
@@ -159,23 +161,23 @@ export default function Footer() {
                       </div>
                     </div>
                   </a>
-                  <a href="https://hashscan.io/testnet" className="footer-page-link w-inline-block">
+                  <a href="https://testnet.nearblocks.io" target="_blank" rel="noreferrer" className="footer-page-link w-inline-block">
                     <div className="footer-page-link-box">
                       <div className="footer-page-link-text one">
-                        hashscan.io/testnet
+                        testnet.nearblocks.io
                       </div>
                       <div className="footer-page-link-text two">
-                        hashscan.io/testnet
+                        testnet.nearblocks.io
                       </div>
                     </div>
                   </a>
-                  <a href="https://world.org" target="_blank" className="footer-page-link w-inline-block">
+                  <a href="https://docs.near.org" target="_blank" rel="noreferrer" className="footer-page-link w-inline-block">
                     <div className="footer-page-link-box">
                       <div className="footer-page-link-text one">
-                        world.org
+                        docs.near.org
                       </div>
                       <div className="footer-page-link-text two">
-                        world.org
+                        docs.near.org
                       </div>
                     </div>
                   </a>
@@ -184,17 +186,17 @@ export default function Footer() {
             </div>
             <div fade-anim="True" className="footer-bottom-wrap">
               <a href="/" aria-current="page" className="footer-logo-box w-inline-block w--current">
-                <img loading="lazy" src="/assets/klero_logo.svg" alt="Klero logo" className="footer-logo" />
+                <Wordmark tone="black" size={38} className="footer-logo" />
               </a>
               <div className="footer-copy-right-flex">
                 <p className="footer-copy-right-text">
-                  © 2026 - KLERO | Built at “
-                  <a href="https://ethglobal.com/" target="_blank" className="footer-copy-right-text-link">
-                    ETHGlobal Mumbai
+                  © 2026 - NEARESIS | Built for the 
+                  <a href="https://near.org/" target="_blank" rel="noreferrer" className="footer-copy-right-text-link">
+                    NEAR Hackathon
                   </a>
-                  {"” | MIT License | Powered by "}
-                  <a href="https://hedera.com/" target="_blank" className="footer-copy-right-text-link">
-                    Hedera
+                  {" thesis track | MIT License | Data from "}
+                  <a href="https://docs.near.org" target="_blank" rel="noreferrer" className="footer-copy-right-text-link">
+                    NEAR
                   </a>
                 </p>
                 <div className="footer-copy-right-button-box">

@@ -13,6 +13,7 @@ import { ClassificationService } from "./classification.ts";
 import { IntegrityGuard } from "./integrity.ts";
 import { VerifiedStateService } from "./verified-state.ts";
 import { OutboxPublisher } from "./outbox.ts";
+import { TelemetryPipeline } from "./telemetry.ts";
 import { PluginManager } from "./plugins/manager.ts";
 import type { PluginManagerConfig } from "./plugins/manager.ts";
 import { EventStreamService } from "./stream.ts";
@@ -52,6 +53,8 @@ export class Kernel {
   readonly workspaces: WorkspaceRegistry;
   readonly commands: CommandBus;
   readonly outbox: OutboxPublisher;
+  /** OTLP export of fan-out events (SEC21); null unless OTEL_EXPORTER_OTLP_ENDPOINT is configured. Call `start()` to flush periodically. */
+  readonly telemetry: TelemetryPipeline | null;
   readonly canvas: CanvasService;
   readonly stream: EventStreamService;
   readonly graph: EvidenceGraphService;
@@ -83,6 +86,8 @@ export class Kernel {
     this.workspaces = new WorkspaceRegistry(cfg.db, this.journal);
     this.commands = new CommandBus(cfg.db, this.journal, this.plugins, this.approvals);
     this.outbox = new OutboxPublisher(cfg.db);
+    this.telemetry = TelemetryPipeline.fromEnv();
+    this.telemetry?.attach(this.outbox);
     this.stream = new EventStreamService(cfg.db, this.journal, cfg.stream);
     this.canvas = new CanvasService(cfg.db, cfg.semanticValidator);
     if (cfg.monitoring) registerMonitoringCommands(this.commands, cfg.monitoring);
@@ -111,6 +116,7 @@ export class Kernel {
 
   async close(): Promise<void> {
     this.outbox.stop();
+    await this.telemetry?.stop();
     await this.db.close();
   }
 }

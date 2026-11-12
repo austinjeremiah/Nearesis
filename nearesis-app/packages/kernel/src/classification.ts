@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { randomBytes } from "node:crypto";
 import type { DomainEvent, InferenceProvider } from "@nearesis/contracts";
 import type { Session } from "./auth.ts";
 import type { Db } from "./db/pool.ts";
@@ -104,30 +105,87 @@ const labelContext = new AsyncLocalStorage<DataLabel>();
 export const withDataLabel = <T>(label: DataLabel, fn: () => T): T => labelContext.run(label, fn);
 export const currentDataLabel = (): DataLabel => labelContext.getStore() ?? "private";
 
+export interface GuardRefusal {
+  binding: string;
+  label: DataLabel;
+  operation: "generateStructured" | "streamText";
+}
+export interface GuardOptions {
+  /** Called for every refusal, in addition to the structured log line. Never receives prompt content. */
+  onRefuse?: (r: GuardRefusal) => void;
+}
+
+const GUARDED = Symbol.for("nearesis.guardedInference");
+/** True for a provider returned by `guardInference` (used by tests that prove no production path is unguarded). */
+export const isGuardedInference = (p: InferenceProvider): boolean =>
+  (p as unknown as Record<symbol, unknown>)[GUARDED] === true;
+
+/** Binding ids that may receive private content unless configuration says otherwise (ADR-20261112-001 decision 5). */
+/** Wrapper binding that forwards to an inner guarded provider (see `modelPolicyFromEnv`). */
+export const ROUTED_BINDING = "ledger";
+export const DEFAULT_APPROVED_MODEL_BINDINGS = ["near-ai", "openrouter", "mock", "scripted"] as const;
+
+/**
+ * The production egress policy. `NEARESIS_APPROVED_MODEL_BINDINGS` (comma separated provider ids) replaces the default
+ * list, so an operator can narrow private egress to the attested NEAR AI path only; every other binding is then refused
+ * for anything not declared `public`.
+ */
+export function modelPolicyFromEnv(
+  env: (n: string) => string | undefined = (n) => process.env[n],
+): ClassificationPolicy {
+  const raw = env("NEARESIS_APPROVED_MODEL_BINDINGS");
+  const list = raw
+    ? raw
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)
+    : [...DEFAULT_APPROVED_MODEL_BINDINGS];
+  // `ledger` is the exactly-once wrapper around LedgerInference: it makes no request itself and forwards to the guarded
+  // provider underneath, which is checked against the real binding id.
+  return new ClassificationPolicy({ approvedModelBindings: [...list, ROUTED_BINDING] });
+}
+
 /**
  * Wraps an inference provider so a call whose label is not allowed for this provider is refused BEFORE any request is
- * built or sent. The label comes from `withDataLabel`; a call outside it counts as `private`.
+ * built or sent. The label comes from `withDataLabel`; a call outside it counts as `private`. A refusal is logged as one
+ * structured line (binding, label and operation only, never content) and surfaces as a typed `CLASSIFICATION_DENIED`
+ * KernelError (FORBIDDEN, not retryable).
  */
-export function guardInference(provider: InferenceProvider, policy: ClassificationPolicy): InferenceProvider {
-  const check = () => {
+export function guardInference(
+  provider: InferenceProvider,
+  policy: ClassificationPolicy,
+  options: GuardOptions = {},
+): InferenceProvider {
+  const check = (operation: GuardRefusal["operation"]) => {
     const label = currentDataLabel();
-    if (!policy.allowsModel(provider.id, label))
-      throw classificationDenied(`the unapproved model binding ${provider.id}`, label);
+    if (policy.allowsModel(provider.id, label)) return;
+    const refusal: GuardRefusal = { binding: provider.id, label, operation };
+    process.stderr.write(
+      JSON.stringify({ msg: "inference.refused", reasonCode: "CLASSIFICATION_DENIED", ...refusal }) + "\n",
+    );
+    try {
+      options.onRefuse?.(refusal);
+    } catch {
+      // a failing observer must not turn a refusal into a send
+    }
+    throw classificationDenied(`the unapproved model binding ${provider.id}`, label);
   };
-  return {
+  const guarded: InferenceProvider = {
     id: provider.id,
     health: () => provider.health(),
     listModels: () => provider.listModels(),
     verifyResponse: (r) => provider.verifyResponse(r),
     generateStructured: async (a) => {
-      check();
+      check("generateStructured");
       return provider.generateStructured(a);
     },
     streamText: (a) => {
-      check();
+      check("streamText");
       return provider.streamText(a);
     },
   };
+  Object.defineProperty(guarded, GUARDED, { value: true, enumerable: false });
+  return guarded;
 }
 
 // ---- broad fan-out ------------------------------------------------------------------------------------------------
@@ -173,7 +231,7 @@ const CONTENT_KEYS = /prompt|completion|content|message|note|draft|evidence|labe
 
 type FetchLike = (
   url: string,
-  init: { method: string; headers: Record<string, string>; body: string },
+  init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal },
 ) => Promise<{ status: number }>;
 
 /**
@@ -183,12 +241,19 @@ type FetchLike = (
  */
 export class TelemetryExporter {
   readonly withheld: string[] = [];
-  private readonly spans: unknown[] = [];
+  /** Spans discarded because the buffer was full (collector down for long). */
+  dropped = 0;
+  private spans: unknown[] = [];
   constructor(
     private readonly endpoint: string,
     private readonly serviceName = "nearesis",
     private readonly fetchImpl: FetchLike = (u, i) => fetch(u, i) as Promise<{ status: number }>,
+    private readonly maxBuffered = 2000,
   ) {}
+
+  get buffered(): number {
+    return this.spans.length;
+  }
 
   span(name: string, attrs: Record<string, TelemetryAttr>): void {
     const attributes = Object.entries(attrs).map(([key, v]) => {
@@ -198,16 +263,31 @@ export class TelemetryExporter {
       else if (typeof v === "boolean") out = { boolValue: v };
       else if (v instanceof PublicValue && !CONTENT_KEYS.test(key)) out = { stringValue: v.value };
       else {
-        this.withheld.push(key);
+        if (this.withheld.length < 1000) this.withheld.push(key);
         out = {
           stringValue: v instanceof PublicValue ? "[withheld:content-attribute]" : "[withheld:unlabelled]",
         };
       }
       return { key, value: out };
     });
-    this.spans.push({ name, attributes });
+    const now = BigInt(Date.now()) * 1_000_000n;
+    // a valid OTLP span: 16-byte trace id, 8-byte span id, server kind and a start/end time
+    this.spans.push({
+      traceId: randomBytes(16).toString("hex"),
+      spanId: randomBytes(8).toString("hex"),
+      name,
+      kind: 1,
+      startTimeUnixNano: String(now),
+      endTimeUnixNano: String(now),
+      attributes,
+    });
+    if (this.spans.length > this.maxBuffered) {
+      this.dropped += this.spans.length - this.maxBuffered;
+      this.spans = this.spans.slice(-this.maxBuffered);
+    }
   }
 
+  /** Sends the buffered spans. A transport failure or non-2xx answer keeps them (bounded) and throws. */
   async flush(): Promise<number> {
     const spans = this.spans.splice(0);
     if (!spans.length) return 0;
@@ -219,11 +299,18 @@ export class TelemetryExporter {
         },
       ],
     });
-    await this.fetchImpl(this.endpoint, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body,
-    });
+    try {
+      const r = await this.fetchImpl(this.endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body,
+        signal: AbortSignal.timeout(5000),
+      });
+      if (r.status < 200 || r.status >= 300) throw new Error(`OTLP collector answered ${r.status}`);
+    } catch (e) {
+      this.spans = [...spans, ...this.spans].slice(-this.maxBuffered);
+      throw e;
+    }
     return spans.length;
   }
 }

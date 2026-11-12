@@ -14,3 +14,5 @@ export * from "./queries.ts";
 export * from "./live/definition.ts";
 export * from "./live/registry.ts";
 export * from "./live/catalog.ts";
+export * from "./entities/index.ts";
+export * from "./registry/authored.ts";

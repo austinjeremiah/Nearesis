@@ -14,6 +14,7 @@ import { publishRoutes } from "./publish-routes.ts";
 import { integrityRoutes } from "./integrity-routes.ts";
 import { gatewayRoutes } from "./gateway-routes.ts";
 import { costRoutes } from "./cost-routes.ts";
+import { entityRoutes } from "./entity-routes.ts";
 import type { SloRecorder } from "@nearesis/workflow";
 import type { GatewayCredentialConfig } from "./gateway-routes.ts";
 import { OverloadError, SseConnectionLimiter, TenantAdmission, sseClientKey } from "./overload/index.ts";
@@ -524,6 +525,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     await app.register(gatewayRoutes, { kernel, credential: opts.gatewayCredential });
   await app.register(monitoringRoutes, { kernel, runs, authenticate, background: opts.monitorBackground });
   await app.register(costRoutes, { kernel, authenticate, slo: opts.sloRecorder });
+  await app.register(entityRoutes, { authenticate });
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.
   void HTTP_STATUS_FOR;

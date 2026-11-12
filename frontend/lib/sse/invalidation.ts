@@ -25,10 +25,10 @@ export function invalidationsFor(event: string, wid: string): QueryKeyPrefix[] {
     case 'task.started':
     case 'task.completed':
     case 'finding.created':
-      return [qk.runs(wid), ['ws', wid, 'run'], qk.timeline(wid), qk.workspaces];
+      return [qk.runs(wid), ['ws', wid, 'run'], qk.timeline(wid), qk.workspaces, ['global']];
     case 'approval.granted':
     case 'approval.rejected':
-      return [qk.approvals(wid), qk.runs(wid), ['ws', wid, 'run'], qk.timeline(wid)];
+      return [qk.approvals(wid), qk.runs(wid), ['ws', wid, 'run'], qk.timeline(wid), ['global']];
     case 'marker.created':
     case 'marker.assigned':
     case 'marker.transitioned':
@@ -36,10 +36,10 @@ export function invalidationsFor(event: string, wid: string): QueryKeyPrefix[] {
       return [qk.markers(wid), qk.timeline(wid)];
     case 'monitor.rule_changed':
     case 'monitor.triggered':
-      return [qk.monitors(wid), qk.notifications(wid), qk.timeline(wid)];
+      return [qk.monitors(wid), qk.notifications(wid), qk.timeline(wid), ['global']];
     case 'notification.created':
     case 'notification.read':
-      return [qk.notifications(wid)];
+      return [qk.notifications(wid), ['global']];
     case 'claim.updated':
     case 'evidence.verified':
       return [qk.graph(wid), qk.eligibility(wid), qk.timeline(wid)];

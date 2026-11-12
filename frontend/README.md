@@ -11,7 +11,7 @@ NEARESIS_DEV_LOGIN=1 NEARESIS_API_URL=http://127.0.0.1:4110 corepack pnpm dev -p
 
 - `NEARESIS_API_URL` (server only, default `http://127.0.0.1:4110`)
 - `NEARESIS_DEV_LOGIN=1` enables the dev sign-in on `/login` (never in a production build unless `NEARESIS_TEST_HOOKS=1`)
-- `NEARESIS_OIDC=1` enables the OIDC routes under `/api/auth/oidc/*` once the API serves `/v1/auth/*`
+- `NEARESIS_OIDC=1` enables single sign-on: `/api/auth/oidc/start` and the registered redirect URI `/api/auth/oidc/callback` (state bound to the browser by an HttpOnly cookie; the API answers 404 OIDC_NOT_CONFIGURED until a provider is configured)
 
 ## Tests
 

@@ -6,6 +6,16 @@ import { Button, Field, Input, Notice } from '@/components/nx/ui';
 
 type Providers = { devLogin: boolean; oidc: boolean };
 
+const OIDC_ERRORS: Record<string, string> = {
+  oidc_not_configured: 'Single sign-on is not configured on this server yet.',
+  oidc_state: 'The sign-in could not be matched to this browser. Start again from this page.',
+  oidc_refused: 'The identity provider refused the sign-in.',
+  oidc_not_provisioned: 'Your identity has no account here. Ask an organization owner to add you.',
+  oidc_unreachable: 'The API is not reachable.',
+  oidc_rate_limited: 'Too many sign-in attempts. Wait a minute and try again.',
+  oidc_failed: 'Sign-in failed.',
+};
+
 /**
  * Sign-in methods come from /api/auth/providers, so the page only offers what
  * the server has configured: the dev login (NEARESIS_DEV_LOGIN=1, never in
@@ -20,6 +30,7 @@ export default function LoginForm() {
   const [subject, setSubject] = useState('dev-owner');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const urlError = params.get('error');
 
   useEffect(() => {
     fetch('/api/auth/providers', { cache: 'no-store' })
@@ -77,6 +88,11 @@ export default function LoginForm() {
       {!providers.oidc && !providers.devLogin && (
         <Notice tone="info" title="No sign-in method is configured">
           This server has neither single sign-on nor the development sign-in enabled.
+        </Notice>
+      )}
+      {urlError && !error && (
+        <Notice tone={urlError === 'oidc_not_configured' ? 'info' : 'bad'} title="Single sign-on">
+          <span data-testid="login-error" data-code={urlError}>{OIDC_ERRORS[urlError] ?? 'Sign-in did not complete. Try again.'}</span>
         </Notice>
       )}
       {error && (

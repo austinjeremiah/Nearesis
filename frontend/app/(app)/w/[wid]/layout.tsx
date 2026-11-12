@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import AppFrame from '@/components/nx/app-frame';
 import { api } from '@/lib/api/server';
+import { shellServer } from '@/lib/api/shell-server';
 import { settle } from '@/lib/api/guard';
 import { workspaceLabel } from '@/lib/workspace/label';
 import { ApiErrorState } from '@/components/nx/states';
@@ -25,7 +26,7 @@ export default async function WorkspaceLayout({
 }) {
   const { wid } = await params;
   if (!UUID.test(wid)) notFound();
-  const r = await settle(api.workspace(wid));
+  const [r, prof] = await Promise.all([settle(api.workspace(wid)), settle(shellServer.settings(wid))]);
   if (!r.ok) {
     if (r.error.kind === 'not_found') notFound();
     return (
@@ -37,7 +38,7 @@ export default async function WorkspaceLayout({
     );
   }
   return (
-    <AppFrame workspaceId={wid} workspaceName={workspaceLabel(r.data.objective)}>
+    <AppFrame workspaceId={wid} workspaceName={prof.ok ? prof.data.displayName : workspaceLabel(r.data.objective)}>
       {children}
     </AppFrame>
   );

@@ -1,13 +1,13 @@
-import { NotConnected } from '@/components/nx/states';
 import { Content, PageHeader } from '@/components/nx/shell';
+import SettingsView from './settings-view';
 
-/** Not connected to the API yet (WS1). Renders an honest typed state, never placeholder figures. */
-export default function Page() {
+export default async function Page({ params }: { params: Promise<{ wid: string }> }) {
+  const { wid } = await params;
   return (
     <>
-      <PageHeader title="Workspace settings" description="Objective, budget and members." />
+      <PageHeader title="Workspace settings" description="Name, description, pinning, collaborators and invitations." />
       <Content>
-        <NotConnected what="Workspace settings" stream="WS1" />
+        <SettingsView wid={wid} />
       </Content>
     </>
   );

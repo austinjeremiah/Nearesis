@@ -36,8 +36,30 @@ export async function rollupRates(
   cubeQuery: Record<string, unknown>,
   cubes: CubeDef[] = [...CUBES, ...LIVE_CUBES],
 ): Promise<RollupRate[]> {
+  return (await inspectRollups(ch, cubeUrl, token, cubeQuery, cubes)).map((x) => x.rate);
+}
+
+/** A covering rollup together with the vintage evidence behind its state (epoch seconds; null when not measurable). */
+export interface RollupInspection {
+  rate: RollupRate;
+  builtAtSec: number | null;
+  sourceChangedAtSec: number | null;
+}
+
+export async function inspectRollups(
+  ch: ClickHouseClient,
+  cubeUrl: string,
+  token: string,
+  cubeQuery: Record<string, unknown>,
+  cubes: CubeDef[] = [...CUBES, ...LIVE_CUBES],
+): Promise<RollupInspection[]> {
   const uses = await cubeSqlPreAggregations(cubeUrl, token, { ...cubeQuery, timezone: "UTC" });
-  const out: RollupRate[] = [];
+  const out: RollupInspection[] = [];
+  const push = (
+    rate: RollupRate,
+    builtAtSec: number | null = null,
+    sourceChangedAtSec: number | null = null,
+  ) => out.push({ rate, builtAtSec, sourceChangedAtSec });
   for (const u of uses) {
     const [cubeName] = u.preAggregationId.split(".");
     const cube = cubes.find((c) => c.name === cubeName);
@@ -60,7 +82,7 @@ export async function rollupRates(
     );
     const b = built[0];
     if (!b) {
-      out.push({ preAggregationId: u.preAggregationId, table: cube.table, state: "unbuilt", rowsPerDay: 0 });
+      push({ preAggregationId: u.preAggregationId, table: cube.table, state: "unbuilt", rowsPerDay: 0 });
       continue;
     }
     const src = await queryRows<{ m: string }>(
@@ -70,7 +92,11 @@ export async function rollupRates(
       { t: cube.table },
     );
     if (Number(b.built) <= Number(src[0]?.m ?? 0)) {
-      out.push({ preAggregationId: u.preAggregationId, table: cube.table, state: "stale", rowsPerDay: 0 });
+      push(
+        { preAggregationId: u.preAggregationId, table: cube.table, state: "stale", rowsPerDay: 0 },
+        Number(b.built),
+        Number(src[0]?.m ?? 0),
+      );
       continue;
     }
     const size = await queryRows<{ n: string; d: string }>(
@@ -81,15 +107,19 @@ export async function rollupRates(
     const rows = Number(size[0]?.n ?? 0);
     const days = Number(size[0]?.d ?? 0);
     if (rows === 0 || days === 0) {
-      out.push({ preAggregationId: u.preAggregationId, table: cube.table, state: "unbuilt", rowsPerDay: 0 });
+      push({ preAggregationId: u.preAggregationId, table: cube.table, state: "unbuilt", rowsPerDay: 0 });
       continue;
     }
-    out.push({
-      preAggregationId: u.preAggregationId,
-      table: cube.table,
-      state: "fresh",
-      rowsPerDay: Math.max(1, rows / days),
-    });
+    push(
+      {
+        preAggregationId: u.preAggregationId,
+        table: cube.table,
+        state: "fresh",
+        rowsPerDay: Math.max(1, rows / days),
+      },
+      Number(b.built),
+      Number(src[0]?.m ?? 0),
+    );
   }
   return out;
 }

@@ -9,7 +9,7 @@ import {
   CUBES,
   type Registry,
 } from "@nearesis/analytics";
-import type { DataFrameEnvelope } from "@nearesis/contracts";
+import type { DataFrameEnvelope, RollupFreshness } from "@nearesis/contracts";
 import { buildCacheKey } from "./cache.ts";
 import {
   loadCoverage,
@@ -21,7 +21,13 @@ import {
   type CoverageState,
 } from "./coverage.ts";
 import { fail } from "./errors.ts";
-import { applyRollupRates, rollupRates, type RollupRate } from "./rollup.ts";
+import {
+  applyRollupRates,
+  inspectRollups,
+  rollupRates,
+  type RollupInspection,
+  type RollupRate,
+} from "./rollup.ts";
 import { ReadCache } from "./read-cache.ts";
 import { DAY_MS, bucketStart, cubeTime, daysBetween, isoDay, nextBucket, type Grain } from "./time.ts";
 import { validateQuery, INDEX_UNIT, SAFE_FILTER_VALUE, type Plan } from "./validate.ts";
@@ -370,7 +376,17 @@ export function createGateway(opts: GatewayOptions) {
         throw e;
       }
 
+      // Build vintage of the rollup that served this result versus the source watermark (read uncached, after the load).
+      const rollupFreshness = summariseRollupFreshness(
+        await inspectRollups(
+          ch,
+          opts.cubeUrl,
+          token,
+          makeCubeQuery(plan, ast, fromMs, toMs, metricById),
+        ).catch(() => null),
+      );
       const env = buildEnvelope({
+        rollupFreshness,
         plan,
         reg,
         policy,
@@ -386,7 +402,10 @@ export function createGateway(opts: GatewayOptions) {
         estRows: est,
       });
       await persist(queryHash, ast);
-      await opts.redis.set(cacheKey, JSON.stringify(env), "EX", policy.cacheTtlSeconds);
+      // A result served from a lagging rollup is never cached: the cache key is the source vintage, which does not change
+      // when the rollup catches up, so a cached stale envelope would stay stale for the whole TTL.
+      if (env.certification !== "stale")
+        await opts.redis.set(cacheKey, JSON.stringify(env), "EX", policy.cacheTtlSeconds);
       return { ok: true, status: 200, queryHash, cache: "miss", cacheKey, envelope: env };
     } catch (e) {
       return fail("INTERNAL", "INTERNAL", `Internal error: ${(e as Error).message.slice(0, 120)}`);
@@ -447,6 +466,33 @@ interface BuildArgs {
   planFingerprint: string;
   generatedAt: string;
   estRows: number;
+  rollupFreshness?: RollupFreshness;
+}
+
+const iso = (sec: number | null) => (sec === null ? null : new Date(sec * 1000).toISOString());
+
+/** null input = vintage unreadable. No covering rollup = the result was computed from the source ("not_used"). */
+export function summariseRollupFreshness(insp: RollupInspection[] | null): RollupFreshness {
+  if (insp === null)
+    return { state: "unknown", rollupBuiltAt: null, sourceChangedAt: null, lagSeconds: null };
+  if (!insp.length)
+    return { state: "not_used", rollupBuiltAt: null, sourceChangedAt: null, lagSeconds: null };
+  const stale = insp.filter((i) => i.rate.state === "stale");
+  if (stale.length) {
+    const built = Math.min(...stale.map((i) => i.builtAtSec ?? 0));
+    const src = Math.max(...stale.map((i) => i.sourceChangedAtSec ?? 0));
+    return {
+      state: "stale",
+      rollupBuiltAt: iso(built),
+      sourceChangedAt: iso(src),
+      lagSeconds: Math.max(0, src - built),
+    };
+  }
+  if (insp.some((i) => i.rate.state === "unbuilt"))
+    return { state: "unbuilt", rollupBuiltAt: null, sourceChangedAt: null, lagSeconds: null };
+  const built = Math.min(...insp.map((i) => i.builtAtSec ?? 0));
+  const src = Math.max(...insp.map((i) => i.sourceChangedAtSec ?? 0));
+  return { state: "fresh", rollupBuiltAt: iso(built), sourceChangedAt: iso(src), lagSeconds: 0 };
 }
 
 function worst(states: CoverageState[]): CoverageState {
@@ -504,6 +550,11 @@ export function buildEnvelope(a: BuildArgs): DataFrameEnvelope {
           day: d,
           reason: per.find((c) => c?.state === "unavailable")?.reason ?? "NO_COVERAGE_RECORD",
         });
+      // a partial day (still filling, cut by a page edge, touched by a gap) is listed too, with its coverage reason
+      else if (s === "partial") {
+        const why = per.find((c) => c?.state === "partial")?.reason;
+        if (why) excluded.push({ day: d, reason: why });
+      }
     }
     return { state: worst(states), excluded };
   };
@@ -535,7 +586,8 @@ export function buildEnvelope(a: BuildArgs): DataFrameEnvelope {
       const raw = rec ? rec[m.cubeMember] : undefined;
       if (state === "unavailable") v = null;
       else if (raw !== undefined && raw !== null) v = num(m, raw);
-      else if (state === "complete" && ZERO_FILLABLE.has(m.aggregationLaw)) {
+      else if (rec === undefined && state === "complete" && ZERO_FILLABLE.has(m.aggregationLaw)) {
+        // zero-fill only when no bucket record exists; a present NULL (all inputs unknown) stays NULL
         const sc = scales[m.id];
         v = sc !== undefined ? zeroOf(sc) : 0;
       } else v = null;
@@ -648,9 +700,11 @@ export function buildEnvelope(a: BuildArgs): DataFrameEnvelope {
   const experimental = plan.metrics.some((m) => !m.certified);
   const certification: DataFrameEnvelope["certification"] = experimental
     ? "experimental"
-    : anyUnavail
-      ? "partial"
-      : "certified";
+    : a.rollupFreshness?.state === "stale"
+      ? "stale"
+      : anyUnavail
+        ? "partial"
+        : "certified";
 
   return {
     queryHash: a.queryHash,
@@ -673,10 +727,12 @@ export function buildEnvelope(a: BuildArgs): DataFrameEnvelope {
     partialCount,
     gaps,
     sourceWatermarks: watermarkStates,
+    sources: [...new Set(plan.metrics.flatMap((m) => m.sources.map((x) => x.split(":")[0]!)))].sort(),
     certification,
     cost: { bytesEstimated: a.estRows * 200, bytesBilled: 0 },
     planFingerprint: a.planFingerprint,
     generatedAt: a.generatedAt,
+    ...(a.rollupFreshness ? { rollupFreshness: a.rollupFreshness } : {}),
     ...(truncation ? { truncation } : {}),
   };
 }

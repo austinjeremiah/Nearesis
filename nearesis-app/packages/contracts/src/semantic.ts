@@ -70,6 +70,17 @@ export const Coverage = z.enum(["complete", "partial", "unavailable"]);
 export type Coverage = z.infer<typeof Coverage>;
 const Cell = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
+export const RollupFreshness = z.strictObject({
+  state: z.enum(["fresh", "stale", "unbuilt", "not_used", "unknown"]),
+  /** build time of the oldest covering rollup (UTC), null when none or not measurable */
+  rollupBuiltAt: IsoDateTime.nullable(),
+  /** last change (part write) of the source table behind the rollup (UTC), the source watermark */
+  sourceChangedAt: IsoDateTime.nullable(),
+  /** seconds the rollup trails its source; 0 when fresh, null when not measurable */
+  lagSeconds: z.number().nonnegative().nullable(),
+});
+export type RollupFreshness = z.infer<typeof RollupFreshness>;
+
 /** ch.06 step 6 DataFrameEnvelope. Exact amounts are strings with `scale`. */
 export const DataFrameEnvelope = z.strictObject({
   queryHash: Sha256Hex,
@@ -90,6 +101,8 @@ export const DataFrameEnvelope = z.strictObject({
   partialCount: z.number().int().nonnegative(),
   gaps: z.array(z.strictObject({ from: IsoDateTime, to: IsoDateTime, reason: z.string() })),
   sourceWatermarks: z.record(z.string(), IsoDateTime.nullable()),
+  /** v1.7.0 (additive): the provider ids behind the selected metrics (for provenance); absent on envelopes cached before it existed. */
+  sources: z.array(z.string()).optional(),
   certification: z.enum(["certified", "experimental", "partial", "stale"]),
   cost: z.strictObject({ bytesEstimated: z.number().nonnegative(), bytesBilled: z.number().nonnegative() }),
   planFingerprint: Sha256Hex,
@@ -99,5 +112,11 @@ export const DataFrameEnvelope = z.strictObject({
   /** v1.7.0 (additive): present only for results computed from a DRAFT or VALIDATED (not certified) authored metric. */
   metricStatus: z.enum(["draft", "validated"]).optional(),
   exploratory: MetricExploratoryStamp.optional(),
+  /**
+   * v1.7.0 (additive): the build vintage of the pre-aggregation that served the result versus the last change of its source
+   * table. state "stale" (the rollup is older than its source) forces certification "stale" until the rollup catches up.
+   * "unknown" means the vintage could not be read (certification is then not upgraded or downgraded on this evidence).
+   */
+  rollupFreshness: RollupFreshness.optional(),
 });
 export type DataFrameEnvelope = z.infer<typeof DataFrameEnvelope>;

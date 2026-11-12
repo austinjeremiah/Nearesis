@@ -18,7 +18,7 @@ export function buildManifest(
 ): PluginManifest {
   const m: Record<string, unknown> = {
     pluginId: "near-thesis",
-    version: opts.version ?? "1.2.0",
+    version: opts.version ?? "1.3.0",
     apiVersion: 1,
     publisher: opts.publisher,
     artifactSha256: createHash("sha256").update(readFileSync(ENTRY_FILE)).digest("hex"),

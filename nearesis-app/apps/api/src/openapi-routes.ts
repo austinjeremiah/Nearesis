@@ -1,3 +1,4 @@
+import { PRODUCT_ROUTES } from "./product-openapi.ts";
 import { RangeQ as AccountRangeQ, HfQ as AccountHfQ, GrowthQ as AccountGrowthQ } from "./account-routes.ts";
 import { z } from "zod";
 import {
@@ -305,6 +306,7 @@ const metricRoutes = (): RouteSpec[] =>
   ].map((r) => ({ ...r, conditional: NOT_WIRED }));
 
 export const ROUTES: RouteSpec[] = [
+  ...PRODUCT_ROUTES,
   // ---- platform ----------------------------------------------------------------------------------------------------
   R("get", "/health", "platform", "Liveness", { auth: "none", ok: typed(StatusOk) }),
   R("get", "/ready", "platform", "Readiness (database reachable)", {

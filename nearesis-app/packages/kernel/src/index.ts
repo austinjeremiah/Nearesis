@@ -8,6 +8,7 @@ export * from "./journal.ts";
 export * from "./workspace.ts";
 export * from "./commands.ts";
 export * from "./canvas.ts";
+export * from "./canvas-seed.ts";
 export * from "./stream.ts";
 export * from "./graph.ts";
 export * from "./approvals.ts";

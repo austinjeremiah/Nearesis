@@ -9,7 +9,7 @@ import { SSE_EVENTS, SSE_SCHEMAS, SSE_SEMANTICS } from "./openapi-sse.ts";
  * the route table (`apps/api/src/openapi-routes.ts`) and a test fails when a real route is missing from it or the
  * committed `docs/api/openapi.json` differs from what this function produces.
  */
-export type HttpMethod = "get" | "post" | "put" | "delete";
+export type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
 
 export interface ResponseSpec {
   description: string;

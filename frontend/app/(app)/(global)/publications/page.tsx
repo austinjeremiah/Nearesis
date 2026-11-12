@@ -1,13 +1,13 @@
-import { NotConnected } from '@/components/nx/states';
 import { Content, PageHeader } from '@/components/nx/shell';
+import PublicationsView from './publications-view';
 
-/** Not connected to the API yet (WS6). Renders an honest typed state, never placeholder figures. */
+/** Every capsule of the organisation with its publication state (GET /v1/publications). */
 export default function Page() {
   return (
     <>
-      <PageHeader title="Publications" description="Published theses." />
+      <PageHeader title="Publications" description="Capsules across your workspaces and whether each is public. Only published capsules are served publicly." />
       <Content>
-        <NotConnected what="Publications" stream="WS6" />
+        <PublicationsView />
       </Content>
     </>
   );

@@ -25,6 +25,7 @@
     "@clickhouse/client": "1.25.0",
     "@google-cloud/bigquery": "9.6.0",
     "@nearesis/acceptance": "workspace:*",
+    "@nearesis/agent-runtime": "workspace:*",
     "@nearesis/contracts": "workspace:*",
     "@nearesis/strict-json": "workspace:*",
     "@nearesis/test-fixtures": "workspace:*",

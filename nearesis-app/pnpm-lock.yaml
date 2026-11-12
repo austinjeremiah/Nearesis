@@ -761,6 +761,9 @@ importers:
       '@nearesis/acceptance':
         specifier: workspace:*
         version: link:../../packages/acceptance
+      '@nearesis/agent-runtime':
+        specifier: workspace:*
+        version: link:../../packages/agent-runtime
       '@nearesis/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

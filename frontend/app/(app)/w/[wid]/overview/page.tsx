@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Content, PageHeader, RunStrip } from '@/components/nx/shell';
-import { Band } from '@/components/nx/band';
 import { PanelFrame } from '@/components/nx/panel';
 import {
   Badge,
@@ -47,10 +46,6 @@ export default async function OverviewPage({ params }: { params: Promise<{ wid: 
   const counts = (['supported', 'mixed', 'unsupported', 'insufficient_data'] as ClaimVerdict[]).map(
     (v) => ({ verdict: v, n: claims.filter((c) => c.verdict === v).length }),
   );
-  const supported = claims.filter((c) => c.verdict === 'supported').length;
-  const mixed = claims.filter((c) => c.verdict === 'mixed').length;
-  const unsupported = claims.filter((c) => c.verdict === 'unsupported').length;
-  const insufficient = claims.filter((c) => c.verdict === 'insufficient_data').length;
 
   return (
     <>
@@ -75,43 +70,6 @@ export default async function OverviewPage({ params }: { params: Promise<{ wid: 
       />
 
       <Content>
-        <Band
-          eyebrow="This investigation"
-          lead={ws.objective}
-          stats={[
-            {
-              value: String(claims.length),
-              unit: claims.length === 1 ? 'claim' : 'claims',
-              detail: `${supported} supported, ${mixed} mixed, ${unsupported} unsupported, ${insufficient} insufficient`,
-              lead: true,
-            },
-            {
-              value: String(pinned.length),
-              unit: 'panels',
-              detail: 'pinned to this page, each bound to a certified query',
-            },
-            {
-              value: String(monitors.filter((m) => m.enabled).length),
-              unit: `of ${monitors.length}`,
-              detail: 'monitors enabled, evaluating finalized observations only',
-            },
-            {
-              value: `$${ws.spentUsd.toFixed(2)}`,
-              unit: `/ $${ws.budgetUsd.toFixed(0)}`,
-              detail: 'spent against the workspace cap, read from the run ledger',
-            },
-          ]}
-          footer={
-            <>
-              <span className="badge bad">Fixture</span>
-              <span>
-                Snapshot <span className="mono">{ws.snapshotId}</span>, frozen. Later source
-                updates may differ.
-              </span>
-            </>
-          }
-        />
-
         <div className="grid c3">
           <Card title="Thesis status" actions={<Badge tone={ws.thesisStatus === 'published' ? 'ok' : 'warn'}>{ws.thesisStatus.replace(/_/g, ' ')}</Badge>}>
             <KeyValues

@@ -1,0 +1,138 @@
+{
+  "dataHash": "sha256:3ac682146b75a72e015816aaef83ebb0f5ea3d70659ca610ffedc9de4a822d72",
+  "database": "nearesis_live",
+  "declaredExcluded": [
+    "USAD",
+    "sUSDC",
+    "nrUsdt",
+    "xDAI",
+    "EURe",
+    "GBPe",
+    "XAUT"
+  ],
+  "files": {
+    "account_daily_activity": {
+      "bytes": 33450,
+      "path": "raw/account_daily_activity.json",
+      "rows": 191,
+      "sha256": "6b96d17f41b06fb9b992c456343e051be0545d28e0b46d0eaf410ba7b78a1b1d"
+    },
+    "near_daily_tx": {
+      "bytes": 5739,
+      "path": "raw/near_daily_tx.json",
+      "rows": 191,
+      "sha256": "532b827c1c0d3c361b5d9fabad4fe77cf71caa4b2ac66e22f766bc371a5fc4af"
+    },
+    "price": {
+      "bytes": 7622,
+      "path": "raw/price.json",
+      "rows": 191,
+      "sha256": "369344a19b526d4c645b826cc8f2122e06b6b359000275b9d5739a2c8647b324"
+    },
+    "registry_identity": {
+      "bytes": 9917,
+      "path": "raw/registry_identity.json",
+      "rows": 109,
+      "sha256": "41f9bc38a63dc33480e65285aa73c949c8e3d19e257eccef178599813a96690e"
+    },
+    "route_day_quality": {
+      "bytes": 10127,
+      "path": "raw/route_day_quality.json",
+      "rows": 191,
+      "sha256": "f882b6dc0d3a5ff229f3603432048a8bd8c074bae21556d17ab84c0ff7d716fc"
+    },
+    "source_coverage": {
+      "bytes": 657,
+      "path": "raw/source_coverage.json",
+      "rows": 6,
+      "sha256": "880f93822782a448f6b36368c14ecb55d119b0fb2812ea45a0393a2dc69d7997"
+    },
+    "swaps": {
+      "bytes": 17878,
+      "path": "raw/swaps.json",
+      "rows": 191,
+      "sha256": "2be2a653df2aebd8fccffbe1dd88d71843eaa0539c0db0e59f5211ecc2e129f4"
+    },
+    "swaps_by_privacy_era": {
+      "bytes": 19025,
+      "path": "raw/swaps_by_privacy_era.json",
+      "rows": 191,
+      "sha256": "9f2885dbdc45cf2f44171dcefd76e3b4465dc35b7f6db6cfe0753cffaa794162"
+    },
+    "swaps_routes": {
+      "bytes": 111905,
+      "path": "raw/swaps_routes.json",
+      "rows": 955,
+      "sha256": "d8868d7124a4efc0456846405d3a1651b0b56d427a5323cb4dc859d274204796"
+    },
+    "unmapped_reasons": {
+      "bytes": 760,
+      "path": "raw/unmapped_reasons.json",
+      "rows": 9,
+      "sha256": "b6b7aad9bd1096f713bee33417d64ad1128c2c2ce2b4ad4c4ec41977dd33810e"
+    }
+  },
+  "frozenAt": "2026-11-12T11:59:16Z",
+  "inputMethod": "live-organic-v3",
+  "queries": {
+    "account_daily_activity": "SELECT block_date AS d, tx_total, tx_intents, tx_bridge, tx_organic, top1pct_organic_tx, top5pct_organic_tx, account_rule_version FROM nearesis_live.account_daily_activity FINAL WHERE block_date BETWEEN {s:Date} AND {e:Date} ORDER BY d",
+    "near_daily_tx": "SELECT block_date AS d, tx_count AS y FROM nearesis_live.near_daily_tx FINAL WHERE block_date BETWEEN {s:Date} AND {e:Date} ORDER BY d",
+    "price": "SELECT day AS d, toFloat64(argMax(close, bucket_start)) AS price FROM nearesis_live.price_candles FINAL WHERE day BETWEEN {s:Date} AND {e:Date} AND `interval`='1d' AND symbol='NEAR' AND quote_currency='usd' GROUP BY d ORDER BY d",
+    "registry_identity": "SELECT sym, groupArray(coingecko_id) AS ids, groupArray(verification) AS verifications, count() AS n FROM (SELECT provider_asset_id, argMax(canonical_asset_id, version) AS sym, argMax(coingecko_id, version) AS coingecko_id, argMax(verification, version) AS verification FROM nearesis_live.asset_registry GROUP BY provider_asset_id) WHERE sym IS NOT NULL GROUP BY sym ORDER BY sym",
+    "route_day_quality": "SELECT s.created_day AS d, count() AS n, countIf(s.canonical_origin_asset IS NULL OR s.canonical_destination_asset IS NULL) AS n_null, countIf((s.canonical_origin_asset IS NULL AND ro.c IS NOT NULL AND ro.c != '') OR (s.canonical_destination_asset IS NULL AND rd.c IS NOT NULL AND rd.c != '')) AS n_stale FROM nearesis_live.intents_swaps AS s FINAL LEFT JOIN (SELECT provider_asset_id AS pid, argMax(canonical_asset_id, version) AS c FROM nearesis_live.asset_registry GROUP BY pid) AS ro ON ro.pid = s.origin_asset LEFT JOIN (SELECT provider_asset_id AS pid, argMax(canonical_asset_id, version) AS c FROM nearesis_live.asset_registry GROUP BY pid) AS rd ON rd.pid = s.destination_asset WHERE s.created_day BETWEEN {s:Date} AND {e:Date} GROUP BY d ORDER BY d",
+    "source_coverage": "SELECT dataset, state, count() AS days, min(day) AS first_day, max(day) AS last_day FROM nearesis_live.source_coverage FINAL WHERE day BETWEEN {s:Date} AND {e:Date} GROUP BY dataset, state ORDER BY dataset, state",
+    "swaps": "SELECT created_day AS d, count() AS n, countIf(status='SUCCESS') AS n_success, countIf(status='SUCCESS' AND amount_in_usd IS NULL) AS n_success_null_usd, toFloat64(sumIf(amount_in_usd, amount_in_usd IS NOT NULL AND status='SUCCESS')) AS vol FROM nearesis_live.intents_swaps FINAL WHERE created_day BETWEEN {s:Date} AND {e:Date} GROUP BY d ORDER BY d",
+    "swaps_by_privacy_era": "SELECT created_day AS d, privacy_era AS era, countIf(status='SUCCESS') AS n_success, countIf(status='SUCCESS' AND amount_in_usd IS NULL) AS n_success_null_usd, toFloat64(sumIf(amount_in_usd, amount_in_usd IS NOT NULL AND status='SUCCESS')) AS vol FROM nearesis_live.intents_swaps FINAL WHERE created_day BETWEEN {s:Date} AND {e:Date} GROUP BY d, era ORDER BY d, era",
+    "swaps_routes": "SELECT created_day AS d, route_class, count() AS n, countIf(status = 'SUCCESS') AS n_success, countIf(status = 'SUCCESS' AND amount_in_usd IS NULL) AS n_success_null_usd, toFloat64(sumIf(amount_in_usd, amount_in_usd IS NOT NULL AND status = 'SUCCESS')) AS vol FROM (SELECT created_day, status, amount_in_usd, canonical_origin_asset AS o, canonical_destination_asset AS t, multiIf(o IS NULL OR t IS NULL, 'unmapped', o IN ('EURe','GBPe','USAD','XAUT','nrUsdt','sUSDC','xDAI') OR t IN ('EURe','GBPe','USAD','XAUT','nrUsdt','sUSDC','xDAI'), 'excluded_declared', o IN ('DAI','FRAX','USD1','USDC','USDCX','USDG','USDT','USDT0','USDe','USDf') AND t IN ('DAI','FRAX','USD1','USDC','USDCX','USDG','USDT','USDT0','USDe','USDf'), 'stablecoin', o NOT IN ('DAI','FRAX','USD1','USDC','USDCX','USDG','USDT','USDT0','USDe','USDf') AND t NOT IN ('DAI','FRAX','USD1','USDC','USDCX','USDG','USDT','USDT0','USDe','USDf'), 'non_stablecoin', 'mixed') AS route_class FROM nearesis_live.intents_swaps FINAL WHERE created_day BETWEEN {s:Date} AND {e:Date}) GROUP BY d, route_class ORDER BY d, route_class",
+    "unmapped_reasons": "SELECT a.origin_unknown_reason AS origin_reason, a.destination_unknown_reason AS destination_reason, count() AS n FROM nearesis_live.intents_swap_asset_status AS a INNER JOIN (SELECT swap_key FROM nearesis_live.intents_swaps FINAL WHERE created_day BETWEEN {s:Date} AND {e:Date}) AS s ON s.swap_key = a.swap_key WHERE a.origin_mapped = 0 OR a.destination_mapped = 0 GROUP BY origin_reason, destination_reason ORDER BY origin_reason, destination_reason"
+  },
+  "registration": {
+    "documentHash": "sha256:bc906a6bbf4901b553f1773716cc3714364b9e8b64b71842b534d087bf520e4b",
+    "frozenAt": "2026-11-12T11:55:08.000Z",
+    "registrationId": "LIVE-ORGANIC-V3"
+  },
+  "schema": "nearesis.research.live-snapshot.v1",
+  "snapshotId": "live-20260505-20261111-live-organic-v3-3ac682146b75",
+  "stablecoinSet": {
+    "stable": [
+      "DAI",
+      "FRAX",
+      "USD1",
+      "USDC",
+      "USDCX",
+      "USDG",
+      "USDT",
+      "USDT0",
+      "USDe",
+      "USDf"
+    ],
+    "unresolved": {}
+  },
+  "staleNullWindowRule": {
+    "end": "2026-11-11",
+    "maxShare": 0.01,
+    "staleShare": null,
+    "truncatedBy": null
+  },
+  "swapWindowRule": {
+    "dropped": [
+      {
+        "day": "2026-11-12",
+        "n": 8291,
+        "reason": "newest day present, still being written"
+      },
+      {
+        "day": "2026-05-04",
+        "n": 9198,
+        "reason": "partial first day (9198 rows < half of the next-seven-day median 18559)"
+      }
+    ],
+    "first": "2026-05-05",
+    "last": "2026-11-11",
+    "reason": null
+  },
+  "window": {
+    "end": "2026-11-11",
+    "start": "2026-05-05"
+  }
+}

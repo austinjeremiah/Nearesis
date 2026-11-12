@@ -56,18 +56,27 @@ def g07_run(a) -> int:
     return 0
 
 
-def live_run(snapshot_dir: str, out: Path) -> int:
+def live_run(snapshot_dir: str, out: Path, method: str | None = None) -> int:
     """Runs the preregistered analysis on a pinned live snapshot. Never overwrites an existing result directory."""
     from .live import load_snapshot_inputs
+    from .live_v3 import INPUT_METHOD as V3, load_v3_inputs
 
     if out.exists() and any(out.iterdir()):
         print(json.dumps({"rejected": True, "reason": "result directory exists; a changed input needs a new snapshot id, results are never overwritten", "out": str(out)}))
         return 4
-    desc, ll = load_snapshot_inputs(Path(snapshot_dir))
+    recorded = json.loads((Path(snapshot_dir) / "snapshot.json").read_text()).get("inputMethod")
+    if method is not None and method != recorded:
+        print(json.dumps({"rejected": True, "reason": f"--method {method} does not match the snapshot input method {recorded}", "snapshot": str(snapshot_dir)}))
+        return 4
+    is_v3 = recorded == V3
+    desc, ll = (load_v3_inputs if is_v3 else load_snapshot_inputs)(Path(snapshot_dir))
     pre = default_prereg()
-    ll.source["reproductionCommand"] = f"cd nearesis-app && PYTHONPATH=services/research uv run python -m nearesis_research.cli live --snapshot {snapshot_dir} --out <dir>"
+    ll.source["reproductionCommand"] = f"cd nearesis-app && PYTHONPATH=services/research uv run python -m nearesis_research.cli live --snapshot {snapshot_dir}" + (f" --method {V3}" if is_v3 else "") + " --out <dir>"
     ll.source["liveMethodVersion"] = {"methodVersion": METHOD_VERSION, "methodRevision": METHOD_REVISION, "inputMethod": desc["inputMethod"], "snapshotId": desc["snapshotId"]}
-    ll.source["registration"] = "post-hoc registration: frozen fixture-evaluation parameters applied unchanged to this live window; live-study fields (cut-off, hypothesis) are not frozen and no chain commitment exists"
+    if is_v3:
+        ll.source["registration"] = f"post-hoc registration: frozen fixture-evaluation parameters applied unchanged; the live-organic-v3 study rules were registered before the run (document {desc['registration']['documentHash']}, frozen {desc['registration']['frozenAt']}) but no chain commitment exists, so the engine label is unchanged"
+    else:
+        ll.source["registration"] = "post-hoc registration: frozen fixture-evaluation parameters applied unchanged to this live window; live-study fields (cut-off, hypothesis) are not frozen and no chain commitment exists"
     art = run_experiment(ll.inputs, pre, ll.source)
     p = write_bundle(art, out)
     summary = {
@@ -82,7 +91,10 @@ def live_run(snapshot_dir: str, out: Path) -> int:
     from .robustness import run_matrix
 
     # frozen Q18 robustness matrix on the development window only (the lockbox is never read); descriptive, not part of the verdict
-    (out / "robustness_matrix.json").write_text(canonical_json({"snapshotId": desc["snapshotId"], "note": "development window only; descriptive; frozen variant list", **run_matrix(ll.inputs, None, load_frozen())}) + "\n")
+    (out / "robustness_matrix.json").write_text(canonical_json({"snapshotId": desc["snapshotId"], "note": "development window only; descriptive; frozen variant list", **run_matrix(ll.inputs, getattr(ll, "route_volume", None), load_frozen())}) + "\n")
+    if is_v3:
+        a_ = ll.audit
+        summary["routes"] = {k: a_[k] for k in ("windowSwaps", "mappedSwaps", "unmappedOrNullCanonicalSwaps", "unmappedShare", "staleNullCanonicalRows", "stablecoinShareOfSwaps", "stablecoinShareOfKnownUsdVolume", "stablecoinSet", "routeDaysWithVolume")}
     (out / "run_summary.json").write_text(canonical_json(summary) + "\n")
     print(json.dumps(summary))
     return 0
@@ -117,9 +129,11 @@ def main(argv=None) -> int:
     lf.add_argument("--out-root", required=True)
     lf.add_argument("--start", default=None)
     lf.add_argument("--end", default=None)
+    lf.add_argument("--method", choices=["live-organic-v2", "live-organic-v3"], default="live-organic-v2")
     lv = sub.add_parser("live")
     lv.add_argument("--snapshot", required=True, help="pinned snapshot directory written by live-freeze")
     lv.add_argument("--out", required=True)
+    lv.add_argument("--method", choices=["live-organic-v2", "live-organic-v3"], default=None, help="must match the snapshot input method; inferred from the snapshot when omitted")
     a = ap.parse_args(argv)
     if a.cmd == "run":
         art = run_fixture(a.fixture, a.seed)
@@ -142,12 +156,13 @@ def main(argv=None) -> int:
         return g07_run(a)
     if a.cmd == "live-freeze":
         from .live import freeze_live_snapshot
+        from .live_v3 import INPUT_METHOD as V3, freeze_v3_snapshot
 
-        d = freeze_live_snapshot(Path(a.out_root), a.start, a.end)
+        d = (freeze_v3_snapshot if a.method == V3 else freeze_live_snapshot)(Path(a.out_root), a.start, a.end)
         print(json.dumps({"snapshotId": d["snapshotId"], "dir": d["dir"], "reused": d["reused"], "window": d["window"], "dataHash": d["dataHash"]}))
         return 0
     if a.cmd == "live":
-        return live_run(a.snapshot, Path(a.out))
+        return live_run(a.snapshot, Path(a.out), a.method)
     return 2
 
 

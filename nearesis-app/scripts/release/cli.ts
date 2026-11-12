@@ -4,6 +4,9 @@
  *   tsx scripts/release/cli.ts check FILE              validate a manifest file
  *   tsx scripts/release/cli.ts build-images --label L [--ref REF] [--no-cache]   build api, worker, web locally from a clean export (never pushed)
  *   tsx scripts/release/cli.ts promote --label L                                  point the local `live` tags at that build
+ *   tsx scripts/release/cli.ts preflight --network testnet|mainnet --contract C --method M --payload HEX64 --signer S --max-cost N --fee-ceiling N --balance-ceiling N
+ *       read-only dry pre-flight (chain id read from the RPC, balance, fee estimate, on-chain readback of the payload); never signs or broadcasts
+ *   tsx scripts/release/cli.ts approval-request ...                                exact-scope approval request for the owner to sign off (see MAINNET-CHECKLIST)
  *   tsx scripts/release/cli.ts rollback --manifest F --rollback F [--dry-run]     verify then move `live` to the previous release
  * There is no `release` or `broadcast` command: signing and writes are human-only.
  */
@@ -16,6 +19,10 @@ import { readSec11Sbom } from "./sbom.ts";
 import { buildImages, readBuildRecord, realRun } from "./images.ts";
 import type { BuildRecord, ImageName } from "./images.ts";
 import { promote, rollback } from "./rollback.ts";
+import { actionHash } from "./approval.ts";
+import { LivePreflightChain } from "./near-live-chain.ts";
+import { runRelease, Ledger } from "./release.ts";
+import { ApprovalStore } from "./approval.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const [cmd, ...rest] = process.argv.slice(2);
@@ -72,6 +79,66 @@ if (cmd === "manifest") {
       2,
     ),
   );
+} else if (cmd === "preflight" || cmd === "approval-request") {
+  const flag = (n: string) => {
+    const v = rest[rest.indexOf(`--${n}`) + 1];
+    if (!rest.includes(`--${n}`) || v === undefined) throw new Error(`missing --${n}`);
+    return v;
+  };
+  const network = flag("network") as "testnet" | "mainnet";
+  if (network !== "testnet" && network !== "mainnet") throw new Error("--network must be testnet or mainnet");
+  const scope = {
+    network,
+    contract: flag("contract"),
+    method: flag("method"),
+    payloadHash: flag("payload"),
+    maxCost: flag("max-cost"),
+    signer: flag("signer"),
+    feeCeiling: flag("fee-ceiling"),
+  };
+  if (cmd === "approval-request") {
+    const req = {
+      kind: "approval-request",
+      scope,
+      actionHash: actionHash(scope),
+      note: "The owner approves exactly this scope by recording issuer, expiry and a signature outside this tool. Any change to any field changes actionHash and invalidates the approval.",
+    };
+    const out = join(root, ".data", "release", `approval-request-${network}.json`);
+    mkdirSync(dirname(out), { recursive: true });
+    writeFileSync(out, JSON.stringify(req, null, 2) + "\n");
+    console.log(JSON.stringify({ out, actionHash: req.actionHash }, null, 2));
+  } else {
+    const chain = new LivePreflightChain(network);
+    const pol = {
+      expectedChainId: { sandbox: "sandbox", testnet: "testnet", mainnet: "mainnet" },
+      allowlist: { contracts: [scope.contract], methods: [scope.method] },
+      balanceCeiling: BigInt(flag("balance-ceiling")),
+      feeCeiling: BigInt(scope.feeCeiling),
+      signer: scope.signer,
+      approvalRequiredOn: [],
+      intentWindow: 0,
+    };
+    // A dry run never consumes an approval and the live adapter has no write path; the approval gate itself is not exercised here.
+    const approvals = new ApprovalStore([], { now: () => Date.now() });
+    const res = await runRelease(
+      {
+        chain,
+        approvals,
+        ledger: new Ledger(join(root, ".data", "release", "preflight-ledger.json")),
+        policy: pol,
+      },
+      {
+        network,
+        contract: scope.contract,
+        method: scope.method,
+        payloadHash: scope.payloadHash,
+        maxCost: scope.maxCost,
+        mode: "dry-run",
+      },
+    );
+    console.log(JSON.stringify(res, null, 2));
+    process.exit(res.status === "DRY_RUN_OK" ? 0 : 1);
+  }
 } else if (cmd === "promote") {
   const label = rest[rest.indexOf("--label") + 1] ?? "candidate";
   const rec = readBuildRecord(join(root, ".data", "release", label)) as BuildRecord;

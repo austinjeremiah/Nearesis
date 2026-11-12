@@ -1,5 +1,5 @@
 /** Release manifest, rollback manifest and SBOM record (ch.17 "Release manifest"). Hash-only; never carries secrets. */
-import { createHash } from "node:crypto";
+import { createHash, verify as edVerify } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -261,3 +261,21 @@ export function validateRollback(r: RollbackManifest, current: ReleaseManifest):
 }
 
 export const manifestHash = (m: ReleaseManifest) => sha256(JSON.stringify(m));
+
+/** Verifies the operator's Ed25519 signature over the manifest hash. Signing is HUMAN only (the operator's own key). */
+export function verifyManifestSignature(
+  m: ReleaseManifest,
+  signatureB64: string,
+  publicKeyPem: string,
+): boolean {
+  try {
+    return edVerify(
+      null,
+      Buffer.from(manifestHash(m), "hex"),
+      publicKeyPem,
+      Buffer.from(signatureB64, "base64"),
+    );
+  } catch {
+    return false;
+  }
+}

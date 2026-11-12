@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   activityPerNear,
   dailyFeeTotals,
+  reconcileOutcomesContainConversion,
   EconomicsUnitError,
   ECONOMICS_PROPOSALS,
   executionIntensity,
@@ -357,13 +358,48 @@ describe("governed-authoring proposals", () => {
     expect(ECONOMICS_PROPOSALS.map((p) => `${p.namespace}.${p.name}`)).toEqual([
       "economics.execution_fee_yocto",
       "economics.gas_units",
-      "economics.gas_per_transaction",
-      "economics.fee_per_transaction_yocto",
+      "economics.gas_per_execution_outcome",
+      "economics.fee_per_execution_outcome_yocto",
+      "economics.transactions",
+      "economics.transaction_conversion_fee_yocto",
       "economics.mean_gas_price_yocto_per_gas",
     ]);
     for (const p of ECONOMICS_PROPOSALS) expect(p.limitations.length).toBeGreaterThan(0);
   });
   it("units are never gas+yocto in one aggregation", () => {
-    for (const p of ECONOMICS_PROPOSALS) expect(p.unit).toMatch(/^(yoctoNEAR|gas)(\/(tx|gas))?$/);
+    for (const p of ECONOMICS_PROPOSALS) expect(p.unit).toMatch(/^(yoctoNEAR|gas|tx)(\/(tx|gas))?$/);
+  });
+});
+
+describe("lean load (rule version 2)", () => {
+  const o = (kind: string, gas: string, tok: string, n = "1") => ({
+    block_date: "2026-11-03",
+    executor_account_id: "a.near",
+    outcome_kind: kind,
+    status_class: "UNKNOWN",
+    outcomes: n,
+    gas_burnt: gas,
+    tokens_burnt_yocto: tok,
+  });
+  const rows = [o("BURNING", "1000", "100000000000"), o("ZERO_TOKEN", "223182562500", "0", "3")];
+  it("reports zero-token gas as a proxy, never as refund gas", () => {
+    const [d] = dailyFeeTotals(rows);
+    expect(d?.zeroTokenGasUnits).toBe("223182562500");
+    expect(d?.refundReceiptGasUnits).toBe("0");
+    expect(d?.outcomes).toBe("4");
+  });
+  it("bound-checks outcomes against the conversion burn and fails when outcomes are smaller", () => {
+    const ok = reconcileOutcomesContainConversion(rows, {
+      block_date: "2026-11-03",
+      conversion_gas: "500",
+      conversion_tokens_yocto: "50000000000",
+    });
+    expect(ok.every((r) => r.ok)).toBe(true);
+    const bad = reconcileOutcomesContainConversion(rows, {
+      block_date: "2026-11-03",
+      conversion_gas: "500",
+      conversion_tokens_yocto: "100000000001",
+    });
+    expect(bad.some((r) => !r.ok)).toBe(true);
   });
 });

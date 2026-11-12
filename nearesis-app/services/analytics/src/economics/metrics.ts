@@ -106,17 +106,20 @@ export interface DailyFee {
   executionFeeNear: string;
   /** Gas of REFUND receipts is reported by the runtime but burns no tokens: split out so units never mix. */
   refundReceiptGasUnits: string;
+  /** Gas of zero-token executions (lean load, rule v2): a PROXY for refunds (also any other zero-fee execution). */
+  zeroTokenGasUnits: string;
   outcomes: string;
 }
 
 /** Daily totals on the execution-day basis from near_economics_outcomes_daily rows (all kinds, exact). */
 export function dailyFeeTotals(rows: OutcomeRow[]): DailyFee[] {
-  const by = new Map<string, { g: Gas[]; t: Yocto[]; rg: Gas[]; n: bigint }>();
+  const by = new Map<string, { g: Gas[]; t: Yocto[]; rg: Gas[]; zg: Gas[]; n: bigint }>();
   for (const r of rows) {
-    const a = by.get(r.block_date) ?? { g: [], t: [], rg: [], n: 0n };
+    const a = by.get(r.block_date) ?? { g: [], t: [], rg: [], zg: [], n: 0n };
     a.g.push(parseGas(r.gas_burnt));
     a.t.push(parseYocto(r.tokens_burnt_yocto));
     if (r.outcome_kind === "REFUND") a.rg.push(parseGas(r.gas_burnt));
+    if (r.outcome_kind === "ZERO_TOKEN") a.zg.push(parseGas(r.gas_burnt));
     a.n += BigInt(r.outcomes);
     by.set(r.block_date, a);
   }
@@ -130,6 +133,7 @@ export function dailyFeeTotals(rows: OutcomeRow[]): DailyFee[] {
         executionFeeYocto: fee.units.toString(),
         executionFeeNear: yoctoToNear(fee),
         refundReceiptGasUnits: sumGas(a.rg).units.toString(),
+        zeroTokenGasUnits: sumGas(a.zg).units.toString(),
         outcomes: a.n.toString(),
       };
     });
@@ -341,3 +345,31 @@ export function feeWithUsd(feeYocto: string, price: PriceSource | null): FeeWith
 }
 
 export { EconomicsUnitError, mkGas, plain };
+
+/**
+ * Lean reconciliation (rule v2): execution-day outcomes must contain at least the transaction-day conversion burn (the
+ * transaction outcomes are in execution_outcomes). The difference is the implied receipt-only burn. REPORTED, never forced:
+ * the two bases differ at day edges by construction, so this is a bound check, not an equality.
+ */
+export function reconcileOutcomesContainConversion(
+  outcomes: OutcomeRow[],
+  conversion: { block_date: string; conversion_gas: string; conversion_tokens_yocto: string },
+): Reconciliation[] {
+  const rows = outcomes.filter((r) => r.block_date === conversion.block_date);
+  const gas = rows.reduce((a, r) => a + BigInt(r.gas_burnt), 0n);
+  const tok = rows.reduce((a, r) => a + BigInt(r.tokens_burnt_yocto), 0n);
+  return [
+    {
+      name: "outcome_gas_at_least_conversion_gas",
+      ok: gas >= BigInt(conversion.conversion_gas),
+      expected: `>= ${conversion.conversion_gas}`,
+      actual: gas.toString(),
+    },
+    {
+      name: "outcome_tokens_at_least_conversion_tokens",
+      ok: tok >= BigInt(conversion.conversion_tokens_yocto),
+      expected: `>= ${conversion.conversion_tokens_yocto}`,
+      actual: tok.toString(),
+    },
+  ];
+}

@@ -124,6 +124,8 @@ export async function runEconomicsPhase(d: {
   location: string;
   chunks: EconomicsChunk[];
   approvalDigest: string | undefined;
+  /** Total dry-run bytes the owner authorised; the run stops before exceeding it (budget authorisation, not only the digest). */
+  approvedMaxBytes: number | undefined;
   isDone: (id: string) => boolean;
   markDone: (r: EconomicsDone) => void;
   nowMs?: () => number;
@@ -133,6 +135,11 @@ export async function runEconomicsPhase(d: {
     throw new IngestionError("BQ_REJECTED", false, {
       reason: "owner approval digest missing or does not match the planned SQL",
     });
+  if (d.approvedMaxBytes === undefined || !Number.isFinite(d.approvedMaxBytes) || d.approvedMaxBytes <= 0)
+    throw new IngestionError("BQ_REJECTED", false, {
+      reason: "owner budget authorisation (approvedMaxBytes) missing",
+    });
+  let spentEstimate = 0;
   const log = d.log ?? (() => undefined);
   const now = d.nowMs ?? (() => Date.now());
   const res: EconomicsPhaseResult = { completed: [], skippedForBudget: [] };
@@ -150,9 +157,9 @@ export async function runEconomicsPhase(d: {
     if (!Number.isFinite(est))
       throw new IngestionError("BQ_REJECTED", false, { reason: "dry run returned no byte estimate" });
     const fit = d.ledger.check(est);
-    if (!fit.ok) {
+    if (!fit.ok || spentEstimate + est > (d.approvedMaxBytes as number)) {
       res.skippedForBudget.push({ id: chunk.id, estimateBytes: est });
-      log(`skip ${chunk.id}: est ${est} B, remaining ${fit.remaining} B`);
+      log(`skip ${chunk.id}: est ${est} B (ledger or owner authorisation)`);
       continue;
     }
     const [job] = await d.bq.createQueryJob({
@@ -175,6 +182,7 @@ export async function runEconomicsPhase(d: {
     }
     const billedBytes = Number.isFinite(billed) ? billed : fit.maximumBytesBilled; // unknown is never free
     d.ledger.record(chunk.id, est, billedBytes);
+    spentEstimate += est;
     const iso = new Date(now()).toISOString();
     const a = await d.archive.archive({
       providerId: "near-bigquery",

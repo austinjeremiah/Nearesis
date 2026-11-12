@@ -87,6 +87,19 @@ ORDER BY (block_date, receiver_account_id)`,
 ENGINE = ReplacingMergeTree(version)
 PARTITION BY toYYYYMM(block_date)
 ORDER BY (block_date, rank)`,
+  `CREATE TABLE IF NOT EXISTS near_economics_conversion_daily
+(
+  block_date Date,
+  scope LowCardinality(String),
+  receiver_account_id String,
+  txs UInt64,
+  conversion_gas UInt128,
+  conversion_tokens_yocto UInt256,
+  null_rows UInt64,${PROV}
+)
+ENGINE = ReplacingMergeTree(version)
+PARTITION BY toYYYYMM(block_date)
+ORDER BY (block_date, scope, receiver_account_id)`,
   `CREATE TABLE IF NOT EXISTS near_economics_gas_price_daily
 (
   block_date Date,
@@ -114,6 +127,7 @@ export const ECONOMICS_TABLE_NAMES = [
   "near_economics_tx_receiver_daily",
   "near_economics_top_tx",
   "near_economics_gas_price_daily",
+  "near_economics_conversion_daily",
 ] as const;
 
 export async function migrateEconomics(ch: ClickHouseClient): Promise<void> {

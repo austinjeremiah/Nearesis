@@ -68,3 +68,13 @@ Execution fees are not called protocol revenue anywhere. Up to protocol version 
 - Delayed receipts that execute in a different month than their `receipt_details` row can show as `NO_RECEIPT_ROW`; `reconcileOutcomesToTransactions` makes the effect visible.
 - Whether `execution_outcomes` contains the transaction outcomes (executor = signer) is inferred from the column description and checked at reconcile time, not assumed.
 - Protocol version 87 activation date is unverified (see above).
+
+## Rule version 2: lean load (A24, 2026-11-13)
+
+The owner did not approve A18's 1,339 GiB plan. Default families now read only numeric and key columns without joins: `outcomes` (`execution_outcomes`: block_date, executor_account_id, gas_burnt, tokens_burnt), `conversion` (`transactions`: receiver and the two receipt_conversion columns) and `gas_price`. See `APPROVAL-PACKET-pilot.md` for bytes and costs.
+
+- `outcome_kind` is `BURNING` (tokens_burnt > 0), `ZERO_TOKEN` (tokens_burnt = 0; refund receipts burn nothing but report about 0.22 Tgas, so ZERO_TOKEN is a PROXY for refunds, never an exact refund count) or `NULL_FIELDS`; `status_class` is `UNKNOWN`. The A18 kinds (ACTION, DATA, REFUND, NO_RECEIPT_ROW) now exist only in the validation family `outcomes_full`, which is archived and compared, never loaded (it would double count).
+- Receipt-only burn is outcomes minus conversion, valid only if `execution_outcomes` includes the transaction outcomes; the pilot checks this (`reconcileLeanToConversion`).
+- Per-transaction cost, percentiles and top transactions (`tx_cost`) are optional and priced separately.
+- Gap `REFUND_SPLIT_IS_PROXY` on every lean chunk; `REFUND_VALUE_NOT_DERIVED` stays.
+- Table `near_economics_conversion_daily` (scope day|receiver) is new; DDL in `migrations-live/009_economics.sql`.

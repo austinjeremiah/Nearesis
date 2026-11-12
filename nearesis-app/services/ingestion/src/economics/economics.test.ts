@@ -9,6 +9,7 @@ import { packIntoQuotaDays, planDigest, planFittingChunks, runEconomicsPhase } f
 import {
   economicsSql,
   gasPriceSql,
+  outcomesFullSql,
   outcomesSql,
   planEconomicsChunks,
   splitChunk,
@@ -35,7 +36,7 @@ describe("economics SQL", () => {
     expect(sql).not.toMatch(/SUM\(x\.(gas|tokens)_burnt\)/);
   });
   it("never reads the receipt JSON column", () => {
-    expect(outcomesSql(c)).not.toMatch(/\.receipt\b|d\.receipt\s/);
+    expect(outcomesFullSql(c)).not.toMatch(/\.receipt\b|d\.receipt\s/);
   });
   it("tx-cost looks RECEIPT_LOOKAHEAD_DAYS past the chunk for delayed receipts", () => {
     expect(txCostSql(c)).toContain("DATE '2026-11-03'");
@@ -43,7 +44,7 @@ describe("economics SQL", () => {
   it("rejects a malformed date (injection)", () => {
     expect(() => outcomesSql({ from: "2026-10-01'; DROP", to: "2026-11-01" })).toThrow();
   });
-  it("plans 13 month chunks per family, newest first, gas price first family order outcomes,tx_cost,gas_price", () => {
+  it("plans 13 month chunks per default family (outcomes, conversion, gas_price), newest first", () => {
     const p = planEconomicsChunks();
     expect(p).toHaveLength(39);
     expect(p[0]?.id).toBe("outcomes:2026-11-01");
@@ -336,6 +337,7 @@ describe("budgeted runner (no billed query without approval)", () => {
       ledger: new BudgetLedger(0),
       location: "us-east1",
       chunks,
+      approvedMaxBytes: 1_000_000,
       isDone: () => false,
       markDone: () => undefined,
     };

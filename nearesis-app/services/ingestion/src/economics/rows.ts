@@ -32,8 +32,8 @@ const prov = (p: Provenance) => ({
   rule_version: ECONOMICS_RULE_VERSION,
 });
 
-const KINDS = new Set(["ACTION", "DATA", "REFUND", "NO_RECEIPT_ROW"]);
-const STATUS = new Set(["SUCCESS", "FAILURE", "OTHER"]);
+const KINDS = new Set(["ACTION", "DATA", "REFUND", "NO_RECEIPT_ROW", "BURNING", "ZERO_TOKEN", "NULL_FIELDS"]);
+const STATUS = new Set(["SUCCESS", "FAILURE", "OTHER", "UNKNOWN"]);
 
 export function outcomeRows(rows: BqRow[], p: Provenance): Row[] {
   return rows.map((r) => {
@@ -156,6 +156,49 @@ export function txCostRows(rows: BqRow[], p: Provenance): TxCostRows {
     if (prev !== undefined && cur > prev) bad("top transactions are not ordered by tokens", "top_tx");
     last.set(t.block_date as string, cur);
   }
+  return out;
+}
+
+/**
+ * Lean conversion rows (transactions table only): the per-day row must equal the sum of its receiver rows (named + folded)
+ * for txs, gas and tokens; a mismatch refuses the chunk. Stored in near_economics_conversion_daily (scope day|receiver).
+ */
+export function conversionRows(rows: BqRow[], p: Provenance): Row[] {
+  const out: Row[] = [];
+  const recv = new Map<string, [bigint, bigint, bigint]>();
+  const days = new Map<string, [bigint, bigint, bigint]>();
+  for (const r of rows) {
+    const scope = text(r.scope, "scope");
+    if (scope !== "day" && scope !== "receiver") bad("unknown scope", "scope");
+    const day = dayOf(r.block_date);
+    const t: [bigint, bigint, bigint] = [
+      big(r.txs, "txs"),
+      big(r.conversion_gas, "conversion_gas"),
+      big(r.conversion_tokens_yocto, "conversion_tokens_yocto"),
+    ];
+    if (scope === "day") days.set(day, t);
+    else {
+      const a = recv.get(day) ?? [0n, 0n, 0n];
+      recv.set(day, [a[0] + t[0], a[1] + t[1], a[2] + t[2]]);
+    }
+    out.push({
+      block_date: day,
+      scope,
+      receiver_account_id: scope === "day" ? "" : text(r.account, "account"),
+      txs: t[0].toString(),
+      conversion_gas: t[1].toString(),
+      conversion_tokens_yocto: t[2].toString(),
+      null_rows: uintStr(r.null_rows, "null_rows"),
+      token_precision: "source_float64",
+      ...prov(p),
+    });
+  }
+  for (const [day, t] of days) {
+    const a = recv.get(day);
+    if (!a || a[0] !== t[0] || a[1] !== t[1] || a[2] !== t[2])
+      bad("per-receiver conversion rows do not sum to the daily total", "receiver");
+  }
+  for (const day of recv.keys()) if (!days.has(day)) bad("receiver rows without a day row", "scope");
   return out;
 }
 

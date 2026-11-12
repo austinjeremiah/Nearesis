@@ -15,7 +15,7 @@ import { addDays, monthRanges, WINDOW_FROM, WINDOW_TO } from "../backfill/plan.t
  *    'system' and report gas but burn no tokens.
  *  - Large integers leave BigQuery as STRING (never FLOAT64/INT64 sums that could overflow).
  */
-export const ECONOMICS_RULE_VERSION = 1;
+export const ECONOMICS_RULE_VERSION = 2;
 /** Named executor / receiver rows need at least this many outcomes (or transactions) in a day; the rest fold, totals exact. */
 export const ECONOMICS_FOLD_THRESHOLD = 100;
 export const FOLDED_ACCOUNT = "__below_threshold__";
@@ -25,8 +25,19 @@ export const RECEIPT_LOOKAHEAD_DAYS = 2;
 /** Quantile resolution of APPROX_QUANTILES (1000 -> permille offsets); the result is approximate and labelled so. */
 export const QUANTILE_BUCKETS = 1000;
 
-export type EconomicsFamily = "outcomes" | "tx_cost" | "gas_price";
-export const ECONOMICS_FAMILIES: readonly EconomicsFamily[] = ["outcomes", "tx_cost", "gas_price"];
+/**
+ * Rule version 2 (lean design, A24): the default families read only numeric + key columns and never join.
+ *  - outcomes:      execution_outcomes (block_date, executor_account_id, gas_burnt, tokens_burnt), ~0.7 GB/day.
+ *  - conversion:    transactions (block_date, receiver_account_id, receipt_conversion_*), 0.05 to 0.2 GB/day.
+ *  - gas_price:     blocks (block_date, gas_price), ~2 MB/day.
+ * Optional, priced separately, NOT in the default plan:
+ *  - tx_cost:       per-transaction cost (receipt_origin_transaction join; percentiles and top transactions), ~3 to 4 GB/day.
+ *  - outcomes_full: A18's receipt_details join. Validation only: used on a reference day to check the lean refund proxy and the
+ *                   lean totals. Its rows are archived and compared, never loaded (kinds would double count the lean rows).
+ */
+export type EconomicsFamily = "outcomes" | "conversion" | "gas_price" | "tx_cost" | "outcomes_full";
+export const ECONOMICS_FAMILIES: readonly EconomicsFamily[] = ["outcomes", "conversion", "gas_price"];
+export const OPTIONAL_FAMILIES: readonly EconomicsFamily[] = ["tx_cost", "outcomes_full"];
 
 export interface EconomicsChunk {
   id: string; // `${family}:${from}`
@@ -58,6 +69,21 @@ export function planEconomicsChunks(
   return out;
 }
 
+/** One chunk per day (the unit of the forward incremental job and of the pilot). Newest first. */
+export function planDailyChunks(
+  from: string,
+  to: string,
+  families: readonly EconomicsFamily[] = ECONOMICS_FAMILIES,
+): EconomicsChunk[] {
+  const days: string[] = [];
+  for (let d = need(from); d < need(to); d = addDays(d, 1)) days.push(d);
+  days.reverse();
+  const out: EconomicsChunk[] = [];
+  for (const family of families)
+    for (const d of days) out.push({ id: `${family}:${d}`, family, from: d, to: addDays(d, 1) });
+  return out;
+}
+
 /** Splits a chunk at its midpoint day (>= 1 day each); null when it is a single day. Used when a month exceeds one quota day. */
 export function splitChunk(c: EconomicsChunk): [EconomicsChunk, EconomicsChunk] | null {
   const days: string[] = [];
@@ -71,11 +97,74 @@ export function splitChunk(c: EconomicsChunk): [EconomicsChunk, EconomicsChunk] 
 }
 
 /**
- * Per (day, executor account, outcome kind, status class): outcome count, gas units, tokens (yoctoNEAR as exact STRING of the
+ * LEAN outcomes (rule version 2): one table, four columns, no join, no status, no receipt_id.
+ * Per (day, executor, outcome kind): outcome count, gas units, tokens (yoctoNEAR, exact STRING of the stored double).
+ * outcome_kind is derived from tokens_burnt alone: BURNING (tokens > 0), ZERO_TOKEN (tokens = 0: refund receipts, which
+ * burn nothing but report ~0.22 Tgas, and any other zero-fee execution), NULL_FIELDS. ZERO_TOKEN is a PROXY for refunds,
+ * validated against receipt_details on a reference day (compareLeanToFull); it is never presented as an exact refund count.
+ * status_class is UNKNOWN (status is not read: it is ~0.33 to 0.45 GB/day, +45%).
+ */
+export function outcomesSql(c: Pick<EconomicsChunk, "from" | "to">): string {
+  return [
+    "WITH o AS (",
+    "  SELECT x.block_date AS block_date, IFNULL(x.executor_account_id, '__null_executor__') AS executor,",
+    "    CASE WHEN x.tokens_burnt IS NULL THEN 'NULL_FIELDS' WHEN x.gas_burnt IS NULL THEN 'NULL_FIELDS'",
+    "      WHEN x.tokens_burnt = 0 THEN 'ZERO_TOKEN' ELSE 'BURNING' END AS outcome_kind,",
+    "    CAST(x.gas_burnt AS NUMERIC) AS g, CAST(x.tokens_burnt AS BIGNUMERIC) AS t,",
+    "    x.gas_burnt != FLOOR(x.gas_burnt) AS frac",
+    `  FROM ${T("execution_outcomes")} x`,
+    `  WHERE ${win("x.block_date", c.from, c.to)}`,
+    "), a AS (",
+    "  SELECT block_date, executor, outcome_kind, COUNT(*) AS n, SUM(g) AS g, SUM(t) AS t, COUNTIF(frac) AS frac_rows,",
+    "    COUNTIF(outcome_kind = 'ZERO_TOKEN') AS zero_rows",
+    "  FROM o GROUP BY block_date, executor, outcome_kind",
+    "), f AS (",
+    `  SELECT *, IF(SUM(n) OVER (PARTITION BY block_date, executor) >= ${ECONOMICS_FOLD_THRESHOLD}, executor, '${FOLDED_ACCOUNT}') AS ex`,
+    "  FROM a",
+    ")",
+    "SELECT block_date, ex AS executor_account_id, outcome_kind, 'UNKNOWN' AS status_class, SUM(n) AS outcomes,",
+    "  CAST(IFNULL(SUM(g), 0) AS STRING) AS gas_burnt, CAST(IFNULL(SUM(t), 0) AS STRING) AS tokens_burnt_yocto,",
+    "  SUM(frac_rows) AS fractional_gas_rows, SUM(zero_rows) AS zero_token_rows, 0 AS duplicate_receipt_rows",
+    "FROM f GROUP BY block_date, ex, outcome_kind",
+    "ORDER BY 1, 2, 3",
+  ].join("\n");
+}
+
+/**
+ * Transaction-to-receipt conversion burn from the `transactions` table only (three columns, no join): per day and per
+ * receiver account (receivers under the fold threshold fold with exact totals). The per-day row and the receiver rows are
+ * reconciled at load. Together with the lean outcomes this gives receipt-only burn as outcomes minus conversion (checked on
+ * the reference day, never assumed).
+ */
+export function conversionSql(c: Pick<EconomicsChunk, "from" | "to">): string {
+  return [
+    "WITH tx AS (",
+    "  SELECT block_date, IFNULL(receiver_account_id, '__null_receiver__') AS r,",
+    "    CAST(receipt_conversion_gas_burnt AS NUMERIC) AS g, CAST(receipt_conversion_tokens_burnt AS BIGNUMERIC) AS k",
+    `  FROM ${T("transactions")}`,
+    `  WHERE ${win("block_date", c.from, c.to)}`,
+    "), f AS (",
+    `  SELECT block_date, IF(COUNT(*) OVER (PARTITION BY block_date, r) >= ${ECONOMICS_FOLD_THRESHOLD}, r, '${FOLDED_ACCOUNT}') AS acct, g, k FROM tx`,
+    ")",
+    "SELECT 'day' AS scope, block_date, CAST(NULL AS STRING) AS account, COUNT(*) AS txs,",
+    "  CAST(IFNULL(SUM(g), 0) AS STRING) AS conversion_gas, CAST(IFNULL(SUM(k), 0) AS STRING) AS conversion_tokens_yocto,",
+    "  COUNTIF(g IS NULL) + COUNTIF(k IS NULL) AS null_rows",
+    "FROM tx GROUP BY block_date",
+    "UNION ALL",
+    "SELECT 'receiver', block_date, acct, COUNT(*), CAST(IFNULL(SUM(g), 0) AS STRING), CAST(IFNULL(SUM(k), 0) AS STRING),",
+    "  COUNTIF(g IS NULL) + COUNTIF(k IS NULL)",
+    "FROM f GROUP BY block_date, acct",
+    "ORDER BY 1, 2, 3",
+  ].join("\n");
+}
+
+/**
+ * A18 outcomes query (receipt_details join: kind ACTION/DATA/REFUND/NO_RECEIPT_ROW and status class). VALIDATION ONLY in
+ * rule version 2. Per (day, executor account, outcome kind, status class): outcome count, gas units, tokens (yoctoNEAR as exact STRING of the
  * stored double). Executors under the fold threshold are folded into FOLDED_ACCOUNT with exact totals. execution_outcomes is
  * scanned once; receipt_details contributes only receipt_id, predecessor and kind (no `receipt` JSON column).
  */
-export function outcomesSql(c: Pick<EconomicsChunk, "from" | "to">): string {
+export function outcomesFullSql(c: Pick<EconomicsChunk, "from" | "to">): string {
   return [
     "WITH det AS (",
     "  SELECT d.receipt_id AS receipt_id, MIN(d.predecessor_account_id) AS pred, MIN(d.receipt_kind) AS kind, COUNT(*) AS c",
@@ -190,5 +279,16 @@ export function gasPriceSql(c: Pick<EconomicsChunk, "from" | "to">): string {
 }
 
 export function economicsSql(c: EconomicsChunk): string {
-  return c.family === "outcomes" ? outcomesSql(c) : c.family === "tx_cost" ? txCostSql(c) : gasPriceSql(c);
+  switch (c.family) {
+    case "outcomes":
+      return outcomesSql(c);
+    case "conversion":
+      return conversionSql(c);
+    case "tx_cost":
+      return txCostSql(c);
+    case "outcomes_full":
+      return outcomesFullSql(c);
+    default:
+      return gasPriceSql(c);
+  }
 }

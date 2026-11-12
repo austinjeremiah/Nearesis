@@ -2,11 +2,13 @@ import type { ClickHouseClient } from "@clickhouse/client";
 import type { BqRow } from "../backfill/bq-runner.ts";
 import { coverageRows, insertLive, type Provenance, type Row } from "../backfill/ch.ts";
 import { addDays } from "../backfill/plan.ts";
-import { gasPriceRows, outcomeRows, txCostRows } from "./rows.ts";
+import { conversionRows, gasPriceRows, outcomeRows, txCostRows } from "./rows.ts";
 import type { EconomicsChunk, EconomicsFamily } from "./sql.ts";
 
 export const ECONOMICS_DATASET: Record<EconomicsFamily, string> = {
   outcomes: "near_economics_outcomes_daily",
+  conversion: "near_economics_conversion_daily",
+  outcomes_full: "near_economics_outcomes_daily", // validation only: never loaded (see loadEconomicsChunk)
   tx_cost: "near_economics_tx_daily",
   gas_price: "near_economics_gas_price_daily",
 };
@@ -35,7 +37,7 @@ const num = (v: unknown): bigint => BigInt(String(v));
 export function economicsGaps(
   family: EconomicsFamily,
   chunk: Pick<EconomicsChunk, "from" | "to">,
-  rows: { outcomes?: Row[]; days?: Row[]; prices?: Row[] },
+  rows: { outcomes?: Row[]; days?: Row[]; prices?: Row[]; conversion?: Row[] },
 ): EconomicsGap[] {
   const gaps: EconomicsGap[] = [];
   const dataset = ECONOMICS_DATASET[family];
@@ -43,7 +45,13 @@ export function economicsGaps(
   const flag = (day: string, reason: string, state: "partial" | "unavailable" = "partial"): void => {
     gaps.push({ dataset, ...dayRange(day), state, reason_code: reason });
   };
-  if (family === "outcomes") {
+  if (family === "conversion") {
+    for (const r of rows.conversion ?? []) {
+      const d = r.block_date as string;
+      present.add(d);
+      if (r.scope === "day" && num(r.null_rows) > 0n) flag(d, "NULL_CONVERSION_FIELDS");
+    }
+  } else if (family === "outcomes" || family === "outcomes_full") {
     const perDay = new Map<string, { frac: bigint; dup: bigint }>();
     for (const r of rows.outcomes ?? []) {
       const d = r.block_date as string;
@@ -71,7 +79,15 @@ export function economicsGaps(
     }
   }
   for (const d of chunkDays(chunk)) if (!present.has(d)) flag(d, "PROVIDER_GAP", "unavailable");
-  if (family !== "gas_price")
+  if (family === "outcomes")
+    gaps.push({
+      dataset,
+      from_utc: `${chunk.from}T00:00:00.000Z`,
+      to_utc: `${addDays(chunk.to, -1)}T23:59:59.999Z`,
+      state: "partial",
+      reason_code: "REFUND_SPLIT_IS_PROXY",
+    });
+  if (family === "outcomes" || family === "tx_cost" || family === "outcomes_full")
     gaps.push({
       dataset,
       from_utc: `${chunk.from}T00:00:00.000Z`,
@@ -90,6 +106,8 @@ export async function loadEconomicsChunk(
   p: Provenance,
 ): Promise<number> {
   let n = 0;
+  // Validation-only family: archived by the runner, compared by compareLeanToFull, never loaded.
+  if (chunk.family === "outcomes_full") return outcomeRows(bqRows, p).length;
   let gaps: EconomicsGap[];
   let present: Set<string>;
   if (chunk.family === "outcomes") {
@@ -97,6 +115,11 @@ export async function loadEconomicsChunk(
     n += await insertLive(ch, "near_economics_outcomes_daily", outcomes);
     gaps = economicsGaps("outcomes", chunk, { outcomes });
     present = new Set(outcomes.map((r) => r.block_date as string));
+  } else if (chunk.family === "conversion") {
+    const conv = conversionRows(bqRows, p);
+    n += await insertLive(ch, "near_economics_conversion_daily", conv);
+    gaps = economicsGaps("conversion", chunk, { conversion: conv });
+    present = new Set(conv.map((r) => r.block_date as string));
   } else if (chunk.family === "tx_cost") {
     const t = txCostRows(bqRows, p);
     n += await insertLive(ch, "near_economics_tx_daily", t.days);
@@ -114,7 +137,12 @@ export async function loadEconomicsChunk(
   const dataset = ECONOMICS_DATASET[chunk.family];
   const partialDays = new Set(
     gaps
-      .filter((g) => g.state === "partial" && g.reason_code !== "REFUND_VALUE_NOT_DERIVED")
+      .filter(
+        (g) =>
+          g.state === "partial" &&
+          g.reason_code !== "REFUND_VALUE_NOT_DERIVED" &&
+          g.reason_code !== "REFUND_SPLIT_IS_PROXY",
+      )
       .map((g) => g.from_utc.slice(0, 10)),
   );
   await insertLive(

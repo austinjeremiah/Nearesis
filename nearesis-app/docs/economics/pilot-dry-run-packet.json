@@ -1,0 +1,252 @@
+{
+  "generatedAtUTC": "2026-11-12T19:11:45.739Z",
+  "mode": "pilot",
+  "window": {
+    "from": "2026-11-03",
+    "to": "2026-11-10"
+  },
+  "digest": "68108c233c238f4ca466a2648fd59b998a25f9f1e79b9456e933f6b678c307f2",
+  "priceUsdPerTiB": 6.25,
+  "priceSource": "https://cloud.google.com/bigquery/pricing",
+  "dailyLimitBytes": 102005473280,
+  "totalBytes": 1965896095,
+  "totalGiB": "1.83",
+  "totalUsdListPrice": 0.011175,
+  "byFamilyBytes": {
+    "outcomes": 1138722156,
+    "conversion": 227614871,
+    "gas_price": 16742784,
+    "outcomes_full": 582816284
+  },
+  "chunks": [
+    {
+      "id": "outcomes:2026-11-09",
+      "family": "outcomes",
+      "from": "2026-11-09",
+      "to": "2026-11-10",
+      "estimateBytes": 191658283,
+      "sqlSha256": "67b10a539a8df2de49a8412e6d17e0ac2de4ed8fa994009b9b6d7e06d06e5d4b",
+      "usdListPrice": 0.001089
+    },
+    {
+      "id": "outcomes:2026-11-08",
+      "family": "outcomes",
+      "from": "2026-11-08",
+      "to": "2026-11-09",
+      "estimateBytes": 131161661,
+      "sqlSha256": "1a6323817efa2c7f3b7bb5c120f901cce8e472e61f6702db9b85ae1d6f33e698",
+      "usdListPrice": 0.000746
+    },
+    {
+      "id": "outcomes:2026-11-07",
+      "family": "outcomes",
+      "from": "2026-11-07",
+      "to": "2026-11-08",
+      "estimateBytes": 146332669,
+      "sqlSha256": "b00c29113eda0f5a88bf3d4fe034fa54c505bc64204c3312a92646a1955cfcd3",
+      "usdListPrice": 0.000832
+    },
+    {
+      "id": "outcomes:2026-11-06",
+      "family": "outcomes",
+      "from": "2026-11-06",
+      "to": "2026-11-07",
+      "estimateBytes": 173804488,
+      "sqlSha256": "2828405e4c54daada9642d3a717cfd7010e2640d90bfec2748a2b04b1cbbab5a",
+      "usdListPrice": 0.000988
+    },
+    {
+      "id": "outcomes:2026-11-05",
+      "family": "outcomes",
+      "from": "2026-11-05",
+      "to": "2026-11-06",
+      "estimateBytes": 192584034,
+      "sqlSha256": "fc355bd48645e01f496e28796502a6c0718d7c0d8bfda584ce8309769ea76e82",
+      "usdListPrice": 0.001095
+    },
+    {
+      "id": "outcomes:2026-11-04",
+      "family": "outcomes",
+      "from": "2026-11-04",
+      "to": "2026-11-05",
+      "estimateBytes": 165580327,
+      "sqlSha256": "4ab5d29df8fd42403fb51b32dfe55b02da8f71bfb1be10a05cc2b72ba77d01db",
+      "usdListPrice": 0.000941
+    },
+    {
+      "id": "outcomes:2026-11-03",
+      "family": "outcomes",
+      "from": "2026-11-03",
+      "to": "2026-11-04",
+      "estimateBytes": 137600694,
+      "sqlSha256": "bf7afb62fbc4f7fefff9532f112072917a5464fe88e02d092557c3171ba1f25e",
+      "usdListPrice": 0.000782
+    },
+    {
+      "id": "conversion:2026-11-09",
+      "family": "conversion",
+      "from": "2026-11-09",
+      "to": "2026-11-10",
+      "estimateBytes": 40663418,
+      "sqlSha256": "043d65962935765dbd03f1a2f662cd34596e563ab8e3084d289b98a8b5b5edad",
+      "usdListPrice": 0.000231
+    },
+    {
+      "id": "conversion:2026-11-08",
+      "family": "conversion",
+      "from": "2026-11-08",
+      "to": "2026-11-09",
+      "estimateBytes": 27276518,
+      "sqlSha256": "4fa6eeba1a43468fa1163feff9187975a36b80f1146bd6deff3ab18fb73c0fec",
+      "usdListPrice": 0.000155
+    },
+    {
+      "id": "conversion:2026-11-07",
+      "family": "conversion",
+      "from": "2026-11-07",
+      "to": "2026-11-08",
+      "estimateBytes": 30585451,
+      "sqlSha256": "263a23d9662a1ea01c48f9290f8e5a2948a2dbd5abb4d195074f786a29cf05c7",
+      "usdListPrice": 0.000174
+    },
+    {
+      "id": "conversion:2026-11-06",
+      "family": "conversion",
+      "from": "2026-11-06",
+      "to": "2026-11-07",
+      "estimateBytes": 32827947,
+      "sqlSha256": "b23dd83aa915ffbb9add3ecee1cb0885b51dfe7be78961e9f742bea79e9dff40",
+      "usdListPrice": 0.000187
+    },
+    {
+      "id": "conversion:2026-11-05",
+      "family": "conversion",
+      "from": "2026-11-05",
+      "to": "2026-11-06",
+      "estimateBytes": 37740608,
+      "sqlSha256": "4c4860e72735e7c90ac6d3305d74bb30c6dd6742d0f8523c75578e1f2aa1d1f4",
+      "usdListPrice": 0.000215
+    },
+    {
+      "id": "conversion:2026-11-04",
+      "family": "conversion",
+      "from": "2026-11-04",
+      "to": "2026-11-05",
+      "estimateBytes": 31542270,
+      "sqlSha256": "ba00cecaf5551acca77e97c0d8314b9b433ca3663e5b84b8db1812df19b50750",
+      "usdListPrice": 0.000179
+    },
+    {
+      "id": "conversion:2026-11-03",
+      "family": "conversion",
+      "from": "2026-11-03",
+      "to": "2026-11-04",
+      "estimateBytes": 26978659,
+      "sqlSha256": "23e0b2a993d720ce777b14be22182f084b2f97974c755511a25af431e688e7a1",
+      "usdListPrice": 0.000153
+    },
+    {
+      "id": "gas_price:2026-11-09",
+      "family": "gas_price",
+      "from": "2026-11-09",
+      "to": "2026-11-10",
+      "estimateBytes": 2397264,
+      "sqlSha256": "559581591951cf8e51c3f6d3347473beb6186d998097e258741e02a1d49d7d36",
+      "usdListPrice": 0.000014
+    },
+    {
+      "id": "gas_price:2026-11-08",
+      "family": "gas_price",
+      "from": "2026-11-08",
+      "to": "2026-11-09",
+      "estimateBytes": 2417808,
+      "sqlSha256": "8a2ccc9c209735828b228d4744659787bd084268d875bfbc9ff87bf2de342b40",
+      "usdListPrice": 0.000014
+    },
+    {
+      "id": "gas_price:2026-11-07",
+      "family": "gas_price",
+      "from": "2026-11-07",
+      "to": "2026-11-08",
+      "estimateBytes": 2390624,
+      "sqlSha256": "bf9a5ae08c32ad2c5e87942d7fd43c498996c15a4df1e9e48addaeabee85663a",
+      "usdListPrice": 0.000014
+    },
+    {
+      "id": "gas_price:2026-11-06",
+      "family": "gas_price",
+      "from": "2026-11-06",
+      "to": "2026-11-07",
+      "estimateBytes": 2397296,
+      "sqlSha256": "a545aef1fa25ba66e0fc397b98c12493a1154d8b8488a638b4e6c6e6245697ea",
+      "usdListPrice": 0.000014
+    },
+    {
+      "id": "gas_price:2026-11-05",
+      "family": "gas_price",
+      "from": "2026-11-05",
+      "to": "2026-11-06",
+      "estimateBytes": 2397920,
+      "sqlSha256": "64e14736129ab244252e73b8da48d815fc59e31bcebcda2dc794f1e34eb9abbc",
+      "usdListPrice": 0.000014
+    },
+    {
+      "id": "gas_price:2026-11-04",
+      "family": "gas_price",
+      "from": "2026-11-04",
+      "to": "2026-11-05",
+      "estimateBytes": 2324832,
+      "sqlSha256": "5457d60bf64a38dd60ed426e804e8fc2babc7ad911723cabfb08b7c98f8405eb",
+      "usdListPrice": 0.000013
+    },
+    {
+      "id": "gas_price:2026-11-03",
+      "family": "gas_price",
+      "from": "2026-11-03",
+      "to": "2026-11-04",
+      "estimateBytes": 2417040,
+      "sqlSha256": "7aca301f2ab87cfafa7a6842525c0ea0e9dc7b43d70fce9c4d9524e8c5ac3e84",
+      "usdListPrice": 0.000014
+    },
+    {
+      "id": "outcomes_full:2026-11-03",
+      "family": "outcomes_full",
+      "from": "2026-11-03",
+      "to": "2026-11-04",
+      "estimateBytes": 582816284,
+      "sqlSha256": "6c41a61068f4fc1b63ec991f267bb8d3876d2ae3e13f352f601b0ec93ad49f76",
+      "usdListPrice": 0.003313
+    }
+  ],
+  "quotaDays": [
+    {
+      "day": 1,
+      "chunks": [
+        "outcomes:2026-11-09",
+        "outcomes:2026-11-08",
+        "outcomes:2026-11-07",
+        "outcomes:2026-11-06",
+        "outcomes:2026-11-05",
+        "outcomes:2026-11-04",
+        "outcomes:2026-11-03",
+        "conversion:2026-11-09",
+        "conversion:2026-11-08",
+        "conversion:2026-11-07",
+        "conversion:2026-11-06",
+        "conversion:2026-11-05",
+        "conversion:2026-11-04",
+        "conversion:2026-11-03",
+        "gas_price:2026-11-09",
+        "gas_price:2026-11-08",
+        "gas_price:2026-11-07",
+        "gas_price:2026-11-06",
+        "gas_price:2026-11-05",
+        "gas_price:2026-11-04",
+        "gas_price:2026-11-03",
+        "outcomes_full:2026-11-03"
+      ],
+      "bytes": 1965896095
+    }
+  ],
+  "oversize": []
+}

@@ -13,6 +13,7 @@
     "migrate": "tsx src/cli/migrate.ts",
     "backfill": "tsx src/backfill/cli.ts",
     "test:backfill": "vitest run test/backfill",
+    "realtime": "tsx src/realtime/cli.ts",
     "scheduler": "tsx src/scheduler/cli.ts",
     "quotes:validate": "tsx src/scheduler/validate-quotes.ts",
     "test:scheduler": "vitest run test/scheduler",

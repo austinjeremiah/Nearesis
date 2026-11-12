@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Manual process supervisor for the collectors. Started by hand; installs NO launchd/cron/login items.
 #
-#   scripts/ops/supervise.sh start  backfill|scheduler|all   run in the foreground (use a terminal/tmux; `all` runs both)
-#   scripts/ops/supervise.sh status [backfill|scheduler]
-#   scripts/ops/supervise.sh stop   backfill|scheduler|all   SIGTERM the supervisor; it forwards to the child, which releases its leases
+#   scripts/ops/supervise.sh start  backfill|scheduler|realtime|all   run in the foreground (use a terminal/tmux; `all` runs backfill+scheduler)
+#   scripts/ops/supervise.sh status [backfill|scheduler|realtime]
+#   scripts/ops/supervise.sh stop   backfill|scheduler|realtime|all   SIGTERM the supervisor; it forwards to the child, which releases its leases
 #
 # Guarantees: one supervisor per name (pidfile + liveness check), restart on crash with exponential backoff
 # (5 s .. 5 min, reset after a run longer than 10 min), log rotation (copy-truncate at 20 MB, 5 files kept),
 # SIGTERM/SIGINT forwarded to the child and waited for. Exit 0 of the backfill means "finished": it is not restarted.
 # The scheduler is a loop, so any exit is restarted (exit 3 = another instance holds the lease: wait 60 s, retry).
+# `realtime` is the OPT-IN forward-only NEAR final-block feed (never part of `all`); it restarts like the scheduler.
 set -u
 APP="$(cd "$(dirname "$0")/../.." && pwd)"
 RUN_DIR="${NEARESIS_SUPERVISE_DIR:-$APP/.data/supervisor}"
@@ -24,6 +25,7 @@ command_for() {
   case "$1" in
     backfill) echo "$APP/node_modules/.bin/tsx src/backfill/cli.ts --resume --explorer-only --explorer-max-minutes 0" ;;
     scheduler) echo "$APP/node_modules/.bin/tsx src/scheduler/cli.ts" ;;
+    realtime) echo "$APP/node_modules/.bin/tsx src/realtime/cli.ts run" ;;
     *) return 1 ;;
   esac
 }

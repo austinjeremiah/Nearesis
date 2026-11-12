@@ -792,6 +792,20 @@ export const ROUTES: RouteSpec[] = [
   }),
   R("get", "/v1/ops/slo", "spend", "Multi-window burn state of the declared SLOs", { ok: "{ slos }" }),
 
+  // ---- near-real-time layer (opt-in; forward-only final blocks) ----------------------------------------------------
+  R("get", "/v1/realtime/freshness", "realtime", "Freshness of the near-real-time NEAR feed", {
+    ok: "Last observation/ingestion time, watermark, finality, historical coverage, collector lag, reconciliation, partial-day warnings and data-vintage limitations",
+  }),
+  R(
+    "get",
+    "/v1/realtime/transactions-last-hour",
+    "realtime",
+    "Transactions in the last 60 minutes (finalized and provisional kept apart)",
+    {
+      ok: "Finalized and provisional transaction counts for the window with missing minutes stated",
+    },
+  ),
+
   // ---- entity registry (ecosystem) --------------------------------------------------------------------------------
   R("get", "/v1/entities", "entities", "Search the ecosystem entity registry", {
     capability: "entity registry",

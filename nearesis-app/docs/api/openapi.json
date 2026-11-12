@@ -63,6 +63,9 @@
       "name": "publication"
     },
     {
+      "name": "realtime"
+    },
+    {
       "name": "session"
     },
     {
@@ -6033,6 +6036,96 @@
           "method_unvalidated",
           "insufficient_data"
         ]
+      }
+    },
+    "/v1/realtime/freshness": {
+      "get": {
+        "operationId": "getRealtimeFreshness",
+        "tags": [
+          "realtime"
+        ],
+        "summary": "Freshness of the near-real-time NEAR feed",
+        "responses": {
+          "200": {
+            "description": "Last observation/ingestion time, watermark, finality, historical coverage, collector lag, reconciliation, partial-day warnings and data-vintage limitations",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/realtime/transactions-last-hour": {
+      "get": {
+        "operationId": "getRealtimeTransactionsLastHour",
+        "tags": [
+          "realtime"
+        ],
+        "summary": "Transactions in the last 60 minutes (finalized and provisional kept apart)",
+        "responses": {
+          "200": {
+            "description": "Finalized and provisional transaction counts for the window with missing minutes stated",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/runs/{id}": {

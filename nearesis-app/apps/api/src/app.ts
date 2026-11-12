@@ -15,6 +15,7 @@ import { integrityRoutes } from "./integrity-routes.ts";
 import { gatewayRoutes } from "./gateway-routes.ts";
 import { costRoutes } from "./cost-routes.ts";
 import { entityRoutes } from "./entity-routes.ts";
+import { realtimeRoutes } from "./realtime-routes.ts";
 import { intentsRoutes } from "./intents-routes.ts";
 import { accountRoutes } from "./account-routes.ts";
 import { analyticsPanelRoutes } from "./analytics-panel-routes.ts";
@@ -547,6 +548,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     ...(opts.externalModelSpend ? { externalModelSpend: opts.externalModelSpend } : {}),
   });
   await app.register(entityRoutes, { authenticate });
+  await app.register(realtimeRoutes, { authenticate });
   await app.register(intentsRoutes, { authenticate });
   await app.register(accountRoutes, { authenticate });
   await app.register(analyticsPanelRoutes, { authenticate });

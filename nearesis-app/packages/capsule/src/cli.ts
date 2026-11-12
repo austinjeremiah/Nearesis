@@ -1,12 +1,15 @@
 /**
  * pnpm --filter @nearesis/capsule research:rebuild --snapshot <dir> --out <dir> [--research-bundle <dir>] [--expect <manifest.json>]
  * pnpm --filter @nearesis/capsule research:verify --capsule <dir>
+ * pnpm --filter @nearesis/capsule research:publish --snapshot <dir> --root <dir> [--research-bundle <dir>] [--key <ed25519.pem>]
+ * pnpm --filter @nearesis/capsule research:publish-verify --version-dir <dir> [--trusted-key <keyId>]
  *
  * Rebuild is offline and needs no credentials: it reads only the frozen snapshot directory (plus an optional research
  * bundle), never the network and never a JWT. Exit codes: 0 ok, 3 verification or expectation mismatch, 4 publication
  * blocked, 2 usage.
  */
 import { readFileSync } from "node:fs";
+import { PublishBlockedError, publishStatic, verifyPublishManifest } from "./publish.ts";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { APP_ROOT, PublicationBlockedError, buildCapsule } from "./build.ts";
@@ -27,6 +30,10 @@ const { values: a } = parseArgs({
     workspace: { type: "string" },
     "no-research": { type: "boolean" },
     "no-wasm": { type: "boolean" },
+    root: { type: "string" },
+    key: { type: "string" },
+    "version-dir": { type: "string" },
+    "trusted-key": { type: "string", multiple: true },
   },
 });
 const abs = (p: string) => resolve(process.env.INIT_CWD ?? process.cwd(), p);
@@ -101,7 +108,61 @@ async function main(): Promise<number> {
     console.log(JSON.stringify(rep));
     return rep.status === "reproduced" ? 0 : 3;
   }
-  console.error("usage: build|rebuild|verify");
+  if (cmd === "publish") {
+    if (!a.snapshot || !a.root) {
+      console.error(
+        "usage: publish --snapshot <dir> --root <dir> [--research-bundle <dir>] [--key <ed25519-private.pem>]",
+      );
+      return 2;
+    }
+    try {
+      const r = publishStatic({
+        snapshotDir: abs(a.snapshot),
+        root: abs(a.root),
+        ...(a["research-bundle"] ? { researchBundleDir: abs(a["research-bundle"]) } : {}),
+        ...(a.key ? { signer: { privateKeyPem: readFileSync(abs(a.key), "utf8") } } : {}),
+      });
+      const v = verifyPublishManifest(r.bundle.dir, r.manifestPath);
+      console.log(
+        JSON.stringify({
+          status: v.ok ? "published" : "verification_failed",
+          version: r.bundle.version,
+          created: r.bundle.created,
+          capsuleHash: r.bundle.capsuleHash,
+          manifestHash: r.manifest.manifestHash,
+          signature: v.signature,
+          problems: v.problems,
+          dir: r.bundle.dir,
+          manifest: r.manifestPath,
+        }),
+      );
+      return v.ok ? 0 : 3;
+    } catch (e) {
+      if (e instanceof PublishBlockedError || e instanceof PublicationBlockedError) {
+        console.error(
+          JSON.stringify({
+            status: "PUBLICATION_BLOCKED",
+            detail: e instanceof PublishBlockedError ? e.problems : e.violations.slice(0, 10),
+          }),
+        );
+        return 4;
+      }
+      throw e;
+    }
+  }
+  if (cmd === "publish-verify") {
+    if (!a["version-dir"]) {
+      console.error("usage: publish-verify --version-dir <dir> [--trusted-key <keyId>]");
+      return 2;
+    }
+    const dir = abs(a["version-dir"]);
+    const v = verifyPublishManifest(dir, `${dir}.publish-manifest.json`, {
+      trustedKeyIds: a["trusted-key"] ?? [],
+    });
+    console.log(JSON.stringify(v));
+    return v.ok ? 0 : 3;
+  }
+  console.error("usage: build|rebuild|verify|publish|publish-verify");
   return 2;
 }
 process.exit(await main());

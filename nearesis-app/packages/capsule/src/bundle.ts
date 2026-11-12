@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, wr
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { zstdCompressSync } from "node:zlib";
+import type { CapsuleManifest } from "@nearesis/contracts";
 import { PublicationBlockedError, buildCapsule } from "./build.ts";
 import { canonicalJson, canonicalSha256, sha256Hex } from "./canonical.ts";
 import { renderMemoPdf } from "./memo.ts";
@@ -135,6 +136,8 @@ export interface BundleResult {
   capsuleHash: string;
   created: boolean;
   memo: MemoInput;
+  /** The capsule manifest this bundle was built from (results, snapshot, hashes): the publish manifest's lineage source. */
+  manifest: CapsuleManifest;
 }
 
 const write = (root: string, rel: string, data: string | Buffer): void => {
@@ -386,7 +389,7 @@ export function buildPublicationBundle(o: BundleOptions): BundleResult {
       mkdirSync(target, { recursive: true });
       for (const f of listFiles(out)) write(target, f, readFileSync(join(out, f)));
     }
-    return { dir: target, version, capsuleHash: m.capsuleHash, created, memo };
+    return { dir: target, version, capsuleHash: m.capsuleHash, created, memo, manifest: m };
   } finally {
     rmSync(work, { recursive: true, force: true });
   }

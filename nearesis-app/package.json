@@ -19,6 +19,7 @@
     "conformance": "tsx scripts/conformance.ts",
     "research:rebuild": "pnpm --filter @nearesis/capsule research:rebuild",
     "research:verify": "pnpm --filter @nearesis/capsule research:verify",
+    "research:publish": "pnpm --filter @nearesis/capsule research:publish",
     "dev:seed": "tsx scripts/dev/seed.ts",
     "dev:infra": "docker compose -f infrastructure/compose/docker-compose.yml up -d --wait",
     "dev:infra:down": "docker compose -f infrastructure/compose/docker-compose.yml down",

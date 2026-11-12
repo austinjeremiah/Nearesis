@@ -22,3 +22,4 @@ export * from "./correction.ts";
 export * from "./ownership.ts";
 export * from "./attest-outlayer.ts";
 export * from "./publication-state.ts";
+export * from "./publish.ts";

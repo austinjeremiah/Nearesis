@@ -64,6 +64,16 @@ it("SEC22: NO-GO enforcement, human-only waivers and the leak-response runbook",
   const gate = new ReleaseGate(r.k.db);
 
   // ---- (a) every NO-GO class, alone and with a clean companion; critical severity in any class
+  // ch.12 lists exactly 7 NO-GO classes; a shorter list would silently skip one
+  expect([...NO_GO_CLASSES]).toEqual([
+    "tenant_leak",
+    "public_secret",
+    "mainnet_action",
+    "unverified_tee_proof",
+    "canvas_code_execution",
+    "unbounded_agent_spawn",
+    "plugin_egress",
+  ]);
   const classDecisions: Record<string, string> = {};
   for (const cls of NO_GO_CLASSES) {
     const d = await gate.evaluate(owner, [

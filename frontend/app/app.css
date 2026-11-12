@@ -1652,3 +1652,53 @@ table.table {
   background: var(--sunken);
   color: var(--text);
 }
+
+/* =============================================================================
+   Pass 3: wordmark, collapsed sidebar, and the real landing band background.
+   ========================================================================== */
+
+.wordmark-row {
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+.wordmark-mark {
+  display: block;
+  flex: none;
+  border-radius: 3px;
+}
+/* Collapsed sidebar: the word is dropped and the mark centres in the rail,
+   rather than the word overflowing the 64px column. */
+.shell[data-nav='collapsed'] .wordmark-text {
+  display: none;
+}
+.shell[data-nav='collapsed'] .nav-top {
+  padding: var(--s3) 0;
+  align-items: center;
+}
+.shell[data-nav='collapsed'] .wordmark-row {
+  justify-content: center;
+}
+.shell[data-nav='collapsed'] .nav-top > a {
+  display: flex;
+  justify-content: center;
+}
+.shell[data-nav='collapsed'] .nav-foot {
+  align-items: center;
+}
+
+/* -----------------------------------------------------------------------------
+   Band background, taken from the marketing site's statistics section rather
+   than approximated: #1d1d1d under the same slider texture at 20%. The dot grid
+   used before was a guess at the effect and read as a different surface.
+   -------------------------------------------------------------------------- */
+.band {
+  background: #1d1d1d;
+}
+.band::before {
+  background-image: url('/assets/6a95735b50765dc3934a1495_slider_bg.avif');
+  background-position: 0 0;
+  background-size: auto;
+  background-repeat: repeat;
+  opacity: 0.2;
+}

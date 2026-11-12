@@ -11,6 +11,7 @@
     "test": "vitest run --exclude 'test/acceptance/**'",
     "research:rebuild": "tsx src/cli.ts rebuild",
     "research:verify": "tsx src/cli.ts verify",
+    "research:prove": "tsx src/prove-cli.ts",
     "research:publish": "tsx src/cli.ts publish",
     "research:live-input": "tsx src/cli.ts live-input",
     "research:publish-verify": "tsx src/cli.ts publish-verify",

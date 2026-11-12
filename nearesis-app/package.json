@@ -19,6 +19,7 @@
     "conformance": "tsx scripts/conformance.ts",
     "research:rebuild": "pnpm --filter @nearesis/capsule research:rebuild",
     "research:verify": "pnpm --filter @nearesis/capsule research:verify",
+    "research:prove": "pnpm --filter @nearesis/capsule research:prove",
     "research:publish": "pnpm --filter @nearesis/capsule research:publish",
     "research:publish-verify": "pnpm --filter @nearesis/capsule research:publish-verify",
     "research:live-input": "pnpm --filter @nearesis/capsule research:live-input",

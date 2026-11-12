@@ -8,9 +8,10 @@ import {
   scanFixtureClaims,
   sha256Hex,
   verifyAttestation,
+  verifyOutlayerLive,
   verifyTdxQuote,
 } from "../../src/index.ts";
-import { SNAPSHOT, WASM, committedPolicy, testSigner, tmp } from "../helpers.ts";
+import { SNAPSHOT, WASM, committedPolicy, liveOutlayerV10, testSigner, tmp } from "../helpers.ts";
 import { MRTD_GOOD, MRTD_OTHER, fixturePki, mintOutlayerEvidence, mintTdxQuote } from "../tdx-fixture.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -183,10 +184,102 @@ it("V09: every attestation defect is rejected with a distinct reason code; nothi
     false,
   );
 
+  // LIVE half (--live): the real OutLayer testnet record under the shipped live policy and pinned Intel root
+  let liveEvidence: Record<string, unknown> | null = null;
+  if (process.env.NEARESIS_ACCEPT_LIVE === "1") {
+    const live = liveOutlayerV10();
+    const exp = {
+      localWasmSha256: wasm,
+      inputData: live.inputData,
+      expectedOutputSha256: sha256Hex(live.outputText),
+    };
+    const real = verifyOutlayerLive(live.record, live.policy, exp);
+    expect(real.reasons).toEqual([]);
+    expect(real).toMatchObject({ decision: "accept", evidenceSource: "live", collateralChecked: false });
+    const flip = (s: string) => s.slice(0, -1) + (s.endsWith("0") ? "1" : "0");
+    const buf = Buffer.from(live.record.tdx_quote, "base64");
+    buf[buf.length - 1] = 1;
+    const liveCases: Array<[string, ReturnType<typeof verifyOutlayerLive>, string]> = [
+      [
+        "unpinned root",
+        verifyOutlayerLive(live.record, { ...live.policy, quoteTrustRootSha256: [] }, exp),
+        "QUOTE_ROOT_NOT_TRUSTED",
+      ],
+      [
+        "unapproved measurement",
+        verifyOutlayerLive(live.record, { ...live.policy, allowedMeasurements: [] }, exp),
+        "MEASUREMENT_NOT_ALLOWED",
+      ],
+      [
+        "unapproved wasm",
+        verifyOutlayerLive(live.record, { ...live.policy, allowedWasmSha256: [] }, exp),
+        "WASM_HASH_NOT_ALLOWED",
+      ],
+      [
+        "output hash changed",
+        verifyOutlayerLive({ ...live.record, output_hash: flip(live.record.output_hash) }, live.policy, exp),
+        "RESPONSE_BINDING_MISMATCH",
+      ],
+      [
+        "binding altered",
+        verifyOutlayerLive({ ...live.record, task_id: live.record.task_id + 1 }, live.policy, exp),
+        "RESPONSE_BINDING_MISMATCH",
+      ],
+      [
+        "input changed",
+        verifyOutlayerLive(live.record, live.policy, { ...exp, inputData: live.inputData + " " }),
+        "INPUT_HASH_MISMATCH",
+      ],
+      [
+        "expected output changed",
+        verifyOutlayerLive(live.record, live.policy, {
+          ...exp,
+          expectedOutputSha256: flip(exp.expectedOutputSha256),
+        }),
+        "OUTPUT_HASH_MISMATCH",
+      ],
+      [
+        "truncated quote",
+        verifyOutlayerLive(
+          { ...live.record, tdx_quote: live.record.tdx_quote.slice(0, 400) },
+          live.policy,
+          exp,
+        ),
+        "QUOTE_MALFORMED",
+      ],
+      [
+        "trailing bytes in quote",
+        verifyOutlayerLive({ ...live.record, tdx_quote: buf.toString("base64") }, live.policy, exp),
+        "QUOTE_MALFORMED",
+      ],
+    ];
+    for (const [name, d, code] of liveCases) {
+      expect(d.decision, name).toBe("reject");
+      expect(d.evidenceSource, name).toBe("fixture");
+      expect(d.reasons, name).toContain(code);
+    }
+    // the fixture-minted evidence still never reaches live: the fixture trust root is not the pinned Intel root
+    expect(everything.some((d) => d.evidenceSource === "live")).toBe(false);
+    liveEvidence = {
+      requestId: live.record.request_id,
+      txHash: live.record.transaction_hash,
+      mrTd: real.mrTd,
+      pinnedRootSha256: live.policy.quoteTrustRootSha256[0],
+      collateralChecked: false,
+      rejectedDefects: liveCases.map(([n, , c]) => ({ name: n, reason: c })),
+    };
+  }
+
   observe({
     testId: "V09",
-    observed: `Valid fixture evidence accepted as fixture_attested (evidenceSource fixture, MRTD ${MRTD_GOOD.slice(0, 12)}..). 8 mutated copies each rejected with a distinct single reason code [${records.map((r) => r.reasonCode).join(", ")}]; quote signed by the wrong key -> QUOTE_SIGNATURE_INVALID; unpinned root -> QUOTE_ROOT_NOT_TRUSTED. Capsule outlayer.status over 9 cases: ${statuses.join(",")} (never verified). Text scan of ${texts.length + exportsText.length + 1} outputs found 0 forbidden claims; negative-control wordings (4) all caught. Trust root is a locally minted test root, so no result is OutLayer-backed (BLK-20261110-003).`,
+    observed: `Valid fixture evidence accepted as fixture_attested (evidenceSource fixture, MRTD ${MRTD_GOOD.slice(0, 12)}..). 8 mutated copies each rejected with a distinct single reason code [${records.map((r) => r.reasonCode).join(", ")}]; quote signed by the wrong key -> QUOTE_SIGNATURE_INVALID; unpinned root -> QUOTE_ROOT_NOT_TRUSTED. Capsule outlayer.status over 9 cases: ${statuses.join(",")} (never verified). Text scan of ${texts.length + exportsText.length + 1} outputs found 0 forbidden claims; negative-control wordings (4) all caught. ${liveEvidence ? "" : "Trust root is a locally minted test root, so "}${liveEvidence ? `LIVE half: the real OutLayer testnet record (request ${String(liveEvidence.requestId)}, tx ${String(liveEvidence.txHash)}) is accepted under the shipped live policy with the TDX quote chained to the pinned Intel SGX root (evidenceSource live, Intel PCS collateral NOT checked); 9 defect mutations of it are each rejected with the expected reason. The fixture-minted evidence above remains fixture and is never upgraded.` : "no result is OutLayer-backed (BLK-20261110-003)."}`,
     fixtureHash: wasm,
-    evidence: { records, capsuleStatuses: statuses, evidenceSource: "fixture", collateralChecked: false },
+    evidence: {
+      records,
+      capsuleStatuses: statuses,
+      evidenceSource: "fixture",
+      collateralChecked: false,
+      ...(liveEvidence ? { liveHalf: liveEvidence } : {}),
+    },
   });
 }, 300_000);

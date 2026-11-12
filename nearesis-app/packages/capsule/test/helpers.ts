@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { AttestationPolicy } from "@nearesis/contracts";
 import type { AttestationEvidence } from "@nearesis/contracts";
 import { attestationPayload, sha256Hex } from "../src/index.ts";
+import type { OutlayerAttestationRecord, OutlayerLivePolicy } from "../src/index.ts";
 import { ensureWasm } from "../../../scripts/tests/ensure-wasm.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -62,3 +63,18 @@ export function makeEvidence(
 
 export const committedPolicy = (signers: string[]): AttestationPolicy =>
   AttestationPolicy.parse({ ...JSON.parse(readFileSync(POLICY_FILE, "utf8")), allowedSigners: signers });
+
+/** The REAL OutLayer testnet job on the V10 fixture snapshot (request 29674); recorded evidence, used only by the --live halves. */
+export function liveOutlayerV10() {
+  const dir = join(PKG, "test", "fixtures", "outlayer-live-v10");
+  const read = (n: string) => readFileSync(join(dir, n), "utf8");
+  const policy = JSON.parse(
+    readFileSync(join(APP, "services", "outlayer-verifier", "policy", "outlayer-live-policy.json"), "utf8"),
+  ) as OutlayerLivePolicy;
+  return {
+    record: JSON.parse(read("attestation.json")) as OutlayerAttestationRecord,
+    inputData: read("input_data.txt"),
+    outputText: read("expected_output.txt"),
+    policy,
+  };
+}

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
-import { SemanticQuery } from "@nearesis/contracts";
+import { INPUT_BY_CAPABILITY, SemanticQuery } from "@nearesis/contracts";
 import type { ExecutionRequest, ExecutionResponse, Principal, ToolGateway } from "@nearesis/contracts";
 import type pg from "pg";
 import { REDACTED, containsSecretShape } from "@nearesis/kernel";
@@ -69,6 +69,13 @@ export const TOOL_CATALOG: ToolSpec[] = [
     }),
     sideEffect: "read_only",
   },
+  /**
+   * Governed analytics (A27): typed analyses of NEAR Intents, ecosystem entities and accounts. No SQL; every result carries
+   * provenance and coverage, and a source that cannot answer is the typed CANNOT_COMPUTE outcome, never a zero.
+   */
+  { id: "intents.analyze@1", input: INPUT_BY_CAPABILITY["intents.analyze@1"], sideEffect: "read_only" },
+  { id: "entities.analyze@1", input: INPUT_BY_CAPABILITY["entities.analyze@1"], sideEffect: "read_only" },
+  { id: "accounts.analyze@1", input: INPUT_BY_CAPABILITY["accounts.analyze@1"], sideEffect: "read_only" },
   { id: "registry.read@1", input: obj({ key: s }), sideEffect: "read_only" },
   { id: "adapter.docs@1", input: obj({ adapter: s }), sideEffect: "read_only" },
   { id: "web.fetch_approved@1", input: obj({ url: s }), sideEffect: "read_only" },

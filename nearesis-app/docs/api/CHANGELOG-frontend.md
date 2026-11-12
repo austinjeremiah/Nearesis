@@ -1,7 +1,7 @@
 # Frontend changelog (backend changes since 11 Nov 2026)
 
 For the frontend developer. Everything here is additive: no existing field, route or status code was removed or renamed.
-Contract family version is now **1.7.0** (`CONTRACTS_VERSION`, `info.version` of `docs/api/openapi.json`). The machine
+Contract family version is now **1.8.0** (`CONTRACTS_VERSION`, `info.version` of `docs/api/openapi.json`). The machine
 contract is `docs/api/openapi.json` (generate with `pnpm api:openapi`, check with `pnpm api:openapi:check`); state
 semantics are in `STATES.md`, event semantics in `SSE.md`, samples in `examples/`.
 
@@ -129,3 +129,26 @@ the build if a route is added without being described, so regenerate the spec wh
 ## 2026-11-13 — lead hotfix in frontend-owned code (owner-approved)
 - `packages/ui/src/shell/Sidebar.tsx`: run state `BLOCKED_SOURCE` (API since contracts 1.5.0) now renders "Source unavailable"; any other unknown run state renders "Unknown state" instead of crashing the sidebar. Commit above. Please keep or replace it with your own handling; the full twelve-state taxonomy is in `docs/api/STATES.md`.
 - `packages/ui/src/styles/components.css` (owner-approved hotfix, 2026-11-13): `.nz-chat-scroll > * { flex-shrink: 0 }` so long run cards scroll instead of being squeezed and clipped (the approve button was unreachable). Keep or replace.
+
+## 2026-11-13 — analytics panels for questions the certified catalogue cannot answer (contracts v1.8.0, additive)
+
+The composer can now propose panels built from the typed analytics capabilities (`intents.analyze@1`, `entities.analyze@1`,
+`accounts.analyze@1`), for example "swaps by status per week, how have refunds changed?". These are **analytics results
+computed from certified source tables, not certified semantic metrics**. Never label them "certified".
+
+- `PanelSpec.queryRef.resultKind` (optional): `"analytics_result"` marks such a panel; absent = a semantic query panel as before.
+  `queryRef.hash` is the sha256 of the executed call (resolved window, defaults applied). `snapshotPolicy` is always `live`.
+- `PanelSpec.analytics` (optional, present exactly when `resultKind` is `analytics_result`): `{ capability, analysis, label:
+  "ANALYTICS_RESULT", certification: "SOURCE_TABLE_ANALYTICS_NOT_CERTIFIED_METRIC", sourceTables, metricVersion, coverageState }`.
+  Show `label` as the panel's source badge (instead of LIVE/SYNTHETIC/certified) and `coverageState` as completeness.
+  `panel.note` carries the same wording plus coverage and truncation for a plain-text fallback.
+- **Panel data:** `GET /v1/analytics/panel/:hash` returns `AnalyticsPanelData` `{ chart, shape, provenance, cannotCompute, truncated }`
+  (same chart/shape/provenance idea as `/api/semantic/panel/:hash`; `provenance.sourceLabel` is `"ANALYTICS"` and `provenance`
+  also carries `call`, `coverage` (missing and incomplete days, never zero-filled), `caveats`, `definition`, `method`, `asOf`).
+  The BFF `panelData()` in `apps/web/src/lib/server/semantic.ts` should branch on `panel.queryRef.resultKind === "analytics_result"`
+  and call this route (the semantic `loadQuery` path answers 404 `QUERY_UNKNOWN` / a gateway rejection for these hashes).
+  `cannotCompute` is set (HTTP 200, empty rows, `chart.freshness: "unavailable"`) when the source can no longer answer: render
+  `insufficient_data` with `missing` and `explanation`, never a chart.
+- Panel kinds used: `timeSeries` (line over time), `bar` (incl. stacked by `encoding.series`), `table`, `cohort`. All y fields carry a unit.
+- The run's composer proposal (`tasks.result.proposal`) gains `analytics: [{ title, capability, analysis, outcome: OK | CANNOT_COMPUTE |
+  REFUSED | FAILED, callHash, panelId, coverage, missing[] }]` and `skipped[]` (asks that produced no panel, with the reason).

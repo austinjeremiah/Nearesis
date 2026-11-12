@@ -4,7 +4,10 @@
   "input": "validated result envelopes",
   "allowedTools": [
     "canvas.preview@1",
-    "canvas.patch@1"
+    "canvas.patch@1",
+    "intents.analyze@1",
+    "entities.analyze@1",
+    "accounts.analyze@1"
   ],
   "artifact": "canvas-patch.json",
   "stopConditions": [

@@ -46,6 +46,7 @@ import {
   MetricRecord,
   MetricValidationReport,
   MetricVersionPin,
+  AnalyticsPanelData,
 } from "@nearesis/contracts";
 import type { ApiState, HttpMethod, NamedSchema, ResponseSpec, RouteSpec } from "@nearesis/contracts";
 
@@ -820,6 +821,22 @@ export const ROUTES: RouteSpec[] = [
     "entities",
     "Unique users (CANNOT_COMPUTE when the source cannot support it)",
     { query: DayRangeQ, states: S("insufficient_data", "complete"), ok: "Unique users or CANNOT_COMPUTE" },
+  ),
+
+  // ---- analytics panels (contracts 1.8.0): data of panels whose queryRef.resultKind is analytics_result ----------------
+  R(
+    "get",
+    "/v1/analytics/panel/:hash",
+    "analytics",
+    "Data of an analytics panel: re-executes the stored intents, entities or accounts analysis (labelled ANALYTICS_RESULT, not a certified metric)",
+    {
+      capability: "intents, entities and accounts analytics",
+      states: S("complete", "partial", "insufficient_data", "source_unavailable"),
+      ok: typed(
+        AnalyticsPanelData,
+        "Chart rows, shape, provenance (call, coverage, caveats) and cannotCompute when the source cannot answer",
+      ),
+    },
   ),
 
   // ---- accounts and cohorts (accounts are not people: every response carries meta.caveats) -------------------------

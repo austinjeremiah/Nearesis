@@ -18,12 +18,12 @@ export function buildManifest(
 ): PluginManifest {
   const m: Record<string, unknown> = {
     pluginId: "near-thesis",
-    version: opts.version ?? "1.3.0",
+    version: opts.version ?? "1.4.0",
     apiVersion: 1,
     publisher: opts.publisher,
     artifactSha256: createHash("sha256").update(readFileSync(ENTRY_FILE)).digest("hex"),
     capabilities: CAPABILITIES,
-    permissions: ["semantic:read", "canvas:preview", "metric:propose"],
+    permissions: ["semantic:read", "canvas:preview", "metric:propose", "analytics:read"],
     networkHosts: [
       "127.0.0.1:4000",
       "127.0.0.1:4001",

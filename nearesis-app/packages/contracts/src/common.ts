@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ApiState } from "./openapi-states.ts";
 
 /** Contract family version. Breaking change => major bump + ADR (CONTRACT_REGISTRY.md). */
-export const CONTRACTS_VERSION = "1.7.0";
+export const CONTRACTS_VERSION = "1.8.0";
 
 export const Uuid = z.uuid();
 export const IsoDateTime = z.iso.datetime({ offset: true });

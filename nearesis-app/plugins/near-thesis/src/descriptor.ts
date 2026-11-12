@@ -77,7 +77,7 @@ const VIEW_SCHEMA = (view: string) => ({
 
 export const NEAR_THESIS_DESCRIPTOR: Descriptor = {
   pluginId: "near-thesis",
-  version: "1.3.0",
+  version: "1.4.0",
   registrations: {
     dataPacks: [
       reg("bigquery.near", "data:bigquery:read", DATA_SCHEMA("bigquery.near"), "ch.14", `${FX}/fixtures`),

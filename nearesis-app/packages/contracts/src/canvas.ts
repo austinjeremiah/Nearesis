@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { IsoDateTime, Sha256Hex, SemVer, Uuid } from "./common.ts";
 import { FreshnessWarning, ResultTruncation } from "./overload.ts";
+import { AnalyticsPanelBinding } from "./analytics-capabilities.ts";
 
 /** Registered panel kinds (Bible schemas/canvas_panel.schema.json). Unknown kinds are rejected (C09). */
 export const PanelKind = z.enum([
@@ -31,36 +32,45 @@ export type GridLayout = z.infer<typeof GridLayout>;
 /**
  * PanelSpec (ch.09 + Bible schema). Declarative only: no functions, no HTML, no formatter strings (C02/C10).
  */
-export const PanelSpec = z.strictObject({
-  panelId: Uuid,
-  schemaVersion: z.literal(1),
-  kind: PanelKind,
-  title: SafeText(180),
-  queryRef: z.strictObject({
-    hash: Sha256Hex,
-    semanticVersion: SemVer,
-    snapshotPolicy: z.enum(["live", "pinned"]).default("live"),
-  }),
-  dataBinding: z.strictObject({
-    fields: z.array(FieldName).min(1).max(32),
-    units: z.record(FieldName, z.string().max(40)),
-    timezone: z.literal("UTC"),
-    completeness: z.enum(["complete", "partial", "unavailable"]),
-  }),
-  encoding: z.strictObject({
-    x: FieldName.optional(),
-    y: z.array(FieldName).max(8).optional(),
-    series: FieldName.optional(),
-    tooltip: z.array(FieldName).max(16).optional(),
-    scale: z.enum(["linear", "log", "index_100"]).optional(),
-    aggregation: z.enum(["none", "sum", "avg", "min", "max"]).optional(),
-    interpolateGaps: z.boolean().default(false),
-  }),
-  layout: GridLayout,
-  refreshPolicy: z.strictObject({ mode: z.enum(["on_watermark", "manual", "pinned"]) }),
-  provenanceRequired: z.literal(true),
-  note: SafeText(20000).optional(),
-});
+export const PanelSpec = z
+  .strictObject({
+    panelId: Uuid,
+    schemaVersion: z.literal(1),
+    kind: PanelKind,
+    title: SafeText(180),
+    queryRef: z.strictObject({
+      hash: Sha256Hex,
+      semanticVersion: SemVer,
+      snapshotPolicy: z.enum(["live", "pinned"]).default("live"),
+      /** v1.8.0 (additive): what the hash names. Absent = a semantic query (certified or authored metrics); `analytics_result` = an analytics capability call. */
+      resultKind: z.enum(["semantic_query", "analytics_result"]).optional(),
+    }),
+    dataBinding: z.strictObject({
+      fields: z.array(FieldName).min(1).max(32),
+      units: z.record(FieldName, z.string().max(40)),
+      timezone: z.literal("UTC"),
+      completeness: z.enum(["complete", "partial", "unavailable"]),
+    }),
+    encoding: z.strictObject({
+      x: FieldName.optional(),
+      y: z.array(FieldName).max(8).optional(),
+      series: FieldName.optional(),
+      tooltip: z.array(FieldName).max(16).optional(),
+      scale: z.enum(["linear", "log", "index_100"]).optional(),
+      aggregation: z.enum(["none", "sum", "avg", "min", "max"]).optional(),
+      interpolateGaps: z.boolean().default(false),
+    }),
+    layout: GridLayout,
+    refreshPolicy: z.strictObject({ mode: z.enum(["on_watermark", "manual", "pinned"]) }),
+    provenanceRequired: z.literal(true),
+    note: SafeText(20000).optional(),
+    /** v1.8.0 (additive): present exactly when queryRef.resultKind is `analytics_result`. Such a panel is labelled ANALYTICS_RESULT, never "certified metric". */
+    analytics: AnalyticsPanelBinding.optional(),
+  })
+  .refine((p) => (p.queryRef.resultKind === "analytics_result") === (p.analytics !== undefined), {
+    message: "analytics binding is required for, and only valid on, analytics_result panels",
+    path: ["analytics"],
+  });
 export type PanelSpec = z.infer<typeof PanelSpec>;
 
 export const MarkerAnchor = z.discriminatedUnion("kind", [

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Nearesis API",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "description": "Backend contracts for the Nearesis frontend. Generated from the zod contracts in packages/contracts; do not edit by hand (`pnpm api:openapi`). Every error uses ErrorResponse; every non-error data response can be described by the twelve ApiState values."
   },
   "servers": [
@@ -19,6 +19,9 @@
   "tags": [
     {
       "name": "accounts"
+    },
+    {
+      "name": "analytics"
     },
     {
       "name": "branches"
@@ -696,6 +699,74 @@
           "partial",
           "insufficient_data"
         ]
+      }
+    },
+    "/v1/analytics/panel/{hash}": {
+      "get": {
+        "operationId": "getAnalyticsPanelByHash",
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Data of an analytics panel: re-executes the stored intents, entities or accounts analysis (labelled ANALYTICS_RESULT, not a certified metric)",
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chart rows, shape, provenance (call, coverage, caveats) and cannotCompute when the source cannot answer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsPanelData"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-states": [
+          "complete",
+          "partial",
+          "insufficient_data",
+          "source_unavailable"
+        ],
+        "x-capability": "intents, entities and accounts analytics"
       }
     },
     "/v1/capsules": {
@@ -14608,6 +14679,365 @@
           "expectedVersion",
           "nodeId",
           "body"
+        ],
+        "additionalProperties": false
+      },
+      "AnalyticsPanelData": {
+        "type": "object",
+        "properties": {
+          "chart": {
+            "type": "object",
+            "properties": {
+              "queryHash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "dataRevision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_.]{0,63}$"
+                    },
+                    "unit": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "unit"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "rows": {
+                "maxItems": 2000,
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "string",
+                      "number",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "downsampling": {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "const": "none"
+                  },
+                  "originalPoints": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "method",
+                  "originalPoints"
+                ],
+                "additionalProperties": false
+              },
+              "freshness": {
+                "type": "string",
+                "enum": [
+                  "fresh",
+                  "late",
+                  "partial",
+                  "unavailable"
+                ]
+              },
+              "sourceWatermark": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "queryHash",
+              "dataRevision",
+              "columns",
+              "rows",
+              "downsampling",
+              "freshness",
+              "sourceWatermark"
+            ],
+            "additionalProperties": false
+          },
+          "shape": {
+            "type": "object",
+            "properties": {
+              "queryHash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_.]{0,63}$"
+                    },
+                    "unit": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "time",
+                        "measure",
+                        "dimension"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "unit",
+                    "role"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "queryHash",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "queryHash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "sourceLabel": {
+                "type": "string",
+                "const": "ANALYTICS"
+              },
+              "certification": {
+                "type": "string",
+                "const": "SOURCE_TABLE_ANALYTICS_NOT_CERTIFIED_METRIC"
+              },
+              "capability": {
+                "type": "string",
+                "enum": [
+                  "intents.analyze@1",
+                  "entities.analyze@1",
+                  "accounts.analyze@1"
+                ]
+              },
+              "analysis": {
+                "type": "string"
+              },
+              "call": {
+                "type": "object",
+                "properties": {
+                  "capability": {
+                    "type": "string",
+                    "enum": [
+                      "intents.analyze@1",
+                      "entities.analyze@1",
+                      "accounts.analyze@1"
+                    ]
+                  },
+                  "input": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "capability",
+                  "input"
+                ],
+                "additionalProperties": false
+              },
+              "resultHash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "metricVersion": {
+                "type": "string"
+              },
+              "definition": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "asOf": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "computedAt": {
+                "type": "string"
+              },
+              "coverage": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "complete",
+                      "partial",
+                      "unavailable"
+                    ]
+                  },
+                  "daysRequested": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "daysWithData": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "missingDays": {
+                    "maxItems": 120,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "incompleteDays": {
+                    "maxItems": 120,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "note": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "daysRequested",
+                  "daysWithData",
+                  "missingDays",
+                  "incompleteDays",
+                  "note"
+                ],
+                "additionalProperties": false
+              },
+              "caveats": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "queryHash",
+              "sourceLabel",
+              "certification",
+              "capability",
+              "analysis",
+              "call",
+              "resultHash",
+              "sources",
+              "metricVersion",
+              "definition",
+              "method",
+              "asOf",
+              "computedAt",
+              "coverage",
+              "caveats"
+            ],
+            "additionalProperties": false
+          },
+          "cannotCompute": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "missing": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "explanation": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "missing",
+                  "explanation"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "chart",
+          "shape",
+          "provenance",
+          "cannotCompute",
+          "truncated"
         ],
         "additionalProperties": false
       },

@@ -93,6 +93,8 @@ export interface LiveComposer {
     patch: { operations: unknown[] } | null;
     issues: Array<{ code: string; message: string }>;
     modelRequestId: string | null;
+    /** Per analytics-capability call outcome (panel built, typed CANNOT_COMPUTE, refused); shown with the proposal. */
+    analytics?: unknown[];
   }>;
 }
 const isScripted = (text: string): boolean => /\[scenario=(?!none\])/.test(text);
@@ -210,8 +212,10 @@ function createActivitiesRaw(d: ActivityDeps) {
     const pinned = row?.snapshot_ref?.startsWith("pinned:") ? row.snapshot_ref.slice(0, 100) : null;
     const toolLog: ToolLogEntry[] = [];
     const validator = validatorActorId(i.runId);
+    // taken synchronously per call: the composer issues its tool calls concurrently, and each needs its own idempotency step
+    let nextStep = 0;
     const invoke = async (capability: string, input: unknown): Promise<unknown> => {
-      const step = toolLog.length;
+      const step = nextStep++;
       if (capability === "semantic.discover@1") {
         // catalog discovery runs as the run's semantic_analyst validator principal (FND-20261110-030)
         await d.leases.ensureChild({
@@ -373,7 +377,9 @@ function createActivitiesRaw(d: ActivityDeps) {
         message: null,
         finding: finding(
           "supported",
-          "Composed a canvas proposal from the certified catalog and verified it with the preview tool.",
+          res.analytics?.length
+            ? "Composed a canvas proposal from the certified catalog and typed analytics results (labelled ANALYTICS_RESULT, not certified metrics) and verified it."
+            : "Composed a canvas proposal from the certified catalog and verified it with the preview tool.",
         ),
         artifact: {
           type: "canvas-patch.json",
@@ -386,6 +392,8 @@ function createActivitiesRaw(d: ActivityDeps) {
           patch: res.patch,
           plan: res.plan,
           modelRequestId: res.modelRequestId,
+          // analytics panels are ANALYTICS_RESULT (source tables, not certified metrics); skipped asks stay visible here
+          ...(res.analytics?.length ? { analytics: res.analytics, skipped: res.issues } : {}),
           // ch.12: the proposal shows the verification state of the model result that produced it; no stored state means
           // `unverified`, and a failed or tampered state is shown as failed, never as verified.
           verification: await (async () => {
@@ -408,7 +416,9 @@ function createActivitiesRaw(d: ActivityDeps) {
         message: null,
         finding: finding(
           "cannot_compute",
-          "The certified catalog cannot answer this request; no panels were proposed.",
+          res.analytics?.length
+            ? "Neither the certified catalog nor the analytics tools can answer this request; no panels were proposed."
+            : "The certified catalog cannot answer this request; no panels were proposed.",
         ),
         artifact: {
           type: "canvas-patch.json",
@@ -577,7 +587,12 @@ function createActivitiesRaw(d: ActivityDeps) {
                   task: "compose canvas",
                   role: "composer",
                   objective: text.slice(0, 3900),
-                  capabilities: ["canvas.preview@1"],
+                  capabilities: [
+                    "canvas.preview@1",
+                    "intents.analyze@1",
+                    "entities.analyze@1",
+                    "accounts.analyze@1",
+                  ],
                   inputSnapshot: snapshotRef.slice(0, 500),
                   budget: { ...composerBudget },
                   maxChildDepth: 0,

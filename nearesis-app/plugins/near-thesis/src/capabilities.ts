@@ -1,15 +1,23 @@
 import { z } from "zod";
 import {
   type CapabilityDecl,
+  AccountsAnalyzeInput,
+  AnalyticsOutcome,
   CanvasPatch,
   DataFrameEnvelope,
+  EntitiesAnalyzeInput,
   ErrorResponse,
+  IntentsAnalyzeInput,
   SemanticQuery,
 } from "@nearesis/contracts";
 
 /** JSON Schema for the kernel's ajv validation; zod refinements are re-checked inside the handlers. */
 const schema = (s: z.ZodType) =>
   z.toJSONSchema(s, { unrepresentable: "any", target: "draft-7" }) as Record<string, unknown>;
+
+/** Agent-supplied inputs: optional and defaulted fields stay optional (the zod default applies inside the handler). */
+const inputSchema = (s: z.ZodType) =>
+  z.toJSONSchema(s, { unrepresentable: "any", target: "draft-7", io: "input" }) as Record<string, unknown>;
 
 /** Result of a capability: an ok payload or the gateway's structured error (never a thrown string). */
 const resultOf = (ok: z.ZodType) =>
@@ -50,6 +58,14 @@ export const MetricProposeOutput = z.object({
   report: z.unknown().nullable(),
   exploratory: z.literal(true),
 });
+/** Output of every analytics capability: a typed OK table or a typed CANNOT_COMPUTE (never a zero), or the gateway-style refusal. */
+export const AnalyticsOutput = z.union([
+  z
+    .object({ ok: z.literal(true) })
+    .passthrough()
+    .and(AnalyticsOutcome),
+  z.object({ ok: z.literal(false), status: z.number(), error: ErrorResponse }),
+]);
 export const PreviewInput = z.object({
   expectedRevision: z.number().int().nonnegative(),
   requests: z.array(z.record(z.string(), z.unknown())).min(1).max(12),
@@ -100,6 +116,24 @@ export const CAPABILITIES: CapabilityDecl[] = [
     outputSchema: schema(resultOf(MetricProposeOutput)),
     requiredGrants: ["metric:propose"],
   },
+  // Governed analytics for agents (final_master_prompt s4/s10/s11/s15): typed inputs, no SQL, bounded, public warehouse data.
+  ...(
+    [
+      ["intents.analyze@1", IntentsAnalyzeInput, "analytics:intents"],
+      ["entities.analyze@1", EntitiesAnalyzeInput, "analytics:entities"],
+      ["accounts.analyze@1", AccountsAnalyzeInput, "analytics:accounts"],
+    ] as const
+  ).map(([id, input, grant]): CapabilityDecl => ({
+    ...base,
+    id,
+    category: "semantic.metricpack",
+    sideEffect: "read_only",
+    // stores only the content-addressed call spec (insert-only) so a panel can re-execute it; no workspace content changes
+    timeoutMs: 60_000,
+    inputSchema: inputSchema(input),
+    outputSchema: schema(AnalyticsOutput),
+    requiredGrants: [grant],
+  })),
   {
     ...base,
     id: "canvas.preview@1",

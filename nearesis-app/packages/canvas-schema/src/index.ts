@@ -8,3 +8,4 @@ export * from "./markdown.ts";
 
 /** Renderer/IR version recorded in selections (C13) and evidence. Bump on any renderer-visible change. */
 export const CANVAS_SCHEMA_VERSION = "1.0.0";
+export * from "./analytics-panel.ts";

@@ -34,6 +34,7 @@ import {
   type SourceCatalogue,
 } from "@nearesis/semantic-gateway";
 import { annotateEnvelope } from "./lifecycle/degradation.ts";
+import { analyticsHandler, analyticsWindows } from "./analytics.ts";
 
 type Gateway = ReturnType<typeof createGateway>;
 /** Which semantic layer a run's agents query: fixture cubes (:4000) or the LIVE real-data layer (cube-live, :4001). */
@@ -65,20 +66,49 @@ const DAY_COLUMN: Record<string, string> = {
 export async function dataWindows(
   ch: ReturnType<typeof createCh>,
 ): Promise<Record<string, { from: string; to: string } | null>> {
-  const out: Record<string, { from: string; to: string } | null> = {};
-  for (const [table, col] of Object.entries(DAY_COLUMN)) {
-    try {
-      const rs = await ch.query({
-        query: `SELECT toString(min(${col})) AS f, toString(max(${col})) AS t, count() AS n FROM ${table}`,
-        format: "JSONEachRow",
-      });
-      const r = ((await rs.json()) as Array<{ f: string; t: string; n: string }>)[0];
-      out[table] = r && Number(r.n) > 0 ? { from: r.f, to: r.t } : null;
-    } catch {
-      out[table] = null;
-    }
+  const rows = await Promise.all(
+    Object.entries(DAY_COLUMN).map(async ([table, col]) => {
+      try {
+        const rs = await ch.query({
+          query: `SELECT toString(min(${col})) AS f, toString(max(${col})) AS t, count() AS n FROM ${table}`,
+          format: "JSONEachRow",
+        });
+        const r = ((await rs.json()) as Array<{ f: string; t: string; n: string }>)[0];
+        return [table, r && Number(r.n) > 0 ? { from: r.f, to: r.t } : null] as const;
+      } catch {
+        return [table, null] as const;
+      }
+    }),
+  );
+  return Object.fromEntries(rows);
+}
+
+/**
+ * Data windows move at most once a day, but computing them scans the fact tables (about 2 s on the live database), which was
+ * paid on every composition. Served from memory for 5 minutes, then refreshed in the background (stale-while-revalidate, at
+ * most 1 hour stale); concurrent callers share one computation.
+ */
+const windowCache = new Map<
+  SemanticSource,
+  { at: number; v: Record<string, { from: string; to: string } | null>; busy: Promise<void> | null }
+>();
+async function cachedWindows(
+  source: SemanticSource,
+  ch: ReturnType<typeof createCh>,
+): Promise<Record<string, { from: string; to: string } | null>> {
+  const compute = source === "live" ? liveDataWindows : dataWindows;
+  const hit = windowCache.get(source);
+  const age = hit ? Date.now() - hit.at : Infinity;
+  if (hit && age < 300_000) return hit.v;
+  if (hit && age < 3_600_000) {
+    hit.busy ??= compute(ch)
+      .then((v) => void windowCache.set(source, { at: Date.now(), v, busy: null }))
+      .catch(() => void (hit.busy = null));
+    return hit.v;
   }
-  return out;
+  const v = await compute(ch);
+  windowCache.set(source, { at: Date.now(), v, busy: null });
+  return v;
 }
 
 /** Lazily wires one gateway per source from server-side configuration (env), so importing the module has no side effects. */
@@ -209,8 +239,14 @@ function authoringService() {
   return (authoring = { svc });
 }
 
+const isLive = (ctx: InvocationContext): boolean => sourceOf(ctx) === "live";
+
 export default definePlugin({
   handlers: {
+    /** Governed analytics for agents (intents, entities, accounts): typed inputs, typed OK/CANNOT_COMPUTE outcomes, no SQL. */
+    "intents.analyze@1": analyticsHandler("intents.analyze@1", isLive),
+    "entities.analyze@1": analyticsHandler("entities.analyze@1", isLive),
+    "accounts.analyze@1": analyticsHandler("accounts.analyze@1", isLive),
     /**
      * Governed metric authoring for agents. The proposal's author is overwritten from the kernel principal; there is no SQL
      * surface. The result is a validation report; the metric stays DRAFT/VALIDATED (exploratory) until a human certifies it.
@@ -270,13 +306,12 @@ export default definePlugin({
     "semantic.discover@1": async (_input, ctx) => {
       const source = sourceOf(ctx);
       const g = gateway(source);
-      const r = await g.gateway.discover(sessionOf(ctx));
-      return {
-        ok: true,
-        ...r,
-        source,
-        dataWindows: source === "live" ? await liveDataWindows(g.ch) : await dataWindows(g.ch),
-      };
+      const [r, windows, analytics] = await Promise.all([
+        g.gateway.discover(sessionOf(ctx)),
+        cachedWindows(source, g.ch),
+        source === "live" ? analyticsWindows() : Promise.resolve(null),
+      ]);
+      return { ok: true, ...r, source, dataWindows: windows, analyticsWindows: analytics };
     },
     "semantic.query@1": async (input, ctx) => {
       const w = gateway(sourceOf(ctx));

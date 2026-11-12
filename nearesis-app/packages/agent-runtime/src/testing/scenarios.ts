@@ -69,6 +69,10 @@ export const INVESTIGATION_GRANT: string[] = [
   "canvas.patch@1",
   ...caps.data_scout,
   "agent.spawn@1",
+  // governed analytics (A27): the live composer's lease derives from this grant
+  "intents.analyze@1",
+  "entities.analyze@1",
+  "accounts.analyze@1",
 ];
 
 export function child(

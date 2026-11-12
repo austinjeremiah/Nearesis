@@ -6,6 +6,7 @@ export * from "./semantic.ts";
 export * from "./research.ts";
 export * from "./agent.ts";
 export * from "./events.ts";
+export * from "./analytics-capabilities.ts";
 export * from "./canvas.ts";
 export * from "./api.ts";
 export * from "./monitor.ts";

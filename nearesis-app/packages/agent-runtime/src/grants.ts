@@ -14,6 +14,12 @@ export function grantFor(capability: string): { resource: string; action: string
       return { resource: "semantic", action: "discover" };
     case "metric.propose@1":
       return { resource: "metric", action: "propose" };
+    case "intents.analyze@1":
+      return { resource: "analytics", action: "intents" };
+    case "entities.analyze@1":
+      return { resource: "analytics", action: "entities" };
+    case "accounts.analyze@1":
+      return { resource: "analytics", action: "accounts" };
     case "canvas.preview@1":
       return { resource: "canvas", action: "preview" };
     case "canvas.patch@1":
@@ -34,6 +40,9 @@ export const NEAR_THESIS_CAPABILITIES = [
   "semantic.discover@1",
   "canvas.preview@1",
   "metric.propose@1",
+  "intents.analyze@1",
+  "entities.analyze@1",
+  "accounts.analyze@1",
 ] as const;
 /** Tools executed by the runtime itself against a kernel command (not through the plugin gateway). */
 export const LOCAL_COMMAND_TOOLS = ["canvas.patch@1"] as const;

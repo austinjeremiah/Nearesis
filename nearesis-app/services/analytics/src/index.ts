@@ -21,3 +21,4 @@ export * from "./accounts/types.ts";
 export * from "./accounts/source.ts";
 export * from "./accounts/metrics.ts";
 export * from "./entities/unique-signers.ts";
+export * from "./agent-analytics/index.ts";

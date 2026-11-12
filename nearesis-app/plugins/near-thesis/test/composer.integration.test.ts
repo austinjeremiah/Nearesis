@@ -30,6 +30,7 @@ import { buildManifest, composeCanvas, type ComposerPlan, PLUGIN_ROOT } from "..
 const C01_PROMPT = "investigate NEAR Intents activity after the private-settlement change";
 const W = { from: "2026-10-13T00:00:00Z", to: "2026-11-10T00:00:00Z" };
 const PLAN: ComposerPlan = {
+  analyticsPanels: [],
   rationale:
     "Compare completed, private-settlement and volume series around 2026-10-27, plus completion rate.",
   panels: [

@@ -24,6 +24,8 @@ jobs:
     steps:
       # Every run step below is `sh scripts/ci/steps.sh <name>`: the same file scripts/ci/local-run.ts replays locally.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Prohibited paths (Build Bible, directive, env files, keys, runtime data must not be tracked)
+        run: sh scripts/ci/steps.sh prohibited
       - name: Cache project-local toolchain (Node, uv, Python)
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -77,6 +79,8 @@ jobs:
         run: sh scripts/ci/steps.sh security
       - name: Vulnerability scan (pinned trivy, lockfiles and secrets)
         run: sh scripts/ci/steps.sh vuln-scan
+      - name: Secret scan of tracked files (pinned trivy)
+        run: sh scripts/ci/steps.sh secret-scan
       - name: Boot unit tests
         run: sh scripts/ci/steps.sh boot
       - name: Fixture-mode acceptance (live tests skipped)

@@ -12,7 +12,7 @@ APP="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$APP"
 NEARESIS_APP_ROOT="$APP"; export NEARESIS_APP_ROOT
 
-STEPS="toolchain install-js install-py wasm playwright services-up db-roles migrate typecheck lint format test e2e pytest security vuln-scan boot deps accept-fixture"
+STEPS="prohibited toolchain install-js install-py wasm playwright services-up db-roles migrate typecheck lint format deps test e2e pytest security vuln-scan secret-scan boot accept-fixture"
 
 compose() {
   set -- -f infrastructure/compose/docker-compose.yml -f infrastructure/compose/analytics.yml \
@@ -25,6 +25,8 @@ env_on() { . "$APP/scripts/toolchain-env.sh"; }
 step="${1:-}"
 case "$step" in
   list) for s in $STEPS; do echo "$s"; done ;;
+  # Fails if git tracks the Build Bible, the owner's directive, .env* (except .env.example), *.pem or .data/ (final directive s24).
+  prohibited) sh scripts/certify/check-prohibited.sh ;;
   toolchain) sh scripts/bootstrap-toolchain.sh ;;
   install-js) env_on; pnpm install --frozen-lockfile ;;
   install-py) env_on; uv sync --frozen ;;
@@ -67,6 +69,12 @@ case "$step" in
     env_on
     sh scripts/ci/install-trivy.sh
     pnpm exec tsx scripts/release/cli.ts scan-fs
+    ;;
+  # Same pinned trivy, secrets only, over exactly the tracked tree (git archive HEAD): no waiver path for a secret.
+  secret-scan)
+    env_on
+    sh scripts/ci/install-trivy.sh
+    pnpm exec tsx scripts/certify/secret-scan.ts
     ;;
   boot) env_on; pnpm exec vitest run tests/boot/secret-scan.test.ts ;;
   # Test-dependency graph: acyclic, known IDs, gate order (reads tests/TEST_INDEX.json only), plus its unit test.

@@ -47,6 +47,7 @@ import {
   MetricValidationReport,
   MetricVersionPin,
   AnalyticsPanelData,
+  RunFindingsFields,
 } from "@nearesis/contracts";
 import type { ApiState, HttpMethod, NamedSchema, ResponseSpec, RouteSpec } from "@nearesis/contracts";
 
@@ -404,7 +405,12 @@ export const ROUTES: RouteSpec[] = [
   R("get", "/v1/runs/:id", "investigation", "Run detail: state, tasks, budget usage, findings", {
     capability: "agent task state, research findings",
     states: S("loading", "partial", "complete", "budget_exhausted", "method_unvalidated"),
-    ok: "Run record with tasks, budget usage (spent/reserved/total) and failure reason",
+    description:
+      "Run record with tasks, budget usage (spent/reserved/total) and failure reason, plus the interpretation stage: `findings` (grounded ResearchFindings, each number tied to a result row, labelled observation or inference, with limitations and skeptic notes) and `interpretation` (state ready, unavailable with a reason, or none). Findings stream as `finding.created` events.",
+    ok: typed(
+      RunFindingsFields,
+      "Run record (loose object: the run fields are listed in the description) with findings and interpretation",
+    ),
   }),
   R("post", "/v1/runs/:id/cancel", "investigation", "Cancel a run", {
     headers: ifMatch,

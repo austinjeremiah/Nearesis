@@ -92,6 +92,28 @@ export interface RunView {
   rootTask: RunTaskView | null;
   children: RunTaskView[];
   evidenceLinks: Array<{ taskId: string; outputRef: string | null }>;
+  /** Interpretation stage (contracts 1.8.x): grounded findings about the run's panel results. Absent on older servers. */
+  findings?: RunFinding[];
+  interpretation?: { state: "ready" | "unavailable" | "none"; reason: string | null; findingCount: number };
+}
+
+/** One interpreted finding as GET /v1/runs/:id returns it (contracts `InterpretedFinding`). */
+export interface RunFinding {
+  id: string;
+  statement: string;
+  kind: "trend" | "change" | "comparison" | "spike" | "coverage" | "other";
+  basis: "observation" | "inference";
+  status: "supported" | "contradicted" | "mixed" | "insufficient_data" | "cannot_compute" | "unverified";
+  limitations: string[];
+  skepticNotes: string[];
+  skepticDegraded?: boolean;
+  /** Panels whose result rows the finding was computed from. */
+  panelIds: string[];
+  facts: Array<{
+    value: string;
+    unit: string;
+    resultRef: { queryHash: string; column: string; rowIds: string[] };
+  }>;
 }
 
 /** GET /v1/runs/:id/approvals entry. `actionHash` is what an approve/reject must echo. */

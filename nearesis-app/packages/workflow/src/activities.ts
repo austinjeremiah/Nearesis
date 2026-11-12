@@ -1,6 +1,12 @@
 import { CATALOG_UNAVAILABLE, catalogUnreadable, contextNeedsRebind } from "./source-gate.ts";
 import { randomUUID } from "node:crypto";
 import { meterActivities } from "./cost-ops.ts";
+import {
+  previewQueriesOf,
+  runInterpretation,
+  type FindingSink,
+  type InterpretationSummary,
+} from "./interpretation.ts";
 import { guardInference, modelPolicyFromEnv, type InferenceVerification } from "@nearesis/kernel";
 import type { z } from "zod";
 import { ApplicationFailure, CancelledFailure, Context } from "@temporalio/activity";
@@ -101,6 +107,15 @@ const isScripted = (text: string): boolean => /\[scenario=(?!none\])/.test(text)
 
 export interface ActivityDeps {
   liveComposer?: LiveComposer;
+  /** Interpretation stage output beyond the runtime tables: evidence graph claims and `finding.created` events (kernel-backed). */
+  findingSink?: FindingSink;
+  /**
+   * A fresh provider per run for the interpretation stage. The live provider enforces a cumulative per-instance token cap
+   * (RUN_TOKEN_CAP); sharing the worker's single instance would exhaust it after a few runs. The USD ceiling is the shared ledger and stays global.
+   */
+  providerForRun?: () => InferenceProvider;
+  /** Interpretation model-call time limits (defaults 110 s analyst, 80 s skeptic); a timeout degrades to "interpretation unavailable". */
+  interpretation?: { analystTimeoutMs?: number; skepticTimeoutMs?: number };
   /** Verified-state wiring (FND-072): records each model result's verification and reads the label a proposal must show. */
   verification?: InferenceVerification;
   /** App-role pool (nearesis_app, search_path=runtime). */
@@ -212,6 +227,8 @@ function createActivitiesRaw(d: ActivityDeps) {
     const pinned = row?.snapshot_ref?.startsWith("pinned:") ? row.snapshot_ref.slice(0, 100) : null;
     const toolLog: ToolLogEntry[] = [];
     const validator = validatorActorId(i.runId);
+    // A28: the executable queries behind the previewed panels, kept with the proposal so the interpretation stage can read their results
+    let previewQueries: ReturnType<typeof previewQueriesOf> = [];
     // taken synchronously per call: the composer issues its tool calls concurrently, and each needs its own idempotency step
     let nextStep = 0;
     const invoke = async (capability: string, input: unknown): Promise<unknown> => {
@@ -277,6 +294,7 @@ function createActivitiesRaw(d: ActivityDeps) {
           `${capability}: ${out.reasonCode}`,
           {},
         );
+      if (capability === "canvas.preview@1") previewQueries = previewQueriesOf(shaped);
       return out.response.payload;
     };
     const ledgerProvider: InferenceProvider = {
@@ -391,6 +409,7 @@ function createActivitiesRaw(d: ActivityDeps) {
         proposal: {
           patch: res.patch,
           plan: res.plan,
+          queries: previewQueries,
           modelRequestId: res.modelRequestId,
           // analytics panels are ANALYTICS_RESULT (source tables, not certified metrics); skipped asks stay visible here
           ...(res.analytics?.length ? { analytics: res.analytics, skipped: res.issues } : {}),
@@ -1270,6 +1289,57 @@ function createActivitiesRaw(d: ActivityDeps) {
         detail: { outcome, failedBranches },
       });
       return { outcome, failedBranches, notes };
+    },
+
+    /**
+     * Interpretation stage: an analyst reads the executed panel results and a skeptic challenges the findings. It never
+     * fails the run: any error degrades to an `unavailable` record (the panels are untouched). Cancellation propagates.
+     */
+    async interpretRun(i: {
+      tenantId: string;
+      workspaceId: string;
+      runId: string;
+      budgetId: string;
+      directorTaskId: string;
+      question: string;
+    }): Promise<InterpretationSummary> {
+      const ctx = Context.current();
+      const timer = setInterval(() => ctx.heartbeat(), 1000);
+      try {
+        return await runInterpretation(
+          {
+            pool: d.pool,
+            gateway: d.gateway,
+            leases: d.leases,
+            supervisor,
+            provider: d.providerForRun?.() ?? d.provider,
+            model: model(d),
+            ...(d.cost ? { cost: d.cost } : {}),
+            ...(d.findingSink ? { sink: d.findingSink } : {}),
+            ...(d.interpretation?.analystTimeoutMs
+              ? { analystTimeoutMs: d.interpretation.analystTimeoutMs }
+              : {}),
+            ...(d.interpretation?.skepticTimeoutMs
+              ? { skepticTimeoutMs: d.interpretation.skepticTimeoutMs }
+              : {}),
+            ...onResult(i.tenantId, i.workspaceId),
+          },
+          { ...i, signal: ctx.cancellationSignal },
+        );
+      } catch (e) {
+        if (e instanceof AbortedError) throw new CancelledFailure("interpretation cancelled");
+        const reason = (e instanceof AgentRuntimeError ? e.reasonCode : "INTERPRETATION_ERROR").slice(0, 80);
+        await withTenant(d.pool, i.tenantId, (c) =>
+          c.query(
+            `INSERT INTO run_interpretation (run_id, tenant_id, workspace_id, state, reason, finding_count)
+             VALUES ($1,$2,$3,'unavailable',$4,0) ON CONFLICT (run_id) DO NOTHING`,
+            [i.runId, i.tenantId, i.workspaceId, reason],
+          ),
+        ).catch(() => undefined);
+        return { state: "unavailable", reason, findingCount: 0 };
+      } finally {
+        clearInterval(timer);
+      }
     },
 
     /** CANVAS_PATCH_REVIEW: every composer proposal must have exactly one ledger row. */

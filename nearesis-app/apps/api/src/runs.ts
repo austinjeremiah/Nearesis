@@ -1,7 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
 import { MIN_QUESTION_BUDGET, SubmitQuestionRequest } from "@nearesis/contracts";
 import type {
+  InterpretedFinding,
   RunBudgetUsage,
+  RunInterpretation,
   RunListResponse,
   SourceListResponse,
   WorkspaceListResponse,
@@ -417,6 +419,44 @@ export class RunsService {
     });
   }
 
+  /**
+   * Findings of the interpretation stage and its run-level state. A database without the findings tables (migration 007 not
+   * applied yet) reads as "no interpretation", never as an error: the run itself must stay readable.
+   */
+  private async findingsOf(
+    tx: Tx,
+    runId: string,
+  ): Promise<{ findings: InterpretedFinding[]; interpretation: RunInterpretation }> {
+    const none = { findings: [], interpretation: { state: "none" as const, reason: null, findingCount: 0 } };
+    try {
+      await tx.query("SAVEPOINT run_findings_read");
+      const rows = (
+        await tx.query<{ finding: InterpretedFinding }>(
+          "SELECT finding FROM runtime.run_findings WHERE run_id = $1 ORDER BY position",
+          [runId],
+        )
+      ).rows;
+      const st = (
+        await tx.query<{ state: RunInterpretation["state"]; reason: string | null; finding_count: number }>(
+          "SELECT state, reason, finding_count FROM runtime.run_interpretation WHERE run_id = $1",
+          [runId],
+        )
+      ).rows[0];
+      await tx.query("RELEASE SAVEPOINT run_findings_read");
+      return {
+        findings: rows.map((r) => r.finding),
+        interpretation: st
+          ? { state: st.state, reason: st.reason, findingCount: st.finding_count }
+          : { state: "none", reason: null, findingCount: rows.length },
+      };
+    } catch (e) {
+      await tx.query("ROLLBACK TO SAVEPOINT run_findings_read").catch(() => undefined);
+      const c = (e as { code?: string } | null)?.code;
+      if (c === "42P01" || c === "3F000" || c === "42501") return none;
+      throw e;
+    }
+  }
+
   async getRun(s: Session, runId: string) {
     return this.kernel.db.tx(this.ctx(s), async (tx) => {
       const run = await this.load(tx, s, runId);
@@ -468,6 +508,7 @@ export class RunsService {
         createdAt: run.created_at.toISOString(),
         updatedAt: run.updated_at.toISOString(),
         budget: await this.budgetUsage(tx, run),
+        ...(await this.findingsOf(tx, runId)),
       };
     });
   }

@@ -35,6 +35,7 @@ import {
 } from "@nearesis/agent-runtime";
 import type { ActivityDeps, CanvasExecutor } from "./activities.ts";
 import { applyProgressively } from "./progressive-canvas.ts";
+import { KernelFindingSink } from "./finding-sink.ts";
 
 /**
  * Model selection from the environment (INFERENCE_PROVIDER, root .env): `openrouter` uses the live provider (spend
@@ -272,7 +273,9 @@ export function buildKernelDeps(a: {
     kernelMode: true,
     sourceHealth: ingestionSourceHealth(a.pool),
     verification: new InferenceVerification(a.kernel.verifiedState),
+    findingSink: new KernelFindingSink(a.kernel, requesterOf),
     provider: a.provider ?? createRuntimeProvider(),
+    ...(a.provider ? {} : { providerForRun: createRuntimeProvider }),
     ...(a.model ? { model: a.model } : live ? { model: liveModelFromEnv() } : {}),
     ...(live
       ? {

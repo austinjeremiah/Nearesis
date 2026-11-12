@@ -152,3 +152,12 @@ computed from certified source tables, not certified semantic metrics**. Never l
 - Panel kinds used: `timeSeries` (line over time), `bar` (incl. stacked by `encoding.series`), `table`, `cohort`. All y fields carry a unit.
 - The run's composer proposal (`tasks.result.proposal`) gains `analytics: [{ title, capability, analysis, outcome: OK | CANNOT_COMPUTE |
   REFUSED | FAILED, callHash, panelId, coverage, missing[] }]` and `skipped[]` (asks that produced no panel, with the reason).
+
+## Interpretation: findings on the run (chat hotfix, 13 Nov 2026)
+
+- `GET /v1/runs/:id` now returns `findings[]` and `interpretation {state: ready|unavailable|none, reason, findingCount}`. A finding is a grounded
+  ResearchFinding (every number tied to a result row via `facts[].resultRef`) plus `kind`, `basis` (`observation` | `inference`), `status`
+  (`supported | mixed | insufficient_data | cannot_compute`), `limitations[]`, `skepticNotes[]`, `panelIds[]`. Findings exist before the run is COMPLETE.
+- New SSE event `finding.created` (data: runId, findingId, kind, basis, status, index, total); re-read the run for the text.
+- Chat hotfix (apps/web run-conversation.ts, packages/ui AgentChatPanel): the run card renders findings (label, status, limitations, skeptic notes,
+  source chips) instead of only "Added N panels"; `interpretation.state = unavailable` shows "Interpretation unavailable (reason)". Minimal; please restyle freely.

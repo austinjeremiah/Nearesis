@@ -41,6 +41,7 @@ Bearer token; membership is re-validated about every 5 s. A foreign or unknown w
 | `task.started` | `SseDomainEvent` | seq | no | An agent task started (investigation progress). |
 | `task.completed` | `SseDomainEvent` | seq | no | An agent task finished (investigation progress). |
 | `query.completed` | `SseQueryCompleted` | seq | no | Progressive panels: one frame per panel status change (QUERYING, READY, ERROR) with index/total. |
+| `finding.created` | `SseFindingCreated` | seq | no | Interpretation: a grounded finding about the run's panel results was written (one frame per finding, with index/total). Re-read `GET /v1/runs/{id}` for its statement, observation/inference label, status, limitations and skeptic notes. |
 | `panel.created` | `SseDomainEvent` | seq | no | A panel was added to the canvas. |
 | `panel.updated` | `SseDomainEvent` | seq | no | A panel's spec or data revision changed; refetch its chart data. |
 | `panel.removed` | `SseDomainEvent` | seq | no | A panel was removed. |

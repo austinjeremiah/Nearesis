@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Uuid } from "./common.ts";
 import { DomainEvent, DomainEventType } from "./events.ts";
+import { FindingCreatedData } from "./interpretation.ts";
 
 /**
  * SSE event catalogue for `GET /v1/workspaces/:id/events` (final_master_prompt s21). The code that writes these frames is
@@ -72,9 +73,11 @@ const domain = (
   schema:
     e === "query.completed"
       ? "SseQueryCompleted"
-      : e === "run.state_changed"
-        ? "SseRunStateChanged"
-        : "SseDomainEvent",
+      : e === "finding.created"
+        ? "SseFindingCreated"
+        : e === "run.state_changed"
+          ? "SseRunStateChanged"
+          : "SseDomainEvent",
   hasId: true,
   terminal: false,
   description,
@@ -91,6 +94,11 @@ export const SSE_EVENTS: readonly SseEventSpec[] = [
     "query.completed",
     "Progressive panels: one frame per panel status change (QUERYING, READY, ERROR) with index/total.",
     ["loading", "partial", "complete", "source_unavailable"],
+  ),
+  domain(
+    "finding.created",
+    "Interpretation: a grounded finding about the run's panel results was written (one frame per finding, with index/total). Re-read `GET /v1/runs/{id}` for its statement, observation/inference label, status, limitations and skeptic notes.",
+    ["partial", "complete"],
   ),
   domain("panel.created", "A panel was added to the canvas."),
   domain("panel.updated", "A panel's spec or data revision changed; refetch its chart data.", ["partial"]),
@@ -158,6 +166,7 @@ export const SSE_EVENTS: readonly SseEventSpec[] = [
 export const SSE_SCHEMAS = {
   SseDomainEvent: DomainEvent,
   SseQueryCompleted: DomainEvent.extend({ type: z.literal("query.completed"), data: QueryCompletedData }),
+  SseFindingCreated: DomainEvent.extend({ type: z.literal("finding.created"), data: FindingCreatedData }),
   SseRunStateChanged: DomainEvent.extend({ type: z.literal("run.state_changed"), data: RunStateChangedData }),
   SseCoalescedData,
   SseReloadRequiredData,

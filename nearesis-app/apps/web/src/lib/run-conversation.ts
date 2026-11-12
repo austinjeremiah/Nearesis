@@ -387,7 +387,8 @@ export function useRunConversation(
     [patch],
   );
 
-  // Completion summary: states what happened on the canvas; never invents findings.
+  // Completion summary: states what happened on the canvas. Findings come only from the run's interpretation stage
+  // (grounded in result rows, rendered by the run card); this text never invents any.
   const viewRuns = useMemo(() => {
     const out: Record<string, RunCardModel> = {};
     for (const [runId, m] of Object.entries(runs)) {
@@ -396,13 +397,16 @@ export function useRunConversation(
         continue;
       }
       const n = m.panels?.length ?? 0;
+      const found = m.run.findings?.length ?? 0;
       const summary =
         m.run.state === "COMPLETE"
-          ? historic.current.has(runId) && !n
-            ? "Earlier run. Its panels, if any, are on the canvas with their provenance."
-            : n
-              ? `Added ${n} panel${n === 1 ? "" : "s"} to the canvas. Each keeps its query and provenance.`
-              : "The run completed. No new panels were added to the canvas."
+          ? found
+            ? "What the panels show, read from their result rows. Each number is tied to a result row; open a panel for its provenance."
+            : historic.current.has(runId) && !n
+              ? "Earlier run. Its panels, if any, are on the canvas with their provenance."
+              : n
+                ? `Added ${n} panel${n === 1 ? "" : "s"} to the canvas. Each keeps its query and provenance.`
+                : "The run completed. No new panels were added to the canvas."
           : m.run.state === "CANCELLED"
             ? "The run was cancelled. Nothing further was applied."
             : m.run.state === "PARTIAL"

@@ -8,6 +8,7 @@ export const DomainEventType = z.enum([
   "task.started",
   "task.completed",
   "query.completed",
+  "finding.created",
   "panel.created",
   "panel.updated",
   "panel.removed",

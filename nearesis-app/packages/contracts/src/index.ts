@@ -4,6 +4,7 @@ export * from "./plugin.ts";
 export * from "./observation.ts";
 export * from "./semantic.ts";
 export * from "./research.ts";
+export * from "./interpretation.ts";
 export * from "./agent.ts";
 export * from "./events.ts";
 export * from "./analytics-capabilities.ts";

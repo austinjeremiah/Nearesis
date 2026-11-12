@@ -306,6 +306,63 @@ describe("AgentChatPanel", () => {
     expect(screen.getByTestId("ask-submit")).toBeDisabled();
     expect(screen.getByTestId("run-status")).toHaveAttribute("data-run-state", "EXECUTING");
   });
+  it("renders the run's findings with label, status, limitations and skeptic notes, and says when interpretation is unavailable", () => {
+    const base = {
+      runId: "r2",
+      workspaceId: "w",
+      state: "COMPLETE" as const,
+      terminal: true,
+      version: 3,
+      failure: null,
+      result: null,
+      rootTask: null,
+      children: [],
+      evidenceLinks: [],
+    };
+    const props = {
+      thread: [{ id: "r", role: "run" as const, runId: "r2", at: "t" }],
+      onSubmit: () => undefined,
+      onCancel: () => undefined,
+      onDecide: () => undefined,
+      onAddToCanvas: () => undefined,
+    };
+    const finding = {
+      id: "f1",
+      statement: "Daily NEAR transactions rose from 1000 to 1800.",
+      kind: "change" as const,
+      basis: "observation" as const,
+      status: "mixed" as const,
+      limitations: ["Panel A: 1 coverage gap(s)."],
+      skepticNotes: ["The window starts at a local low."],
+      panelIds: ["p1"],
+      facts: [],
+    };
+    const { rerender } = render(
+      <AgentChatPanel
+        {...props}
+        runs={{ r2: { run: { ...base, findings: [finding] }, events: [], approvals: [] } }}
+      />,
+    );
+    const card = screen.getByTestId("finding");
+    expect(card).toHaveAttribute("data-basis", "observation");
+    expect(card).toHaveAttribute("data-status", "mixed");
+    expect(card).toHaveTextContent("Daily NEAR transactions rose from 1000 to 1800.");
+    expect(card).toHaveTextContent("Panel A: 1 coverage gap(s).");
+    expect(card).toHaveTextContent("The window starts at a local low.");
+    rerender(
+      <AgentChatPanel
+        {...props}
+        runs={{
+          r2: {
+            run: { ...base, interpretation: { state: "unavailable", reason: "MODEL_TIMEOUT", findingCount: 0 } },
+            events: [],
+            approvals: [],
+          },
+        }}
+      />,
+    );
+    expect(screen.getByTestId("findings-unavailable")).toHaveTextContent("MODEL_TIMEOUT");
+  });
   it("shows the server error text unmodified in an alert", () => {
     render(
       <AgentChatPanel

@@ -61,6 +61,14 @@ const quick = proxyActivities<Activities>({
   },
 });
 
+/** Interpretation reads panel results and makes up to two model calls: one attempt, a bounded wait, no retry storm. */
+const interpret = proxyActivities<Activities>({
+  startToCloseTimeout: "270 seconds",
+  heartbeatTimeout: "60 seconds",
+  cancellationType: "WAIT_CANCELLATION_COMPLETED",
+  retry: { maximumAttempts: 1 },
+});
+
 function messageOf(err: unknown): string {
   let e: unknown = err;
   let last = "";
@@ -504,6 +512,27 @@ export async function InvestigationWorkflow(input: InvestigationInput): Promise<
           await transition("CANVAS_PATCH_REVIEW");
           const cp = await quick.reviewCanvasPatch({ tenantId, runId });
           await note("canvas_patch.reviewed", { proposals: cp.proposals });
+        }
+        // Interpretation (A28): read what the approved panels show. Best effort by construction: it never fails the run.
+        if (composed && patched("interpretation-1")) {
+          try {
+            const it = await interpret.interpretRun({
+              tenantId,
+              workspaceId,
+              runId,
+              budgetId: input.budgetId,
+              directorTaskId,
+              question: input.question ?? "investigate",
+            });
+            await note("interpretation.finished", {
+              state: it.state,
+              reason: it.reason,
+              findings: it.findingCount,
+            });
+          } catch (e) {
+            if (isCancellation(e)) throw e;
+            await note("interpretation.finished", { state: "unavailable", reason: reasonOf(e), findings: 0 });
+          }
         }
         await transition("COMPLETE");
         return result(null);

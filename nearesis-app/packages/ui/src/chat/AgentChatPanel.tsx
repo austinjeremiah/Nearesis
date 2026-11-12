@@ -1,7 +1,15 @@
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { IconSend, IconStop, IconX } from "../icons";
 import { Badge, Button, IconButton, Meter, StatusDot } from "../primitives";
-import type { ApprovalView, BudgetView, Citation, RunView, ThreadItem, TimelineEvent } from "../types";
+import type {
+  ApprovalView,
+  BudgetView,
+  Citation,
+  RunFinding,
+  RunView,
+  ThreadItem,
+  TimelineEvent,
+} from "../types";
 import { TERMINAL_RUN_STATES } from "../types";
 import {
   AbstentionCard,
@@ -78,6 +86,89 @@ function BudgetRow({ budget }: { budget: BudgetView }) {
   );
 }
 
+const FINDING_STATUS: Record<
+  RunFinding["status"],
+  { label: string; tone: "ok" | "warn" | "bad" | "neutral" }
+> = {
+  supported: { label: "Supported", tone: "ok" },
+  mixed: { label: "Mixed", tone: "warn" },
+  insufficient_data: { label: "Insufficient data", tone: "warn" },
+  cannot_compute: { label: "Cannot compute", tone: "warn" },
+  contradicted: { label: "Contradicted", tone: "bad" },
+  unverified: { label: "Unverified", tone: "neutral" },
+};
+
+/** What the run's panels show: grounded findings, labelled observation or inference, with limitations and skeptic notes. */
+function Findings({
+  run,
+  citations,
+  onOpen,
+}: {
+  run: RunView;
+  citations: Citation[] | undefined;
+  onOpen: ((c: Citation) => void) | undefined;
+}) {
+  const findings = run.findings ?? [];
+  if (!findings.length) {
+    return run.interpretation?.state === "unavailable" ? (
+      <div className="nz-card" data-tone="warn" data-testid="findings-unavailable">
+        Interpretation unavailable ({run.interpretation.reason ?? "unknown reason"}). The panels are
+        unaffected.
+      </div>
+    ) : null;
+  }
+  return (
+    <div style={{ display: "grid", gap: 8 }} data-testid="findings">
+      {findings.map((f) => {
+        const st = FINDING_STATUS[f.status] ?? FINDING_STATUS.unverified;
+        const sources = (citations ?? []).filter((c) => f.panelIds.includes(c.id));
+        return (
+          <div
+            key={f.id}
+            className="nz-card"
+            data-testid="finding"
+            data-basis={f.basis}
+            data-status={f.status}
+          >
+            <div className="nz-card-title">
+              <span>{f.basis === "observation" ? "Observation" : "Inference"}</span>
+              <Badge tone={st.tone}>{st.label}</Badge>
+            </div>
+            <div style={{ lineHeight: "var(--lh-loose)", maxWidth: "62ch" }}>{f.statement}</div>
+            {sources.length ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                {sources.map((c) => (
+                  <CitationChip key={c.id} citation={c} {...(onOpen ? { onOpen } : {})} />
+                ))}
+              </div>
+            ) : null}
+            {f.limitations.length ? (
+              <details>
+                <summary>Limitations ({f.limitations.length})</summary>
+                <ul>
+                  {f.limitations.map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+            {f.skepticNotes.length ? (
+              <details>
+                <summary>Skeptic notes ({f.skepticNotes.length})</summary>
+                <ul>
+                  {f.skepticNotes.map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function RunCard({ m, props }: { m: RunCardModel; props: AgentChatPanelProps }) {
   const { run } = m;
   const running = !TERMINAL_RUN_STATES.includes(run.state);
@@ -143,6 +234,7 @@ function RunCard({ m, props }: { m: RunCardModel; props: AgentChatPanelProps }) 
             {m.summary}
           </div>
         ) : null}
+        <Findings run={run} citations={m.citations} onOpen={props.onOpenCitation} />
         {m.citations?.length ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }} aria-label="Sources for this answer">
             {m.citations.map((c) => (

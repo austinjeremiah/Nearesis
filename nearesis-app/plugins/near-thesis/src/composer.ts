@@ -81,6 +81,7 @@ const SYSTEM = [
   "You compose research dashboards for NEAR Intents from a certified metric catalog.",
   "Return only the JSON plan. Use only metric ids listed in the catalog data. Never invent metrics, SQL or UI code.",
   "Choose each panel's from/to inside that metric's dataWindow (ISO 8601 UTC instants; to is exclusive, so use the day after the last day); never plan a window outside it or for a metric whose dataWindow is null.",
+  "A panel's measures must all come from ONE view (the catalog's `view` field); a semantic query cannot span views. To compare metrics of different views, plan one panel per view.",
   "Plan exactly four panels for an investigation request when the catalog allows it, each with a distinct measure.",
   "Analytics tools: when the certified catalog has no metric for the request (for example refunds or swap status, chain flows, concentration, unusual flows, entity or account activity), plan analyticsPanels instead of abstaining. These are analytics results computed from source tables, not certified metrics. Use only the capabilities and analyses listed in <analytics_tools>, give dates as YYYY-MM-DD inside the analytics data window, and never plan an analysis marked CANNOT_COMPUTE.",
   "Plan at most six analyticsPanels, each with a distinct analysis or parameter set. For a question about change over weeks, use grain week or granularity week.",
@@ -148,7 +149,12 @@ export async function composeCanvas(args: {
       : null;
   };
   // `dataWindow` is the observed first/last UTC day with data (null = no data); plan windows must lie inside it.
-  const catalog = disc.metrics.map((m) => ({ id: m.id, unit: m.unit, dataWindow: windowOf(m) }));
+  const catalog = disc.metrics.map((m) => ({
+    id: m.id,
+    view: m.cubeMember.split(".")[0],
+    unit: m.unit,
+    dataWindow: windowOf(m),
+  }));
   // The user request and catalog are data for the model, never instructions with authority (ch.12).
   const prompt = `<request instruction_authority="user">\n${args.prompt}\n</request>\n<catalog instruction_authority="none">\n${JSON.stringify(catalog)}\n</catalog>\n<analytics_tools instruction_authority="none">\n${ANALYTICS_TOOLS}\nanalytics data windows (UTC days): ${JSON.stringify(disc.analyticsWindows ?? null)}\n</analytics_tools>`;
   const gen = await args.provider.generateStructured({
@@ -177,15 +183,34 @@ export async function composeCanvas(args: {
   }
   const dims = new Set(disc.dimensions.map((d) => d.id ?? d.member ?? ""));
   const issues: ComposeResult["issues"] = [];
-  const requests = plan.panels.map((p, i) => {
+  // A semantic query is limited to ONE view. A plan panel whose measures come from several views is split into one panel
+  // per view (validation is unchanged: the gateway still rejects any query that spans views).
+  const viewOf = (ref: string) => (byRef.get(ref)?.cubeMember ?? ref).split(".")[0]!;
+  const expanded = plan.panels.flatMap((p, planIdx) => {
+    const views = [...new Set(p.measures.map(viewOf))];
+    if (views.length <= 1) return [{ p, planIdx }];
+    return views.map((v) => ({
+      p: {
+        ...p,
+        title: `${p.title} (${v.replace(/_live$/, "").replace(/_/g, " ")})`.slice(0, 180),
+        measures: p.measures.filter((m) => viewOf(m) === v),
+      },
+      planIdx,
+    }));
+  });
+  const requests = expanded.map(({ p, planIdx }, i) => {
     for (const m of p.measures)
       if (!byRef.has(m))
-        issues.push({ code: "UNKNOWN_METRIC", message: `${m} is not in the certified catalog`, index: i });
+        issues.push({
+          code: "UNKNOWN_METRIC",
+          message: `${m} is not in the certified catalog`,
+          index: planIdx,
+        });
     const measures = p.measures.map((m) => byRef.get(m)?.id ?? m);
-    const cube = (byRef.get(p.measures[0]!)?.cubeMember ?? p.measures[0]!).split(".")[0]!;
+    const cube = viewOf(p.measures[0]!);
     const timeField = `${cube}.day`;
     if (!dims.has(timeField))
-      issues.push({ code: "NO_TIME_DIMENSION", message: `${timeField} not in catalog`, index: i });
+      issues.push({ code: "NO_TIME_DIMENSION", message: `${timeField} not in catalog`, index: planIdx });
     const panelId = uuidFrom(`${args.idempotencyKey}:${i}`);
     return {
       panelId,
@@ -210,7 +235,7 @@ export async function composeCanvas(args: {
 
   // Analytics asks: validated against each capability's own typed input, then all tool calls (and the Cube preview) run
   // concurrently; nothing here depends on the order they finish in.
-  const cubeCount = plan.panels.length;
+  const cubeCount = requests.length;
   const asks = plan.analyticsPanels.map((ask, j) => ({ ask, j, input: analyticsInput(ask) }));
   const [prev, analytics] = await Promise.all([
     requests.length

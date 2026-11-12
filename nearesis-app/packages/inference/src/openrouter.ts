@@ -137,7 +137,10 @@ export class OpenRouterProvider implements InferenceProvider {
   readonly fallbackModels: string[];
   readonly allowedProviders: string[];
   readonly attempts: AttemptRecord[] = [];
+  /** Cumulative tokens over the instance's life (diagnostic). The per-run cap is enforced per scope (see `scopeOf`). */
   tokensUsed = 0;
+  /** Tokens used per run/task scope; bounded (oldest scopes evicted). */
+  private readonly scopeTokens = new Map<string, number>();
   usdSpentThisRun = 0;
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -172,6 +175,27 @@ export class OpenRouterProvider implements InferenceProvider {
         path: defaultLedgerPath("openrouter.json"),
         capUsd: resolveBudgetUsd(process.env.INFERENCE_BUDGET_USD),
       });
+  }
+
+  /**
+   * Scope of the per-run token cap: the first two `:`-separated segments of the idempotency key (run or task id plus the stage,
+   * e.g. `<runId>:interpret`, `<runId>:skeptic`, `<taskId>:compose`), so the cap bounds one stage's calls and repairs. A long-lived
+   * worker shares one provider instance, so a cumulative counter would exhaust the cap after a few runs. The global USD
+   * ceiling (shared ledger) and the per-run budgets of the cost governor are unaffected.
+   */
+  private scopeOf(key: string | undefined): string {
+    return (key ?? "").split(":").slice(0, 2).join(":") || "_";
+  }
+  private scopeUsed(scope: string): number {
+    return this.scopeTokens.get(scope) ?? 0;
+  }
+  private addTokens(scope: string, n: number): void {
+    this.tokensUsed += n;
+    const cur = this.scopeTokens.get(scope) ?? 0;
+    this.scopeTokens.delete(scope);
+    this.scopeTokens.set(scope, cur + n);
+    while (this.scopeTokens.size > 512)
+      this.scopeTokens.delete(this.scopeTokens.keys().next().value as string);
   }
 
   private scrub(t: string): string {
@@ -388,7 +412,7 @@ export class OpenRouterProvider implements InferenceProvider {
       }
       try {
         const out = await validateWithRepair(args.schema, args.prompt, (prompt) =>
-          this.askModel(model, entry, args, prompt, jsonSchema),
+          this.askModel(model, entry, args, this.scopeOf(args.idempotencyKey), prompt, jsonSchema),
         ).then((r) => r);
         const meta = out.attempt.meta as {
           genId: string;
@@ -478,6 +502,7 @@ export class OpenRouterProvider implements InferenceProvider {
     model: string,
     entry: CatalogModel,
     args: { system: string; maxTokens: number },
+    scope: string,
     prompt: string,
     jsonSchema: unknown,
   ) {
@@ -488,7 +513,7 @@ export class OpenRouterProvider implements InferenceProvider {
         `published pricing unavailable for ${model}; refusing to spend`,
       );
     const estIn = Math.ceil((args.system.length + prompt.length + JSON.stringify(jsonSchema).length) / 3);
-    if (this.tokensUsed + estIn + args.maxTokens > this.tokenCap) {
+    if (this.scopeUsed(scope) + estIn + args.maxTokens > this.tokenCap) {
       throw new InferenceError("BUDGET_EXCEEDED", `per-run token cap ${this.tokenCap} would be exceeded`);
     }
     const body = JSON.stringify({
@@ -569,7 +594,7 @@ export class OpenRouterProvider implements InferenceProvider {
         else if (failure.cls === "empty_completion" && chat?.usage) {
           // billed but unusable: settle actual
           const u = this.usageOf(chat, price);
-          this.tokensUsed += u.inputTokens + u.outputTokens;
+          this.addTokens(scope, u.inputTokens + u.outputTokens);
           this.usdSpentThisRun += u.usd;
           await this.spend.settle(resId, { ...u, requestId }, { model, ...info });
         } else
@@ -592,7 +617,7 @@ export class OpenRouterProvider implements InferenceProvider {
 
       // success path: usage, then generation metadata for the BYOK check
       const u = this.usageOf(chat!, price);
-      this.tokensUsed += u.inputTokens + u.outputTokens;
+      this.addTokens(scope, u.inputTokens + u.outputTokens);
       this.usdSpentThisRun += u.usd;
       const genId = chat!.id ?? "";
       // The completion itself reports BYOK routing (usage.is_byok) and the serving provider. When both say BYOK on an allowed
@@ -704,7 +729,7 @@ export class OpenRouterProvider implements InferenceProvider {
         `published pricing unavailable for ${model}; refusing to spend`,
       );
     const estIn = Math.ceil((args.system.length + args.prompt.length) / 3);
-    if (this.tokensUsed + estIn + args.maxTokens > this.tokenCap)
+    if (estIn + args.maxTokens > this.tokenCap)
       throw new InferenceError("BUDGET_EXCEEDED", "per-run token cap would be exceeded");
     const worst = estIn * entry.pricing.maxPrompt + args.maxTokens * entry.pricing.maxCompletion;
     const resId = await this.spend.reserve(model, worst);
@@ -762,7 +787,7 @@ export class OpenRouterProvider implements InferenceProvider {
         }
       }
     }
-    this.tokensUsed += args.maxTokens;
+    this.addTokens("_stream", args.maxTokens);
     const gen = genId ? await this.generationMeta(genId) : null;
     const usd = Math.max(
       gen?.total_cost ?? 0,

@@ -300,6 +300,23 @@ describe("OpenRouterProvider", () => {
     ).rejects.toMatchObject({ code: "BUDGET_EXCEEDED" });
   });
 
+  it("the token cap is per run: sequential runs on one shared provider do not exhaust it, one run's cap still holds", async () => {
+    const f = makeFake();
+    // each call uses 70 tokens (fake usage) and reserves 500 + estimate; cap 1,200 fits one call per run, not three
+    const { provider } = makeProvider(f, { tokenCap: 1_200 });
+    for (let run = 0; run < 30; run++)
+      await provider.generateStructured({ ...base, maxTokens: 500, idempotencyKey: `run-${run}:interpret` });
+    expect(provider.tokensUsed).toBeGreaterThan(1_200); // cumulative diagnostic, not the cap
+    // within one run (same run and stage) the cap holds
+    const key = () => "run-x:compose";
+    await provider.generateStructured({ ...base, maxTokens: 500, idempotencyKey: key() });
+    await expect(
+      provider.generateStructured({ ...base, maxTokens: 1_150, idempotencyKey: key() }),
+    ).rejects.toMatchObject({ code: "BUDGET_EXCEEDED" });
+    // an unrelated run is unaffected
+    await provider.generateStructured({ ...base, maxTokens: 500, idempotencyKey: "run-y:compose" });
+  });
+
   it("unknown pricing refuses rather than guesses", async () => {
     const f = makeFake();
     const { provider } = makeProvider(f, { primaryModel: "openai/no-price", fallbackModels: [] });

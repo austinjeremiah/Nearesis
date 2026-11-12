@@ -41,6 +41,11 @@ export interface ChainRead {
   getTx(hash: string): Promise<TxRecord | null>;
   findByKey(nonceKey: string): Promise<TxRecord | null>;
   listSignerTxs(signer: string, fromHeight: number): Promise<TxRecord[]>;
+  /**
+   * On-chain readback by payload: true when the chain already holds a commitment of this payload hash at the target.
+   * Consulted before any broadcast and before any retry, so a lost ledger or a lost response can never cause a second write.
+   */
+  hasPayload?(contract: string, payloadHash: string): Promise<boolean>;
 }
 export interface ChainWrite extends ChainRead {
   broadcast(intent: TxIntent): Promise<{ hash: string }>;
@@ -131,6 +136,10 @@ export class FixtureChain implements ChainWrite {
   async listSignerTxs(signer: string, fromHeight: number) {
     this.read();
     return this.txs.filter((t) => t.intent.signer === signer && t.height >= fromHeight);
+  }
+  async hasPayload(contract: string, payloadHash: string) {
+    this.read();
+    return this.txs.some((t) => t.intent.receiver === contract && t.intent.payloadHash === payloadHash);
   }
   private include(intent: TxIntent): TxRecord {
     if (this.dedupe) {

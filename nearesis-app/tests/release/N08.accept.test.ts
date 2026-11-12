@@ -34,7 +34,15 @@ it("N08: exact execution succeeds once; every altered, expired, used or non-owne
     "signers",
     "usedAt",
   ]);
-  expect(Object.keys(appr.scope).sort()).toEqual(["contract", "maxCost", "method", "network", "payloadHash"]);
+  expect(Object.keys(appr.scope).sort()).toEqual([
+    "contract",
+    "feeCeiling",
+    "maxCost",
+    "method",
+    "network",
+    "payloadHash",
+    "signer",
+  ]);
   expect(appr.actionHash).toBe(actionHash(scope));
   expect(appr.usedAt).toBeNull();
 
@@ -49,6 +57,16 @@ it("N08: exact execution succeeds once; every altered, expired, used or non-owne
   const reasons: Record<string, string | null> = {};
   for (const [k, v] of Object.entries(variants)) {
     const res = await runRelease(r.deps(), { ...req, ...v, approvalId: appr.id });
+    expect(res.status, k).toBe("DENIED");
+    reasons[k] = res.reasonCode;
+  }
+  // the signer and the fee ceiling come from the release policy: an approval for one signer or one ceiling never authorises another
+  const base = r.deps().policy;
+  for (const [k, pol] of Object.entries({
+    signer: { ...base, signer: "someone-else.fixture" },
+    feeCeiling: { ...base, feeCeiling: base.feeCeiling + 1n },
+  })) {
+    const res = await runRelease(r.deps({ policy: pol }), { ...req, approvalId: appr.id });
     expect(res.status, k).toBe("DENIED");
     reasons[k] = res.reasonCode;
   }
@@ -116,7 +134,7 @@ it("N08: exact execution succeeds once; every altered, expired, used or non-owne
 
   observe({
     testId: "N08",
-    observed: `approval record holds network, contract, method, payload hash, max cost, action hash, issuer, expiry, creation time; exact execution succeeded once (used_at set, 1 transaction); 5 scope variants (network, contract, method, payload hash, max cost), an expired, a used (separate environment) and a non-owner approval all denied before any chain call (calls unchanged); two-person policy refuses a single signer and accepts two owners; audit shows ${kinds.filter((k) => k === "issued").length} issued, 1 used, ${kinds.filter((k) => k === "denied").length} denied and no delete or update path; payload-only-hash control accepts changed network and cost, so it would fail (c). Owner issuance of a production approval is HUMAN and not exercised here`,
+    observed: `approval record holds network, contract, method, payload hash, max cost, action hash, issuer, expiry, creation time; exact execution succeeded once (used_at set, 1 transaction); 7 scope variants (network, contract, method, payload hash, max cost, signer, fee ceiling), an expired, a used (separate environment) and a non-owner approval all denied before any chain call (calls unchanged); two-person policy refuses a single signer and accepts two owners; audit shows ${kinds.filter((k) => k === "issued").length} issued, 1 used, ${kinds.filter((k) => k === "denied").length} denied and no delete or update path; payload-only-hash control accepts changed network and cost, so it would fail (c). Owner issuance of a production approval is HUMAN and not exercised here`,
     fixtureHash: PAYLOAD,
     evidence: { variantReasons: reasons, auditKinds: kinds },
   });

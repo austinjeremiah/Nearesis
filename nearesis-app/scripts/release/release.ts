@@ -59,6 +59,7 @@ export interface Receipt {
 export type ReleaseStatus =
   | "DENIED"
   | "PREFLIGHT_FAILED"
+  | "ALREADY_ON_CHAIN"
   | "DRY_RUN_OK"
   | "FINAL"
   | "PENDING_FINALITY"
@@ -192,6 +193,8 @@ export async function runRelease(deps: ReleaseDeps, req: ReleaseRequest): Promis
     method: req.method,
     payloadHash: req.payloadHash,
     maxCost: req.maxCost,
+    signer: policy.signer,
+    feeCeiling: policy.feeCeiling.toString(),
   };
   const ah = actionHash(scope);
   const deny = (d: Denial | string, broadcasts = 0): ReleaseResult => ({
@@ -215,6 +218,15 @@ export async function runRelease(deps: ReleaseDeps, req: ReleaseRequest): Promis
   }
   const pf = await preflight(chain, req, policy);
   if (!pf.ok) return { status: "PREFLIGHT_FAILED", reasonCode: pf.reason, broadcasts: 0 };
+  // Exactly once: read the chain by payload before anything is signed. A commitment that is already there is never rewritten,
+  // whatever the local ledger says (lost ledger, second operator, an earlier run whose response was lost).
+  if (chain.hasPayload && (await chain.hasPayload(req.contract, req.payloadHash)))
+    return {
+      status: "ALREADY_ON_CHAIN",
+      reasonCode: "PAYLOAD_ALREADY_COMMITTED",
+      preflight: pf.record,
+      broadcasts: 0,
+    };
   if (req.mode === "dry-run")
     return { status: "DRY_RUN_OK", reasonCode: null, preflight: pf.record, broadcasts: 0 };
 
@@ -282,6 +294,9 @@ async function resolveUncertain(
   const windowPassed = entry.lastExpiryHeight !== null && height > entry.lastExpiryHeight;
   if (!windowPassed)
     return { status: "HELD_UNCERTAIN", reasonCode: "ABSENT_WINDOW_OPEN", broadcasts: entry.broadcasts };
+  // Readback by payload before any retry: if the chain holds the commitment under another transaction, hold for review.
+  if (chain.hasPayload && (await chain.hasPayload(req.contract, req.payloadHash)))
+    return hold(deps, entry, "PAYLOAD_ON_CHAIN_UNMATCHED", { payloadHash: req.payloadHash });
   if (entry.broadcasts >= MAX_BROADCASTS)
     return hold(deps, entry, "BROADCAST_BUDGET_EXHAUSTED", { broadcasts: entry.broadcasts });
   // Absent and the previous intent can no longer be included: a rebroadcast cannot duplicate it.

@@ -57,11 +57,21 @@ it("N02: a mainnet dry run without a valid approval is denied with 0 chain calls
   await expect(rpc.call("broadcast_tx_commit", ["x"])).rejects.toThrow(/not allowed/);
   await expect(rpc.call("query", { request_type: "call_function" })).rejects.toThrow(/not read-only/);
   const dir = join(import.meta.dirname, "..", "..", "scripts", "release");
-  const src = readdirSync(dir)
-    .filter((f) => f.endsWith(".ts"))
+  // The only file allowed to hold a signing primitive is the one-shot, ADR-20261111-006 testnet contract deploy script, which
+  // must itself be testnet-only (testnet-only RPC helper, no mainnet reference). Every other release script must have none.
+  const TESTNET_DEPLOY = "testnet-deploy-commit.ts";
+  const files = readdirSync(dir).filter((f) => f.endsWith(".ts"));
+  const src = files
+    .filter((f) => f !== TESTNET_DEPLOY)
     .map((f) => readFileSync(join(dir, f), "utf8"))
     .join("\n");
   expect(/signTransaction|sign_transaction|createSigner|KeyPair|fromSecretKey/.test(src)).toBe(false);
+  const deploy = readFileSync(join(dir, TESTNET_DEPLOY), "utf8");
+  expect(deploy).toContain("plugins/chain-commit/src/rpc.ts"); // the testnet-only RPC helper
+  expect(readFileSync(join(dir, "..", "..", "plugins", "chain-commit", "src", "rpc.ts"), "utf8")).toContain(
+    "https://rpc.testnet.near.org",
+  );
+  expect(/mainnet/i.test(deploy.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, ""))).toBe(false);
 
   observe({
     testId: "N02",

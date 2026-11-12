@@ -1,5 +1,6 @@
 import { NearReadOnlyRpc } from "./chain.ts";
 import type { ChainWrite, TxIntent, TxRecord } from "./chain.ts";
+import { viewCommitment } from "../../plugins/chain-commit/src/rpc.ts";
 
 const notRead = (what: string) => async (): Promise<never> => {
   throw new Error(`${what} is not available on the read-only live pre-flight chain`);
@@ -28,6 +29,10 @@ export class LiveTestnetPreflightChain implements ChainWrite {
   async estimateFee(_intent: TxIntent): Promise<bigint> {
     const g = (await this.rpc.call("gas_price", [null])) as { gas_price: string };
     return BigInt(g.gas_price) * 30_000_000_000_000n;
+  }
+  /** Read-only contract view at FINAL: is this payload hash already committed at the target? */
+  async hasPayload(contract: string, payloadHash: string): Promise<boolean> {
+    return (await viewCommitment(contract, payloadHash)).present;
   }
   getTx: (hash: string) => Promise<TxRecord | null> = notRead("getTx");
   findByKey: (key: string) => Promise<TxRecord | null> = notRead("findByKey");

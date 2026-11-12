@@ -9,6 +9,10 @@ export interface ApprovalScope {
   payloadHash: string;
   /** Maximum cost in yocto-style integer units, as a decimal string. */
   maxCost: string;
+  /** The exact account that will sign; an approval for one signer never authorises another. */
+  signer: string;
+  /** Fee ceiling in the same units: the pre-flight fee estimate must not exceed it. */
+  feeCeiling: string;
 }
 export interface ApprovalRecord {
   id: string;
@@ -32,7 +36,9 @@ export type Denial =
 /** Hash over every scope field, so changing the network or the cost invalidates the approval. */
 export function actionHash(s: ApprovalScope): string {
   return createHash("sha256")
-    .update(JSON.stringify([s.network, s.contract, s.method, s.payloadHash, s.maxCost]))
+    .update(
+      JSON.stringify([s.network, s.contract, s.method, s.payloadHash, s.maxCost, s.signer, s.feeCeiling]),
+    )
     .digest("hex");
 }
 

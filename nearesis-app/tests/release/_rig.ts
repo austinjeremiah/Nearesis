@@ -34,12 +34,14 @@ export const request = (network: Network, o: Partial<ReleaseRequest> = {}): Rele
   mode: "execute",
   ...o,
 });
-export const scopeOf = (r: ReleaseRequest): ApprovalScope => ({
+export const scopeOf = (r: ReleaseRequest, pol: ReleasePolicy = policy()): ApprovalScope => ({
   network: r.network,
   contract: r.contract,
   method: r.method,
   payloadHash: r.payloadHash,
   maxCost: r.maxCost,
+  signer: pol.signer,
+  feeCeiling: pol.feeCeiling.toString(),
 });
 
 export interface Rig {

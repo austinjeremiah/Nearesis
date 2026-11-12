@@ -58,7 +58,14 @@ export const AUTHORABLE_TABLES: Record<string, { provider: string | null; covera
     price_candles: { provider: "coingecko", coverageDataset: "price_candles" },
     quote_attempts: { provider: null, coverageDataset: null },
     // A18 economics (units and tables requested through the integration queue). The tables exist after migrateEconomics().
-    near_economics_tx_daily: { provider: "near-bigquery", coverageDataset: "near_economics_tx_daily" },
+    near_economics_outcomes_daily: {
+      provider: "near-bigquery",
+      coverageDataset: "near_economics_outcomes_daily",
+    },
+    near_economics_conversion_daily: {
+      provider: "near-bigquery",
+      coverageDataset: "near_economics_conversion_daily",
+    },
     near_economics_gas_price_daily: {
       provider: "near-bigquery",
       coverageDataset: "near_economics_gas_price_daily",
@@ -88,14 +95,12 @@ export const COLUMN_UNITS: Record<string, string> = {
   "quote_attempts.notional_usd": "USD",
   "quote_attempts.latency_ms": "ms",
   "quote_attempts.time_estimate_s": "s",
-  "near_economics_tx_daily.txs": "tx",
-  "near_economics_tx_daily.receipts": "receipt",
-  "near_economics_tx_daily.total_gas": "gas",
-  "near_economics_tx_daily.total_tokens_yocto": "yoctoNEAR",
-  "near_economics_tx_daily.conversion_gas": "gas",
-  "near_economics_tx_daily.conversion_tokens_yocto": "yoctoNEAR",
-  "near_economics_tx_daily.receipt_gas": "gas",
-  "near_economics_tx_daily.receipt_tokens_yocto": "yoctoNEAR",
+  "near_economics_outcomes_daily.outcomes": "tx",
+  "near_economics_outcomes_daily.gas_burnt": "gas",
+  "near_economics_outcomes_daily.tokens_burnt_yocto": "yoctoNEAR",
+  "near_economics_conversion_daily.txs": "tx",
+  "near_economics_conversion_daily.conversion_gas": "gas",
+  "near_economics_conversion_daily.conversion_tokens_yocto": "yoctoNEAR",
   "near_economics_gas_price_daily.blocks": "1",
   "near_economics_gas_price_daily.sum_gas_price_yocto": "yoctoNEAR/gas",
 };

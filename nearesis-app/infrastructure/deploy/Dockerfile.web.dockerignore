@@ -11,3 +11,6 @@
 test-results
 **/*.pem
 **/*.key
+**/node_modules
+**/.next-*
+**/dist

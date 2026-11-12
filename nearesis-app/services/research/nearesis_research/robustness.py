@@ -44,6 +44,36 @@ def _swap_x(inputs: Inputs, series: pd.Series) -> Inputs:
     return Inputs(d, inputs.accounts, inputs.target_aggregate, inputs.label)
 
 
+def cohort_row(inputs: Inputs, pct, spec: Spec, cand: str, thr: dict, doc_hash: str) -> dict:
+    """Live proxy for top-cohort removal: the day's top-pct signer cohort (by that day's transactions, rule version in the
+    snapshot) is subtracted from the organic target. This is a daily cohort, not the fixed development-window account set
+    used for fixtures, and is labelled so; a day with a missing cohort value is a missing target day (NaN)."""
+    cal = pd.DatetimeIndex(inputs.daily["date"])
+    tgt = inputs.target_aggregate.reindex(cal) - inputs.cohort_tx[pct].reindex(cal)
+    i2 = Inputs(inputs.daily, None, tgt, inputs.label)
+    d2 = build_dataset(i2, spec, doc_hash)
+    r = _row(_delta_for(d2.rows, d2, cand, {"baseline": d2.feature_sets["baseline"], cand: d2.feature_sets[cand]}, thr))
+    r["rule"] = "daily_top_cohort_proxy (not the fixed development-window account set)"
+    return r
+
+
+def privacy_row(inputs: Inputs, spec: Spec, cand: str, thr: dict, doc_hash: str) -> dict:
+    """Observed public versus confidential (private_settlement) swap volume as separate predictors, each against the same
+    organic target. Confidential execution outcomes recorded by the 1Click API are observed here; their on-chain legs are not."""
+    ests, bad = [], []
+    for era, name in (("public", "public"), ("private_settlement", "confidential")):
+        i2 = _swap_x(inputs, inputs.privacy_volume[era])
+        d2 = build_dataset(i2, spec, doc_hash)
+        r = _delta_for(d2.rows, d2, cand, {"baseline": d2.feature_sets["baseline"], cand: d2.feature_sets[cand]}, thr)
+        if r.get("status") == "OK":
+            ests.append({"name": name, "delta_mae": r["delta_mae"], "relative_improvement": r["relative_improvement"]})
+        else:
+            bad.append(name)
+    if ests and not bad:
+        return {"status": "OK", "estimates": ests, "n_origins": None}
+    return {"status": "NOT_COMPUTABLE", "reason": f"privacy-era predictors without scored origins: {bad}"}
+
+
 def run_matrix(inputs: Inputs, route_volume: pd.DataFrame | None, frozen: Frozen, variants: list[str] | None = None) -> dict:
     validate_config(variants if variants is not None else list(frozen.get("q18.variants")), frozen)
     q = frozen.get("q18")
@@ -65,6 +95,9 @@ def run_matrix(inputs: Inputs, route_volume: pd.DataFrame | None, frozen: Frozen
             rows[f"window_{w}d"] = _row(_delta_for(ds.rows, ds, cand, fs, thr, window=w, min_train=min(w, 25)))
     for pct in q["topCohortPct"]:
         name = f"top_{pct}pct_accounts_removed"
+        if inputs.accounts is None and inputs.cohort_tx and pct in inputs.cohort_tx and inputs.target_aggregate is not None:
+            rows[name] = cohort_row(inputs, pct, _spec(frozen), cand, thr, frozen.doc_hash)
+            continue
         if inputs.accounts is None:
             rows[name] = {"status": "NOT_COMPUTABLE", "reason": "no account-level data in this input"}
             continue
@@ -91,7 +124,10 @@ def run_matrix(inputs: Inputs, route_volume: pd.DataFrame | None, frozen: Frozen
         rows["post_oct27_regime"] = {"status": "NOT_COMPUTABLE", "reason": f"{n_post} post-regime rows; the frozen minimum is {q['minPostRegimeRows']}"}
     else:
         rows["post_oct27_regime"] = _row(_delta_for(ds.post_rows, ds, cand, fs, thr))
-    rows["public_vs_confidential"] = {"status": "NOT_COMPUTABLE", "reason": "confidential execution is unobserved in public data (ch.14); it is not assumed zero"}
+    if inputs.privacy_volume and all(k in inputs.privacy_volume for k in ("public", "private_settlement")):
+        rows["public_vs_confidential"] = privacy_row(inputs, spec, cand, thr, frozen.doc_hash)
+    else:
+        rows["public_vs_confidential"] = {"status": "NOT_COMPUTABLE", "reason": "confidential execution is unobserved in public data (ch.14); it is not assumed zero"}
     if inputs.accounts is None:
         rows["segment_targets"] = {"status": "NOT_COMPUTABLE", "reason": "no account-level data for segment targets"}
     else:

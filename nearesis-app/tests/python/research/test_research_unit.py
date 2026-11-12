@@ -122,12 +122,16 @@ def test_verify_narrative_flags_unknown_numbers():
 
 def test_live_loader_refuses_complete_when_partial():
     def q(sql, p=None):
-        if "near_daily_tx" in sql:
+        if "FROM nearesis_live.near_daily_tx" in sql:
             return [{"d": "2026-01-01", "y": 100}, {"d": "2026-01-03", "y": 120}]
-        if "price_candles" in sql:
+        if "FROM nearesis_live.account_daily_activity" in sql:
+            return [{"d": "2026-01-01", "tx_organic": 90, "top1pct_organic_tx": 5, "top5pct_organic_tx": 9, "account_rule_version": 1}, {"d": "2026-01-03", "tx_organic": 100, "top1pct_organic_tx": 5, "top5pct_organic_tx": 9, "account_rule_version": 1}]
+        if "FROM nearesis_live.price_candles" in sql:
             return [{"d": "2026-01-01", "price": 3.0}, {"d": "2026-01-02", "price": 3.1}, {"d": "2026-01-03", "price": 3.2}]
-        if "intents_swaps" in sql:
-            return [{"d": "2026-01-02", "n": 10, "n_null": 4, "vol": 55.0}]
+        if "privacy_era AS era" in sql:
+            return [{"d": "2026-01-02", "era": "public", "n_success": 6, "n_success_null_usd": 4, "vol": 55.0}]
+        if "FROM nearesis_live.intents_swaps" in sql:
+            return [{"d": "2026-01-02", "n": 10, "n_success": 10, "n_success_null_usd": 4, "vol": 55.0}]
         return [{"dataset": "intents_swaps", "state": "partial", "days": 1}]
 
     ll = load_live("2026-01-01", "2026-01-03", q)

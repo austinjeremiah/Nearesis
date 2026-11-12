@@ -92,6 +92,12 @@ def _robustness(inputs: Inputs, pre: dict, ds: Dataset, prim_bt, seed: int) -> d
     for w in (30, 90, 180):
         checks[f"rolling_window_{w}d"] = _delta_for(ds.rows, ds, cand, fs2, thr, window=w, min_train=min(w, 25))
     for pct in pre["accountExclusionRule"]["sensitivityTopPct"]:
+        if inputs.accounts is None and inputs.cohort_tx and pct in inputs.cohort_tx and inputs.target_aggregate is not None:
+            from .robustness import cohort_row
+
+            cr = cohort_row(inputs, pct, _spec(pre, h), cand, thr, pre["hash"])
+            checks[f"top_{pct}pct_accounts_removed"] = ({"status": "OK", **{k: cr["estimates"][0][k] for k in ("delta_mae", "relative_improvement")}, "n_origins": cr["n_origins"], "rule": cr["rule"]} if cr["status"] == "OK" else {"status": "INSUFFICIENT_DATA", "reason": cr["reason"], "rule": cr["rule"]})
+            continue
         if inputs.accounts is None:
             checks[f"top_{pct}pct_accounts_removed"] = {"status": "NOT_TESTABLE", "reason": "no account-level data in this input"}
             continue
@@ -304,6 +310,9 @@ def _artifacts(inputs, pre, source, results, bh, datasets, backtests, leak_repor
         f"Post-regime window is analysed separately and has {len(ds.post_rows)} usable rows.",
         "Models are ridge regressions on log1p-scale features; no nonlinear model class is claimed.",
     ] + ds.incomplete_reasons
+    for k in ("registration", "stablecoinRoutes"):
+        if source.get(k):
+            limitations.append(str(source[k]))
     if source.get("label") == "SYNTHETIC":
         limitations.append("SYNTHETIC fixture: results demonstrate method behaviour only and make no claim about real NEAR data.")
     infs = {f"{h}:{c}": r["inference"] for h, res in results.items() for c, r in res.items() if "inference" in r}

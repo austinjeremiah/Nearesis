@@ -51,6 +51,9 @@ class Inputs:
     # per-day completeness in [0,1] for the volume series; NaN volumes are never treated as 0
     volume_completeness: pd.Series | None = None
     extra_incomplete: tuple = ()  # loader-declared reasons the dataset cannot be called complete
+    # live-only sensitivity inputs (aggregate form of the account-level robustness rules; None for fixtures)
+    cohort_tx: dict | None = None  # pct -> date-indexed organic actions made by that day's top-pct signer cohort
+    privacy_volume: dict | None = None  # privacy era ("public"|"private_settlement") -> date-indexed known USD volume
 
 
 class LockboxError(RuntimeError):
@@ -291,7 +294,12 @@ def _apply_coverage(ds: Dataset, inputs: Inputs, cal) -> None:
     if inputs.extra_incomplete:
         ds.complete = False
         ds.incomplete_reasons.extend(inputs.extra_incomplete)
-    if any(v > 0 for v in miss.values()):
+    # the first calendar day has no previous price, so its return is structurally undefined: reported in `miss`, but it
+    # does not by itself make a dataset incomplete
+    gating = dict(miss)
+    if miss.get("ret", 0) > 0 and bool(pd.isna(ds.raw["ret"].iloc[0])) and bool(pd.notna(inputs.daily["price_close"].iloc[0])):
+        gating["ret"] -= 1
+    if any(v > 0 for v in gating.values()):
         # missing days are a coverage finding; only live (non-synthetic) datasets are held to "complete"
         if inputs.label != "SYNTHETIC":
             ds.complete = False

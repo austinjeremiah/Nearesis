@@ -8,7 +8,8 @@ Python package `nearesis_research`, pinned with project-local `uv` (numpy 2.5.3,
 cd nearesis-app && source scripts/toolchain-env.sh
 PYTHONPATH=services/research uv run python -m nearesis_research.cli run --fixture signal|nosignal --seed 20261111 --out <dir>
 PYTHONPATH=services/research uv run python -m nearesis_research.cli reproduce --dir <dir>
-PYTHONPATH=services/research uv run python -m nearesis_research.cli live --start 2026-01-01 --end 2026-11-01 --out <dir>
+PYTHONPATH=services/research uv run python -m nearesis_research.cli live-freeze --out-root docs/research/live-snapshots
+PYTHONPATH=services/research uv run python -m nearesis_research.cli live --snapshot docs/research/live-snapshots/<snapshotId> --out docs/research/live-results/<snapshotId>
 uv run pytest tests/python/research -q
 pnpm --filter @nearesis/research test      # Q01-Q10 acceptance wrappers
 ```
@@ -27,7 +28,7 @@ pnpm --filter @nearesis/research test      # Q01-Q10 acceptance wrappers
 
 ## Live data
 
-`live.load_live` reads `nearesis_live` (read-only, local ClickHouse, date-bounded). It reports actual per-series coverage, keeps absent days NaN, treats NULL USD swap amounts as incomplete volume (never zero), and marks the dataset incomplete when coverage is partial. The daily aggregate target is `near_daily_tx.tx_count` (unadjusted); the organic target needs account-level data, so a live run is capped at INSUFFICIENT_DATA until that exists. Fixture acceptance (Q01-Q10) is the gate; no live claim is derived from fixtures.
+Live research runs only from a pinned snapshot (`live.freeze_live_snapshot`): one read-only, date-bounded query set against `nearesis_live`, raw result sets written as canonical JSON with SHA-256, snapshot id = window + input method + content hash. Identical content reuses the id, changed content gets a new id, a damaged pinned copy is refused, and `cli live` refuses to write into a non-empty result directory. Input method `live-organic-v2` uses `account_daily_activity.tx_organic` as the organic target (supersedes `live-aggregate-v1`, the unadjusted `near_daily_tx.tx_count`, whose runs stay as they were). The swap window is resolved by an explicit rule (partial first day and the newest, still-written day are dropped). Absent days stay NaN, a SUCCESS swap with a NULL USD amount makes the day's volume incomplete (never zero). Top-1%/5% removal uses the day's signer cohort (a labelled proxy, not the fixture's fixed account set); public versus confidential volume uses `privacy_era`. Stablecoin routes and segment targets are NOT_COMPUTABLE (no asset registry: `canonical_origin_asset` is NULL; no per-account rows). Live runs are labelled post-hoc registration (the frozen parameters are the fixture-evaluation freeze; live-study fields are TBD). See `docs/research/LIVE_INPUTS.md` for runs.
 
 ## Artifact bundle (`research_run.json` and one file per section)
 

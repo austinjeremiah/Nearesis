@@ -11,9 +11,11 @@
  * Postgres, a sustained Postgres connection reset, a 5 s network partition to Temporal (container pause).
  * Judged: (a) every investigation COMPLETE within the declared recovery time; (b) every idempotent effect accepted exactly
  * once, inference duplicates disclosed; (c) journal seq contiguous, outbox consumers one effect per event, panel
- * revisions consistent; (d) availability and error-budget burn per fault recorded and the SLO burn alert fires for the
- * Postgres outage; (e) no chain write broadcast twice, pending writes resolved by lookup.
- * Negative control: the same jobs with identical injected crashes under a worker that retries without idempotency keys
+ * revisions consistent; (d) availability and error-budget burn per fault recorded, and every fault that made a probed
+ * component unavailable produces an alert DELIVERED to the notification sink (a notification.created journal event
+ * in the notification store, also received by a subscriber on the real SSE stream), with a fault-scoped dedupe key and an
+ * isolated alert window per fault so correct de-duplication across faults cannot mask delivery; (e) no chain write broadcast twice, pending writes resolved by lookup.
+ * Negative controls: (1) an alert sink that accepts and drops every alert must FAIL the delivery judge; (2) the same jobs with identical injected crashes under a worker that retries without idempotency keys
  * (fresh key per attempt, rebroadcast without lookup) must FAIL (b) and (e) through the same judge functions.
  */
 import { spawn, type ChildProcess } from "node:child_process";
@@ -29,7 +31,9 @@ import {
   CUBE_URL,
   ISOLATED,
   judgeEffects,
+  judgeAlertDelivery,
   judgeJournal,
+  type DeliveredNotification,
   sleep,
   stack,
   stackAsync,
@@ -443,10 +447,79 @@ it("PERF11: every fault recovers with no duplicate side effects and consistent s
   const fixtureHash = sha256Text(JSON.stringify(FIXTURE_SPEC));
   if (DRYRUN) process.stderr.write(`FIXTUREHASH PERF11 ${fixtureHash}\n`);
   if (g.ok) expect(referenceB().fixtures.PERF11).toBe(fixtureHash);
-  const { evaluateAndAlert, kernelAlertSink } = await import("../../packages/agent-runtime/src/index.ts");
+  const { evaluateAndAlert, kernelAlertSink, emitAlert } =
+    await import("../../packages/agent-runtime/src/index.ts");
   const { createWs } = await import("../../packages/kernel/test/helpers/index.ts");
   const q = (sql: string, params: unknown[] = []) => env.db.admin.query(sql, params);
   const sink = kernelAlertSink(k);
+  // DELIVERY: the production sink (platform alerts are an audit row) plus a fault-scoped copy delivered to a dedicated
+  // workspace as a `notification.created` journal event. `dropAll` makes the sink accept and silently drop (negative control).
+  const { workspaceId: alertWs } = await createWs(k, session, "perf11 alerts");
+  const orgId = session.principal.orgId;
+  let currentFault = "baseline";
+  let dropAll = false;
+  const deliverySink = {
+    async send(a: Parameters<typeof sink.send>[0]) {
+      if (dropAll) return;
+      await sink.send(a);
+      await sink.send({
+        ...a,
+        tenantId: orgId,
+        workspaceId: alertWs,
+        key: `${a.key}:${currentFault}`,
+        detail: { ...a.detail, fault: currentFault },
+      });
+    },
+  };
+  /** Isolated alert window per fault: the duplicate look-back is shorter than the gap between two faults, so a page for an earlier fault never suppresses this one; duplicates inside one fault are still suppressed. */
+  const FAULT_ALERT_CAPS = { maxPerWindow: 100, windowSeconds: 3, cooldownSeconds: 0 };
+  const storeNotifications = async (): Promise<DeliveredNotification[]> =>
+    (
+      await kdb.admin.query(
+        "SELECT payload FROM workspace_events WHERE workspace_id = $1 AND event_type = 'notification.created' ORDER BY seq",
+        [alertWs],
+      )
+    ).rows.map((r: { payload: { alertKey: string; fault?: string } }) => ({
+      alertKey: r.payload.alertKey,
+      fault: r.payload.fault ?? "",
+    }));
+  const subscriberNotifications = async (): Promise<DeliveredNotification[]> => {
+    const { SseParser } = await import("../../apps/web/src/lib/event-store.ts");
+    const ctrl = new AbortController();
+    const out: DeliveredNotification[] = [];
+    const res = await fetch(`http://127.0.0.1:${API_PORT}/v1/workspaces/${alertWs}/events`, {
+      headers: { authorization: `Bearer ${token}`, accept: "text/event-stream", "last-event-id": "0" },
+      signal: ctrl.signal,
+    });
+    const reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
+    const parser = new SseParser();
+    const stopAt = Date.now() + 4000;
+    try {
+      while (Date.now() < stopAt) {
+        const { value, done } = await Promise.race([
+          reader.read(),
+          sleep(Math.max(1, stopAt - Date.now())).then(() => ({ value: undefined, done: true })),
+        ]);
+        if (done) break;
+        for (const f of parser.push(value!))
+          if (f.event === "notification.created") {
+            const d = (JSON.parse(f.data) as { data?: { alertKey?: string; fault?: string } }).data;
+            if (d?.alertKey) out.push({ alertKey: d.alertKey, fault: d.fault ?? "" });
+          }
+      }
+    } finally {
+      ctrl.abort();
+    }
+    return out;
+  };
+  const deliveryVerdicts: Array<{
+    fault: string;
+    expected: boolean;
+    sent: number;
+    delivered: number;
+    problems: string[];
+  }> = [];
+  const expectedFaults: string[] = [];
 
   const { workspaceId } = await createWs(k, session, "perf11 journal");
   await seedWriterPanel(workspaceId);
@@ -475,7 +548,6 @@ it("PERF11: every fault recovers with no duplicate side effects and consistent s
     inference: number;
     recoveryMs: number;
   }> = [];
-  let sloPaged = false;
   let sloAtPostgresOutage: unknown = null;
   const alertRecords: unknown[] = [];
 
@@ -539,25 +611,74 @@ it("PERF11: every fault recovers with no duplicate side effects and consistent s
       0,
     );
     const apiBad = window.filter((p) => !p.api).length;
-    // (d) SLO evaluation on the production multi-window rules right after the fault
+    // (d) alert delivery. Production multi-window SLO rules (api_availability) plus one probe alert per component the
+    // blackbox probes saw unavailable in this fault's window; every alert goes through the production decision (dedupe,
+    // cap) and the delivery sink, under this fault's own dedupe key and isolated window.
+    currentFault = fault;
     await slo.flush().catch(() => undefined);
-    const ev = await evaluateAndAlert(kdb.app.pool, sink, new Date()).catch(
+    const evAt = new Date();
+    const ev = await evaluateAndAlert(kdb.app.pool, deliverySink, evAt, { caps: FAULT_ALERT_CAPS }).catch(
       (e: Error) => ({ error: e.message }) as never,
     );
     const firing = (ev as { statuses?: Array<{ slo: { id: string }; firing: unknown[] }> }).statuses
       ?.filter((s) => s.firing.length)
       .map((s) => s.slo.id);
-    if (fault === "restart_postgres") {
-      // firing on the production rules is the criterion; an alert already sent for the same rule inside the window is a duplicate
-      sloPaged = (firing ?? []).includes("api_availability");
+    const failedComponents = (["api", "redis", "clickhouse", "cube"] as const).filter((c) =>
+      window.some((p) => !p[c]),
+    );
+    let probeSent = 0;
+    let probeDuplicateOk = true;
+    for (const c of failedComponents) {
+      const alert = {
+        tenantId: null,
+        workspaceId: null,
+        key: `probe:${c}`,
+        kind: "probe.component_down",
+        severity: "critical" as const,
+        title: `Blackbox probe: ${c} unavailable during ${fault}`,
+        detail: { component: c, failedProbes: window.filter((p) => !p[c]).length, probes: window.length },
+      };
+      const r1 = await emitAlert(kdb.app.pool, deliverySink, alert, FAULT_ALERT_CAPS, evAt);
+      if (r1.status === "sent") probeSent++;
+      // correct de-duplication INSIDE the fault window is preserved: the same alert again is a duplicate
+      const r2 = await emitAlert(
+        kdb.app.pool,
+        deliverySink,
+        alert,
+        FAULT_ALERT_CAPS,
+        new Date(evAt.getTime() + 500),
+      );
+      if (!(r2.status === "suppressed" && r2.reason === "duplicate")) probeDuplicateOk = false;
+    }
+    const expectedAlert = failedComponents.length > 0;
+    if (expectedAlert) expectedFaults.push(fault);
+    const storeNow = (await storeNotifications()).filter((n) => n.fault === fault);
+    const sentSlo = (ev as { sent?: number }).sent ?? 0;
+    if (fault === "restart_postgres")
       sloAtPostgresOutage = {
         firing,
-        sent: (ev as { sent?: number }).sent,
+        sent: sentSlo,
         suppressed: (ev as { suppressed?: number }).suppressed,
         error: (ev as { error?: string }).error,
+        deliveredToStore: storeNow.map((n) => n.alertKey),
       };
-    }
-    alertRecords.push({ fault, firing, sent: (ev as { sent?: number }).sent ?? 0 });
+    alertRecords.push({
+      fault,
+      expectedAlert,
+      failedComponents,
+      firing,
+      sloSent: sentSlo,
+      probeAlertsSent: probeSent,
+      probeDuplicateSuppressed: probeDuplicateOk,
+      deliveredToStore: storeNow.map((n) => n.alertKey),
+    });
+    deliveryVerdicts.push({
+      fault,
+      expected: expectedAlert,
+      sent: sentSlo + probeSent,
+      delivered: storeNow.length,
+      problems: probeDuplicateOk ? [] : [`in-window duplicate of a ${fault} probe alert was not suppressed`],
+    });
     // (a)/(b) investigations: all COMPLETE, effects accepted once, charges one per accepted inference
     const complete = results ? results.filter((r: { state: string }) => r.state === "COMPLETE").length : 0;
     const runIds = runs.map((r: { runId: string }) => r.runId);
@@ -708,17 +829,61 @@ it("PERF11: every fault recovers with no duplicate side effects and consistent s
   expect(panelIds).toEqual([writerPanelId]);
   expect(doc.documentRevision).toBe(acked.size + 1); // initial add + one revision per acknowledged command
 
-  // (d) the SLO burn alert fired for the injected Postgres outage and went through the kernel audit/event path
+  // (d) every fault that made a probed component unavailable produced a DELIVERED alert: a notification.created event in the
+  // notification store (journal) and on a subscriber's SSE stream, under that fault's own key
+  const storeAll = await storeNotifications();
+  const viaSse = await subscriberNotifications();
+  const deliveryJudged = deliveryVerdicts.map((v) => ({
+    ...v,
+    ...judgeAlertDelivery({
+      fault: v.fault,
+      expected: v.expected,
+      delivered: storeAll,
+      viaSubscriber: viaSse,
+    }),
+  }));
+  for (const v of deliveryJudged)
+    expect(v.problems, `alert delivery for fault ${v.fault}: ${JSON.stringify(v)}`).toEqual([]);
+  expect(expectedFaults.length, "at least one fault must have produced an alert").toBeGreaterThan(0);
+  if (!only || only.includes("restart_postgres")) expect(expectedFaults).toContain("restart_postgres");
   const sloRows = (
     await kdb.admin.query("SELECT action, subject FROM audit_events WHERE action = 'alert.slo.burn'")
   ).rows;
-  if (!only || only.includes("restart_postgres")) {
-    expect(
-      sloPaged,
-      `SLO alert did not fire for the Postgres outage: ${JSON.stringify(sloAtPostgresOutage)}`,
-    ).toBe(true);
-    expect(sloRows.length).toBeGreaterThanOrEqual(1);
-  }
+  // ---- negative control (alert sink broken): the sink accepts and drops every alert => the same judge must FAIL
+  const dropFault = "control_dropped_sink";
+  currentFault = dropFault;
+  dropAll = true;
+  const dropAt = new Date(Date.now() + 10_000); // outside every earlier fault's duplicate window
+  const dropSent = await emitAlert(
+    kdb.app.pool,
+    deliverySink,
+    {
+      tenantId: null,
+      workspaceId: null,
+      key: "probe:control",
+      kind: "probe.component_down",
+      severity: "critical",
+      title: "control alert into a broken sink",
+      detail: {},
+    },
+    FAULT_ALERT_CAPS,
+    dropAt,
+  );
+  dropAll = false;
+  const dropJudge = judgeAlertDelivery({
+    fault: dropFault,
+    expected: true,
+    delivered: await storeNotifications(),
+    viaSubscriber: await subscriberNotifications(),
+  });
+  expect(dropSent.status).toBe("sent"); // the decision layer said "sent": only delivery distinguishes working from broken
+  expect(dropJudge.ok, "a broken alert sink must be judged FAIL").toBe(false);
+  if (!only || only.includes("restart_postgres")) expect(sloRows.length).toBeGreaterThanOrEqual(1);
+  const deliveryControl = {
+    decision: dropSent.status,
+    judgedFail: !dropJudge.ok,
+    problems: dropJudge.problems,
+  };
 
   // ---- negative control: identical injected crashes, no idempotency keys, no lookup => must FAIL (b) and (e)
   const injectOnce = () => {
@@ -786,7 +951,7 @@ it("PERF11: every fault recovers with no duplicate side effects and consistent s
   const worstRecovery = Math.max(...invStats.map((s) => s.recoveryMs));
   if (DRYRUN) {
     process.stderr.write(
-      `DRYRUN summary ${JSON.stringify({ baselineProbes, baselineBad, writerAcked: acked.size, worstRecovery, paidRedeliveries, chainLookups, claimsRetried, sloAtPostgresOutage, controlProblems: control.verdict.problems.slice(0, 3) })}\n`,
+      `DRYRUN summary ${JSON.stringify({ baselineProbes, baselineBad, writerAcked: acked.size, worstRecovery, paidRedeliveries, chainLookups, claimsRetried, sloAtPostgresOutage, alertDelivery: deliveryJudged, deliveryControl, controlProblems: control.verdict.problems.slice(0, 3) })}\n`,
     );
     return;
   }
@@ -808,6 +973,8 @@ it("PERF11: every fault recovers with no duplicate side effects and consistent s
       investigations: invStats,
       sloAlerts: alertRecords,
       sloAtPostgresOutage,
+      alertDelivery: deliveryJudged,
+      alertDeliveryControl: deliveryControl,
       baseline: { probes: baselineProbes, unhealthy: baselineBad, alertsSent: baseline.sent },
       ledger: {
         rows: fxLedger.length,

@@ -1,5 +1,8 @@
 {
   "note": "Thresholds and fixture-spec hashes for PERF05-PERF12 (ch.16b section 6.2). Accepted as written; none may be tuned, relaxed or re-interpreted after a failure. Same reference profile as ADR-20261111-002.",
+  "clockNotes": {
+    "PERF06": "JUDGED CLOCK (frozen ch.16b definition, restored 2026-11-13 by A29): starts at PROMPT SUBMISSION (client POST /questions) and stops at the first REAL panel, i.e. its canvas.patched has arrived and its query.completed is READY; a pending placeholder (QUERYING) never counts. firstPanelP95Ms stays 8000. The fixture's approval step is automated with zero added delay; prompt-to-approval and approval-to-first-real-panel (A7's former judged clock) are reported as separate, unjudged lines."
+  },
   "thresholds": {
     "PERF05": {
       "workspaces": 20,

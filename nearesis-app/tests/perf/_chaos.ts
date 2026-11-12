@@ -223,3 +223,29 @@ export function judgeJournal(rows: Array<{ seq: number; event_id: string }>): {
   if (new Set(rows.map((r) => r.event_id)).size !== rows.length) problems.push("duplicate event ids");
   return { ok: problems.length === 0, problems: problems.slice(0, 5) };
 }
+
+/**
+ * PERF11 (d) judgement of alert DELIVERY (pure, so the negative control runs the same code). A fault that made a probed
+ * component unavailable (`expected`) must have produced at least one alert that reached the notification sink: a
+ * `notification.created` journal event observed in the notification store, scoped to that fault by its dedupe key
+ * (`<alert key>:<fault>`). A fired rule, a recorded `sent` decision or an audit row is NOT delivery.
+ */
+export interface DeliveredNotification {
+  alertKey: string;
+  fault: string;
+}
+export function judgeAlertDelivery(a: {
+  fault: string;
+  expected: boolean;
+  delivered: DeliveredNotification[];
+  viaSubscriber: DeliveredNotification[];
+}): { ok: boolean; problems: string[] } {
+  if (!a.expected) return { ok: true, problems: [] };
+  const problems: string[] = [];
+  const mine = a.delivered.filter((n) => n.fault === a.fault && n.alertKey.endsWith(`:${a.fault}`));
+  if (mine.length === 0) problems.push(`no alert delivered to the notification sink for fault ${a.fault}`);
+  const seen = a.viaSubscriber.filter((n) => n.fault === a.fault && n.alertKey.endsWith(`:${a.fault}`));
+  if (mine.length > 0 && seen.length === 0)
+    problems.push(`alert for ${a.fault} is in the notification store but never reached an SSE subscriber`);
+  return { ok: problems.length === 0, problems };
+}

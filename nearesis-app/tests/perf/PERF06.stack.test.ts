@@ -1,6 +1,10 @@
 /**
- * PERF06 real-stack variant: a freshly generated four-panel canvas (ch.13; ch.16b 6.2), measured with the clock starting at
- * the OWNER'S APPROVAL (interpretation recorded for owner confirmation: the composer's approval is a human gate).
+ * PERF06 real-stack variant: a freshly generated four-panel canvas (ch.13; ch.16b 6.2), measured with the JUDGED clock
+ * starting at PROMPT SUBMISSION (the frozen ch.16b definition: "a fresh prompt yields the first panel within 8 s") and
+ * stopping at the first REAL panel: a panel whose canvas.patched has arrived AND whose query.completed is READY. A pending
+ * placeholder (QUERYING) never counts. The fixture's approval step is automated with zero added delay (the approval is sent
+ * the instant the request is listed); its latency (prompt -> approval request, request -> approval sent) and the
+ * approval-to-first-panel time are reported as separate lines, NOT judged.
  *
  * Path, all real except the model: POST /questions (real API, Temporal-backed engine) -> run worker -> near-thesis composer
  * (deterministic MOCK inference with a declared fixed latency, no paid call) -> canvas.preview through the kernel gateway
@@ -48,18 +52,40 @@ export interface PanelFrame {
   status: "QUERYING" | "READY" | "ERROR";
 }
 export interface RunTimeline {
+  /** performance.now() at prompt submission: the judged clock starts here. */
+  promptAt: number;
+  /** performance.now() when the fixture's approval request was sent (reported, not judged). */
   approvalAt: number;
+  /** performance.now() when the approval request was first listed (reported, not judged). */
+  approvalListedAt: number;
   panels: PanelFrame[];
   start: { runId: string | null; runReadable: boolean; terminalAtResponse: boolean };
   completedAt: number;
   fabricatedWhilePending: boolean;
 }
-export const firstPanelMs = (r: RunTimeline): number | null =>
-  r.panels.length ? Math.min(...r.panels.map((p) => p.patchedAt)) - r.approvalAt : null;
-export const fourthPanelMs = (r: RunTimeline): number | null =>
-  r.panels.length >= TH.panels
-    ? r.panels.map((p) => p.patchedAt).sort((a, b) => a - b)[TH.panels - 1]! - r.approvalAt
-    : null;
+/** The instant a panel is REAL: its canvas.patched has arrived and its query.completed is READY. A placeholder never counts. */
+const realAt = (p: PanelFrame): number | null =>
+  p.status === "READY" && p.completedAt !== null ? Math.max(p.patchedAt, p.completedAt) : null;
+const realTimes = (r: RunTimeline): number[] =>
+  r.panels
+    .map(realAt)
+    .filter((x): x is number => x !== null)
+    .sort((a, b) => a - b);
+/** JUDGED: prompt submission -> first real panel. */
+export const firstPanelMs = (r: RunTimeline): number | null => {
+  const t = realTimes(r);
+  return t.length ? t[0]! - r.promptAt : null;
+};
+/** JUDGED (c): prompt submission -> fourth real panel. */
+export const fourthPanelMs = (r: RunTimeline): number | null => {
+  const t = realTimes(r);
+  return t.length >= TH.panels ? t[TH.panels - 1]! - r.promptAt : null;
+};
+/** REPORTED, not judged: owner approval sent -> first real panel (A7's former clock). */
+export const firstPanelFromApprovalMs = (r: RunTimeline): number | null => {
+  const t = realTimes(r);
+  return t.length ? t[0]! - r.approvalAt : null;
+};
 export const passesA = (runs: RunTimeline[], boundMs: number): boolean => {
   const xs = runs.map(firstPanelMs);
   return (
@@ -249,7 +275,7 @@ interface RunOut {
   mockMs: number;
   state: string;
 }
-async function approve(id: string): Promise<number> {
+async function approve(id: string): Promise<{ at: number; listedAt: number }> {
   const pending = await waitFor(
     async () => {
       const l = (await (await api(`/v1/runs/${id}/approvals`)).json()) as {
@@ -260,13 +286,14 @@ async function approve(id: string): Promise<number> {
     120_000,
     20,
   );
-  const at = performance.now(); // the clock starts here: the approval request is sent
+  const listedAt = performance.now(); // the approval request was listed; the fixture approves at once (zero added delay)
+  const at = performance.now(); // reported separately: the approval request is sent
   const d = await api(`/v1/runs/${id}/approvals/${pending.approvalId}`, {
     method: "POST",
     body: JSON.stringify({ decision: "approve", actionHash: pending.actionHash }),
   });
   expect(d.status).toBe(202);
-  return at;
+  return { at, listedAt };
 }
 const dataLike = (v: unknown): boolean =>
   /"(rows|values|series|points|cells)"\s*:/.test(JSON.stringify(v ?? {}));
@@ -291,13 +318,13 @@ async function oneRun(e: Env, variant: number, o: { blockingStart?: boolean } = 
   expect(res.status).toBe(202);
   const runId = body.runId!;
   const hand = e.client.workflow.getHandle(body.workflowId!);
-  let tApprove: number;
+  let tApprove: { at: number; listedAt: number };
   let tResp: number;
   let composeMs: number;
   if (o.blockingStart) {
     // control: a start request that only answers once the whole run has finished
     tApprove = await approve(runId);
-    composeMs = tApprove - t0;
+    composeMs = tApprove.at - t0;
     await hand.result();
     tResp = performance.now();
   } else {
@@ -314,7 +341,7 @@ async function oneRun(e: Env, variant: number, o: { blockingStart?: boolean } = 
   const row = view ? { state: desc.status.name } : undefined;
   if (!o.blockingStart) {
     tApprove = await approve(runId);
-    composeMs = tApprove - t0;
+    composeMs = tApprove.at - t0;
   }
   const result = (await hand.result()) as { state: string };
   const tDone = performance.now();
@@ -356,7 +383,9 @@ async function oneRun(e: Env, variant: number, o: { blockingStart?: boolean } = 
     added.some((p) => p.status !== "QUERYING" && (p.completedSeq === null || p.completedSeq < p.patchedSeq));
   return {
     timeline: {
-      approvalAt: tApprove!,
+      promptAt: t0,
+      approvalAt: tApprove!.at,
+      approvalListedAt: tApprove!.listedAt,
       panels: added,
       start: { runId, runReadable: !!row, terminalAtResponse: terminal },
       completedAt: tDone,
@@ -369,7 +398,7 @@ async function oneRun(e: Env, variant: number, o: { blockingStart?: boolean } = 
   };
 }
 
-it("PERF06 (real stack, approval clock): first panel p95 < 8 s after approval, progressive panels with per-query status", async () => {
+it("PERF06 (real stack, prompt clock): first real panel p95 < 8 s from prompt submission, progressive panels with per-query status", async () => {
   if (!DRYRUN && process.env.PERF06_STACK !== "1") {
     observe({
       testId: "PERF06",
@@ -408,6 +437,9 @@ it("PERF06 (real stack, approval clock): first panel p95 < 8 s after approval, p
     fourth: stats(allT.map((t) => fourthPanelMs(t)!)),
     start: stats(all.map((r) => r.startMs)),
     promptToApproval: stats(all.map((r) => r.composeMs)),
+    /** reported, NOT judged */
+    approvalListedToSent: stats(all.map((r) => r.timeline.approvalAt - r.timeline.approvalListedAt)),
+    firstFromApprovalUnjudged: stats(all.map((r) => firstPanelFromApprovalMs(r.timeline)!)),
     mock: stats(all.map((r) => r.mockMs)),
     rateB: ratePct(allT, passesB),
     rateC: ratePct(allT, passesC),

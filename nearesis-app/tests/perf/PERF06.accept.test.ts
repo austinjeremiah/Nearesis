@@ -10,11 +10,12 @@
  * (QUERYING: the panel exists as a query reference only) followed by `query.completed` (READY | ERROR).
  * Measured on the client: start-request time, time to first panel, time to the fourth, and the per-panel status
  * timeline, all from one process clock. The declared mock latencies are reported as a separate line, never hidden.
- * CLOCK (interpretation recorded for owner confirmation): the composer's approval is a human gate, so the judged time to
- * the first and the fourth panel starts at the OWNER'S APPROVAL (the instant the harness approves and starts applying the
- * patch) and stops at the panel's `canvas.patched` frame on the SSE stream. Times from prompt submission are measured and
- * reported as separate lines. The real-stack variant (Temporal worker, near-thesis composer with mock inference, Cube,
- * approvals API) is tests/perf/PERF06.stack.test.ts.
+ * CLOCK (frozen ch.16b definition, restored): the JUDGED time starts at PROMPT SUBMISSION (the client's POST /questions) and
+ * stops at the first REAL panel: a panel whose `canvas.patched` frame has arrived AND whose `query.completed` is READY. A
+ * pending placeholder (QUERYING, query reference only) never counts. The fixture's approval step is automated with ZERO added
+ * delay (approvalMs 0); the time from prompt to approval is reported as a separate line, and the approval-to-first-panel time
+ * (the clock A7 had made the judged one) is reported as an extra line that is NOT judged. The first/fourth placeholder times
+ * are reported too.
  * Cold = a fresh workspace with the mock query cache emptied (30 runs); warm = cache populated (10 runs).
  * Negative control: a build whose start request waits for all panels and applies them as one patch must FAIL (b), (c).
  */
@@ -63,10 +64,13 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export interface RunSample {
   startMs: number;
   durableRun: boolean;
-  /** Judged by (a) and (c): milliseconds from the owner's approval to the panel's canvas.patched frame. */
+  /** Judged by (a) and (c): milliseconds from PROMPT SUBMISSION to the first / fourth REAL panel (canvas.patched seen and query.completed READY). */
   firstMs: number | null;
   fourthMs: number | null;
-  /** Reported, and used by (b) against the start request: milliseconds from prompt submission. */
+  /** Reported, NOT judged: milliseconds from the owner's approval to the first / fourth real panel (A7's former clock). */
+  approvalFirstMs: number | null;
+  approvalFourthMs: number | null;
+  /** Used by (b) against the start request: milliseconds from prompt submission to the first / fourth placeholder (canvas.patched, QUERYING). Never judged as a panel. */
   promptFirstMs: number | null;
   promptFourthMs: number | null;
   panelTimeline: Array<{
@@ -330,15 +334,24 @@ async function oneRun(label: string): Promise<RunSample & { statuses: string[]; 
   // the stored canvas carries no data while/after: the panel specs reference queries only
   const doc = await k.canvas.get(s, workspaceId);
   fabricated.push(...scanKeys(doc.panels, "doc"));
-  // the judged clock starts at the approval: its offset from the prompt-submission clock used by the stream readers above
+  // judged: a panel is REAL once its canvas.patched has arrived and its query.completed is READY (never a placeholder)
+  const realAt = panelIds
+    .map((p) =>
+      t[p]!.status === "READY" && t[p]!.ready !== null ? Math.max(t[p]!.querying ?? 0, t[p]!.ready!) : null,
+    )
+    .filter((x): x is number => x !== null)
+    .sort((x, y) => x - y);
+  // reported: the approval instant, relative to the prompt-submission clock used by the stream readers above
   const sinceApproval = (approvedAt.get(body.runId!) ?? t0) - t0;
   return {
     label,
     statuses,
     startMs,
     durableRun,
-    firstMs: adds[0] === undefined ? null : adds[0] - sinceApproval,
-    fourthMs: adds[3] === undefined ? null : adds[3] - sinceApproval,
+    firstMs: realAt[0] ?? null,
+    fourthMs: realAt[3] ?? null,
+    approvalFirstMs: realAt[0] === undefined ? null : realAt[0] - sinceApproval,
+    approvalFourthMs: realAt[3] === undefined ? null : realAt[3] - sinceApproval,
     promptFirstMs: adds[0] ?? null,
     promptFourthMs: adds[3] ?? null,
     panelTimeline: panelIds.map((p) => ({ panelId: p, ...t[p]! })),
@@ -387,9 +400,10 @@ it("PERF06: first panel p95 < 8 s cold, durable runId at once, progressive panel
   const fourthStats = stats(cold.map((r) => r.fourthMs ?? NaN));
   const startStats = stats([...cold, ...warm].map((r) => r.startMs));
   const declaredMs = MOCK.inferenceMs + MOCK.queryColdMs + MOCK.approvalMs;
-  // reported, not judged: from prompt submission to the first panel, net of the declared mock latency before the approval
+  // reported, not judged: approval to the first real panel (A7's former clock), the first placeholder, and the judged time net of the declared mock latency
+  const approvalFirst = stats(cold.map((r) => r.approvalFirstMs ?? NaN));
   const promptFirst = stats(cold.map((r) => r.promptFirstMs ?? NaN));
-  const net = stats(cold.map((r) => (r.promptFirstMs ?? NaN) - declaredMs));
+  const net = stats(cold.map((r) => (r.firstMs ?? NaN) - declaredMs));
   const spread = stats(cold.map((r) => (r.fourthMs ?? NaN) - (r.firstMs ?? NaN)));
   const tied = cold.filter(
     (r) => r.firstMs !== null && r.fourthMs !== null && r.firstMs >= r.fourthMs,
@@ -408,6 +422,7 @@ it("PERF06: first panel p95 < 8 s cold, durable runId at once, progressive panel
           startStats,
           net,
           promptFirst,
+          approvalFirst,
           jc,
           jw,
           jn,
@@ -433,7 +448,7 @@ it("PERF06: first panel p95 < 8 s cold, durable runId at once, progressive panel
 
   observe({
     testId: "PERF06",
-    observed: `${TH.cold} cold + ${TH.warm} warm runs of the C01 prompt through POST /questions on the real kernel/API with the deterministic mock composer (declared: inference ${MOCK.inferenceMs} ms, cold query ${MOCK.queryColdMs} ms, warm query ${MOCK.queryWarmMs} ms, approval ${MOCK.approvalMs} ms). Clock starts at the owner approval (interpretation recorded for owner confirmation). Time to first panel cold p50 ${coldStats.p50} ms, p95 ${coldStats.p95} ms, p99 ${coldStats.p99} ms (bound p95 < ${TH.firstPanelP95Ms} ms). Separate line, not judged: from prompt submission to the first panel p95 ${promptFirst.p95} ms, p95 net of the declared mock latency (${declaredMs} ms before approval) ${net.p95} ms; fourth panel cold p95 ${fourthStats.p95} ms; warm first panel p95 ${warmStats.p95} ms. Start request p50 ${startStats.p50} ms, p95 ${startStats.p95} ms, p99 ${startStats.p99} ms with a durable runId before any panel. First panel before the fourth in ${Math.round(jc.progressiveShare * 100)}% of cold runs (>= 95%; fourth minus first p50 ${spread.p50} ms, ${tied} runs delivered in the same client read). Every panel was seen QUERYING then READY; ERROR exposed for an invalid panel; no data fields appear in any pending panel or event. Negative control (start waits for all panels, one patch): (b) ${jn.b ? "PASS" : "FAIL"}, (c) ${jn.c ? "PASS" : "FAIL"}, judged FAIL as required`,
+    observed: `${TH.cold} cold + ${TH.warm} warm runs of the C01 prompt through POST /questions on the real kernel/API with the deterministic mock composer (declared: inference ${MOCK.inferenceMs} ms, cold query ${MOCK.queryColdMs} ms, warm query ${MOCK.queryWarmMs} ms, approval ${MOCK.approvalMs} ms). JUDGED clock: prompt submission to the first REAL panel (canvas.patched seen and query.completed READY; a placeholder never counts), approval step automated with zero added delay (declared approval ${MOCK.approvalMs} ms). Time to first real panel cold p50 ${coldStats.p50} ms, p95 ${coldStats.p95} ms, p99 ${coldStats.p99} ms (bound p95 < ${TH.firstPanelP95Ms} ms). Separate lines, not judged: approval to first real panel p95 ${approvalFirst.p95} ms (A7's former clock); prompt to first placeholder p95 ${promptFirst.p95} ms; judged time net of the declared mock latency (${declaredMs} ms before approval) p95 ${net.p95} ms; fourth panel cold p95 ${fourthStats.p95} ms; warm first panel p95 ${warmStats.p95} ms. Start request p50 ${startStats.p50} ms, p95 ${startStats.p95} ms, p99 ${startStats.p99} ms with a durable runId before any panel. First panel before the fourth in ${Math.round(jc.progressiveShare * 100)}% of cold runs (>= 95%; fourth minus first p50 ${spread.p50} ms, ${tied} runs delivered in the same client read). Every panel was seen QUERYING then READY; ERROR exposed for an invalid panel; no data fields appear in any pending panel or event. Negative control (start waits for all panels, one patch): (b) ${jn.b ? "PASS" : "FAIL"}, (c) ${jn.c ? "PASS" : "FAIL"}, judged FAIL as required`,
     fixtureHash,
     evidence: {
       ...evidenceBase(g, {
@@ -445,7 +460,8 @@ it("PERF06: first panel p95 < 8 s cold, durable runId at once, progressive panel
       firstPanelCold: {
         stats: coldStats,
         histogram: histogram(cold.map((r) => r.firstMs ?? 1e9)),
-        fromPromptSubmission: promptFirst,
+        approvalToFirstRealPanelUnjudged: approvalFirst,
+        promptToFirstPlaceholder: promptFirst,
         fromPromptNetOfDeclaredMock: net,
       },
       firstPanelWarm: warmStats,

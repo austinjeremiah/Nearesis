@@ -166,6 +166,7 @@ export async function advancePastQuarantined(
   db: Db,
   streamKey: string,
   s: Pick<SkippedPage, "rawObjectHash" | "fromUTC" | "toUTC" | "cursor">,
+  moveCursor = true,
 ): Promise<void> {
   await db.tx(async (c) => {
     const code = quarantineGapCode(s.rawObjectHash);
@@ -175,6 +176,7 @@ export async function advancePastQuarantined(
         WHERE NOT EXISTS (SELECT 1 FROM ingestion.quality_gaps WHERE provider_id=$1 AND dataset='intents_swaps' AND reason_code=$4)`,
       [PROVIDER, s.fromUTC, s.toUTC, code],
     );
+    if (!moveCursor) return;
     await c.query(
       `UPDATE ingestion.cursor_state SET cursor=$3, page_hash=$4, updated_at=now()
         WHERE provider_id=$1 AND stream_key=$2`,

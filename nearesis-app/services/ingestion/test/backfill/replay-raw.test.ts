@@ -26,10 +26,31 @@ describe("replay classifier", () => {
     expect(classifyRawObject("c", enc('{"other":1}'), known)).toBe("unknown");
     expect(classifyRawObject("c", enc("garbage"), known)).toBe("unknown");
   });
-  it("matches a price object to its request window by first sample", () => {
+  it("derives the whole-day window of a price object from its samples", () => {
     const ts = Date.parse(`${WINDOW_FROM}T00:00:00Z`);
-    expect(priceWindowOf(enc(JSON.stringify({ prices: [[ts, 1]] })))?.from).toBe(WINDOW_FROM);
+    expect(priceWindowOf(enc(JSON.stringify({ prices: [[ts + 3_600_000, 1]] })))).toEqual({
+      from: WINDOW_FROM,
+      to: "2025-11-11",
+    });
+    // a sample exactly on the closing midnight belongs to the next request, not this one
+    expect(
+      priceWindowOf(
+        enc(
+          JSON.stringify({
+            prices: [
+              [ts, 1],
+              [ts + 86_400_000, 1],
+            ],
+          }),
+        ),
+      )?.to,
+    ).toBe("2025-11-11");
     expect(priceWindowOf(enc('{"prices":[]}'))).toBeNull();
+  });
+  it("recognises a price object whatever its key order", () => {
+    expect(
+      classifyRawObject("c", enc('{"market_caps":[[1,2]],"prices":[[1,2]],"total_volumes":[]}'), known),
+    ).toBe("price");
   });
   it("lists the content-addressed archive oldest first and ignores stray files", () => {
     const root = mkdtempSync(join(tmpdir(), "raw-"));

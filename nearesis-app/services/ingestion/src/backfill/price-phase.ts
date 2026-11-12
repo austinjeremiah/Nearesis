@@ -55,7 +55,7 @@ export function priceWindows(
 export function dailyFileBytes(
   body: Uint8Array,
   w: { from: string; to: string },
-): { dedupCount: number; dailyCount: number; bytes: Uint8Array } {
+): { dedupCount: number; dailyCount: number; bytes: Uint8Array; days: string[] } {
   const fromMs = Date.parse(`${w.from}T00:00:00Z`);
   const toMs = Date.parse(`${w.to}T00:00:00Z`);
   const inWindow = parseHourlyPoints(body).filter((c) => c.tsMs >= fromMs && c.tsMs < toMs);
@@ -64,7 +64,12 @@ export function dailyFileBytes(
   const bytes = new TextEncoder().encode(
     `[${daily.map((c) => `[${c.tsMs},${c.open},${c.high},${c.low},${c.close}]`).join(",")}]`,
   );
-  return { dedupCount: dedup.length, dailyCount: daily.length, bytes };
+  return {
+    dedupCount: dedup.length,
+    dailyCount: daily.length,
+    bytes,
+    days: daily.map((c) => new Date(c.tsMs).toISOString().slice(0, 10)),
+  };
 }
 
 /** Builds and loads price candles, coverage and gaps from the per-window fetches. Idempotent (ReplacingMergeTree). */
@@ -72,12 +77,13 @@ export async function loadPriceFetches(
   ch: ClickHouseClient,
   fetches: Parameters<typeof buildPriceRows>[1],
   version: number,
+  window: { from: string; to: string } = { from: WINDOW_FROM, to: WINDOW_TO },
 ): Promise<{ days: number; gaps: number; from: string | null; to: string | null }> {
   const cfg = {
     coinId: "near",
     symbol: "NEAR",
     quoteCurrency: "usd",
-    window: { from: WINDOW_FROM, to: WINDOW_TO },
+    window,
   };
   const built = buildPriceRows(cfg, fetches);
   await insertLive(ch, "price_candles", priceRows(built.rows, PRICE_BASIS));
@@ -86,7 +92,7 @@ export async function loadPriceFetches(
     ch,
     "source_coverage",
     coverageRows(
-      eachDay(WINDOW_FROM, WINDOW_TO).map((day) => ({
+      eachDay(window.from, window.to).map((day) => ({
         provider_id: "coingecko",
         dataset: "price_candles",
         day,

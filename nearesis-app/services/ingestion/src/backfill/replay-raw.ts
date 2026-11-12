@@ -1,18 +1,27 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { ClickHouseClient } from "@clickhouse/client";
-import { explorerSchemaFingerprint, parseExplorerPage, type ExplorerTx } from "../adapters/explorer-parse.ts";
-import { upsertSwapPage } from "../adapters/explorer.ts";
+import {
+  explorerSchemaFingerprint,
+  parseExplorerPage,
+  type ExplorerCursor,
+} from "../adapters/explorer-parse.ts";
+import {
+  advancePastQuarantined,
+  salvagePage,
+  SKIPPABLE_REASONS,
+  upsertSwapPage,
+} from "../adapters/explorer.ts";
 import type { Db } from "../db.ts";
 import { sha256Hex } from "../hash.ts";
 import { loadAccountChunk } from "./account-load.ts";
 import type { AccountChunkDone } from "./account-run.ts";
 import type { BqRow } from "./bq-runner.ts";
 import { makeChSink } from "./orchestrator.ts";
-import { dailyFileBytes, loadPriceFetches, priceWindows } from "./price-phase.ts";
-import { WINDOW_FROM, WINDOW_TO, type Chunk } from "./plan.ts";
+import { dailyFileBytes, loadPriceFetches } from "./price-phase.ts";
+import { addDays, type Chunk } from "./plan.ts";
 import type { ChunkDone } from "./state.ts";
-import { EXPLORER_STREAM, loadSwapsToClickHouse } from "./explorer-session.ts";
+import { EXPLORER_STREAM, loadSwapsToClickHouse, recordQuarantineGapCh } from "./explorer-session.ts";
 
 export type RawKind = "explorer" | "bq-chunk" | "account" | "price" | "unknown";
 
@@ -34,7 +43,14 @@ export function classifyRawObject(hash: string, bytes: Uint8Array, known: KnownH
   if (known.chunks.has(hash)) return "bq-chunk";
   if (known.accounts.has(hash)) return "account";
   const head = new TextDecoder().decode(bytes.subarray(0, 4096)).trimStart();
-  if (head.startsWith("{")) return /^\{\s*"prices"\s*:/.test(head) ? "price" : "unknown";
+  if (head.startsWith("{")) {
+    try {
+      const j = JSON.parse(new TextDecoder().decode(bytes)) as { prices?: unknown };
+      return Array.isArray(j.prices) ? "price" : "unknown";
+    } catch {
+      return "unknown";
+    }
+  }
   if (head.startsWith("[")) {
     const text = new TextDecoder().decode(bytes);
     if (text.includes('"originAsset"')) return "explorer";
@@ -43,16 +59,17 @@ export function classifyRawObject(hash: string, bytes: Uint8Array, known: KnownH
   return "unknown";
 }
 
-/** The request window a price object covers, matched by its first sample. */
+const DAY_MS = 86_400_000;
+const dayOfMs = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
+
+/** Whole-UTC-day window [from, to) covered by a price object's samples (a sample exactly on `to` midnight is excluded). */
 export function priceWindowOf(body: Uint8Array): { from: string; to: string } | null {
   const j = JSON.parse(new TextDecoder().decode(body)) as { prices?: Array<[number, number]> };
-  const first = j.prices?.[0]?.[0];
-  if (first === undefined) return null;
-  return (
-    priceWindows(WINDOW_FROM, WINDOW_TO).find(
-      (w) => first >= Date.parse(`${w.from}T00:00:00Z`) && first < Date.parse(`${w.to}T00:00:00Z`),
-    ) ?? null
-  );
+  const ts = (j.prices ?? []).map((p) => p[0]).filter((t) => Number.isFinite(t));
+  if (ts.length === 0) return null;
+  const lo = Math.min(...ts);
+  const hi = Math.max(...ts);
+  return { from: dayOfMs(lo), to: hi % DAY_MS === 0 ? dayOfMs(hi) : addDays(dayOfMs(hi), 1) };
 }
 
 export interface RawFile {
@@ -60,6 +77,8 @@ export interface RawFile {
   path: string;
   mtimeMs: number;
   size: number;
+  /** name of the archive root it came from (see ReplaySource) */
+  source?: string;
 }
 
 export function listArchive(root: string): RawFile[] {
@@ -94,20 +113,36 @@ export interface ReplaySummary {
   };
 }
 
-export interface ReplayDeps {
-  ch: ClickHouseClient;
-  db: Db;
+/** One archive root with the progress files that describe its objects. */
+export interface ReplaySource {
+  /** "backfill" is the main run (default price window, owner of the Explorer resume cursor); any other name is an extra root. */
+  name: string;
   rawRoot: string;
   chunks: Record<string, ChunkDone>;
   accounts: Record<string, AccountChunkDone>;
+}
+
+export interface ReplayDeps {
+  ch: ClickHouseClient;
+  db: Db;
+  sources: ReplaySource[];
+  /** hashes of quarantined Explorer pages the run chose to skip (state.json explorer.skippedPageHashes) */
+  skippedHashes?: string[];
   log: (m: string) => void;
 }
 
 const readBytes = (p: string): Uint8Array => new Uint8Array(readFileSync(p));
 
 export async function replayRaw(d: ReplayDeps): Promise<ReplaySummary> {
-  const known = knownHashes(d.chunks, d.accounts);
-  const files = listArchive(d.rawRoot);
+  const known = knownHashes(
+    Object.assign({}, ...d.sources.map((x) => x.chunks)) as Record<string, ChunkDone>,
+    Object.assign({}, ...d.sources.map((x) => x.accounts)) as Record<string, AccountChunkDone>,
+  );
+  const seen = new Set<string>();
+  const files = d.sources
+    .flatMap((src) => listArchive(src.rawRoot).map((f) => ({ ...f, source: src.name })))
+    .filter((f) => !seen.has(f.hash) && !!seen.add(f.hash))
+    .sort((a, b) => a.mtimeMs - b.mtimeMs || a.hash.localeCompare(b.hash));
   const s: ReplaySummary = {
     files: files.length,
     byKind: { explorer: 0, "bq-chunk": 0, account: 0, price: 0, unknown: 0 },
@@ -126,7 +161,10 @@ export async function replayRaw(d: ReplayDeps): Promise<ReplaySummary> {
     },
   };
   const explorerFiles: RawFile[] = [];
-  const priceFetches: Parameters<typeof loadPriceFetches>[1] = [];
+  const priceBySource = new Map<
+    string,
+    Array<Parameters<typeof loadPriceFetches>[1][number] & { days: string[] }>
+  >();
   const sink = makeChSink(d.ch);
 
   for (const f of files) {
@@ -161,7 +199,7 @@ export async function replayRaw(d: ReplayDeps): Promise<ReplaySummary> {
     } else if (kind === "account") {
       const c = known.accounts.get(f.hash);
       if (!c) {
-        d.log(`account object ${f.hash} is not in account-state.json; skipped (no chunk bounds)`);
+        d.log(`account object ${f.hash} is not in an account-state file; skipped (no chunk bounds)`);
         continue;
       }
       const rows = JSON.parse(new TextDecoder().decode(bytes)) as BqRow[];
@@ -175,21 +213,48 @@ export async function replayRaw(d: ReplayDeps): Promise<ReplaySummary> {
     } else if (kind === "price") {
       const w = priceWindowOf(bytes);
       if (!w) {
-        d.log(`price object ${f.hash}: no matching request window; skipped`);
+        d.log(`price object ${f.hash}: no samples; skipped`);
         continue;
       }
       const fetchedAtUTC = new Date(f.mtimeMs).toISOString();
-      const { bytes: fileBytes } = dailyFileBytes(bytes, w);
-      priceFetches.push({ fileBytes, fetchedAtUTC, rawObjectHash: f.hash, sourceLabel: "LIVE" });
+      const { bytes: fileBytes, dailyCount, days } = dailyFileBytes(bytes, w);
+      if (dailyCount === 0) {
+        d.log(`price object ${f.hash}: no complete UTC day; skipped`);
+        continue;
+      }
+      const list = priceBySource.get(f.source as string) ?? [];
+      list.push({ fileBytes, fetchedAtUTC, rawObjectHash: f.hash, sourceLabel: "LIVE", days });
+      priceBySource.set(f.source as string, list);
       s.price.windows++;
     }
   }
 
-  if (priceFetches.length) {
-    const r = await loadPriceFetches(d.ch, priceFetches, Date.now());
-    s.price.days = r.days;
-    s.price.gaps = r.gaps;
-    d.log(`price: ${r.days} days, ${r.gaps} gap days`);
+  // Price rows are keyed by update_vintage (the fetch time), which the replay can only approximate from file mtimes. An
+  // object whose rows are already loaded (for example by the running scheduler) is left alone so no second vintage appears.
+  const haveHashes = new Set(
+    (
+      (await (
+        await d.ch.query({
+          query: "SELECT DISTINCT raw_object_hash AS h FROM price_candles",
+          format: "JSONEachRow",
+        })
+      ).json()) as Array<{ h: string }>
+    ).map((r) => r.h),
+  );
+  for (const [source, all0] of priceBySource) {
+    const list = all0.filter((x) => !haveHashes.has(x.rawObjectHash));
+    if (list.length === 0) continue;
+    const all = list.flatMap((x) => x.days).sort();
+    const window = source === "backfill" ? undefined : { from: all[0] as string, to: all.at(-1) as string };
+    const r = await loadPriceFetches(
+      d.ch,
+      list.map(({ days: _days, ...f }) => f),
+      Date.now(),
+      window,
+    );
+    s.price.days += r.days;
+    s.price.gaps += r.gaps;
+    d.log(`price (${source}): ${r.days} days, ${r.gaps} gap days`);
   }
 
   await replayExplorer(d, explorerFiles, s);
@@ -211,7 +276,9 @@ async function replayExplorer(d: ReplayDeps, files: RawFile[], s: ReplaySummary)
       )
     ).rows.map((r) => r.h),
   );
-  let last: { hash: string; mtimeMs: number; items: ExplorerTx[] } | null = null;
+  const skipped = new Set(d.skippedHashes ?? []);
+  // Position of the backfill stream: the newest backfill page that was committed or deliberately skipped.
+  let last: { hash: string; mtimeMs: number; cursor: ExplorerCursor | null; schema: string } | null = null;
   let good = 0;
   let latestEvent: string | null = null;
   for (const f of files) {
@@ -229,6 +296,17 @@ async function replayExplorer(d: ReplayDeps, files: RawFile[], s: ReplaySummary)
           "INSERT INTO ingestion.quarantine(provider_id, kind, reason_code, raw_object_hash, detail) VALUES ('near-explorer','explorer_page',$1,$2,$3)",
           [parsed.reasonCode, f.hash, JSON.stringify({ detail: parsed.detail, replayed: true })],
         );
+      if (skipped.has(f.hash) && SKIPPABLE_REASONS.has(parsed.reasonCode)) {
+        // Re-applies the recorded skip: gap rows only. The page itself stays quarantined and promotes no facts.
+        const sv = salvagePage(bytes);
+        if (sv) {
+          const page = { rawObjectHash: f.hash, ...sv };
+          await recordQuarantineGapCh(d.ch, page, Math.round(f.mtimeMs));
+          await advancePastQuarantined(d.db, EXPLORER_STREAM, page, false);
+          if (f.source === "backfill")
+            last = { hash: f.hash, mtimeMs: f.mtimeMs, cursor: sv.cursor, schema: "" };
+        }
+      }
       continue; // never partially promoted
     }
     good++;
@@ -237,8 +315,16 @@ async function replayExplorer(d: ReplayDeps, files: RawFile[], s: ReplaySummary)
       (m, t) => (m === null || t.createdAt > m ? t.createdAt : m),
       null,
     );
-    if (newest && (latestEvent === null || newest > latestEvent)) latestEvent = newest;
-    last = { hash: f.hash, mtimeMs: f.mtimeMs, items: parsed.items };
+    if (f.source === "backfill") {
+      if (newest && (latestEvent === null || newest > latestEvent)) latestEvent = newest;
+      const li = parsed.items[parsed.items.length - 1];
+      last = {
+        hash: f.hash,
+        mtimeMs: f.mtimeMs,
+        cursor: li ? { lastDepositAddress: li.depositAddress, lastDepositMemo: li.depositMemo ?? "" } : null,
+        schema: explorerSchemaFingerprint(parsed.items).slice(0, 16),
+      };
+    }
     if (done.has(f.hash)) {
       s.explorer.skippedAlreadyReplayed++;
       continue;
@@ -252,22 +338,18 @@ async function replayExplorer(d: ReplayDeps, files: RawFile[], s: ReplaySummary)
     if (good % 100 === 0) d.log(`explorer pages replayed: ${good}/${files.length}`);
   }
   if (last) {
-    const lastItem = last.items[last.items.length - 1];
-    const cursor = lastItem
-      ? { lastDepositAddress: lastItem.depositAddress, lastDepositMemo: lastItem.depositMemo ?? "" }
-      : null;
-    // Lets a later Explorer resume continue after the newest archived page instead of from page 1.
+    // Lets a later Explorer resume continue after the newest archived page instead of from page 1. Never overwrites a
+    // cursor that already exists, so a running or already resumed backfill keeps its own position.
     await d.db.query(
       `INSERT INTO ingestion.cursor_state(provider_id, stream_key, cursor, page_hash, retrieved_at, schema_version, latest_event_time, pages_committed, updated_at)
        VALUES ('near-explorer',$1,$2,$3,$4,$5,$6,$7,$4)
-       ON CONFLICT (provider_id, stream_key) DO UPDATE SET cursor=$2, page_hash=$3, retrieved_at=$4, schema_version=$5,
-         latest_event_time=$6, pages_committed=$7, updated_at=$4`,
+       ON CONFLICT (provider_id, stream_key) DO NOTHING`,
       [
         EXPLORER_STREAM,
-        cursor ? JSON.stringify(cursor) : null,
+        last.cursor ? JSON.stringify(last.cursor) : null,
         last.hash,
         new Date(last.mtimeMs).toISOString(),
-        explorerSchemaFingerprint(last.items).slice(0, 16),
+        last.schema || null,
         latestEvent,
         good,
       ],

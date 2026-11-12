@@ -1,3 +1,4 @@
+import { isSpendBlocked } from "@nearesis/contracts";
 import { IngestionError } from "../errors.ts";
 import {
   BigQueryGuard,
@@ -123,14 +124,28 @@ export class BudgetedBigQuery {
     const fit = ledger.check(estimate);
     if (!fit.ok)
       return { status: "budget", estimateBytes: estimate, remaining: fit.remaining, reason: fit.reason };
-    const [job] = await this.bq.createQueryJob({
-      query: sql,
-      location,
-      maximumBytesBilled: String(fit.maximumBytesBilled),
-      useQueryCache: false,
-      labels: { source: "nearesis_backfill" },
-    });
-    const [rows] = await job.getQueryResults();
+    let job: BigQueryJobLike;
+    let rows: BqRow[];
+    try {
+      [job] = await this.bq.createQueryJob({
+        query: sql,
+        location,
+        maximumBytesBilled: String(fit.maximumBytesBilled),
+        useQueryCache: false,
+        labels: { source: "nearesis_backfill" },
+      });
+      [rows] = await job.getQueryResults();
+    } catch (e) {
+      // The cost governor refused the spend before the job was created: a clean budget stop, nothing was billed.
+      if (isSpendBlocked(e))
+        return {
+          status: "budget",
+          estimateBytes: estimate,
+          remaining: ledger.remaining,
+          reason: `cost governor: ${(e as { detail?: { costReason?: string } }).detail?.costReason ?? "blocked"}`,
+        };
+      throw e;
+    }
     this.jobs++;
     let billed = Number(job.metadata.statistics?.query?.totalBytesBilled ?? Number.NaN);
     if (!Number.isFinite(billed)) {

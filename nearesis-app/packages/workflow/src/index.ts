@@ -21,5 +21,9 @@ export {
   evaluateAndAlert,
   upsertPolicy,
   kernelAlertSink,
+  scopedSpendGate,
+  kernelSpendGateFactory,
+  paidEgressOpFromEnv,
 } from "@nearesis/agent-runtime";
 export type { PolicyInput, WorkspaceBurn, SloStatus } from "@nearesis/agent-runtime";
+export * from "./cost-ops.ts";

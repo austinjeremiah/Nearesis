@@ -18,6 +18,8 @@ import { buildDevDeps } from "./testing/dev-deps.ts";
 import { bootKernel, buildKernelDeps } from "./kernel-deps.ts";
 import {
   CostGovernor,
+  kernelSpendGateFactory,
+  paidEgressOpFromEnv,
   PgAudit,
   ScriptedProvider,
   kernelAlertSink,
@@ -32,8 +34,13 @@ const policy = process.env.POLICY_JSON ? JSON.parse(process.env.POLICY_JSON) : {
 const stepDelayMs = Number(process.env.STEP_DELAY_MS ?? "0");
 // KERNEL_PLUGIN_ROOT + KERNEL_TRUSTED_KEYS_JSON select the real kernel gateway (production plugin trust); the model is
 // the scripted scenario provider unless a live provider is configured by the host.
+const costHolder: { cost?: CostGovernor } = {}; // set below once the kernel exists; read lazily per plugin call
+const costOn = process.env.NEARESIS_COST_CONTROL === "1";
 const prodKernel = production
   ? await bootKernel({
+      ...(costOn
+        ? { spendGate: kernelSpendGateFactory(() => costHolder.cost), paidEgressOp: paidEgressOpFromEnv() }
+        : {}),
       appUrl,
       pluginRoot:
         process.env.KERNEL_PLUGIN_ROOT ??
@@ -47,6 +54,7 @@ const cost =
   production && prodKernel && process.env.NEARESIS_COST_CONTROL === "1"
     ? new CostGovernor({ pool, audit: new PgAudit(pool), sink: kernelAlertSink(prodKernel) })
     : undefined;
+costHolder.cost = cost;
 const deps = production
   ? buildKernelDeps({
       pool,

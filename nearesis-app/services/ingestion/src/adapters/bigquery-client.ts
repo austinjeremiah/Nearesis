@@ -2,18 +2,21 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { BigQuery } from "@google-cloud/bigquery";
+import { getAmbientSpendGate } from "../cost/ambient.ts";
+import { gateBigQuery } from "../cost/gates.ts";
 import type { BigQueryJobLike, BigQueryLike } from "./bigquery.ts";
 
 /** Adapts the real @google-cloud/bigquery client (ADC, no keys) to the narrow BigQueryLike surface. */
-export function createBigQueryClient(): BigQueryLike & {
+export type BigQueryClient = BigQueryLike & {
   tableColumns(
     project: string,
     dataset: string,
     table: string,
   ): Promise<Array<{ name: string; type: string }>>;
-} {
+};
+export function createBigQueryClient(): BigQueryClient {
   const bq = new BigQuery();
-  return {
+  const real: BigQueryClient = {
     getProjectId: () => bq.getProjectId(),
     async getDatasetMetadata(projectId, datasetId) {
       const [m] = await bq.dataset(datasetId, { projectId }).getMetadata();
@@ -31,6 +34,8 @@ export function createBigQueryClient(): BigQueryLike & {
       return fields;
     },
   };
+  // NEARESIS_COST_CONTROL=1: billed jobs are authorised against the dry-run estimate and settled with billed bytes.
+  return { ...real, ...gateBigQuery(real, getAmbientSpendGate()) };
 }
 
 /** Credential kind from the ADC file (type only; never reads or returns secret fields). */

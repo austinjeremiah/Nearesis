@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Ajv } from "ajv";
 import type { ValidateFunction } from "ajv";
-import { ExecutionRequest } from "@nearesis/contracts";
+import { ExecutionRequest, gatedSpend, spendKey } from "@nearesis/contracts";
 import type { ExecutionResponse, Principal, ToolGateway } from "@nearesis/contracts";
 import { canonicalJson, grantKey, sha256Hex } from "@nearesis/plugin-sdk";
 import type { ApprovalService } from "./approvals.ts";
@@ -409,7 +409,38 @@ export class KernelToolGateway implements ToolGateway {
       // the confinement scope before opening a socket; a denial is itself recorded as a violation of the plugin's policy.
       const egress: Parameters<typeof handler>[1]["egress"] = async (url, init) => {
         try {
-          return await outsideConfinement(() => proxy(url, init));
+          const gate = this.plugins.config.execution?.spendGate?.({
+            tenantId: principal.orgId,
+            workspaceId: req.workspaceId,
+          });
+          if (!gate) return await outsideConfinement(() => proxy(url, init));
+          let host = "";
+          try {
+            host = new URL(url).hostname;
+          } catch {
+            // an unparsable URL is refused by the egress guard below, after (and only if) the spend is authorised
+          }
+          const paidOp = this.plugins.config.execution?.paidEgressOp?.(host);
+          return await gatedSpend(
+            gate,
+            {
+              key: spendKey("egress"),
+              dimension: "external_requests",
+              quantity: 1,
+              ...(paidOp ? { paidOp } : {}),
+              detail: { host, capability: req.capability },
+            },
+            async () => {
+              const r = await outsideConfinement(() => proxy(url, init));
+              await gate.observe({
+                key: spendKey("egress-bytes"),
+                dimension: "network_egress_bytes",
+                quantity: (init?.body ? Buffer.byteLength(init.body) : 0) + r.body.length,
+                detail: { host },
+              });
+              return { result: r, quantity: 1 };
+            },
+          );
         } catch (e) {
           const code = (e as { reasonCode?: string }).reasonCode;
           if (code && code.startsWith("EGRESS_") && code !== "EGRESS_TIMEOUT")

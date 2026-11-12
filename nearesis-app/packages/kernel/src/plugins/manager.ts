@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
-import type { CapabilityDecl, PluginManifest, Principal } from "@nearesis/contracts";
+import type { CapabilityDecl, PluginManifest, Principal, SpendGate } from "@nearesis/contracts";
 import {
   ManifestError,
   isPluginModule,
@@ -55,6 +55,13 @@ export interface PluginManagerConfig {
     egressDeps?: EgressDeps;
     /** Extra policy for `ctx.egress` (tests only, e.g. `allowInsecureHttp` against a local server). */
     egressPolicy?: { allowInsecureHttp?: boolean; timeoutMs?: number };
+    /**
+     * Cost control (`NEARESIS_COST_CONTROL=1`): returns the spend gate for a tenant/workspace. Every `ctx.egress` request
+     * is then authorised as one `external_requests` unit BEFORE any socket opens (a refusal throws `BUDGET_EXCEEDED` to the plugin) and its bytes are metered as `network_egress_bytes`.
+     */
+    spendGate?: (scope: { tenantId: string; workspaceId: string }) => SpendGate | undefined;
+    /** Host -> paid operation name for egress hosts that cost money (must be permitted by the workspace policy). */
+    paidEgressOp?: (host: string) => string | undefined;
   };
 }
 

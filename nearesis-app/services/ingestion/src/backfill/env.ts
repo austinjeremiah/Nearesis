@@ -5,6 +5,8 @@ import pg from "pg";
 import { DEFAULT_DATABASE_URL, Db, migrate } from "../db.ts";
 import { CredentialSource } from "../http/credentials.ts";
 import { FsObjectStore } from "../archive/object-store.ts";
+import { getAmbientSpendGate } from "../cost/ambient.ts";
+import { gateObjectStore } from "../cost/gates.ts";
 import { RawArchive } from "../archive/archive.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +40,6 @@ export async function openLivePg(name: string = LIVE_PG_DATABASE): Promise<{ db:
 }
 
 export const openArchive = (db: Db | null, root: string = RAW_DIR): RawArchive =>
-  new RawArchive(new FsObjectStore(root), db);
+  new RawArchive(gateObjectStore(new FsObjectStore(root), getAmbientSpendGate()), db);
 
 export const tempName = (): string => `nearesis_t_a13_${randomBytes(4).toString("hex")}`;

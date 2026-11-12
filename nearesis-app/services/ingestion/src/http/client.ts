@@ -1,3 +1,6 @@
+import { isSpendBlocked, type SpendGate } from "@nearesis/contracts";
+import { getAmbientSpendGate } from "../cost/ambient.ts";
+import { gateFetch, ingestionPaidOp } from "../cost/gates.ts";
 import type { Clock } from "../clock.ts";
 import { systemClock } from "../clock.ts";
 import { IngestionError } from "../errors.ts";
@@ -70,6 +73,8 @@ export type FetchImpl = (
 export interface HttpClientOptions {
   allow: AllowRule[];
   fetchImpl?: FetchImpl;
+  /** Spend gate (`NEARESIS_COST_CONTROL=1`): each request is authorised before the socket opens; see `gateFetch`. */
+  spend?: { gate: SpendGate; paidOp?: (host: string) => string | undefined };
   credentials?: CredentialSource;
   clock?: Clock;
   defaultTimeoutMs?: number;
@@ -103,7 +108,18 @@ export class HttpClient {
   readonly #breakers = new Map<string, AuthBreaker>();
   readonly #o: HttpClientOptions;
   constructor(o: HttpClientOptions) {
-    this.#o = o;
+    const ambient = getAmbientSpendGate();
+    const spend = o.spend ?? (ambient ? { gate: ambient, paidOp: ingestionPaidOp } : undefined);
+    this.#o = spend
+      ? {
+          ...o,
+          fetchImpl: gateFetch(
+            o.fetchImpl ?? (globalThis.fetch as unknown as FetchImpl),
+            spend.gate,
+            spend.paidOp ? { paidOp: spend.paidOp } : {},
+          ),
+        }
+      : o;
   }
 
   assertAllowed(method: string, url: string): URL {
@@ -249,6 +265,10 @@ export class HttpClient {
       if (r.auth && breakerKey) this.#observeAuth(breakerKey, r.auth.credential, u.hostname, res.status);
       return { status: res.status, headers: redactHeaders(rh), body: buf, receivedAtMs: clock.now() };
     } catch (e) {
+      if (isSpendBlocked(e)) {
+        entry.outcome = "denied";
+        throw e; // refused before the socket opened: surface the budget stop, not a network error
+      }
       if (ctl.signal.aborted || (e as Error).name === "AbortError" || (e as Error).name === "TimeoutError") {
         entry.outcome = "timeout";
         throw new HttpTimeoutError();

@@ -17,3 +17,4 @@ export * from "./history.ts";
 export * from "./research-artifacts.ts";
 export * from "./capsule.ts";
 export * from "./overload.ts";
+export * from "./spend-gate.ts";

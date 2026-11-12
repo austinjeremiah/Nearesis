@@ -1,3 +1,4 @@
+import { installSpendGateFromEnv } from "../cost/ambient.ts";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +11,9 @@ import { ALLOW_ONECLICK, HttpClient } from "../http/client.ts";
 import { loadConfig, SCHEDULER_RAW_DIR } from "./config.ts";
 import { runQuoteRound, type QuoteRow } from "./quotes.ts";
 import { SchedulerStateStore } from "./state.ts";
+
+// NEARESIS_COST_CONTROL=1: authorise every billed BigQuery job, paid HTTP call and archive write before it runs.
+await installSpendGateFromEnv();
 
 /**
  * Bounded live validation of the dry-quote path. It does not take the scheduler lease and never touches the scheduler's

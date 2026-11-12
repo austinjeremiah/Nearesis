@@ -24,3 +24,4 @@ export * from "./attest-outlayer.ts";
 export * from "./publication-state.ts";
 export * from "./publish.ts";
 export * from "./live.ts";
+export * from "./outlayer-submit.ts";

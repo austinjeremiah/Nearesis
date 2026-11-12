@@ -1,3 +1,4 @@
+import { installSpendGateFromEnv } from "../cost/ambient.ts";
 import { createLiveCh, ensureDatabase, migrateLive } from "../backfill/ch.ts";
 import { loadCredentials, openArchive, openLivePg } from "../backfill/env.ts";
 import { OneClickQuoteSampler } from "../adapters/oneclick.ts";
@@ -6,6 +7,9 @@ import { ALLOW_ONECLICK, HttpClient } from "../http/client.ts";
 import { SCHEDULER_RAW_DIR } from "../scheduler/config.ts";
 import { mappingCounts, rederiveCanonicalAssets, saveLiveAssetRegistry } from "./live-registry.ts";
 import { buildRegistryEntries } from "./oneclick-tokens.ts";
+
+// NEARESIS_COST_CONTROL=1: authorise every billed BigQuery job, paid HTTP call and archive write before it runs.
+await installSpendGateFromEnv();
 
 /**
  * Refreshes the effective-dated asset registry from the official 1Click token list (one read-only GET /v0/tokens,

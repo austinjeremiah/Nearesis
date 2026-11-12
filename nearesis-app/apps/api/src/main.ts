@@ -12,6 +12,12 @@ import {
 import { buildApp } from "./app.ts";
 import { temporalEngine } from "./temporal-engine.ts";
 import { productionMonitoringConfig } from "./monitoring-config.ts";
+import {
+  CostGovernor,
+  kernelAlertSink,
+  kernelSpendGateFactory,
+  paidEgressOpFromEnv,
+} from "@nearesis/workflow";
 import { startOpsBackground } from "./ops-background.ts";
 
 /** Minimal .env loader (server-side only; values are never logged). */
@@ -26,6 +32,9 @@ function loadEnv(): void {
 loadEnv();
 
 const nodeEnv = process.env.NODE_ENV;
+// Cost control: plugin egress is authorised before it leaves (the governor is bound after the kernel exists).
+const costOn = process.env.NEARESIS_COST_CONTROL === "1";
+let apiCost: CostGovernor | undefined;
 if (process.env.DATABASE_URL) await migrate(process.env.DATABASE_URL);
 const db = Db.connect();
 const kernel = new Kernel({
@@ -43,7 +52,12 @@ const kernel = new Kernel({
     pluginRoot: process.env.NEARESIS_PLUGIN_ROOT ?? process.cwd(),
     engineInterfaces: DEFAULT_ENGINE_INTERFACES,
     // The near-thesis connector may reach the internal endpoints its signed manifest declares, and nothing else.
-    execution: { internalPublishers: ["nearesis"] },
+    execution: {
+      internalPublishers: ["nearesis"],
+      ...(costOn
+        ? { spendGate: kernelSpendGateFactory(() => apiCost), paidEgressOp: paidEgressOpFromEnv() }
+        : {}),
+    },
   },
   // The real semantic catalog, required: metric, unit, version and range checks are enforced (fail closed if unavailable).
   monitoring: productionMonitoringConfig(undefined, new IntegrityGuard(db)),
@@ -52,7 +66,8 @@ await kernel.boot();
 kernel.outbox.start();
 kernel.telemetry?.start();
 // SLO recording + burn alerts (needs runtime migration 005): NEARESIS_COST_CONTROL=1.
-const ops = process.env.NEARESIS_COST_CONTROL === "1" ? startOpsBackground(kernel) : undefined;
+const ops = costOn ? startOpsBackground(kernel) : undefined;
+if (costOn) apiCost = new CostGovernor({ pool: kernel.db.pool, sink: kernelAlertSink(kernel) });
 const app = await buildApp({
   kernel,
   ...(ops ? { sloRecorder: ops.recorder } : {}),

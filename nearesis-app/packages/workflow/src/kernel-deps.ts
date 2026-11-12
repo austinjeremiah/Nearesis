@@ -14,6 +14,7 @@ import {
   InferenceVerification,
   guardInference,
   modelPolicyFromEnv,
+  type PluginManagerConfig,
   type Session,
 } from "@nearesis/kernel";
 import type { ExecutionRequest, InferenceProvider, ToolGateway } from "@nearesis/contracts";
@@ -293,6 +294,9 @@ export async function bootKernel(cfg: {
   appUrl: string;
   pluginRoot: string;
   trustedKeys: Record<string, string[]>;
+  /** Cost control: egress of every plugin call is authorised before it leaves (see `execution.spendGate`). */
+  spendGate?: NonNullable<PluginManagerConfig["execution"]>["spendGate"];
+  paidEgressOp?: (host: string) => string | undefined;
 }): Promise<Kernel> {
   const kernel = new Kernel({
     db: Db.connect(cfg.appUrl, 8),
@@ -303,7 +307,11 @@ export async function bootKernel(cfg: {
       engineInterfaces: DEFAULT_ENGINE_INTERFACES,
       quarantineAfterFailures: 1000,
       // first-party connectors from the trusted publishers reach only the internal endpoints their manifests declare
-      execution: { internalPublishers: Object.keys(cfg.trustedKeys) },
+      execution: {
+        internalPublishers: Object.keys(cfg.trustedKeys),
+        ...(cfg.spendGate ? { spendGate: cfg.spendGate } : {}),
+        ...(cfg.paidEgressOp ? { paidEgressOp: cfg.paidEgressOp } : {}),
+      },
     },
     authProvider: {
       authenticate: async () => {

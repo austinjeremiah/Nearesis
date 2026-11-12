@@ -1,5 +1,6 @@
 import { CATALOG_UNAVAILABLE, catalogUnreadable } from "./source-gate.ts";
 import { randomUUID } from "node:crypto";
+import { meterActivities } from "./cost-ops.ts";
 import { guardInference, modelPolicyFromEnv, type InferenceVerification } from "@nearesis/kernel";
 import type { z } from "zod";
 import { ApplicationFailure, CancelledFailure, Context } from "@temporalio/activity";
@@ -144,7 +145,7 @@ export const directorBudget = { tokens: 20000, toolCalls: 6, usd: 2 };
 /** The live composer child's reservation. `MIN_QUESTION_BUDGET` (contracts) must stay >= director + composer. */
 export const composerBudget = { tokens: 12000, toolCalls: 6, usd: 1 };
 
-export function createActivities(d: ActivityDeps) {
+function createActivitiesRaw(d: ActivityDeps) {
   const roles = loadRoles();
   const supervisor = new Supervisor(d.pool, d.policy, d.audit, roles);
   const meter = new ToolCallMeter(d.pool, d.policy, d.audit);
@@ -156,7 +157,10 @@ export function createActivities(d: ActivityDeps) {
   const onResult = (tenantId: string, workspaceId: string) =>
     d.verification?.enabled
       ? {
-          onProviderResult: async (e: { key: string; result: Parameters<typeof egress.verifyResponse>[0] }) => {
+          onProviderResult: async (e: {
+            key: string;
+            result: Parameters<typeof egress.verifyResponse>[0];
+          }) => {
             await d.verification!.record({
               orgId: tenantId,
               workspaceId,
@@ -1299,3 +1303,23 @@ export function createActivities(d: ActivityDeps) {
 }
 
 export type Activities = ReturnType<typeof createActivities>;
+
+/**
+ * The workflow activities. With `d.cost` set (NEARESIS_COST_CONTROL=1) the work-starting activities are authorised as
+ * `workflow_operations` before they run and the rest are counted (see `meterActivities`).
+ */
+export function createActivities(d: ActivityDeps): ReturnType<typeof createActivitiesRaw> {
+  const acts = createActivitiesRaw(d);
+  if (!d.cost) return acts;
+  const cost = d.cost;
+  return meterActivities(acts as never, cost, {
+    attemptId: () => {
+      try {
+        const info = Context.current().info;
+        return `${info.workflowExecution?.workflowId}:${info.activityId}:${info.attempt}`;
+      } catch {
+        return randomUUID();
+      }
+    },
+  }) as ReturnType<typeof createActivitiesRaw>;
+}

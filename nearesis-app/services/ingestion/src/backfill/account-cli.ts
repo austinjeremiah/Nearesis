@@ -1,3 +1,4 @@
+import { installSpendGateFromEnv } from "../cost/ambient.ts";
 import { parseArgs } from "node:util";
 import { join } from "node:path";
 import { adcCredentialKind, createBigQueryClient } from "../adapters/bigquery-client.ts";
@@ -8,6 +9,9 @@ import { DATA_DIR, openArchive, openLivePg } from "./env.ts";
 import { AccountStateStore, runAccountPhase } from "./account-run.ts";
 import { planAccountChunks } from "./account-sql.ts";
 import { quotaDayStart, WINDOW_FROM, WINDOW_TO } from "./plan.ts";
+
+// NEARESIS_COST_CONTROL=1: authorise every billed BigQuery job, paid HTTP call and archive write before it runs.
+await installSpendGateFromEnv();
 
 const { values } = parseArgs({
   args: process.argv.slice(2).filter((a) => a !== "--"),

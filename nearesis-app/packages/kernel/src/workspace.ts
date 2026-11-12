@@ -10,7 +10,8 @@ import { canWrite } from "./auth.ts";
 import type { Session } from "./auth.ts";
 import type { Db } from "./db/pool.ts";
 import { KernelError } from "./errors.ts";
-import { EventJournal } from "./journal.ts";
+import { EventJournal, writeAudit } from "./journal.ts";
+import type { Tx } from "./db/pool.ts";
 
 export type CreateWorkspaceResponse = z.infer<typeof CreateWorkspaceResponseSchema>;
 
@@ -26,13 +27,75 @@ export const noWorkspaceAccess = (): KernelError =>
   new KernelError("FORBIDDEN", "ACCESS_DENIED", "Access denied.");
 export const workspaceNotFound = (): KernelError => new KernelError("NOT_FOUND", "NOT_FOUND", "Not found.");
 
+/**
+ * Plugins every new workspace gets, in the same transaction as the workspace row (NEARESIS_DEFAULT_PLUGINS, comma
+ * separated; default near-thesis). Without them semantic.discover@1 is CAPABILITY_NOT_AVAILABLE and every question ends
+ * BLOCKED_SOURCE. A plugin with no active, usable installation is skipped (reported), never an error: a deployment that
+ * has not installed it cannot enable it.
+ */
+export function defaultPluginSet(): string[] {
+  return (process.env.NEARESIS_DEFAULT_PLUGINS ?? "near-thesis")
+    .split(",")
+    .map((x) => x.trim())
+    .filter((x) => /^[a-z][a-z0-9-]{0,63}$/.test(x));
+}
+
+/** Idempotent: enables each plugin at its active pinned major (never re-enables one an admin disabled). Returns what was enabled. */
+export async function enablePluginsInTx(
+  tx: Tx,
+  a: {
+    orgId: string;
+    workspaceId: string;
+    userId: string | null;
+    plugins: string[];
+    reason: "workspace_created" | "backfill";
+  },
+): Promise<{ enabled: string[]; skipped: string[] }> {
+  const enabled: string[] = [];
+  const skipped: string[] = [];
+  for (const pluginId of [...new Set(a.plugins)]) {
+    const inst = (
+      await tx.query<{ version: string; major: number; state: string }>(
+        "SELECT version, major, state FROM plugin_installations WHERE plugin_id = $1 AND active",
+        [pluginId],
+      )
+    ).rows[0];
+    if (!inst || inst.state === "disabled" || inst.state === "quarantined") {
+      skipped.push(pluginId);
+      continue;
+    }
+    const r = await tx.query(
+      `INSERT INTO workspace_plugins(workspace_id, org_id, plugin_id, pinned_major, enabled, enabled_by)
+       VALUES ($1,$2,$3,$4,true,$5) ON CONFLICT (workspace_id, plugin_id) DO NOTHING`,
+      [a.workspaceId, a.orgId, pluginId, inst.major, a.userId],
+    );
+    if (r.rowCount) {
+      enabled.push(pluginId);
+      await writeAudit(tx, {
+        orgId: a.orgId,
+        workspaceId: a.workspaceId,
+        actorId: a.userId,
+        action: "plugin.enabled_by_default",
+        subject: `plugin:${pluginId}`,
+        outcome: "ok",
+        detail: { pluginId, version: inst.version, pinnedMajor: inst.major, reason: a.reason },
+      });
+    }
+  }
+  return { enabled, skipped };
+}
+
 export class WorkspaceRegistry {
   constructor(
     private readonly db: Db,
     private readonly journal: EventJournal,
   ) {}
 
-  async create(session: Session, raw: unknown): Promise<CreateWorkspaceResponse> {
+  async create(
+    session: Session,
+    raw: unknown,
+    opts: { requiredPlugins?: string[] } = {},
+  ): Promise<CreateWorkspaceResponse> {
     const parsed = CreateWorkspaceRequest.safeParse(raw);
     if (!parsed.success) {
       throw new KernelError("VALIDATION_FAILED", "INVALID_BODY", "Invalid request body.", {
@@ -75,6 +138,13 @@ export class WorkspaceRegistry {
         wsId,
         session.userId,
       ]);
+      await enablePluginsInTx(tx, {
+        orgId,
+        workspaceId: wsId,
+        userId: session.userId,
+        plugins: [...defaultPluginSet(), ...(opts.requiredPlugins ?? [])],
+        reason: "workspace_created",
+      });
       await this.journal.append(tx, {
         orgId,
         workspaceId: wsId,

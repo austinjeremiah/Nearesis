@@ -793,6 +793,54 @@ export class IntentsAnalytics {
 
   // ---------- capabilities that the source cannot support ----------
 
+  /**
+   * Measured deposit-to-settlement duration for the days covered by the owner-approved BigQuery pilot (table
+   * intents_settlement_durations): Explorer createdAt to the block time of the swap's last listed NEAR transaction (validated
+   * on the pilot as the completion marker). Only swaps with every listed hash found are measured; the rest are counted, not
+   * zero-filled. Days outside the pilot stay CANNOT_COMPUTE, so a window with no covered day falls back to settlementDuration.
+   */
+  async settlementDurationMeasured(w: IntentsWindow): Promise<IntentsResult<Array<Record<string, unknown>>>> {
+    assertWindow(w);
+    let rows: Row[] = [];
+    try {
+      rows = await queryRows<Row>(
+        this.ch,
+        `SELECT origin_chain AS chain, count() AS swaps, countIf(complete = 1) AS measured, countIf(complete = 0) AS hashes_missing,
+                quantileExactIf(0.5)(settlement_ms, complete = 1) AS p50_ms, quantileExactIf(0.95)(settlement_ms, complete = 1) AS p95_ms,
+                toString(min(created_day)) AS first_day, toString(max(created_day)) AS last_day
+         FROM ${this.db}.intents_settlement_durations FINAL
+         WHERE created_day >= {from:Date} AND created_day <= {to:Date} GROUP BY chain ORDER BY measured DESC, chain`,
+        { from: w.from, to: w.to },
+      );
+    } catch {
+      rows = [];
+    }
+    if (rows.length === 0) return this.settlementDuration(w);
+    const first = rows.reduce((m, r) => (String(r.first_day) < m ? String(r.first_day) : m), "9999-12-31");
+    const last = rows.reduce((m, r) => (String(r.last_day) > m ? String(r.last_day) : m), "0000-00-00");
+    return this.ok(
+      "intents.settlement_duration",
+      "settlement_ms = block time of the swap's last listed NEAR transaction (BigQuery transactions.block_timestamp) minus Explorer createdAt, by origin chain. p50/p95 over swaps with every listed hash found. Measures Explorer createdAt to NEAR inclusion, not the user's wait on the destination chain.",
+      w,
+      { kind: "bar", category: "originChain", value: "p50Ms" },
+      rows.map((r) => ({
+        originChain: r.chain,
+        swaps: n(r.swaps),
+        measured: n(r.measured),
+        hashesMissing: n(r.hashes_missing),
+        p50Ms: r.measured === "0" ? null : r.p50_ms,
+        p95Ms: r.measured === "0" ? null : r.p95_ms,
+      })),
+      ["intents_settlement_durations", "intents_swaps", "asset_registry"],
+      "bounded BigQuery pilot (7 swap days, public era) loaded once; durations computed locally in ClickHouse",
+      [
+        `Measured only for swap days ${first}..${last} (public era, owner-approved pilot); other days in the window are NOT measured (CANNOT_COMPUTE), never zero.`,
+        "Private-settlement swaps (from 2026-10-27) carry boundary hashes, not the swap's own, and are excluded.",
+        "Swaps with any listed hash absent from BigQuery are counted in hashesMissing and excluded from the percentiles.",
+      ],
+    );
+  }
+
   async settlementDuration(w: IntentsWindow): Promise<IntentsCannotCompute> {
     assertWindow(w);
     let alt: IntentsCannotCompute["alternative"] | undefined;

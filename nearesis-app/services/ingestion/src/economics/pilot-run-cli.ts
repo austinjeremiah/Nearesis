@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { FsObjectStore } from "../archive/object-store.ts";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 import { adcCredentialKind, createBigQueryClient } from "../adapters/bigquery-client.ts";
@@ -6,7 +7,7 @@ import type { BigQueryJobLike } from "../adapters/bigquery.ts";
 import { BudgetedBigQuery, type BqRow } from "../backfill/bq-runner.ts";
 import { BudgetLedger } from "../backfill/budget.ts";
 import { createLiveCh, ensureDatabase, migrateLive } from "../backfill/ch.ts";
-import { APP_ROOT, openArchive, openLivePg } from "../backfill/env.ts";
+import { APP_ROOT, RAW_DIR, openArchive, openLivePg } from "../backfill/env.ts";
 import { addDays, quotaDayStart } from "../backfill/plan.ts";
 import { installSpendGateFromEnv } from "../cost/ambient.ts";
 import { planDigest, runEconomicsPhase, type EconomicsDone } from "./run.ts";
@@ -20,11 +21,18 @@ import { conversionRows, gasPriceRows, outcomeRows } from "./rows.ts";
  */
 const { values } = parseArgs({
   args: process.argv.slice(2).filter((a) => a !== "--"),
-  options: { "approval-digest": { type: "string" }, "approved-max-bytes": { type: "string" }, out: { type: "string" } },
+  options: {
+    "approval-digest": { type: "string" },
+    "approved-max-bytes": { type: "string" },
+    out: { type: "string" },
+  },
 });
 const gate = await installSpendGateFromEnv();
 const FROM = "2026-11-03";
-const plan = [...planDailyChunks(FROM, addDays(FROM, 7)), ...planDailyChunks(FROM, addDays(FROM, 1), ["outcomes_full"])];
+const plan = [
+  ...planDailyChunks(FROM, addDays(FROM, 7)),
+  ...planDailyChunks(FROM, addDays(FROM, 1), ["outcomes_full"]),
+];
 const digest = planDigest(plan);
 console.error(`planned digest ${digest}; chunks ${plan.length}`);
 const captured = new Map<string, BqRow[]>();
@@ -57,6 +65,21 @@ await migrateLive(ch);
 const live = await openLivePg();
 const dones: EconomicsDone[] = [];
 const doneIds = new Set<string>();
+// resume: chunks completed by an earlier invocation are not re-run; their archived rows are re-read for reconciliation
+const out = values.out ?? join(APP_ROOT, ".data", "economics", "pilot-result.json");
+const prior: {
+  dones: EconomicsDone[];
+  ledgerEntries: Array<{ id: string; estimate: number; billed: number }>;
+} | null = existsSync(out) ? JSON.parse(readFileSync(out, "utf8")) : null;
+if (prior) {
+  renameSync(out, `${out}.${Date.now()}.bak`);
+  const store = new FsObjectStore(RAW_DIR);
+  for (const d of prior.dones) {
+    dones.push(d);
+    doneIds.add(d.id);
+    captured.set(d.id, JSON.parse(new TextDecoder().decode(await store.get(d.rawObjectHash))) as BqRow[]);
+  }
+}
 let err: unknown = null;
 let result: Awaited<ReturnType<typeof runEconomicsPhase>> | null = null;
 try {
@@ -83,12 +106,25 @@ try {
 const p = { rawObjectHash: "reconcile", fetchedAtUTC: new Date().toISOString() };
 const refId = `outcomes:${FROM}`;
 const rec: Record<string, unknown> = {};
-const lean = plan.filter((c) => c.family === "outcomes").flatMap((c) => outcomeRows(captured.get(c.id) ?? [], p));
-const conv = plan.filter((c) => c.family === "conversion").flatMap((c) => conversionRows(captured.get(c.id) ?? [], p));
-const price = plan.filter((c) => c.family === "gas_price").flatMap((c) => gasPriceRows(captured.get(c.id) ?? [], p));
+const lean = plan
+  .filter((c) => c.family === "outcomes")
+  .flatMap((c) => outcomeRows(captured.get(c.id) ?? [], p));
+const conv = plan
+  .filter((c) => c.family === "conversion")
+  .flatMap((c) => conversionRows(captured.get(c.id) ?? [], p));
+const price = plan
+  .filter((c) => c.family === "gas_price")
+  .flatMap((c) => gasPriceRows(captured.get(c.id) ?? [], p));
 const fullRows = captured.get(`outcomes_full:${FROM}`);
-if (fullRows) rec.leanVsFull = compareLeanToFull(lean.filter((r) => r.block_date === FROM), outcomeRows(fullRows, p));
-rec.leanVsConversion = reconcileLeanToConversion(lean, conv.filter((r) => r.scope === "day"));
+if (fullRows)
+  rec.leanVsFull = compareLeanToFull(
+    lean.filter((r) => r.block_date === FROM),
+    outcomeRows(fullRows, p),
+  );
+rec.leanVsConversion = reconcileLeanToConversion(
+  lean,
+  conv.filter((r) => r.scope === "day"),
+);
 rec.gasPrice = checkGasPriceRows(price);
 rec.receiverSumsEqualDay = conv
   .filter((r) => r.scope === "day")
@@ -101,15 +137,29 @@ rec.receiverSumsEqualDay = conv
       txs: [String(d.txs), s("txs").toString()],
       gas: [String(d.conversion_gas), s("conversion_gas").toString()],
       tokens: [String(d.conversion_tokens_yocto), s("conversion_tokens_yocto").toString()],
-      ok: String(d.txs) === s("txs").toString() && String(d.conversion_gas) === s("conversion_gas").toString() && String(d.conversion_tokens_yocto) === s("conversion_tokens_yocto").toString(),
+      ok:
+        String(d.txs) === s("txs").toString() &&
+        String(d.conversion_gas) === s("conversion_gas").toString() &&
+        String(d.conversion_tokens_yocto) === s("conversion_tokens_yocto").toString(),
     };
   });
 rec.rowCounts = Object.fromEntries([...captured].map(([k, v]) => [k, v.length]));
-const out = values.out ?? join(APP_ROOT, ".data", "economics", "pilot-result.json");
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(
   out,
-  JSON.stringify({ digest, ledgerEntries: ledger.entries, billedBeforeRun: reading.bytes, dones, result, error: err ? String(err) : null, reconciliation: rec }, (_k, v) => (typeof v === "bigint" ? v.toString() : v), 2),
+  JSON.stringify(
+    {
+      digest,
+      ledgerEntries: ledger.entries,
+      billedBeforeRun: reading.bytes,
+      dones,
+      result,
+      error: err ? String(err) : null,
+      reconciliation: rec,
+    },
+    (_k, v) => (typeof v === "bigint" ? v.toString() : v),
+    2,
+  ),
 );
 console.log(`wrote ${out}`);
 await ch.close();

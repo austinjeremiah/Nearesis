@@ -32,6 +32,11 @@ const stub = {
     metric: "intents.settlement_duration",
     missing: ["settlement_completed_at"],
   }),
+  settlementDurationMeasured: rec("settle", {
+    status: "CANNOT_COMPUTE",
+    metric: "intents.settlement_duration",
+    missing: ["settlement_completed_at"],
+  }),
   solverMetrics: rec("solver", {
     status: "CANNOT_COMPUTE",
     metric: "intents.solver_metrics",

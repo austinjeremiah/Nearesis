@@ -358,6 +358,40 @@ describe("capabilities the source cannot support return typed CANNOT_COMPUTE", (
     expect(r.status).toBe("CANNOT_COMPUTE");
     expect(r.missing[0]).toMatch(/settlement_completed_at/);
   });
+  it("measured settlement duration covers only pilot days and falls back to CANNOT_COMPUTE elsewhere", async () => {
+    const none = await a.settlementDurationMeasured(W);
+    expect(none.status).toBe("CANNOT_COMPUTE");
+    const row = (k: string, ms: number | null, complete: number) => ({
+      swap_key: k,
+      window_id: "t",
+      status: "SUCCESS",
+      created_at: "2026-11-01 00:00:00.000",
+      created_day: "2026-11-01",
+      origin_chain: "eth",
+      n_hashes: 2,
+      n_found: complete ? 2 : 1,
+      complete,
+      settlement_ms: ms,
+      source_label: "LIVE",
+      raw_object_hash: "h",
+      fetched_at: "2026-11-01 00:00:00.000",
+      version: 1,
+    });
+    await ch.insert({
+      table: "intents_settlement_durations",
+      format: "JSONEachRow",
+      values: [row("a", 1000, 1), row("b", 3000, 1), row("c", null, 0)],
+    });
+    const r = await a.settlementDurationMeasured(W);
+    expect(r.status).toBe("OK");
+    if (r.status === "OK") {
+      expect(r.data[0]).toMatchObject({ originChain: "eth", swaps: 3, measured: 2, hashesMissing: 1 });
+      expect(r.caveats.join(" ")).toMatch(/2026-11-01\.\.2026-11-01/);
+    }
+    expect((await a.settlementDurationMeasured({ from: "2026-12-01", to: "2026-12-02" })).status).toBe(
+      "CANNOT_COMPUTE",
+    );
+  });
   it("field inventory states what is and is not provided", () => {
     const d = a.fieldInventory().data;
     expect(d.find((f) => f.concept.startsWith("solver"))?.status).toBe("not_provided");

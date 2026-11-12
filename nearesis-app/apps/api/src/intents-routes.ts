@@ -43,7 +43,7 @@ const TopN = z.coerce.number().int().min(1).max(200).optional();
  *   GET /v1/intents/chain-pair-growth              window vs the preceding window of equal length
  *   GET /v1/intents/concentration                  ?dimension=origin_asset|destination_asset|origin_chain|destination_chain|chain_pair&measure=volume|count&top
  *   GET /v1/intents/unusual-flows                  ?asOf&baselineDays&recentDays
- *   GET /v1/intents/settlement-duration            CANNOT_COMPUTE (+ labelled indicative quoted-estimate alternative)
+ *   GET /v1/intents/settlement-duration            measured p50/p95 by origin chain on pilot-covered days; CANNOT_COMPUTE elsewhere (+ indicative alternative)
  *   GET /v1/intents/solver-metrics                 CANNOT_COMPUTE (no solver identity, no quote linkage)
  *   GET /v1/intents/quotes                         dry-quote intelligence per route (indicative, never executed outcomes)
  */
@@ -184,7 +184,7 @@ export const intentsRoutes: FastifyPluginAsync<IntentsRoutesOptions> = async (ap
     },
     false,
   );
-  get("settlement-duration", Win, (_q, w) => a.settlementDuration(w));
+  get("settlement-duration", Win, (_q, w) => a.settlementDurationMeasured(w));
   get("solver-metrics", Win, (_q, w) => a.solverMetrics(w));
   get("quotes", Win, (_q, w) => a.quoteIntelligence(w));
 };

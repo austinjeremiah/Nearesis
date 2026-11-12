@@ -18,6 +18,9 @@ import { entityRoutes } from "./entity-routes.ts";
 import { realtimeRoutes } from "./realtime-routes.ts";
 import { productRoutes } from "./product-routes.ts";
 import { intentsRoutes } from "./intents-routes.ts";
+import { economicsRoutes } from "./economics-routes.ts";
+import { publicPublicationRoutes } from "./public-publication-routes.ts";
+import { metricRegistryRoutes } from "./metric-registry-routes.ts";
 import { accountRoutes } from "./account-routes.ts";
 import { analyticsPanelRoutes } from "./analytics-panel-routes.ts";
 import { CollabTicketStore } from "./collab-ticket.ts";
@@ -54,12 +57,16 @@ function jwtExpiryMs(token: string): number | null {
 export interface AppOptions {
   /** Start the monitor scheduler and marker-task dispatcher inside this API process. */
   monitorBackground?: { intervalMs?: number };
+  /** Test seam for monitor rule replay: recorded metric values for a UTC day (default: the live semantic layer). */
+  monitorReplayValues?: (metricIds: string[], dayIso: string) => Promise<Record<string, number>>;
   kernel: Kernel;
   /** Governed metric authoring service; when set, the /v1/workspaces/:id/metrics routes are served. */
   authoring?: AuthoringService;
   /** Model USD recorded outside Postgres (inference spend files); counted in the global ceiling view. */
   externalModelSpend?: () => Promise<number>;
   /** Independent time anchor for published manifests (NEAR testnet hash commit). Absent: log-only anchoring. */
+  /** Test seam: testnet commitment readback for GET /v1/capsules/:id/anchor (default: read-only NEAR RPC). */
+  chainReadback?: import("./publication-trust.ts").ChainReadback;
   publishAnchorChain?: (manifestHash: string) => Promise<import("@nearesis/capsule").ChainCommitPayload>;
   /** Starts/signals investigation workflows (production: `temporalEngine()`). Without one, question/cancel/approval writes are 503. */
   engine?: InvestigationEngine;
@@ -548,7 +555,11 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   );
 
   await app.register(historyRoutes, { kernel, ...(opts.authoring ? { authoring: opts.authoring } : {}) });
-  await app.register(capsuleRoutes, { kernel, ...(opts.authoring ? { authoring: opts.authoring } : {}) });
+  await app.register(capsuleRoutes, {
+    kernel,
+    ...(opts.authoring ? { authoring: opts.authoring } : {}),
+    ...(opts.chainReadback ? { chainReadback: opts.chainReadback } : {}),
+  });
   await app.register(publishRoutes, {
     kernel,
     ...(opts.authoring ? { authoring: opts.authoring } : {}),
@@ -557,7 +568,13 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   await app.register(integrityRoutes, { kernel });
   if (opts.gatewayCredential)
     await app.register(gatewayRoutes, { kernel, credential: opts.gatewayCredential });
-  await app.register(monitoringRoutes, { kernel, runs, authenticate, background: opts.monitorBackground });
+  await app.register(monitoringRoutes, {
+    kernel,
+    runs,
+    authenticate,
+    background: opts.monitorBackground,
+    replayValues: opts.monitorReplayValues,
+  });
   await app.register(costRoutes, {
     kernel,
     authenticate,
@@ -568,6 +585,8 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   await app.register(realtimeRoutes, { authenticate });
   await app.register(productRoutes, { kernel, authenticate });
   await app.register(intentsRoutes, { authenticate });
+  await app.register(economicsRoutes, { authenticate });
+  await app.register(publicPublicationRoutes, { kernel });
   await app.register(accountRoutes, { authenticate });
   await app.register(analyticsPanelRoutes, { authenticate });
   if (opts.authoring)
@@ -592,6 +611,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     ...(opts.frontend?.sources ? { sources: opts.frontend.sources } : {}),
     ...(opts.frontend?.capsuleRoot ? { capsuleRoot: opts.frontend.capsuleRoot } : {}),
   });
+  await app.register(metricRegistryRoutes, { authenticate });
   await app.register(oidcRoutes, {
     kernel,
     ...(opts.frontend?.oidc !== undefined ? { client: opts.frontend.oidc } : {}),

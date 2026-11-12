@@ -36,6 +36,9 @@
       "name": "collaboration"
     },
     {
+      "name": "economics"
+    },
+    {
       "name": "entities"
     },
     {
@@ -70,6 +73,9 @@
     },
     {
       "name": "provenance"
+    },
+    {
+      "name": "public"
     },
     {
       "name": "publication"
@@ -1091,6 +1097,72 @@
         ]
       }
     },
+    "/v1/capsules/{id}/anchor": {
+      "get": {
+        "operationId": "getCapsulesByIdAnchor",
+        "tags": [
+          "publication"
+        ],
+        "summary": "Testnet commitment readback of a published capsule manifest (latest, or ?manifestHash=): verified | mismatch | not_committed | unavailable; read-only",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "publication anchor readback"
+      }
+    },
     "/v1/capsules/{id}/exports/{path}": {
       "get": {
         "operationId": "getCapsulesByIdExportsPath",
@@ -1729,6 +1801,426 @@
           }
         },
         "x-conditional": "NODE_ENV is not production"
+      }
+    },
+    "/v1/economics/coverage": {
+      "get": {
+        "operationId": "getEconomicsCoverage",
+        "tags": [
+          "economics"
+        ],
+        "summary": "source_coverage, quality gaps (REFUND_SPLIT_IS_PROXY etc.) and loaded row counts. Execution fees are never labelled protocol revenue",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 366
+            }
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "network economics"
+      }
+    },
+    "/v1/economics/daily": {
+      "get": {
+        "operationId": "getEconomicsDaily",
+        "tags": [
+          "economics"
+        ],
+        "summary": "Daily gas burnt, tokens burnt (exact yocto strings), gas price, conversion vs receipt-only burn, execution intensity, USD only from timestamped CoinGecko candles (else null with NO_TIMESTAMPED_PRICE). Execution fees are never labelled protocol revenue",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 366
+            }
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "network economics"
+      }
+    },
+    "/v1/economics/percentiles": {
+      "get": {
+        "operationId": "getEconomicsPercentiles",
+        "tags": [
+          "economics"
+        ],
+        "summary": "Per-transaction fee percentiles where loaded (loaded:false and TX_DAILY_NOT_LOADED otherwise). Execution fees are never labelled protocol revenue",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 366
+            }
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "network economics"
+      }
+    },
+    "/v1/economics/receivers": {
+      "get": {
+        "operationId": "getEconomicsReceivers",
+        "tags": [
+          "economics"
+        ],
+        "summary": "Gas and fee by executing account, top N (?top), folded remainder labelled. Execution fees are never labelled protocol revenue",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 366
+            }
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "network economics"
+      }
+    },
+    "/v1/economics/totals": {
+      "get": {
+        "operationId": "getEconomicsTotals",
+        "tags": [
+          "economics"
+        ],
+        "summary": "Window sums of the daily economics. Execution fees are never labelled protocol revenue",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 366
+            }
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "network economics"
       }
     },
     "/v1/entities": {
@@ -6385,6 +6877,118 @@
         "x-capability": "global metric catalogue"
       }
     },
+    "/v1/metrics/{key}": {
+      "get": {
+        "operationId": "getMetricsByKey",
+        "tags": [
+          "frontend"
+        ],
+        "summary": "Detail of a certified registry metric: definition, certification, semantic hash, sources (authored metrics are read through the workspace routes)",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "registry metric detail"
+      }
+    },
+    "/v1/metrics/{key}/versions": {
+      "get": {
+        "operationId": "getMetricsByKeyVersions",
+        "tags": [
+          "frontend"
+        ],
+        "summary": "Certified versions of a registry metric with their semantic hashes",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "registry metric detail"
+      }
+    },
     "/v1/notifications": {
       "get": {
         "operationId": "getNotifications",
@@ -6461,6 +7065,72 @@
           }
         },
         "x-capability": "global notifications"
+      }
+    },
+    "/v1/notifications/read": {
+      "post": {
+        "operationId": "postNotificationsRead",
+        "tags": [
+          "frontend"
+        ],
+        "summary": "Mark notifications read for the caller only: { ids: uuid[] } or { all: true }; returns marked, alreadyRead, notFound and the caller's unread count",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "notifications read state"
       }
     },
     "/v1/ops/slo": {
@@ -6959,6 +7629,108 @@
         },
         "x-min-role": "admin",
         "x-capability": "org settings"
+      }
+    },
+    "/v1/public/publications/{id}": {
+      "get": {
+        "operationId": "getPublicPublicationsById",
+        "tags": [
+          "public"
+        ],
+        "summary": "Unauthenticated, rate-limited public view of an explicitly published capsule: hashes, verification labels, signing-key trust, anchors, documents. Withdrawn: 404 PUBLICATION_WITHDRAWN; no tenant data",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "public publications"
+      }
+    },
+    "/v1/public/publications/{id}/exports/{path}": {
+      "get": {
+        "operationId": "getPublicPublicationsByIdExportsPath",
+        "tags": [
+          "public"
+        ],
+        "summary": "A published document of a public capsule (manifest-listed files only, hash-checked)",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "public publications"
       }
     },
     "/v1/publications": {
@@ -15588,6 +16360,101 @@
         "x-capability": "monitoring"
       }
     },
+    "/v1/workspaces/{id}/monitors/{ruleId}/replay": {
+      "post": {
+        "operationId": "postWorkspacesByIdMonitorsByRuleIdReplay",
+        "tags": [
+          "monitoring"
+        ],
+        "summary": "Replay one rule over recorded daily metric values of the live layer for { from, to } (complete UTC days, at most 90); results labelled REPLAY, duplicates answered idempotently",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ruleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-min-role": "writer",
+        "x-capability": "monitor replay"
+      }
+    },
     "/v1/workspaces/{id}/monitors/counters": {
       "get": {
         "operationId": "getWorkspacesByIdMonitorsCounters",
@@ -16122,6 +16989,92 @@
             }
           }
         }
+      }
+    },
+    "/v1/workspaces/{id}/notifications/read": {
+      "post": {
+        "operationId": "postWorkspacesByIdNotificationsRead",
+        "tags": [
+          "monitoring"
+        ],
+        "summary": "Per-workspace equivalent of POST /v1/notifications/read (per user)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-capability": "notifications read state"
       }
     },
     "/v1/workspaces/{id}/panels/{hash}/data": {
@@ -21835,6 +22788,111 @@
           }
         }
       },
+      "GetEconomicsCoverageQuery": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 366
+          },
+          "top": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        }
+      },
+      "GetEconomicsDailyQuery": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 366
+          },
+          "top": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        }
+      },
+      "GetEconomicsPercentilesQuery": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 366
+          },
+          "top": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        }
+      },
+      "GetEconomicsReceiversQuery": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 366
+          },
+          "top": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        }
+      },
+      "GetEconomicsTotalsQuery": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 366
+          },
+          "top": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        }
+      },
       "GetEntitiesByIdMetricsQuery": {
         "type": "object",
         "properties": {
@@ -22975,6 +24033,33 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "attempts": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "limited": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "windowDays": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "lastAttemptAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -22987,6 +24072,9 @@
                       "type": "null"
                     }
                   ]
+                },
+                "rateLimitRecorded": {
+                  "type": "boolean"
                 },
                 "schemaVersion": {
                   "type": [
@@ -23006,6 +24094,7 @@
                 "datasets",
                 "recentErrors",
                 "rateLimit",
+                "rateLimitRecorded",
                 "schemaVersion"
               ],
               "additionalProperties": false

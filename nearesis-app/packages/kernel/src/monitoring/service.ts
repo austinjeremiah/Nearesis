@@ -189,9 +189,13 @@ export class MonitoringService {
     return this.scoped(s, workspaceId, async (tx) =>
       (
         await tx.query(
-          `SELECT * FROM notifications WHERE workspace_id = $1 ${unreadOnly ? "AND read_at IS NULL" : ""}
-            ORDER BY created_at DESC, id LIMIT $2`,
-          [workspaceId, limit],
+          `SELECT n.*, COALESCE(r.read_at, CASE WHEN n.read_by IS NULL OR n.read_by = $3 THEN n.read_at END) AS user_read_at
+             FROM notifications n
+             LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = $3
+            WHERE n.workspace_id = $1
+              ${unreadOnly ? "AND r.read_at IS NULL AND NOT (n.read_at IS NOT NULL AND (n.read_by IS NULL OR n.read_by = $3))" : ""}
+            ORDER BY n.created_at DESC, n.id LIMIT $2`,
+          [workspaceId, limit, s.userId],
         )
       ).rows.map((n): Notification => ({
         notificationId: n.id,
@@ -203,10 +207,54 @@ export class MonitoringService {
         title: n.title,
         body: n.body,
         createdAt: iso(n.created_at),
-        readAt: n.read_at ? iso(n.read_at) : null,
-        readBy: n.read_by ?? null,
+        readAt: n.user_read_at ? iso(n.user_read_at) : null,
+        readBy: n.user_read_at ? s.userId : null,
       })),
     );
+  }
+
+  /**
+   * Marks notifications read for the calling user only. `ids` must belong to the workspace (others are reported under
+   * `notFound`, indistinguishable from foreign ones); `all` marks every unread one. Idempotent.
+   */
+  markNotificationsRead(
+    s: Session,
+    workspaceId: string,
+    which: { ids: string[] } | { all: true },
+  ): Promise<{ marked: string[]; alreadyRead: number; notFound: string[] }> {
+    return this.scoped(s, workspaceId, async (tx) => {
+      const orgId = s.principal.orgId;
+      const target =
+        "ids" in which
+          ? (
+              await tx.query<{ id: string }>(
+                "SELECT id FROM notifications WHERE workspace_id = $1 AND id = ANY($2::uuid[])",
+                [workspaceId, which.ids],
+              )
+            ).rows.map((r) => r.id)
+          : (
+              await tx.query<{ id: string }>("SELECT id FROM notifications WHERE workspace_id = $1", [
+                workspaceId,
+              ])
+            ).rows.map((r) => r.id);
+      const inserted = target.length
+        ? (
+            await tx.query<{ notification_id: string }>(
+              `INSERT INTO notification_reads(org_id, user_id, notification_id)
+               SELECT $1, $2, n.id FROM notifications n WHERE n.id = ANY($3::uuid[])
+                  AND NOT (n.read_at IS NOT NULL AND (n.read_by IS NULL OR n.read_by = $2))
+               ON CONFLICT DO NOTHING RETURNING notification_id`,
+              [orgId, s.userId, target],
+            )
+          ).rows.map((r) => r.notification_id)
+        : [];
+      const found = new Set(target);
+      return {
+        marked: inserted,
+        alreadyRead: target.length - inserted.length,
+        notFound: "ids" in which ? which.ids.filter((i) => !found.has(i)) : [],
+      };
+    });
   }
 
   listTasks(s: Session, workspaceId: string, markerId?: string): Promise<MarkerTask[]> {

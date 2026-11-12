@@ -4,6 +4,8 @@ import { z } from "zod";
 import { MarkerAssignPayload, MarkerCreatePayload, WatermarkEvent } from "@nearesis/contracts";
 import { KernelError, canWrite, workspaceNotFound, zodDetails } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
+import type { Condition } from "@nearesis/contracts";
+import { liveFeederDeps } from "./monitor-feeder-live.ts";
 import { runsPort } from "./marker-run-port.ts";
 import type { RunsService } from "./runs.ts";
 
@@ -13,6 +15,11 @@ export interface MonitoringRoutesOptions {
   authenticate(req: FastifyRequest): Promise<Session>;
   /** Run the lease-gated scheduler and the marker-task dispatcher in this process (off by default; the lead starts them). */
   background?: { intervalMs?: number } | undefined;
+  /**
+   * Recorded metric values (live semantic layer) for one UTC day, for rule replay. Default: the live gateway the monitor
+   * feeder uses. A metric with no observation is omitted (the rule then evaluates no_data), never filled.
+   */
+  replayValues?: ((metricIds: string[], dayIso: string) => Promise<Record<string, number>>) | undefined;
 }
 
 const Uuid = z.uuid();
@@ -23,6 +30,15 @@ const ReplayBody = z.strictObject({
     .min(1)
     .max(500),
 });
+const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const RuleReplayBody = z.strictObject({ from: Day, to: Day });
+const MAX_REPLAY_DAYS = 90;
+const metricsOf = (c: Condition): string[] =>
+  c.kind === "compare" || c.kind === "zscore"
+    ? [c.metricId]
+    : c.kind === "not"
+      ? metricsOf(c.term)
+      : c.terms.flatMap(metricsOf);
 const PostMarkerBody = MarkerCreatePayload.extend({
   /** Optional explicit task: saves the marker (ACTIVE) and assigns agents in one request. */
   task: MarkerAssignPayload.omit({ markerId: true }).optional(),
@@ -54,6 +70,22 @@ export const monitoringRoutes: FastifyPluginAsync<MonitoringRoutesOptions> = asy
       await scheduler.stop();
     });
   }
+
+  let liveValues: ReturnType<typeof liveFeederDeps> | null = null;
+  app.addHook("onClose", async () => {
+    await liveValues?.close();
+  });
+  const replayValues =
+    opts.replayValues ??
+    (async (metricIds: string[], dayIso: string) => {
+      liveValues ??= liveFeederDeps(async () => ({ enqueued: false }));
+      const out: Record<string, number> = {};
+      for (const id of metricIds) {
+        const v = await liveValues.deps.metricValue(id, dayIso);
+        if (v !== null && Number.isFinite(v)) out[id] = v;
+      }
+      return out;
+    });
 
   /** Resolve session + workspace id; hide existence behind 404 for any ACL failure. */
   async function scoped<T>(
@@ -217,6 +249,84 @@ export const monitoringRoutes: FastifyPluginAsync<MonitoringRoutesOptions> = asy
         );
       return reply.status(200).send({ mode: "replay", processed: sorted.length, results });
     }),
+  );
+
+  /**
+   * Replay ONE rule over recorded history: for each complete UTC day of [from, to] the recorded metric values of the live
+   * semantic layer become a replay-mode, final watermark event (end of that day) for this rule only. Everything it writes is
+   * flagged `replay` (trigger, evaluation and notification rows) and never reaches the live inbox. Re-running a window
+   * answers `duplicate` for days already replayed. Days without an observation evaluate as no_data.
+   */
+  app.post<{ Params: { id: string; ruleId: string } }>(
+    "/v1/workspaces/:id/monitors/:ruleId/replay",
+    (req, reply) =>
+      scoped(req, async (s, ws) => {
+        if (!canWrite(s.role)) throw new KernelError("FORBIDDEN", "INSUFFICIENT_ROLE", "Role not permitted.");
+        const ruleId = req.params.ruleId;
+        if (!Uuid.safeParse(ruleId).success) throw workspaceNotFound();
+        const rule = (await kernel.monitoring.listRules(s, ws)).find((r) => r.ruleId === ruleId);
+        if (!rule) throw workspaceNotFound();
+        const body = RuleReplayBody.safeParse(req.body);
+        if (!body.success)
+          throw new KernelError("VALIDATION_FAILED", "INVALID_BODY", "Invalid request body.", {
+            details: zodDetails(body.error),
+          });
+        const { from, to } = body.data;
+        const d0 = Date.parse(`${from}T00:00:00Z`);
+        const d1 = Date.parse(`${to}T00:00:00Z`);
+        const yesterday = Math.floor(Date.now() / 86_400_000) * 86_400_000 - 86_400_000;
+        if (Number.isNaN(d0) || Number.isNaN(d1) || d0 > d1)
+          throw new KernelError("VALIDATION_FAILED", "INVALID_WINDOW", "from must be a day on or before to.");
+        if (d1 > yesterday)
+          throw new KernelError(
+            "VALIDATION_FAILED",
+            "WINDOW_NOT_COMPLETE",
+            "Replay covers complete UTC days only; to must be yesterday or earlier.",
+          );
+        const days = (d1 - d0) / 86_400_000 + 1;
+        if (days > MAX_REPLAY_DAYS)
+          throw new KernelError(
+            "VALIDATION_FAILED",
+            "WINDOW_TOO_LARGE",
+            `Replay covers at most ${MAX_REPLAY_DAYS} days per request.`,
+          );
+        if (!rule.enabled)
+          throw new KernelError("VALIDATION_FAILED", "RULE_DISABLED", "Enable the rule before replaying it.");
+        const metricIds = [...new Set(metricsOf(rule.condition))];
+        const results: Array<{
+          day: string;
+          watermark: string;
+          values: Record<string, number>;
+          missing: string[];
+          outcome: string;
+        }> = [];
+        for (let t = d0; t <= d1; t += 86_400_000) {
+          const day = new Date(t).toISOString().slice(0, 10);
+          const watermark = `${day}T23:59:59.000Z`;
+          const values = await replayValues(metricIds, new Date(t).toISOString());
+          const r = await scheduler.processEvent(
+            { sourceId: rule.sourceId, mode: "replay", watermark, values, maturity: "final" },
+            { workspaceId: ws, ruleId },
+          );
+          results.push({
+            day,
+            watermark,
+            values,
+            missing: metricIds.filter((m) => !(m in values)),
+            outcome: r[0]?.outcome ?? "not_evaluated",
+          });
+        }
+        return reply.status(200).send({
+          mode: "replay",
+          label: "REPLAY over recorded metric history; not live data",
+          ruleId,
+          sourceId: rule.sourceId,
+          window: { from, to, days },
+          valueSource: "live semantic layer, daily values at each recorded day",
+          fired: results.filter((r) => r.outcome === "fired").length,
+          results,
+        });
+      }),
   );
 };
 

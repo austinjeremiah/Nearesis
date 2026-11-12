@@ -149,6 +149,69 @@ export const globalRoutes: FastifyPluginAsync<GlobalRoutesOptions> = async (app,
     return body;
   });
 
+  const ReadBody = z.union([
+    z.strictObject({ ids: z.array(z.uuid()).min(1).max(500) }),
+    z.strictObject({ all: z.literal(true) }),
+  ]);
+  const readBody = (b: unknown) => {
+    const r = ReadBody.safeParse(b);
+    if (!r.success)
+      throw new KernelError("VALIDATION_FAILED", "INVALID_BODY", "Send { ids: [uuid...] } or { all: true }.");
+    return r.data;
+  };
+  const unreadIn = async (s: Session, ids: string[]) => {
+    const per = await mapLimited(ids, async (id) => kernel.monitoring.listNotifications(s, id, true, 100));
+    return per.reduce((a, rows) => a + rows.length, 0);
+  };
+
+  /**
+   * Marks notifications read for the CALLING USER only (per-user state; other members still see them unread). Ids of other
+   * tenants or unknown ids are reported under notFound, identical for both. `unread` is the caller's count after the
+   * change, computed exactly as GET /v1/notifications does.
+   */
+  app.post("/v1/notifications/read", async (req) => {
+    const s = await authenticate(req);
+    const which = readBody(req.body);
+    const { list } = await workspacesOf(s);
+    const marked: string[] = [];
+    let alreadyRead = 0;
+    let remaining = "ids" in which ? new Set(which.ids) : new Set<string>();
+    for (const w of list) {
+      const r = await kernel.monitoring.markNotificationsRead(
+        s,
+        w.id,
+        "ids" in which ? { ids: which.ids } : { all: true },
+      );
+      marked.push(...r.marked);
+      alreadyRead += r.alreadyRead;
+      if ("ids" in which) remaining = new Set([...remaining].filter((i) => r.notFound.includes(i)));
+    }
+    return {
+      marked,
+      alreadyRead,
+      notFound: [...remaining],
+      unread: await unreadIn(
+        s,
+        list.map((w) => w.id),
+      ),
+    };
+  });
+
+  app.post<{ Params: { id: string } }>("/v1/workspaces/:id/notifications/read", async (req) => {
+    const s = await authenticate(req);
+    const id = req.params.id;
+    if (!z.uuid().safeParse(id).success) throw new KernelError("NOT_FOUND", "NOT_FOUND", "Not found.");
+    const which = readBody(req.body);
+    try {
+      const r = await kernel.monitoring.markNotificationsRead(s, id, which);
+      return { ...r, unread: await unreadIn(s, [id]) };
+    } catch (e) {
+      if (e instanceof KernelError && e.reasonCode === "ACCESS_DENIED")
+        throw new KernelError("NOT_FOUND", "NOT_FOUND", "Not found.");
+      throw e;
+    }
+  });
+
   app.get("/v1/approvals", async (req) => {
     const s = await authenticate(req);
     const status = parseQ(req.query).status ?? "pending";

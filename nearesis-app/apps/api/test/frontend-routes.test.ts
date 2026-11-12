@@ -778,6 +778,7 @@ describe("global fan-out lists", () => {
       gapCount: 2,
       coveragePct: 50,
       rateLimit: null,
+      rateLimitRecorded: false,
       recentErrors: [expect.objectContaining({ reasonCode: "REFUND_SPLIT_IS_PROXY" })],
     });
     expect(s.sources[0]!.datasets[0]).toMatchObject({

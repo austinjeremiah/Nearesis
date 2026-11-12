@@ -6,6 +6,15 @@ import { KernelError, writeAudit } from "@nearesis/kernel";
 import { guardCapsuleMetrics, principalOf } from "./metric-publish-guard.ts";
 import type { PublishAuthoring } from "./metric-publish-guard.ts";
 import type { Kernel, Session } from "@nearesis/kernel";
+import { resolveCapsuleDir } from "./capsule-resolve.ts";
+import {
+  anchorViewFor,
+  defaultChainReadback,
+  describePublications,
+  loadAnchors,
+  publishRoot,
+} from "./publication-trust.ts";
+import type { ChainReadback } from "./publication-trust.ts";
 import {
   APP_ROOT,
   cautionStatuses,
@@ -22,9 +31,10 @@ export interface CapsuleRoutesOptions {
   /** Governed metric authoring: a capsule using a non-CERTIFIED semantic metric cannot be published (422 METRIC_NOT_CERTIFIED). */
   authoring?: PublishAuthoring;
   kernel: Kernel;
+  /** Test seam: reads a testnet commitment back from the chain (default: read-only NEAR RPC). */
+  chainReadback?: ChainReadback;
 }
 
-const CAPSULE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/;
 const TYPES: Record<string, string> = {
   ".md": "text/markdown; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -41,17 +51,17 @@ const root = (): string => process.env.NEARESIS_CAPSULE_DIR ?? join(APP_ROOT, ".
  * are indistinguishable). Verification here is local recomputation only: the record keeps `local` and `outlayer` apart and
  * never reports OutLayer "verified" without evidence that passed the proof policy and a quote verifier.
  */
-export const capsuleRoutes: FastifyPluginAsync<CapsuleRoutesOptions> = async (app, { kernel, authoring }) => {
+export const capsuleRoutes: FastifyPluginAsync<CapsuleRoutesOptions> = async (
+  app,
+  { kernel, authoring, chainReadback },
+) => {
   async function authenticate(req: FastifyRequest): Promise<Session> {
     const h = req.headers.authorization;
     const token = h?.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : undefined;
     return kernel.identity.resolveSession(token);
   }
-  const dirOf = (id: string): string | null => {
-    if (!CAPSULE_ID.test(id)) return null;
-    const d = join(root(), id);
-    return existsSync(join(d, "manifest.json")) ? d : null;
-  };
+  // Capsule identity is the manifest `capsuleId`; the directory name is only a fallback (see capsule-resolve.ts).
+  const dirOf = (id: string): string | null => resolveCapsuleDir(root(), id);
   /**
    * Tenant gate. A capsule is visible only when its ownership record names the caller's org and a workspace the caller can
    * read (RLS-scoped lookup). Foreign, unowned, malformed and nonexistent ids all return null, so callers answer them
@@ -249,8 +259,84 @@ export const capsuleRoutes: FastifyPluginAsync<CapsuleRoutesOptions> = async (ap
     const s = await authenticate(req);
     const d = await visibleDir(s, req.params.id);
     if (!d) throw new KernelError("NOT_FOUND", "CAPSULE_NOT_FOUND", "Capsule not found.");
-    return { scope: "local", ...(await verifyCapsule(d, { research: "skip", wasm: "crosscheck" })) };
+    const m = readManifest(d);
+    const publications = m
+      ? describePublications(join(publishRoot(), m.capsuleId), await loadAnchors(kernel))
+      : [];
+    return {
+      scope: "local",
+      ...(await verifyCapsule(d, { research: "skip", wasm: "crosscheck" })),
+      // Signing key fingerprint, trusted-key status (registry incl. revocation) and anchors of every published version.
+      publications,
+      latestPublication: publications[0] ?? null,
+    };
   });
+
+  /**
+   * Testnet commitment readback for a published capsule (latest version, or `?manifestHash=`): the recorded chain-commit
+   * entry is read back from NEAR testnet at FINAL finality and compared with the manifest hash. Read-only; never sends a
+   * transaction. `status`: verified | mismatch | not_committed | unavailable (RPC unreachable).
+   */
+  app.get<{ Params: { id: string }; Querystring: { manifestHash?: string } }>(
+    "/v1/capsules/:id/anchor",
+    async (req) => {
+      const s = await authenticate(req);
+      const d = await visibleDir(s, req.params.id);
+      const m = d ? readManifest(d) : null;
+      if (!d || !m) throw new KernelError("NOT_FOUND", "CAPSULE_NOT_FOUND", "Capsule not found.");
+      const anchors = await loadAnchors(kernel);
+      const pubs = describePublications(join(publishRoot(), m.capsuleId), anchors);
+      const want = req.query.manifestHash;
+      if (want !== undefined && !/^[0-9a-f]{64}$/.test(want))
+        throw new KernelError("VALIDATION_FAILED", "INVALID_QUERY", "manifestHash must be 64 lowercase hex.");
+      // only a manifest of THIS capsule can be read back (no probing of other tenants' hashes)
+      const rec = want ? pubs.find((p) => p.manifestHash === want) : pubs[0];
+      if (!rec)
+        throw new KernelError("NOT_FOUND", "PUBLICATION_NOT_FOUND", "No such publication of this capsule.");
+      const view = anchorViewFor(anchors, rec.manifestHash);
+      if (!view.chain)
+        return {
+          capsuleId: m.capsuleId,
+          manifestHash: rec.manifestHash,
+          status: "not_committed" as const,
+          anchor: view,
+          readback: null,
+        };
+      try {
+        const rb = await (chainReadback ?? defaultChainReadback)(view.chain.txHash, rec.manifestHash);
+        return {
+          capsuleId: m.capsuleId,
+          manifestHash: rec.manifestHash,
+          status:
+            rb.finality === "FINAL" && rb.succeeded && rb.equal
+              ? ("verified" as const)
+              : ("mismatch" as const),
+          anchor: view,
+          readback: {
+            network: view.chain.network,
+            contract: view.chain.contract,
+            txHash: view.chain.txHash,
+            finality: rb.finality,
+            succeeded: rb.succeeded,
+            receiver: rb.receiver,
+            committedHash: rb.argsHash,
+            viewPresent: rb.viewPresent,
+            viewTimestampNs: String(rb.viewTimestampNs),
+            equal: rb.equal,
+          },
+        };
+      } catch (e) {
+        return {
+          capsuleId: m.capsuleId,
+          manifestHash: rec.manifestHash,
+          status: "unavailable" as const,
+          anchor: view,
+          readback: null,
+          reason: `chain readback failed: ${(e as Error).message.slice(0, 200)}`,
+        };
+      }
+    },
+  );
 
   /**
    * The capsule's recorded research run (research_run.json), served only when its bytes match the manifest hash. Scoped

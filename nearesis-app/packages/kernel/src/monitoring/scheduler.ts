@@ -201,7 +201,7 @@ export class MonitorScheduler {
   /** Evaluates one event against every rule listening to its source (disabled rules record `skipped_disabled`). Safe to call from competing workers. */
   async processEvent(
     raw: WatermarkEventInput,
-    scope: { workspaceId?: string } = {},
+    scope: { workspaceId?: string; ruleId?: string } = {},
   ): Promise<ProcessResult[]> {
     const ev = WatermarkEventSchema.parse(raw);
     const rules = (
@@ -215,7 +215,11 @@ export class MonitorScheduler {
     // Rules of different workspaces are independent (each evaluation locks only its own workspace and rule), so they run
     // concurrently with a bound; rules of one workspace stay sequential in rule order. A 100-rule burst on one source then
     // costs about (rules per workspace) evaluations of latency instead of all 100 (PERF03).
-    const todo = rules.filter((x) => !scope.workspaceId || x.workspace_id === scope.workspaceId);
+    const todo = rules.filter(
+      (x) =>
+        (!scope.workspaceId || x.workspace_id === scope.workspaceId) &&
+        (!scope.ruleId || x.rule_id === scope.ruleId),
+    );
     const byWorkspace = new Map<string, Array<{ i: number; r: RuleRef }>>();
     todo.forEach((r, i) => {
       const g = byWorkspace.get(r.workspace_id) ?? [];

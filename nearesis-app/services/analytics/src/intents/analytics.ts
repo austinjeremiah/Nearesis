@@ -115,6 +115,25 @@ export class IntentsAnalytics {
     return { from: addDays(d, -days + 1), to: d };
   }
 
+  /**
+   * Default window for quote reads. Quotes are sampled on their own schedule, so the swap-coverage window (complete days of
+   * the Explorer archive) can end before the first quote exists and hide every sample. This window ends at the newest
+   * sampled day instead (null when nothing is sampled).
+   */
+  async quoteDefaultWindow(days = 30): Promise<IntentsWindow | null> {
+    try {
+      const [r] = await queryRows<Row>(
+        this.ch,
+        `SELECT toString(toDate(max(scheduled_bucket_utc))) AS d FROM ${this.db}.quote_attempts`,
+      );
+      const d = r?.d;
+      if (!d || d.startsWith("1970")) return null;
+      return { from: addDays(d, -days + 1), to: d };
+    } catch {
+      return null;
+    }
+  }
+
   // ---------- coverage and provenance ----------
 
   private readonly covCache = new Map<string, { at: number; v: IntentsCoverage }>();
@@ -1030,6 +1049,18 @@ export class IntentsAnalytics {
       `SELECT route_id, error_category, count() AS c FROM ${this.db}.quote_intel FINAL WHERE ${where} AND error_category NOT IN ('none') GROUP BY route_id, error_category`,
       { from: w.from, to: w.to },
     );
+    // Why a slot was not attempted (e.g. NO_REFUND_ADDRESS_CONFIG:near): the reason is recorded on the attempt row only.
+    const unavail = await queryRows<Row>(
+      this.ch,
+      `SELECT route_id, reason, count() AS c FROM ${this.db}.quote_attempts FINAL WHERE ${where} AND slot = 'unavailable' GROUP BY route_id, reason`,
+      { from: w.from, to: w.to },
+    ).catch(() => [] as Row[]);
+    const unavailBy = new Map<string, Record<string, number>>();
+    for (const u of unavail)
+      unavailBy.set(u.route_id as string, {
+        ...(unavailBy.get(u.route_id as string) ?? {}),
+        [String(u.reason ?? "UNKNOWN")]: n(u.c),
+      });
     const errBy = new Map<string, Record<string, number>>();
     for (const e of errs)
       errBy.set(e.route_id as string, {
@@ -1046,6 +1077,7 @@ export class IntentsAnalytics {
       noRoute: n(r.no_route),
       errors: n(r.errors),
       errorCategories: errBy.get(r.route_id as string) ?? {},
+      unavailableReasons: unavailBy.get(r.route_id as string) ?? {},
       rateLimited: n(r.rate_limited),
       latencyMsP50: r.lat50 && n(r.attempts) > 0 ? n(r.lat50) : null,
       latencyMsP95: r.lat95 && n(r.attempts) > 0 ? n(r.lat95) : null,

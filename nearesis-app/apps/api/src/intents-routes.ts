@@ -186,7 +186,28 @@ export const intentsRoutes: FastifyPluginAsync<IntentsRoutesOptions> = async (ap
   );
   get("settlement-duration", Win, (_q, w) => a.settlementDurationMeasured(w));
   get("solver-metrics", Win, (_q, w) => a.solverMetrics(w));
-  get("quotes", Win, (_q, w) => a.quoteIntelligence(w));
+  // Quotes have their own default window (newest sampled day), not the swap-coverage window.
+  app.get("/v1/intents/quotes", async (req) => {
+    await authenticate(req);
+    const q = parse(Win, req.query);
+    let w: { from: string; to: string };
+    if (q.from && q.to) w = { from: q.from, to: q.to };
+    else {
+      const d = await a.quoteDefaultWindow(q.days ?? 30);
+      if (!d)
+        throw new KernelError(
+          "NOT_FOUND",
+          "NO_QUOTE_SAMPLES",
+          "No quote has been sampled yet; pass an explicit from and to.",
+        );
+      w = { from: q.from ?? d.from, to: q.to ?? d.to };
+    }
+    try {
+      return await a.quoteIntelligence(w);
+    } catch (e) {
+      return bad(e);
+    }
+  });
 };
 
 (intentsRoutes as unknown as Record<symbol, boolean>)[Symbol.for("skip-override")] = true;

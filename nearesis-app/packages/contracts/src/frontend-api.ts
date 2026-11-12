@@ -312,8 +312,21 @@ export const SourceHealth = z.strictObject({
       to: IsoDateTime,
     }),
   ),
-  /** Null: ingestion does not record provider rate-limit state, so none is reported rather than guessed. */
-  rateLimit: z.strictObject({ status: z.string(), detail: z.string().nullable() }).nullable(),
+  /**
+   * Rate-limit state from the recorded per-source history (HTTP 429 outcomes of recent attempts). Null with
+   * `rateLimitRecorded: false` when the source's history records none: never a fabricated zero.
+   */
+  rateLimit: z
+    .strictObject({
+      status: z.string(),
+      detail: z.string().nullable(),
+      attempts: z.number().int().nonnegative().optional(),
+      limited: z.number().int().nonnegative().optional(),
+      windowDays: z.number().int().positive().optional(),
+      lastAttemptAt: IsoDateTime.nullable().optional(),
+    })
+    .nullable(),
+  rateLimitRecorded: z.boolean(),
   schemaVersion: z.string().nullable(),
 });
 export type SourceHealth = z.infer<typeof SourceHealth>;

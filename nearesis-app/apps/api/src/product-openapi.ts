@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { HttpMethod, ResponseSpec, RouteSpec } from "@nearesis/contracts";
 import {
   AmendBody,
@@ -316,5 +317,96 @@ export const PRODUCT_ROUTES: RouteSpec[] = [
     "thesis",
     "Export a version as markdown or PDF with the content digest in x-content-digest",
     { query: ExportQ, capability: "thesis builder" },
+  ),
+
+  // ---- backend gaps found by the frontend workers --------------------------------------------------------------------
+  R(
+    "post",
+    "/v1/notifications/read",
+    "frontend",
+    "Mark notifications read for the caller only: { ids: uuid[] } or { all: true }; returns marked, alreadyRead, notFound and the caller's unread count",
+    { capability: "notifications read state" },
+  ),
+  R(
+    "post",
+    `${W}/notifications/read`,
+    "monitoring",
+    "Per-workspace equivalent of POST /v1/notifications/read (per user)",
+    { capability: "notifications read state" },
+  ),
+  R(
+    "get",
+    "/v1/metrics/:key",
+    "frontend",
+    "Detail of a certified registry metric: definition, certification, semantic hash, sources (authored metrics are read through the workspace routes)",
+    { capability: "registry metric detail" },
+  ),
+  R(
+    "get",
+    "/v1/metrics/:key/versions",
+    "frontend",
+    "Certified versions of a registry metric with their semantic hashes",
+    {
+      capability: "registry metric detail",
+    },
+  ),
+  R(
+    "post",
+    `${W}/monitors/:ruleId/replay`,
+    "monitoring",
+    "Replay one rule over recorded daily metric values of the live layer for { from, to } (complete UTC days, at most 90); results labelled REPLAY, duplicates answered idempotently",
+    { role: "writer", capability: "monitor replay" },
+  ),
+  ...(
+    [
+      [
+        "daily",
+        "Daily gas burnt, tokens burnt (exact yocto strings), gas price, conversion vs receipt-only burn, execution intensity, USD only from timestamped CoinGecko candles (else null with NO_TIMESTAMPED_PRICE)",
+      ],
+      ["totals", "Window sums of the daily economics"],
+      ["receivers", "Gas and fee by executing account, top N (?top), folded remainder labelled"],
+      [
+        "percentiles",
+        "Per-transaction fee percentiles where loaded (loaded:false and TX_DAILY_NOT_LOADED otherwise)",
+      ],
+      ["coverage", "source_coverage, quality gaps (REFUND_SPLIT_IS_PROXY etc.) and loaded row counts"],
+    ] as const
+  ).map(([k, summary]) =>
+    R(
+      "get",
+      `/v1/economics/${k}`,
+      "economics",
+      `${summary}. Execution fees are never labelled protocol revenue`,
+      {
+        query: z.object({
+          from: z.string().optional(),
+          to: z.string().optional(),
+          days: z.number().int().min(1).max(366).optional(),
+          top: z.number().int().min(1).max(200).optional(),
+        }),
+        capability: "network economics",
+      },
+    ),
+  ),
+  R(
+    "get",
+    "/v1/capsules/:id/anchor",
+    "publication",
+    "Testnet commitment readback of a published capsule manifest (latest, or ?manifestHash=): verified | mismatch | not_committed | unavailable; read-only",
+    { capability: "publication anchor readback" },
+  ),
+  R(
+    "get",
+    "/v1/public/publications/:id",
+    "public",
+    "Unauthenticated, rate-limited public view of an explicitly published capsule: hashes, verification labels, signing-key trust, anchors, documents. Withdrawn: 404 PUBLICATION_WITHDRAWN; no tenant data",
+    { auth: "none", capability: "public publications" },
+  ),
+  R(
+    "get",
+    "/v1/public/publications/:id/exports/*",
+    "public",
+    "A published document of a public capsule (manifest-listed files only, hash-checked)",
+    { auth: "none", capability: "public publications" },
   ),
 ];

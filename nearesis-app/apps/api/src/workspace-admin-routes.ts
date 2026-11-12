@@ -68,6 +68,7 @@ export const BUILTIN_TEMPLATES = [
   },
   {
     id: "near-investment-thesis",
+    requiredPlugins: ["near-thesis"] as string[],
     name: "NEAR Investment Thesis",
     description:
       "Grid canvas for a preregistered, evidence-first thesis (hypotheses, forecasts, robustness, capsule).",
@@ -393,7 +394,12 @@ export const workspaceAdminRoutes: FastifyPluginAsync<WorkspaceAdminOptions> = a
     const tpl = await kernel.db.tx(ctxOf(s), async (tx) => {
       const builtin = BUILTIN_TEMPLATES.find((t) => t.id === b.templateId);
       if (builtin)
-        return { id: builtin.id, objectiveHint: builtin.objectiveHint, layout: builtin.canvasConfig };
+        return {
+          id: builtin.id,
+          objectiveHint: builtin.objectiveHint,
+          layout: builtin.canvasConfig,
+          requiredPlugins: (builtin as { requiredPlugins?: string[] }).requiredPlugins ?? [],
+        };
       const r = Uuid.safeParse(b.templateId).success
         ? (
             await tx.query<{
@@ -406,7 +412,12 @@ export const workspaceAdminRoutes: FastifyPluginAsync<WorkspaceAdminOptions> = a
           ).rows[0]
         : undefined;
       if (!r) throw new KernelError("NOT_FOUND", "TEMPLATE_NOT_FOUND", "No such template.");
-      return { id: r.id, objectiveHint: r.objective_hint, layout: Layout.parse(r.canvas_config) };
+      return {
+        id: r.id,
+        objectiveHint: r.objective_hint,
+        layout: Layout.parse(r.canvas_config),
+        requiredPlugins: [] as string[],
+      };
     });
     const objective = b.objective ?? tpl.objectiveHint;
     if (!objective)
@@ -416,11 +427,11 @@ export const workspaceAdminRoutes: FastifyPluginAsync<WorkspaceAdminOptions> = a
         "This template has no default objective; provide one.",
         { details: [{ path: "objective", issue: "required" }] },
       );
-    const created = await kernel.workspaces.create(s, {
-      objective,
-      networkScope: b.networkScope,
-      idempotencyKey: b.idempotencyKey,
-    });
+    const created = await kernel.workspaces.create(
+      s,
+      { objective, networkScope: b.networkScope, idempotencyKey: b.idempotencyKey },
+      { requiredPlugins: tpl.requiredPlugins },
+    );
     // Idempotent second step: a retry with the same idempotency key finds the profile and canvas already in place.
     const out = await kernel.db.tx(ctxOf(s), async (tx) => {
       const w = (
@@ -458,13 +469,11 @@ export const workspaceAdminRoutes: FastifyPluginAsync<WorkspaceAdminOptions> = a
       );
       return settingsView(tx, s, created.workspaceId);
     });
-    return reply
-      .status(201)
-      .send({
-        ...out,
-        version: created.version,
-        seeded: { canvasConfig: tpl.layout, panels: 0, data: "none" },
-      });
+    return reply.status(201).send({
+      ...out,
+      version: created.version,
+      seeded: { canvasConfig: tpl.layout, panels: 0, data: "none" },
+    });
   });
 
   // ------------------------------------------------------------------------------------------------ org + members

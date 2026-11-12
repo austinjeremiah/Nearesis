@@ -22,3 +22,4 @@ export * from "./accounts/source.ts";
 export * from "./accounts/metrics.ts";
 export * from "./entities/unique-signers.ts";
 export * from "./agent-analytics/index.ts";
+export { EconomicsReader, ECONOMICS_REGIME_CAVEAT, PRECISION_CAVEAT } from "./economics/reader.ts";

@@ -32,6 +32,14 @@ interface CoverageRow {
   days: string | number;
   newest: string;
 }
+/** Recorded rate-limit history of a source over the recent window (only sources whose adapter records it appear). */
+export interface RateLimitRow {
+  provider_id: string;
+  attempts: string | number;
+  limited: string | number;
+  last_attempt: string | null;
+}
+export const RATE_LIMIT_WINDOW_DAYS = 7;
 interface GapRow {
   provider_id: string;
   dataset: string;
@@ -47,11 +55,13 @@ export function assembleSourceHealth(
   coverage: CoverageRow[],
   gaps: GapRow[],
   windowDays = COVERAGE_WINDOW_DAYS,
+  rateLimits: RateLimitRow[] = [],
 ): SourceHealth[] {
   const ids = [
     ...new Set([...watermarks.map((w) => w.provider_id), ...coverage.map((c) => c.provider_id)]),
   ].sort();
   return ids.map((id) => {
+    const rl = rateLimits.find((x) => x.provider_id === id && Number(x.attempts) > 0);
     const w = watermarks.find((x) => x.provider_id === id);
     const cov = coverage.filter((c) => c.provider_id === id);
     const newest =
@@ -100,7 +110,17 @@ export function assembleSourceHealth(
           from: iso(g.from_utc) ?? g.from_utc,
           to: iso(g.to_utc) ?? g.to_utc,
         })),
-      rateLimit: null,
+      rateLimit: rl
+        ? {
+            status: Number(rl.limited) > 0 ? "limited" : "not_limited",
+            detail: `${Number(rl.limited)} of ${Number(rl.attempts)} attempts answered HTTP 429 in the last ${RATE_LIMIT_WINDOW_DAYS} days (HTTP status only; response headers are not archived).`,
+            attempts: Number(rl.attempts),
+            limited: Number(rl.limited),
+            windowDays: RATE_LIMIT_WINDOW_DAYS,
+            lastAttemptAt: iso(rl.last_attempt),
+          }
+        : null,
+      rateLimitRecorded: rl !== undefined,
       schemaVersion: w?.schema_version ?? null,
     };
   });
@@ -115,7 +135,7 @@ export function createSourceHealthPort(): SourceHealthPort {
   };
   return {
     async read() {
-      const [w, c, g] = await Promise.all([
+      const [w, c, g, rl] = await Promise.all([
         q<WatermarkRow>(
           "SELECT provider_id, toString(newest_event_time) AS newest_event_time, gap_count, provider_lag_seconds, schema_version, state FROM source_watermarks FINAL",
         ),
@@ -131,8 +151,14 @@ export function createSourceHealthPort(): SourceHealthPort {
           `SELECT provider_id, dataset, state, reason_code, toString(from_utc) AS from_utc, toString(to_utc) AS to_utc
              FROM quality_gaps FINAL ORDER BY from_utc DESC LIMIT 200`,
         ),
+        // Only the 1Click quote sampler records rate-limit outcomes (quote_intel); a missing table means none recorded.
+        q<RateLimitRow>(
+          `SELECT 'intents-1click' AS provider_id, toString(countIf(availability != 'not_attempted')) AS attempts,
+                  toString(countIf(rate_limit_status = 'limited')) AS limited, toString(maxIf(scheduled_bucket_utc, availability != 'not_attempted')) AS last_attempt
+             FROM quote_intel FINAL WHERE scheduled_bucket_utc >= now() - INTERVAL ${RATE_LIMIT_WINDOW_DAYS} DAY`,
+        ).catch(() => []),
       ]);
-      return assembleSourceHealth(w, c, g);
+      return assembleSourceHealth(w, c, g, COVERAGE_WINDOW_DAYS, rl);
     },
     async close() {
       await ch?.close();

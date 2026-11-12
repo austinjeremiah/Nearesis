@@ -6,6 +6,8 @@ import { guardCapsuleMetrics, principalOf } from "./metric-publish-guard.ts";
 import type { PublishAuthoring } from "./metric-publish-guard.ts";
 import type { Kernel, Session } from "@nearesis/kernel";
 import { resolvePublishSigner } from "./publish-signer.ts";
+import { resolveCapsuleDir } from "./capsule-resolve.ts";
+import { anchorViewFor, describePublications, dropAnchorCache, loadAnchors } from "./publication-trust.ts";
 import type { ChainCommitPayload } from "@nearesis/capsule";
 import {
   APP_ROOT,
@@ -81,7 +83,7 @@ export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (
       const id = req.body?.capsuleId;
       const notFound = new KernelError("NOT_FOUND", "CAPSULE_NOT_FOUND", "Capsule not found.");
       if (typeof id !== "string" || !CAPSULE_ID.test(id)) throw notFound;
-      const dir = join(capsuleRoot(), id);
+      const dir = resolveCapsuleDir(capsuleRoot(), id) ?? join(capsuleRoot(), id);
       const owner = existsSync(join(dir, "manifest.json")) ? readCapsuleOwnership(dir) : null;
       const manifest = owner ? readManifest(dir) : null;
       if (!owner || !manifest || owner.orgId !== s.principal.orgId) throw notFound;
@@ -144,7 +146,7 @@ export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (
           capsuleId: manifest.capsuleId,
           ...(manifest.research ? { researchBundleDir: join(dir, "research") } : {}),
           ...(manifest.metricVersions ? { metricVersions: manifest.metricVersions } : {}),
-          root: join(publishRoot(), id),
+          root: join(publishRoot(), manifest.capsuleId),
           ...(pem ? { signer: { privateKeyPem: pem } } : {}),
         });
       } catch (e) {
@@ -251,11 +253,26 @@ export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (
           anchor = { ...anchor, chain: "failed" };
         }
       }
+      dropAnchorCache();
+      const entries = await loadAnchors(kernel);
+      const view = anchorViewFor(entries, data.manifestHash);
+      const record = describePublications(join(publishRoot(), manifest.capsuleId), entries).find(
+        (r) => r.manifestHash === data.manifestHash,
+      );
       return {
         ...data,
         signingSource: signing.source,
         hardened: signing.hardened,
-        anchor,
+        // Key fingerprint (sha256 of SPKI DER), trusted-key registry status incl. revocation, and why.
+        signingKey: record?.key ?? null,
+        anchor: {
+          ...anchor,
+          entryHash: view.log?.entryHash ?? null,
+          anchoredAt: view.log?.anchoredAt ?? (anchor.anchoredAt as string | undefined) ?? null,
+          testnet: view.chain
+            ? { ...view.chain, readback: "verified_at_commit" as const }
+            : { status: anchor.chain as string },
+        },
         created: published.bundle.created,
         eventId: ev.eventId,
         seq: ev.seq,

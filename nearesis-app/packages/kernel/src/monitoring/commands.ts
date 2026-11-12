@@ -650,6 +650,10 @@ export function registerMonitoringCommands(bus: CommandBus, cfg: MonitoringConfi
         [p.notificationId, ctx.workspace.id, ctx.session.userId],
       );
       if (!r.rows[0]) throw denied();
+      await ctx.tx.query(
+        "INSERT INTO notification_reads(org_id, user_id, notification_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+        [ctx.workspace.orgId, ctx.session.userId, p.notificationId],
+      );
       return {
         eventType: "notification.read",
         data: { notificationId: p.notificationId },

@@ -496,6 +496,8 @@ describe("quote intelligence from archived payloads", () => {
       latestQuotedEffectiveRate: "9900",
       providerVersion: "1click-openapi-0.1.10",
     });
+    expect(d[0]).toHaveProperty("unavailableReasons");
+    expect(await a.quoteDefaultWindow(1)).toEqual({ from: "2026-11-12", to: "2026-11-12" });
     expect(d[0]?.errorCategories).toEqual({ no_route: 1, timeout: 1, rate_limited: 1, not_attempted: 1 });
     const rows = await queryRows<{ k: string }>(
       ch,

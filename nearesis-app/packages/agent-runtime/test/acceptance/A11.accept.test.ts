@@ -31,6 +31,7 @@ const SAMPLE: Record<string, unknown> = {
   "plan.propose@1": { plan: {} },
   "semantic.discover@1": {},
   "semantic.query@1": primaryQuery(),
+  "metric.propose@1": { proposal: {}, mode: "check" },
   "registry.read@1": { key: "k" },
   "adapter.docs@1": { adapter: "a" },
   "web.fetch_approved@1": { url: "https://example.invalid" },

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Content, PageHeader, RunStrip } from '@/components/nx/shell';
+import { SectionBar } from '@/components/nx/section';
 import { PanelFrame } from '@/components/nx/panel';
 import {
   Badge,
@@ -133,13 +134,16 @@ export default async function OverviewPage({ params }: { params: Promise<{ wid: 
           </Card>
         </div>
 
-        <section className="col gap3">
-          <div className="row between">
-            <h2 className="label">Research surface</h2>
-            <Link className="link small" href={`/w/${wid}/canvas`}>
-              Open canvas
-            </Link>
-          </div>
+        <section>
+          <SectionBar
+            title="Research surface"
+            number="001"
+            action={
+              <Link className="link small" href={`/w/${wid}/canvas`}>
+                Open canvas
+              </Link>
+            }
+          />
           {pinned.length === 0 ? (
             <EmptyState
               title="Nothing pinned yet"

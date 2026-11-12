@@ -1708,3 +1708,167 @@ table.table {
 .band::before {
   display: none;
 }
+
+/* =============================================================================
+   Pass 4: overflow containment, the landing section bar, and card parity.
+   ========================================================================== */
+
+/* -----------------------------------------------------------------------------
+   Overflow. Values were escaping their cards because a flex row of badges has
+   no reason to wrap unless told to, and a grid child defaults to min-width:auto
+   so long content pushes the column wider than its track instead of shrinking.
+   -------------------------------------------------------------------------- */
+.card,
+.card-head,
+.card-body,
+.card-foot {
+  min-width: 0;
+}
+.kv > dd,
+.kv > dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* Any inline cluster of badges wraps rather than running past the edge. */
+.kv > dd > .row,
+.card-head .actions,
+.pagehead .actions,
+.card-foot {
+  flex-wrap: wrap;
+}
+.badge,
+.mode {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A hash or an id is the common offender: break it rather than widen the card. */
+.mono {
+  overflow-wrap: anywhere;
+}
+.grid > * {
+  min-width: 0;
+}
+
+/* -----------------------------------------------------------------------------
+   Section header, from the landing page's .section-title-flex
+   -------------------------------------------------------------------------- */
+.section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+.section-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+  background: var(--ink);
+  color: var(--invert);
+  padding: var(--s2) var(--s4);
+  border-radius: var(--radius-sm);
+}
+.section-bar h2,
+.section-bar .n {
+  margin: 0;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+}
+.section-bar .n {
+  font-family: var(--font-mono);
+  opacity: 0.6;
+}
+/* The hairline pinned between two squares, exactly as the landing draws it. */
+.dot-rule {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--s3);
+  margin-top: 10px;
+}
+.dot-rule .sq {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--line-strong);
+}
+.dot-rule .ln {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.section-action {
+  position: absolute;
+  right: 0;
+  bottom: -2px;
+  font-size: var(--fs-small);
+}
+
+/* A section is the bar plus its content, with the bar sitting tight to it. */
+.content > section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+/* -----------------------------------------------------------------------------
+   Card parity. In a grid, cards stretch to the tallest in the row so their
+   footers line up instead of floating at different heights.
+   -------------------------------------------------------------------------- */
+.grid > .card,
+.grid > * > .card {
+  height: 100%;
+}
+.card .card-body {
+  flex: 1;
+}
+/* A card that is a link target lifts its border rather than its shadow. */
+.card:has(a:hover) {
+  border-color: var(--line-strong);
+}
+
+/* The evidence chain needs five columns plus arrows. Below roughly 1200px that
+   no longer fits a two-up grid, so it stacks rather than scrolling sideways
+   inside the card. */
+@media (max-width: 1200px) {
+  .evidence-chain {
+    flex-direction: column;
+  }
+  .dot-rule,
+  .evidence-chain .chain-arrow {
+    transform: none;
+  }
+  .evidence-chain .chain-arrow {
+    transform: rotate(90deg);
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Narrow cards: the key/value grid held a 120px minimum on the label column,
+   which starved the value column in a three-up card and pushed wide badges past
+   the edge. Below a readable width the pair stacks instead, and badges are given
+   min-width:0 so their ellipsis can actually engage.
+   -------------------------------------------------------------------------- */
+.card-body,
+.inspector-body {
+  container-type: inline-size;
+}
+.kv {
+  grid-template-columns: minmax(96px, 38%) minmax(0, 1fr);
+}
+@container (max-width: 330px) {
+  .kv {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .kv > dd {
+    padding-bottom: 2px;
+  }
+}
+.badge,
+.mode {
+  min-width: 0;
+}

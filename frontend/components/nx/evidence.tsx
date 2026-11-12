@@ -78,7 +78,7 @@ export function DataModeIndicator({
   // a LIVE + live_provider panel needs one badge, not two.
   const showOrigin = origin !== 'live_provider';
   return (
-    <span className="row gap1" style={{ display: 'inline-flex' }}>
+    <span className="row gap1 wrap" style={{ display: 'inline-flex' }}>
       <span className="mode" data-mode={mode} title={MODE_TITLE[mode]}>
         {mode}
       </span>
@@ -203,7 +203,7 @@ export function EvidenceVerdict({
 }) {
   const v = VERDICT[verdict];
   return (
-    <span className="row gap1" style={{ display: 'inline-flex' }}>
+    <span className="row gap1 wrap" style={{ display: 'inline-flex' }}>
       <Badge tone={v.tone} title={v.help}>
         {v.label}
       </Badge>

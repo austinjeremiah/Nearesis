@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Content, PageHeader } from '@/components/nx/shell';
+import { SectionBar } from '@/components/nx/section';
 import { Badge, DataModeIndicator, RunStatus } from '@/components/nx/evidence';
 import { BudgetMeter, Card, EmptyState, KeyValues, Notice } from '@/components/nx/ui';
 import * as db from '@/lib/data/client';
@@ -47,8 +48,8 @@ export default async function AgentsPage({ params }: { params: Promise<{ wid: st
           approval is void the moment a parameter changes.
         </Notice>
 
-        <section className="col gap3">
-          <h2 className="label">Roster</h2>
+        <section>
+          <SectionBar title="Roster" number="001" />
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -77,8 +78,8 @@ export default async function AgentsPage({ params }: { params: Promise<{ wid: st
           </div>
         </section>
 
-        <section className="col gap3">
-          <h2 className="label">Runs</h2>
+        <section>
+          <SectionBar title="Runs" number="002" />
           {runs.length === 0 ? (
             <EmptyState title="No runs yet" body="Approve a plan on the Investigate page to start one." />
           ) : (

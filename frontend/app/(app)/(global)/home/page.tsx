@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Content, PageHeader } from '@/components/nx/shell';
 import { Band } from '@/components/nx/band';
+import { SectionBar } from '@/components/nx/section';
 import { Card, EmptyState, KeyValues, LinkButton } from '@/components/nx/ui';
 import {
   Badge,
@@ -74,9 +75,9 @@ export default function HomePage() {
           }
         />
 
-        <section className="col gap3">
-          <h2 className="label">Continue researching</h2>
-          <div className="grid c2">
+        <section>
+          <SectionBar title="Continue researching" number="001" />
+          <div className="grid c3">
             {recent.map((w) => (
               <Card
                 key={w.id}
@@ -109,8 +110,8 @@ export default function HomePage() {
         </section>
 
         <div className="grid c2">
-          <section className="col gap3">
-            <h2 className="label">Needs your review</h2>
+          <section>
+            <SectionBar title="Needs your review" number="002" />
             {pendingApprovals.length === 0 ? (
               <EmptyState title="Nothing waiting on you" body="Approvals and merge requests appear here." />
             ) : (
@@ -142,8 +143,8 @@ export default function HomePage() {
             )}
           </section>
 
-          <section className="col gap3">
-            <h2 className="label">Recent findings</h2>
+          <section>
+            <SectionBar title="Recent findings" number="003" />
             <div className="col gap3">
               {findings.map((c) => (
                 <Card
@@ -166,8 +167,8 @@ export default function HomePage() {
         </div>
 
         <div className="grid c2">
-          <section className="col gap3">
-            <h2 className="label">Data health</h2>
+          <section>
+            <SectionBar title="Data health" number="004" />
             <Card
               title={`${sources.length - unhealthy.length} of ${sources.length} sources healthy`}
               actions={
@@ -202,8 +203,8 @@ export default function HomePage() {
             </Card>
           </section>
 
-          <section className="col gap3">
-            <h2 className="label">Usage today</h2>
+          <section>
+            <SectionBar title="Usage today" number="005" />
             <Card
               title={`${formatUsd(spentToday)} spent`}
               subtitle={`Across ${ws.length} active workspaces, against ${formatUsd(budgetToday)} of caps.`}
@@ -224,7 +225,7 @@ export default function HomePage() {
               </p>
             </Card>
 
-            <h2 className="label">Latest publications</h2>
+            <SectionBar title="Latest publications" number="006" />
             {db.publications().length === 0 ? (
               <EmptyState title="Nothing published yet" body="A published thesis appears here with its verification state." />
             ) : (

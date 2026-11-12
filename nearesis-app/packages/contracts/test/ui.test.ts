@@ -6,7 +6,7 @@ const now = "2026-11-10T12:00:00.000Z";
 
 describe("v1.3.0 additions (ui read models)", () => {
   it("is additive (the 1.3.0 shapes are unchanged in 1.6.0)", () => {
-    expect(C.CONTRACTS_VERSION).toBe("1.6.0");
+    expect(C.CONTRACTS_VERSION).toBe("1.7.0");
     expect(C.CommandType.safeParse("canvas.apply_patch").success).toBe(true);
   });
   it("RunListResponse accepts a run row and rejects unknown states and extra keys", () => {

@@ -17,6 +17,7 @@ export const EXPORTED = {
   SourceWatermark: C.SourceWatermark,
   SemanticQuery: C.SemanticQuery,
   MetricMetadata: C.MetricMetadata,
+  MetricProposal: C.MetricProposal,
   DataFrameEnvelope: C.DataFrameEnvelope,
   ResearchFinding: C.ResearchFinding,
   AgentTask: C.AgentTask,

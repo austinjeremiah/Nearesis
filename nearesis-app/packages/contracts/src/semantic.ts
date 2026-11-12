@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { IsoDateTime, Sha256Hex, SemVer, Visibility } from "./common.ts";
 import { ResultTruncation } from "./overload.ts";
+import { MetricExploratoryStamp } from "./metric-authoring.ts";
 
 const MemberName = z.string().regex(/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/, "cube.member");
 
@@ -95,5 +96,8 @@ export const DataFrameEnvelope = z.strictObject({
   generatedAt: IsoDateTime,
   /** v1.6.0 (additive): present only when the max-rows rule cut the result. Absent means nothing was cut. */
   truncation: ResultTruncation.optional(),
+  /** v1.7.0 (additive): present only for results computed from a DRAFT or VALIDATED (not certified) authored metric. */
+  metricStatus: z.enum(["draft", "validated"]).optional(),
+  exploratory: MetricExploratoryStamp.optional(),
 });
 export type DataFrameEnvelope = z.infer<typeof DataFrameEnvelope>;

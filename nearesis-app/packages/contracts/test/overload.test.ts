@@ -5,7 +5,7 @@ const now = "2026-11-12T10:00:00.000Z";
 
 describe("v1.6.0 additions (overload protection and degradation)", () => {
   it("only adds optional fields to older shapes", () => {
-    expect(C.CONTRACTS_VERSION).toBe("1.6.0");
+    expect(C.CONTRACTS_VERSION).toBe("1.7.0");
     const err = { traceId: "t-1", errorCode: "RATE_LIMITED", message: "slow down", retryable: true };
     expect(C.ErrorResponse.safeParse(err).success).toBe(true);
     expect(C.ErrorResponse.safeParse({ ...err, retryAfterSeconds: 5 }).success).toBe(true);

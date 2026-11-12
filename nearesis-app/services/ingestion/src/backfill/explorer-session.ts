@@ -15,6 +15,7 @@ import { ALLOW_EXPLORER, HttpClient } from "../http/client.ts";
 import type { CredentialSource } from "../http/credentials.ts";
 import { normalize } from "../normalize.ts";
 import { insertLive, refreshWatermarks, swapRows } from "./ch.ts";
+import { refundRows } from "./refund-causes.ts";
 import { refreshExplorerCoverage } from "./explorer-coverage.ts";
 import { REDIS_URL } from "./env.ts";
 import { withRetry } from "../rate/retry.ts";
@@ -109,6 +110,8 @@ export async function loadSwapsToClickHouse(
       },
     });
     await insertLive(ch, "intents_swaps", swapRows(out.tables.intents_swaps, new Date(nowMs).toISOString()));
+    // Refund causes (refundReason/refundTo/refundFee) go to the side table keyed by swap_key; same batch, same retry path.
+    await insertLive(ch, "intents_swap_refunds", refundRows(r.rows, new Date(nowMs).toISOString()));
     loaded += r.rows.length;
     const last = r.rows[r.rows.length - 1]!;
     afterV = Number(last.version_ms);

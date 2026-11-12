@@ -436,7 +436,68 @@ export class IntentsAnalytics {
       })),
       ["intents_swaps", "asset_registry"],
       "refunded / terminal, exact 6-digit ratio",
-      ["refundReason is not stored in the live table, so causes are not broken down here."],
+      ["Causes by reason, week, day and chain pair: GET /v1/intents/refund-causes."],
+    );
+  }
+
+  /**
+   * Why swaps were refunded: provider refundReason (side table intents_swap_refunds, copied verbatim from the Explorer item).
+   * `NOT_REPORTED` = the provider sent no reason; `NOT_LOADED` = no side-table row (load not run), never a guessed cause.
+   */
+  async refundCauses(
+    w: IntentsWindow,
+    by: "reason" | "week" | "day" | "chain_pair" = "reason",
+  ): Promise<IntentsResult<Array<Record<string, unknown>>>> {
+    assertWindow(w);
+    const group =
+      by === "reason"
+        ? { sel: "", grp: "", ord: "refunded DESC, reason" }
+        : by === "week"
+          ? {
+              sel: "toString(toMonday(day)) AS period,",
+              grp: "period,",
+              ord: "period, refunded DESC, reason",
+            }
+          : by === "day"
+            ? { sel: "toString(day) AS period,", grp: "period,", ord: "period, refunded DESC, reason" }
+            : {
+                sel: "chain_o, chain_d,",
+                grp: "chain_o, chain_d,",
+                ord: "chain_o, chain_d, refunded DESC, reason",
+              };
+    const rows = await queryRows<Row>(
+      this.ch,
+      `${swapsCte(this.db, false)}, rf AS (SELECT swap_key, refund_reason, refund_type FROM ${this.db}.intents_swap_refunds FINAL)
+       SELECT ${group.sel} multiIf(rf.swap_key = '', 'NOT_LOADED', rf.refund_reason IS NULL, 'NOT_REPORTED', rf.refund_reason) AS reason,
+              count() AS refunded, ${VOL} AS vol, ${UNK} AS unk
+       FROM sw LEFT JOIN rf ON rf.swap_key = sw.swap_key
+       WHERE status = 'REFUNDED'
+       GROUP BY ${group.grp} reason ORDER BY ${group.ord}`,
+      this.params(w),
+    );
+    const totals = new Map<string, number>();
+    const keyOf = (r: Row) => (by === "chain_pair" ? `${r.chain_o}>${r.chain_d}` : (r.period ?? "all"));
+    for (const r of rows) totals.set(keyOf(r), (totals.get(keyOf(r)) ?? 0) + n(r.refunded));
+    return this.ok(
+      "intents.refund_causes",
+      `Refunded swaps grouped by the provider's refundReason${by === "reason" ? "" : ` and ${by.replace("_", " ")}`}. share = refunded with this reason / all refunded in the group.`,
+      w,
+      { kind: "bar", category: "reason", value: "refunded" },
+      rows.map((r) => ({
+        ...(by === "chain_pair" ? { originChain: r.chain_o, destinationChain: r.chain_d } : {}),
+        ...(by === "week" || by === "day" ? { period: r.period } : {}),
+        reason: r.reason,
+        refunded: n(r.refunded),
+        share: ratio(n(r.refunded), totals.get(keyOf(r)) ?? 0),
+        refundedUsd: r.vol ?? null,
+        swapsWithUnknownUsd: n(r.unk),
+      })),
+      ["intents_swaps", "intents_swap_refunds", "asset_registry"],
+      "count of REFUNDED swaps by provider refundReason; shares are exact 6-digit ratios within each group",
+      [
+        "refundReason is the provider's label and is not interpreted further.",
+        "Volume on refunded swaps is the provider's amountInUsd and may be absent.",
+      ],
     );
   }
 

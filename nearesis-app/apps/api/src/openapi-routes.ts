@@ -890,6 +890,7 @@ export const ROUTES: RouteSpec[] = [
       ["chain-flows", "Origin to destination chain matrix and net flow per chain"],
       ["asset-pairs", "Top asset pairs"],
       ["refund-rates", "Refund and failure rates by chain pair or asset pair"],
+      ["refund-causes", "Refunded swaps by the provider refundReason, by reason, week, day or chain pair"],
       ["routes", "Top routes"],
       ["referrals", "Top referrers"],
       ["size-buckets", "Swap size distribution"],

@@ -35,6 +35,7 @@ const TopN = z.coerce.number().int().min(1).max(200).optional();
  *   GET /v1/intents/chain-flows                    origin->destination matrix and net flow per chain
  *   GET /v1/intents/asset-pairs                    ?top
  *   GET /v1/intents/refund-rates                   ?by=chain_pair|asset_pair&minTerminal&top
+ *   GET /v1/intents/refund-causes                  ?by=reason|week|day|chain_pair
  *   GET /v1/intents/routes                         ?top
  *   GET /v1/intents/referrals                      ?top
  *   GET /v1/intents/size-buckets
@@ -136,6 +137,11 @@ export const intentsRoutes: FastifyPluginAsync<IntentsRoutesOptions> = async (ap
       top: TopN,
     }),
     (q, w) => a.refundRates(w, q.by, q.minTerminal ?? 100, q.top ?? 25),
+  );
+  get(
+    "refund-causes",
+    Win.extend({ by: z.enum(["reason", "week", "day", "chain_pair"]).default("reason") }),
+    (q, w) => a.refundCauses(w, q.by),
   );
   get("routes", Win.extend({ top: TopN }), (q, w) => a.routeUsage(w, q.top ?? 25));
   get("referrals", Win.extend({ top: TopN }), (q, w) => a.referralUsage(w, q.top ?? 20));

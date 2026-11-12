@@ -258,6 +258,52 @@ describe("intents analytics on a fixture database (exact numbers, hand-computed)
     });
   });
 
+  it("refund causes: reasons from the side table; NOT_LOADED and NOT_REPORTED are distinct, never guessed", async () => {
+    const before = ok<Array<Record<string, unknown>>>(await a.refundCauses(W, "reason"));
+    expect(before).toMatchObject([{ reason: "NOT_LOADED", refunded: 1, share: "1.000000" }]);
+    const mk = (day: string, reason: string | null, o: string, d: string) => swap(day, "REFUNDED", o, d, "1");
+    const rows = [
+      mk("2026-12-01", "A", ETH, BASE),
+      mk("2026-12-01", "A", ETH, BASE),
+      mk("2026-12-02", "B", ETH, BASE),
+      mk("2026-12-09", "A", SOL, ETH),
+      mk("2026-12-09", null, SOL, ETH),
+    ];
+    const reasons = ["INTENT_SUBMIT_FAILED", "INTENT_SUBMIT_FAILED", "NO_LIQUIDITY", "NO_LIQUIDITY", null];
+    await ch.insert({ table: "intents_swaps", format: "JSONEachRow", values: rows });
+    await ch.insert({
+      table: "intents_swap_refunds",
+      format: "JSONEachRow",
+      values: rows.map((r, i) => ({
+        swap_key: r.swap_key,
+        status: "REFUNDED",
+        created_at: r.created_at,
+        created_day: r.created_day,
+        refund_reason: reasons[i],
+        refund_to: null,
+        refund_fee_raw: null,
+        refund_fee_formatted: null,
+        refund_type: "ORIGIN_CHAIN",
+        raw_object_hash: "0".repeat(64),
+        fetched_at: `${r.created_day} 13:00:00.000`,
+        version: 1,
+      })),
+    });
+    const w2 = { from: "2026-12-01", to: "2026-12-15" };
+    expect(ok<Array<Record<string, unknown>>>(await a.refundCauses(w2, "reason"))).toMatchObject([
+      { reason: "INTENT_SUBMIT_FAILED", refunded: 2, share: "0.400000" },
+      { reason: "NO_LIQUIDITY", refunded: 2, share: "0.400000" },
+      { reason: "NOT_REPORTED", refunded: 1, share: "0.200000" },
+    ]);
+    const weekly = ok<Array<Record<string, unknown>>>(await a.refundCauses(w2, "week"));
+    expect(weekly.filter((r) => r.period === "2026-11-30")).toMatchObject([
+      { reason: "INTENT_SUBMIT_FAILED", refunded: 2, share: "0.666667" },
+      { reason: "NO_LIQUIDITY", refunded: 1, share: "0.333333" },
+    ]);
+    const pair = ok<Array<Record<string, unknown>>>(await a.refundCauses(w2, "chain_pair"));
+    expect(pair.find((r) => r.originChain === "sol")).toMatchObject({ destinationChain: "eth", refunded: 1 });
+  });
+
   it("concentration: exact top-N share and HHI", async () => {
     const d = ok<{ hhi: string; topNShare: string; top: Array<{ key: string }> }>(
       await a.concentrationOf(W, "destination_chain", "count", 1),

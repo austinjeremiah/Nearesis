@@ -31,6 +31,8 @@
     "dev:infra:down": "docker compose -f infrastructure/compose/docker-compose.yml down",
     "quality:all": "pnpm typecheck && pnpm lint && pnpm test",
     "coord": "tsx scripts/coord.ts",
+    "evals:setup": "tsx tests/evals/setup-actors.ts",
+    "evals:run": "tsx tests/evals/run.ts",
     "security:secrets": "tsx scripts/security/secret-scan.ts",
     "security:urls": "tsx scripts/security/url-audit.ts",
     "security:all": "pnpm security:secrets && pnpm security:urls",

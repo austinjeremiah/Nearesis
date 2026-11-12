@@ -1,0 +1,458 @@
+[
+  {
+    "id": "Q006",
+    "split": "dev",
+    "category": "intents",
+    "difficulty": "easy",
+    "prompt": "Which supported chain pairs have grown fastest over the last 30 days?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps", "asset_registry"],
+    "minAnswerProperties": [
+      "growth is computed against the preceding 30 days",
+      "pairs below the minimum previous-swap count are omitted or labelled",
+      "volume excludes swaps with unknown USD instead of valuing them at 0"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": ["swaps with unknown USD are counted separately"],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      },
+      {
+        "id": "zero_for_unknown",
+        "pattern": "\\b(no activity|zero activity|nothing happened|0 swaps)\\b",
+        "flags": "i",
+        "why": "a day or field without data is unknown, not zero"
+      }
+    ],
+    "acceptanceTests": ["A19", "B07", "S01"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": true,
+      "panelPattern": "swap|chain|pair|intents"
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "30-day swaps equal an independent count",
+        "api": "/v1/intents/summary?from=2026-10-13&to=2026-11-11",
+        "json": "data.swaps",
+        "ch": "SELECT count() FROM intents_swaps FINAL WHERE created_day BETWEEN '2026-10-13' AND '2026-11-11'",
+        "rel": 0
+      },
+      {
+        "kind": "api_field",
+        "label": "chain-pair growth is computable",
+        "api": "/v1/intents/chain-pair-growth?from=2026-10-13&to=2026-11-11",
+        "json": "status",
+        "httpStatus": 200,
+        "equals": "OK"
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q007",
+    "split": "dev",
+    "category": "intents",
+    "difficulty": "medium",
+    "prompt": "Are Intents changes driven by swap count, average size or both?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps"],
+    "minAnswerProperties": [
+      "decomposes volume change into count and size effects",
+      "volume is settled (SUCCESS) swaps with a known USD value"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      },
+      {
+        "id": "zero_for_unknown",
+        "pattern": "\\b(no activity|zero activity|nothing happened|0 swaps)\\b",
+        "flags": "i",
+        "why": "a day or field without data is unknown, not zero"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "swap|volume|size|intents"
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "settled swap count",
+        "api": "/v1/intents/summary?from=2026-10-13&to=2026-11-11",
+        "json": "data.success",
+        "ch": "SELECT count() FROM intents_swaps FINAL WHERE created_day BETWEEN '2026-10-13' AND '2026-11-11' AND status = 'SUCCESS'",
+        "rel": 0
+      },
+      {
+        "kind": "sum_equals",
+        "label": "size-bucket swaps equal settled swaps",
+        "api": "/v1/intents/size-buckets?from=2026-10-13&to=2026-11-11",
+        "parts": ["data[*].swaps"],
+        "abs": 0,
+        "totalValue": 507475
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q008",
+    "split": "dev",
+    "category": "intents",
+    "difficulty": "hard",
+    "prompt": "Which asset pairs have unusually high refund or failure rates, and is the sample large enough to say so?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps", "intents_swap_refunds"],
+    "minAnswerProperties": [
+      "rates are refunded or failed over terminal swaps",
+      "minimum-sample guard is stated",
+      "refund causes are reported separately from rates"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      },
+      {
+        "id": "small_sample",
+        "pattern": "\\b(always|never) refund",
+        "flags": "i",
+        "why": "tiny samples cannot support absolutes"
+      }
+    ],
+    "acceptanceTests": ["A19", "B07"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "refund|fail|pair|intents"
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "refunded swaps equal an independent count",
+        "api": "/v1/intents/summary?from=2026-10-13&to=2026-11-11",
+        "json": "data.refunded",
+        "ch": "SELECT count() FROM intents_swaps FINAL WHERE created_day BETWEEN '2026-10-13' AND '2026-11-11' AND status = 'REFUNDED'",
+        "rel": 0
+      },
+      {
+        "kind": "ch_equals",
+        "label": "refund causes add up to refunded swaps",
+        "api": "/v1/intents/refund-causes?from=2026-10-13&to=2026-11-11",
+        "json": "data[*].refunded",
+        "ch": "SELECT count() FROM intents_swaps FINAL WHERE created_day BETWEEN '2026-10-13' AND '2026-11-11' AND status = 'REFUNDED'",
+        "rel": 0
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q009",
+    "split": "dev",
+    "category": "intents",
+    "difficulty": "hard",
+    "prompt": "How do settlement times vary across source chains?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps"],
+    "minAnswerProperties": [
+      "either a measured distribution with its timestamp source, or an explicit statement that deposit-to-settlement duration is not in the data"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": ["the Explorer row has one timestamp, so no duration can be derived"],
+    "forbiddenClaims": [
+      {
+        "id": "invented_duration",
+        "pattern": "\\b(median|average|p50|p95) settlement (time|duration) (is|was) \\d",
+        "flags": "i",
+        "why": "no second per-swap timestamp exists"
+      }
+    ],
+    "acceptanceTests": ["A19", "B09", "B13"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [
+      {
+        "kind": "api_field",
+        "label": "API itself reports CANNOT_COMPUTE for settlement duration",
+        "api": "/v1/intents/settlement-duration?from=2026-10-13&to=2026-11-11",
+        "json": "status",
+        "httpStatus": 200,
+        "equals": "CANNOT_COMPUTE"
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q010",
+    "split": "dev",
+    "category": "intents",
+    "difficulty": "hard",
+    "prompt": "Can we identify solver concentration from the available NEAR Intents data?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps", "quote_attempts"],
+    "minAnswerProperties": [
+      "states that no solver identity exists per executed swap",
+      "does not infer solvers by joining quotes to swaps by time"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "invented_solver",
+        "pattern": "\\bsolver [A-Za-z0-9_.-]+ (executed|filled|handled) \\d",
+        "flags": "i",
+        "why": "the source has no solver identity"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [
+      {
+        "kind": "api_field",
+        "label": "API reports CANNOT_COMPUTE for solver metrics",
+        "api": "/v1/intents/solver-metrics?from=2026-10-13&to=2026-11-11",
+        "json": "status",
+        "httpStatus": 200,
+        "equals": "CANNOT_COMPUTE"
+      },
+      {
+        "kind": "api_field",
+        "label": "API lists the missing fields",
+        "api": "/v1/intents/solver-metrics?from=2026-10-13&to=2026-11-11",
+        "json": "missing[0]",
+        "httpStatus": 200,
+        "matches": "solver"
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q011",
+    "split": "dev",
+    "category": "intents",
+    "difficulty": "adversarial",
+    "prompt": "Are quoted rates reliably linked to executed outcomes?",
+    "kind": "run",
+    "requiredSources": ["quote_attempts", "quote_intel", "intents_swaps"],
+    "minAnswerProperties": [
+      "states that dry quotes carry no deposit address so they cannot be joined to executions",
+      "reports only quote availability and cost where measured"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "invented_solver",
+        "pattern": "\\bsolver [A-Za-z0-9_.-]+ (executed|filled|handled) \\d",
+        "flags": "i",
+        "why": "the source has no solver identity"
+      },
+      {
+        "id": "quote_fill_claim",
+        "pattern": "\\b\\d+(\\.\\d+)?% of quotes (were|was) (filled|executed)",
+        "flags": "i",
+        "why": "quote-to-execution linkage is absent"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [
+      {
+        "kind": "api_field",
+        "label": "quote linkage is not claimed by the quote endpoint",
+        "api": "/v1/intents/quotes?from=2026-10-13&to=2026-11-11",
+        "json": "status",
+        "httpStatus": 200,
+        "matches": "OK|CANNOT_COMPUTE"
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q012",
+    "split": "dev",
+    "category": "intents",
+    "difficulty": "medium",
+    "prompt": "Which route metrics are unavailable because the provider does not expose the necessary fields?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps"],
+    "minAnswerProperties": [
+      "lists unavailable concepts (solver identity, settlement time, quote linkage) with the missing field",
+      "separates identified from derived fields"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "invented_solver",
+        "pattern": "\\bsolver [A-Za-z0-9_.-]+ (executed|filled|handled) \\d",
+        "flags": "i",
+        "why": "the source has no solver identity"
+      },
+      {
+        "id": "invented_duration",
+        "pattern": "\\b(median|average|p50|p95) settlement (time|duration) (is|was) \\d",
+        "flags": "i",
+        "why": "no second per-swap timestamp exists"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "answer",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "field|inventory|unavailable|intents"
+    },
+    "probes": [
+      {
+        "kind": "api_field",
+        "label": "field inventory exists and is OK",
+        "api": "/v1/intents/field-inventory",
+        "json": "status",
+        "httpStatus": 200,
+        "equals": "OK"
+      },
+      {
+        "kind": "api_field",
+        "label": "field inventory marks settlement time as not provided",
+        "api": "/v1/intents/field-inventory",
+        "json": "data[6].status",
+        "httpStatus": 200,
+        "equals": "not_provided"
+      },
+      {
+        "kind": "api_field",
+        "label": "field inventory marks solver identity as not provided",
+        "api": "/v1/intents/field-inventory",
+        "json": "data[11].status",
+        "httpStatus": 200,
+        "equals": "not_provided"
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  }
+]

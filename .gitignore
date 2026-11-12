@@ -1,0 +1,82 @@
+# ---- dependencies -----------------------------------------------------------
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# ---- builds and caches ------------------------------------------------------
+.next/
+out/
+build/
+dist/
+.turbo/
+.swc/
+*.tsbuildinfo
+next-env.d.ts
+
+# ---- test and coverage ------------------------------------------------------
+coverage/
+.nyc_output/
+playwright-report/
+blob-report/
+test-results/
+.playwright/
+
+# ---- environment and secrets ------------------------------------------------
+# Never commit credentials. A NEAR key, a BigQuery service account or a partner
+# JWT in git history is a disclosure even after the commit is reverted.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.keystore
+secrets/
+credentials/
+service-account*.json
+neardev/
+.near-credentials/
+
+# ---- research artifacts -----------------------------------------------------
+# Raw snapshots and capsules are large and are rebuilt from the manifest, so the
+# manifest is what belongs in git, not the payloads.
+/data/raw/
+/data/snapshots/
+*.tar.zst
+*.parquet
+*.duckdb
+!**/snapshot-manifest.json
+
+# ---- logs -------------------------------------------------------------------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ---- editors and os ---------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# ---- deploy -----------------------------------------------------------------
+.vercel/
+.netlify/

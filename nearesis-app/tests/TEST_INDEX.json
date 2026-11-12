@@ -2945,10 +2945,10 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b PERF11, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": ["tests/perf/PERF11.accept.test.ts"],
       "live": false,
-      "status": "DEFINED",
-      "required": false,
+      "status": "IMPLEMENTED",
+      "required": true,
       "dependsOn": ["A02", "A20", "K09", "PERF04"]
     },
     {
@@ -2959,10 +2959,10 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b PERF12, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": ["tests/perf/PERF12.accept.test.ts"],
       "live": false,
-      "status": "DEFINED",
-      "required": false,
+      "status": "IMPLEMENTED",
+      "required": true,
       "dependsOn": ["A05", "D10", "S06", "M05"]
     },
     {

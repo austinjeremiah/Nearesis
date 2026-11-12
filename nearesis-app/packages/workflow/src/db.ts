@@ -10,6 +10,7 @@ export function makePool(connectionString: string, max = 10): pg.Pool {
   // An idle client killed by a database restart or connection reset emits 'error' on the pool; without a listener that
   // is an uncaught exception that takes the whole worker down (found by PERF11). The pool replaces the client.
   pool.on("error", () => undefined);
+  pool.on("connect", (c) => c.on("error", () => undefined));
   return pool;
 }
 

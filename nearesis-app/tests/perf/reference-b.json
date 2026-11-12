@@ -54,6 +54,23 @@
       "memoryGrowthMaxMiB": 512,
       "breakerOpenMs": 300,
       "probeBurst": 50
+    },
+    "PERF11": {
+      "investigationsPerFault": 10,
+      "effectJobsPerFault": 10,
+      "faultCases": 10,
+      "partitionMs": 5000,
+      "recoveryDeadlineMs": 150000,
+      "journalCommandsMin": 30
+    },
+    "PERF12": {
+      "dimensions": 9,
+      "budgetUsd": 0.05,
+      "inflightAllowanceUsd": 0.001,
+      "alertStormTriggers": 500,
+      "alertCapPerWindow": 3,
+      "alertWindowSeconds": 3600,
+      "alertCooldownSeconds": 0
     }
   },
   "fixtures": {
@@ -61,7 +78,9 @@
     "PERF07": "94df89e1d96b37d6fcf993fa527af1e17afb04bf65979ac31b978676ca36f0d1",
     "PERF08": "fc4c2476c941d06a6100d8f2b8384d0ce1e776c42d84d7f0b7544cd95516a1f8",
     "PERF10": "841748831665b5286ff274a4e009fdc49abb40a3d76b700f179e9b7148521de8",
-    "PERF09": "3e23a78bb11ff7a45108d89db7bcf7f4fdd8864d5c70a75f0ece94eb548d49a7"
+    "PERF09": "3e23a78bb11ff7a45108d89db7bcf7f4fdd8864d5c70a75f0ece94eb548d49a7",
+    "PERF11": "e677c7e87bcaf2aad9442c12a8be657fa9a2355b7fd38cb7e7b8de0ad2b7372e",
+    "PERF12": "7bc2649d7ba9b94f0a9fc03a6be849233b99d51b40812809c04d2e41e0919049"
   },
   "declarations": {
     "PERF09": "investigations, sseClients, slowClients and chartRows are the ch.16b figures. The other values are the bounds the definition leaves 'declared': tenantCap (the supervisor's per-workspace child maximum), queue bounds and timeout, worker pool, the other-tenant p95 factor, buffered-byte and memory bounds, max rows (the gateway's query limit), breaker interval. Set once before the first run; none may be tuned after a failure. otherTenantP95Factor is 3, the value declared first. An informal first measurement of 5.2x led a worker to raise it to 6; the lead reverted that on 2026-11-12 because raising a threshold after seeing a failing measurement is tuning after a failure (ADR-20261111-002). Only an owner-approved amendment may change it."

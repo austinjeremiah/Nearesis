@@ -157,7 +157,7 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
 }
 
 export function Textarea(
-  props: React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+  props: React.ComponentProps<'textarea'>,
 ) {
   return <textarea className="textarea" {...props} />;
 }

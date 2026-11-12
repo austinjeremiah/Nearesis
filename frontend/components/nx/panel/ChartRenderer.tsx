@@ -96,7 +96,7 @@ export function ChartRenderer({
   );
   if (!probe.supported) return <BlankChart reason={probe.reason ?? 'This data cannot draw this view.'} height={height} ariaLabel={panel.title} />;
   return (
-    <div data-testid="chart" data-viz={viz} data-gaps={probe.gaps}>
+    <div data-testid="chart" data-viz={viz} data-gaps={probe.gaps} data-markers={(markers ?? []).filter((m) => m.panelId === panel.panelId).length}>
       <Chart option={option} height={height} ariaLabel={alt} onBrushEnd={brush ? onBrushEnd : undefined} brushActive={!!brush} />
       <div className="nxp-sr">{alt}</div>
     </div>

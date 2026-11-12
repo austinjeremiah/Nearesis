@@ -51,6 +51,8 @@ export function MarkerCreateForm({ wid, selection, onCreated }: { wid: string; s
   const [question, setQuestion] = useState('');
   const [agent, setAgent] = useState('');
 
+  // A chart selection has a time of day; the date inputs show only the day. Keep the exact instants while the inputs are untouched.
+  const exact = (v: string, which: 'start' | 'end') => (selection?.[which] && v === selection[which]!.slice(0, 10) ? selection[which]! : v);
   const panel = panels.find((p) => p.panelId === panelId);
   const metricChoices = panel?.encoding?.y ?? [];
 
@@ -59,9 +61,9 @@ export function MarkerCreateForm({ wid, selection, onCreated }: { wid: string; s
       const markerId = crypto.randomUUID();
       const anchor =
         kind === 'time_range'
-          ? { kind, start: toIso(start), end: toIso(end) }
+          ? { kind, start: toIso(exact(start, 'start')), end: toIso(exact(end, 'end')) }
           : kind === 'time_point'
-            ? { kind, at: toIso(start) }
+            ? { kind, at: toIso(exact(start, 'start')) }
             : { kind, metricId: metricId || metricChoices[0] || '', op, value: Number(value) };
       const payload: Record<string, unknown> = { panelId, markerId, anchor };
       if (question.trim()) payload.question = question.trim();
@@ -69,7 +71,7 @@ export function MarkerCreateForm({ wid, selection, onCreated }: { wid: string; s
         payload.selection = {
           queryHash: panel.queryRef.hash,
           semanticVersion: panel.queryRef.semanticVersion,
-          interval: { start: toIso(start), end: toIso(end) },
+          interval: { start: toIso(exact(start, 'start')), end: toIso(exact(end, 'end')) },
           seriesIds: selection?.seriesIds ?? panel.encoding?.y ?? [],
           axisUnits: panel.dataBinding?.units ?? {},
           sourceWatermark: selection?.sourceWatermark ?? null,
@@ -85,6 +87,7 @@ export function MarkerCreateForm({ wid, selection, onCreated }: { wid: string; s
     },
     onSuccess: (id) => {
       void qc.invalidateQueries({ queryKey: qk.markers(wid) });
+      void qc.invalidateQueries({ queryKey: qk.canvas(wid) });
       void qc.invalidateQueries({ queryKey: rk.graph(wid) });
       setQuestion('');
       onCreated?.(id);

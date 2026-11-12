@@ -9,6 +9,8 @@ import type { Viz } from '@/lib/panel/model';
 import { DataTable } from './ChartRenderer';
 import { PanelBody, PanelFrame } from './PanelFrame';
 import { ProvenanceBlock, QueryBlock } from './Provenance';
+import { MarkerSelectionAction } from '@/components/nx/marker-selection-action';
+import { SharedNotes } from '@/components/nx/shared-notes';
 import { RangeSelectForm, SelectionBar } from './Selection';
 import './panel.css';
 
@@ -35,10 +37,12 @@ export default function PanelDetail({ wid, panelId }: { wid: string; panelId: st
   const timeBased = panel.kind === 'timeSeries' || panel.kind === 'bar';
   return (
     <div className="col gap3">
+      <MarkerSelectionAction />
       <SelectionBar wid={wid} titles={{ [panel.panelId]: panel.title }} />
       <PanelFrame wid={wid} panel={panel} heading>
         <PanelBody wid={wid} panel={panel} height={380} progress={progress[panel.panelId]} markers={canvas.data?.markers} brush={timeBased} viz={viz} onViz={setViz} />
       </PanelFrame>
+      <SharedNotes wid={wid} panelId={panel.panelId} />
       {d && d.chart && timeBased && (
         <Card title="Select a range" subtitle="Drag on the chart, or enter dates here. Selecting writes nothing and starts no agent.">
           <RangeSelectForm wid={wid} panel={panel} data={d} />

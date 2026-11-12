@@ -12,7 +12,9 @@ import { usePanelSelection } from '@/lib/panel/selection';
 import { toTime } from '@/lib/panel/model';
 import type { CanvasPanel } from '@/lib/panel/types';
 import { layoutHeight, PanelBody, PanelFrame, useNearViewport } from './PanelFrame';
+import { MarkerSelectionAction } from '@/components/nx/marker-selection-action';
 import { SelectionBar } from './Selection';
+import { LayoutLive } from '@/components/nx/layout-live';
 import './panel.css';
 
 function PanelCell({
@@ -69,6 +71,8 @@ export default function CanvasView({ wid }: { wid: string }) {
   const lens = lenses.data?.lenses.find((l) => l.lensId === lensId) ?? null;
   const res = new Map((resolution.data?.panels ?? []).map((p) => [p.panelId, p] as const));
 
+  const moves = useMemo(() => ed.pending.flatMap((o) => (o.op === 'movePanel' ? [{ panelId: o.panelId, layout: o.layout }] : [])), [ed.pending]);
+
   if (canvas.isPending) return <Skeleton rows={6} />;
   if (canvas.isError) return <ApiErrorState error={canvas.error} onRetry={() => canvas.refetch()} />;
   if (!doc) return null;
@@ -95,6 +99,8 @@ export default function CanvasView({ wid }: { wid: string }) {
         </Button>
       </div>
 
+      <LayoutLive wid={wid} moves={moves} panels={doc.panels} />
+      <MarkerSelectionAction />
       <SelectionBar wid={wid} titles={titles} />
 
       {/* pending patch: preview, apply with If-Match, discard */}

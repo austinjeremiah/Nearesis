@@ -2266,3 +2266,43 @@ table.table {
 .nav-foot:empty {
   display: none;
 }
+
+/* -----------------------------------------------------------------------------
+   The content column is a flex column that scrolls, so its children must not be
+   allowed to shrink. An element with overflow:hidden — the statistics band — has
+   no automatic minimum size, so it was being compressed to the height of the
+   viewport and clipping everything below its eyebrow.
+   -------------------------------------------------------------------------- */
+.content > *:not(.grow) {
+  flex: none;
+}
+
+/* -----------------------------------------------------------------------------
+   Sections nested inside a grid are laid out like top-level ones, and the rule
+   under the section bar keeps its distance from the first card. Without this
+   the card sat directly under the hairline and read as touching it.
+   -------------------------------------------------------------------------- */
+.content > section,
+.grid > section:not(.card),
+.grid > div > section:not(.card) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+.section-head {
+  margin-bottom: 6px;
+}
+
+/* A stack of cards where every card is the same height, so a card is not taller
+   than its neighbour merely because its text runs longer. */
+.stack-even {
+  display: grid;
+  gap: var(--s4);
+  /* Equal rows sized to the tallest card's own content, not stretched to fill
+     the column: every card matches, without opening a well of empty space. */
+  grid-auto-rows: 1fr;
+  align-content: start;
+}
+.stack-even > .card {
+  height: 100%;
+}

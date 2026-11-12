@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Content, PageHeader } from '@/components/nx/shell';
-import { Band } from '@/components/nx/band';
 import { SectionBar } from '@/components/nx/section';
 import { Card, EmptyState, KeyValues, LinkButton } from '@/components/nx/ui';
 import {
@@ -55,26 +54,6 @@ export default function HomePage() {
         }
       />
       <Content>
-        <Band
-          eyebrow="By the numbers"
-          lead="A reader who disagrees with your conclusion should be able to recompute it from scratch."
-          stats={[
-            { value: '1', unit: 'command', detail: 'rebuilds every table and chart offline, with no credentials', lead: true },
-            { value: '0', unit: 'raw SQL', detail: 'reaches the warehouse. Agents compose certified measures or the query is refused' },
-            { value: '4', unit: 'verdicts', detail: 'supported, mixed, unsupported, insufficient data. A null result is still a result' },
-            { value: '72', unit: 'h', detail: 'of monitoring on finalized observations before a marker wakes its agent' },
-          ]}
-          footer={
-            <>
-              <span className="badge bad">Fixture</span>
-              <span>
-                The backend is not connected. Every number below comes from snapshot{' '}
-                <span className="mono">{db.SNAPSHOT_ID}</span>. Nothing here is a live observation.
-              </span>
-            </>
-          }
-        />
-
         <section>
           <SectionBar title="Continue researching" number="001" />
           <div className="grid c3">
@@ -115,7 +94,7 @@ export default function HomePage() {
             {pendingApprovals.length === 0 ? (
               <EmptyState title="Nothing waiting on you" body="Approvals and merge requests appear here." />
             ) : (
-              <div className="col gap3">
+              <div className="stack-even">
                 {pendingApprovals.map((a) => (
                   <Card
                     key={a.id}
@@ -145,7 +124,7 @@ export default function HomePage() {
 
           <section>
             <SectionBar title="Recent findings" number="003" />
-            <div className="col gap3">
+            <div className="stack-even">
               {findings.map((c) => (
                 <Card
                   key={c.id}

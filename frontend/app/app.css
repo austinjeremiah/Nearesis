@@ -1245,3 +1245,13 @@ table.table {
     break-inside: avoid;
   }
 }
+
+/* The mobile nav toggle is only meaningful once the sidebar is off-canvas. */
+.nav-toggle {
+  display: none;
+}
+@media (max-width: 900px) {
+  .nav-toggle {
+    display: inline-flex;
+  }
+}

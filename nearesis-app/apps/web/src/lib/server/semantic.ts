@@ -1,5 +1,5 @@
 import { Redis } from "ioredis";
-import type { DataFrameEnvelope } from "@nearesis/contracts";
+import type { AnalyticsPanelData, DataFrameEnvelope } from "@nearesis/contracts";
 import {
   createCh,
   createPg,
@@ -85,10 +85,59 @@ export async function panelData(
 ): Promise<{ status: number; body: PanelData | unknown }> {
   const s = semantic(source);
   const saved = await loadQuery(s.pg, queryHash);
-  if (!saved) return { status: 404, body: { errorCode: "NOT_FOUND", reasonCode: "QUERY_UNKNOWN" } };
+  if (!saved || (saved.ast as { kind?: unknown } | null)?.kind === "analytics_call")
+    return analyticsPanelData(queryHash);
   const r = await s.gateway.query(session, saved.ast);
   if (!r.ok) return { status: r.status, body: r.error };
   return { status: 200, body: toPanelData(r.envelope, saved.ast, s.registry, source) };
+}
+
+/**
+ * Lead hotfix (owner-approved 2026-11-13): an analytics panel (queryRef.resultKind "analytics_result") has no saved
+ * semantic query; its data comes from the API's `GET /v1/analytics/panel/:hash` with the caller's session. Mapped
+ * onto the same PanelData shape; labelled experimental, never certified. The frontend developer may replace this.
+ */
+async function analyticsPanelData(queryHash: string): Promise<{ status: number; body: PanelData | unknown }> {
+  const r = await upstream(`/v1/analytics/panel/${queryHash}`);
+  const body = (await r.json().catch(() => null)) as AnalyticsPanelData | Record<string, unknown> | null;
+  if (!r.ok || !body)
+    return { status: r.status === 200 ? 502 : r.status, body: body ?? { errorCode: "UPSTREAM_DEGRADED" } };
+  const a = body as AnalyticsPanelData;
+  if (a.cannotCompute)
+    return {
+      status: 422,
+      body: {
+        errorCode: "CANNOT_COMPUTE",
+        reasonCode: "CANNOT_COMPUTE",
+        message: a.cannotCompute.explanation,
+        missing: a.cannotCompute.missing,
+      },
+    };
+  const cov = a.provenance.coverage;
+  const gaps = [
+    ...cov.missingDays.map((d) => ({ from: d, to: d, reason: "NO_COVERAGE" })),
+    ...cov.incompleteDays.map((d) => ({ from: d, to: d, reason: "PARTIAL_DAY" })),
+  ];
+  return {
+    status: 200,
+    body: {
+      chart: a.chart as unknown as PanelData["chart"],
+      shape: a.shape as unknown as PanelData["shape"],
+      provenance: {
+        queryHash: a.provenance.queryHash,
+        semanticVersion: a.provenance.metricVersion,
+        semanticModelHash: `analytics:${a.provenance.capability}:${a.provenance.analysis}`,
+        sourceSnapshotId: null,
+        rawManifestHash: null,
+        certification: cov.state === "complete" ? "experimental" : "partial",
+        ast: a.provenance.call,
+        sourceLabel: "LIVE",
+        resultHash: a.provenance.resultHash,
+        sources: a.provenance.sources,
+      },
+      gaps,
+    } satisfies PanelData,
+  };
 }
 
 function toPanelData(

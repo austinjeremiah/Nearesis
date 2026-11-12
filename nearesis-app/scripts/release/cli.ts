@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { buildManifest, validateManifest, validateRollback } from "./manifest.ts";
 import type { ReleaseManifest, RollbackManifest } from "./manifest.ts";
 import { readSec11Sbom } from "./sbom.ts";
-import { buildImages, readBuildRecord, realRun } from "./images.ts";
+import { buildImages, readBuildRecord, realRun, writeSbom } from "./images.ts";
 import type { BuildRecord, ImageName } from "./images.ts";
 import { promote, rollback } from "./rollback.ts";
 import { actionHash } from "./approval.ts";
@@ -139,6 +139,13 @@ if (cmd === "manifest") {
     console.log(JSON.stringify(res, null, 2));
     process.exit(res.status === "DRY_RUN_OK" ? 0 : 1);
   }
+} else if (cmd === "sbom") {
+  const label = rest[rest.indexOf("--label") + 1] ?? "candidate";
+  const dir = join(root, ".data", "release", label);
+  const rec = readBuildRecord(dir) as BuildRecord;
+  rec.sbom = writeSbom(realRun, resolve(root, ".."), "nearesis-app", rec, dir);
+  writeFileSync(join(dir, "build-record.json"), JSON.stringify(rec, null, 2) + "\n");
+  console.log(JSON.stringify(rec.sbom, null, 2));
 } else if (cmd === "promote") {
   const label = rest[rest.indexOf("--label") + 1] ?? "candidate";
   const rec = readBuildRecord(join(root, ".data", "release", label)) as BuildRecord;

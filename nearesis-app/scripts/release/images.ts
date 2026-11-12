@@ -188,8 +188,8 @@ export function writeSbom(
   outDir: string,
 ): BuildRecord["sbom"] {
   const lock = run("git", ["-C", repoRoot, "show", `${rec.gitSha}:${appDir}/pnpm-lock.yaml`]).out;
-  const section = lock.split(/\n(?=snapshots:)/)[0] ?? "";
-  const pkgs = [...section.matchAll(/^ {2}'?(@?[^\s'@][^\s']*)@([^\s':]+)'?:\s*$/gm)].map(
+  // every lockfile document: a package entry is a two-space-indented `name@version:` key followed by its resolution
+  const pkgs = [...lock.matchAll(/^ {2}'?(@?[^\s'][^\s']*?)@([^\s'@]+)'?:\n {4}resolution:/gm)].map(
     (m) => `${m[1]}@${m[2]}`,
   );
   const unique = [...new Set(pkgs)].sort();

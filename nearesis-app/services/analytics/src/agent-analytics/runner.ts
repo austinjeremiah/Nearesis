@@ -72,8 +72,42 @@ function checkRange(from: string, to: string): void {
     throw new InputError("INVALID_WINDOW", `window longer than ${ANALYTICS_LIMITS.maxWindowDays} days`);
 }
 
+/**
+ * Results are cached per (source, capability, parsed input) for 5 minutes and identical concurrent calls share one
+ * computation: the same call is made by the composer, by the interpretation stage and by every panel view, and the intents
+ * queries scan the swap table (3 to 8 s each on the live database). Only typed outcomes are cached, never refusals or
+ * source failures. A window given as `days` ends at the newest complete day, so it moves at most once a day.
+ */
+const CACHE_TTL_MS = 300_000;
+const CACHE_MAX = 100;
+const cache = new Map<string, { at: number; result: Promise<RunResult> }>();
+const ids = new WeakMap<object, number>();
+let idSeq = 0;
+const idOf = (o: object | null): number => (o ? (ids.get(o) ?? (ids.set(o, ++idSeq), idSeq)) : 0);
+/** One id per distinct combination of sources, so two data sources never share a cached answer. */
+const sourceId = (d: AnalyticsDeps): string => `${idOf(d.intents)}.${idOf(d.entities)}.${idOf(d.accounts)}`;
+
 /** Runs one capability call. Never throws for a source that cannot answer; invalid input is a typed refusal. */
 export async function runAnalytics(
+  deps: AnalyticsDeps,
+  capability: AnalyticsCapabilityId,
+  rawInput: unknown,
+): Promise<RunResult> {
+  const parsed = INPUT_BY_CAPABILITY[capability].safeParse(rawInput);
+  if (!parsed.success) return compute(deps, capability, rawInput);
+  const key = `${sourceId(deps)}|${capability}|${JSON.stringify(parsed.data, Object.keys(parsed.data).sort())}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.result;
+  const result = compute(deps, capability, rawInput);
+  cache.set(key, { at: Date.now(), result });
+  if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value as string);
+  void result.then((r) => {
+    if (!r.ok) cache.delete(key); // failures are retried, not remembered
+  });
+  return result;
+}
+
+async function compute(
   deps: AnalyticsDeps,
   capability: AnalyticsCapabilityId,
   rawInput: unknown,

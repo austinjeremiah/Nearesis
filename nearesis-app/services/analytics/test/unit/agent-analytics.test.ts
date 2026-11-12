@@ -353,6 +353,45 @@ describe("agent analytics: typed outputs", () => {
   });
 });
 
+describe("agent analytics: result cache", () => {
+  it("serves a repeated call from memory and shares one computation between concurrent identical calls", async () => {
+    let queries = 0;
+    const counting = {
+      ...(intents as unknown as Record<string, unknown>),
+      trend: async () => {
+        queries++;
+        await new Promise((r) => setTimeout(r, 10));
+        return (intents as unknown as { trend: () => Promise<unknown> }).trend();
+      },
+    } as unknown as IntentsAnalytics;
+    const d = deps({ intents: counting });
+    const input = { analysis: "trend", from: "2026-10-30", to: "2026-11-12", granularity: "week" };
+    const [a, b] = await Promise.all([
+      run("intents.analyze@1", input, d),
+      run("intents.analyze@1", input, d),
+    ]);
+    await run("intents.analyze@1", input, d);
+    expect(queries).toBe(1);
+    expect(a.callHash).toBe(b.callHash);
+    await run("intents.analyze@1", { ...input, granularity: "day" }, d);
+    expect(queries).toBe(2); // a different call is computed
+  });
+  it("never remembers a failure: the next call asks the source again", async () => {
+    let n = 0;
+    const flaky = deps({
+      accounts: {
+        ...accounts,
+        window: async () => {
+          if (++n === 1) throw new Error("boom");
+          return accounts.window();
+        },
+      },
+    });
+    expect((await runAnalytics(flaky, "accounts.analyze@1", { analysis: "coverage" })).ok).toBe(false);
+    expect((await runAnalytics(flaky, "accounts.analyze@1", { analysis: "coverage" })).ok).toBe(true);
+  });
+});
+
 describe("agent analytics: bounds and refusals", () => {
   it("refuses unknown analyses, unknown keys, SQL-like input and oversized windows before any query", async () => {
     const before = calls.length;

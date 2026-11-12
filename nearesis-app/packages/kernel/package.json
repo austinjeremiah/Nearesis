@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "migrate": "tsx src/db/migrate-cli.ts",
-    "plugin:install": "tsx src/plugins/install-cli.ts"
+    "plugin:install": "tsx src/plugins/install-cli.ts",
+    "plugin:upgrade": "tsx src/plugins/upgrade-cli.ts"
   },
   "devDependencies": {
     "@types/pg": "8.23.1"

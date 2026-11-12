@@ -12,3 +12,12 @@ describe("fresh-data gate fails closed", () => {
     expect(catalogUnreadable({ m: ["intents-1click"] })).toBe(false);
   });
 });
+
+import { contextNeedsRebind } from "../src/source-gate.ts";
+describe("a failed catalog read is not frozen into the run", () => {
+  it("an empty stored map is rebound, a populated one is kept, no context is not a rebind", () => {
+    expect(contextNeedsRebind({ metricSources: {} })).toBe(true);
+    expect(contextNeedsRebind({ metricSources: { m: ["a"] } })).toBe(false);
+    expect(contextNeedsRebind(null)).toBe(false);
+  });
+});

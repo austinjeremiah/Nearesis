@@ -1,4 +1,4 @@
-import { CATALOG_UNAVAILABLE, catalogUnreadable } from "./source-gate.ts";
+import { CATALOG_UNAVAILABLE, catalogUnreadable, contextNeedsRebind } from "./source-gate.ts";
 import { randomUUID } from "node:crypto";
 import { meterActivities } from "./cost-ops.ts";
 import { guardInference, modelPolicyFromEnv, type InferenceVerification } from "@nearesis/kernel";
@@ -712,7 +712,10 @@ function createActivitiesRaw(d: ActivityDeps) {
           return r.rows[0];
         });
         if (!row) throw new AgentRuntimeError("TOOL_NOT_GRANTED", "unknown run", {});
-        if (row.context) return row.context;
+        // an unreadable-catalog context is retried (kernel mode), never frozen: a transient plugin/kernel fault must not
+        // poison the run's context for good
+        if (row.context && !(d.kernelMode && contextNeedsRebind(row.context))) return row.context;
+        let catalogError: string | undefined;
         const versions: Record<string, string> = {};
         const metricSources: Record<string, string[]> = {};
         if (d.kernelMode) {
@@ -750,7 +753,7 @@ function createActivitiesRaw(d: ActivityDeps) {
               versions[m.id] = m.certifiedVersion ?? p?.semanticVersion ?? "unversioned";
               metricSources[m.id] = [...new Set((m.sources ?? []).map(sourceKey))];
             }
-          }
+          } else catalogError = r.reasonCode ?? r.state;
         }
         const ctx: RunContext = {
           hashes: contextHashes({
@@ -760,12 +763,13 @@ function createActivitiesRaw(d: ActivityDeps) {
             preregistrationHash: i.preregistrationHash ?? "unregistered",
           }),
           metricSources,
+          ...(catalogError ? { catalogError } : {}),
         };
         await withTenant(d.pool, i.tenantId, (c) =>
-          c.query("UPDATE runs SET context=$2::jsonb WHERE id=$1 AND context IS NULL", [
-            i.runId,
-            JSON.stringify(ctx),
-          ]),
+          c.query(
+            "UPDATE runs SET context=$2::jsonb WHERE id=$1 AND (context IS NULL OR context->'metricSources' = '{}'::jsonb)",
+            [i.runId, JSON.stringify(ctx)],
+          ),
         );
         return ctx;
       });
@@ -798,7 +802,10 @@ function createActivitiesRaw(d: ActivityDeps) {
             gated: true,
             state: "BLOCKED_SOURCE",
             reasonCode: CATALOG_UNAVAILABLE,
-            sources: [],
+            // name the cause (the kernel's reason code for the failed catalog read) instead of an empty source list
+            sources: row.context?.catalogError
+              ? [{ source: "semantic.discover@1", status: "unavailable", reason: row.context.catalogError }]
+              : [],
           };
         // the sources behind the metrics the plan needs; a plan naming no metric the live catalog knows (or none at all)
         // reads the whole live layer, so every live source counts

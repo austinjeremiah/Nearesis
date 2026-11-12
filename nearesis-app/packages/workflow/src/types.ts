@@ -54,6 +54,8 @@ export interface RunContext {
   hashes: RunContextHashes;
   /** metric id -> the data sources behind it (empty when the catalog could not be read). */
   metricSources: Record<string, string[]>;
+  /** Why the catalog could not be read (the kernel's reason code, e.g. PLUGIN_LOAD_FAILED); absent when it was read. */
+  catalogError?: string;
 }
 
 export interface SourceGateView {

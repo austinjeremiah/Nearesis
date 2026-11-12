@@ -231,7 +231,12 @@ export default definePlugin({
       const { svc } = authoringService();
       const out = (
         status: "REFUSED" | "DRAFT" | "VALIDATED",
-        extra: { metricKey?: string; version?: number; issues?: Array<{ reason: string; path: string; message: string }>; report?: unknown },
+        extra: {
+          metricKey?: string;
+          version?: number;
+          issues?: Array<{ reason: string; path: string; message: string }>;
+          report?: unknown;
+        },
       ) => ({
         ok: true as const,
         mode: parsed.mode,
@@ -255,7 +260,10 @@ export default definePlugin({
           report: r.report,
         });
       } catch (e) {
-        if (e instanceof MetricAuthoringError) return out("REFUSED", { issues: e.issues.length ? e.issues : [{ reason: e.reason, path: "", message: e.message }] });
+        if (e instanceof MetricAuthoringError)
+          return out("REFUSED", {
+            issues: e.issues.length ? e.issues : [{ reason: e.reason, path: "", message: e.message }],
+          });
         throw e;
       }
     },

@@ -102,11 +102,18 @@ afterAll(async () => {
 
 const reg = loadLiveRegistry();
 const store = new Map<string, string>();
+const ttls = new Map<string, number>();
 const gw = () =>
   createGateway({
     cubeUrl,
     cubeSecret: "s",
-    redis: { get: async (k) => store.get(k) ?? null, set: async (k, v) => void store.set(k, v) },
+    redis: {
+      get: async (k) => store.get(k) ?? null,
+      set: async (k, v, _ex, ttl) => {
+        store.set(k, v);
+        ttls.set(k, Number(ttl));
+      },
+    },
     registry: reg,
     policyResolver: () => ({ ...DEFAULT_POLICY, maxEstimatedRows: 100000 }),
     clock: () => new Date(),
@@ -152,6 +159,7 @@ describe("F1 null sums are never zero-filled", () => {
 describe("F5 a lagging rollup is never labelled certified or cached", () => {
   it("fresh rollup: certified, vintage reported, cached", async () => {
     store.clear();
+    ttls.clear();
     cubeData = days.map((d) => day(d, { [CNT]: 3 }));
     const r = await gw().query(S, q(["live.oneclick_swap_count"]));
     expect(r.ok).toBe(true);
@@ -165,6 +173,7 @@ describe("F5 a lagging rollup is never labelled certified or cached", () => {
 
   it("new rows land after the rollup was built: stale, with the lag, and not cached; then certified again once rebuilt", async () => {
     store.clear();
+    ttls.clear();
     await sleep(2200);
     await insertSwaps(5, days[2]!, "late"); // source changes, the rollup does not
     cubeData = days.map((d) => day(d, { [CNT]: 3 })); // Cube still answers from the old rollup
@@ -178,10 +187,11 @@ describe("F5 a lagging rollup is never labelled certified or cached", () => {
     expect(Date.parse(stale.envelope.rollupFreshness!.sourceChangedAt!)).toBeGreaterThan(
       Date.parse(stale.envelope.rollupFreshness!.rollupBuiltAt!),
     );
-    expect(store.size, "a stale envelope must not be cached").toBe(0);
+    expect([...ttls.values()], "a stale envelope is cached for seconds only").toEqual([2]);
 
     await sleep(2200);
     await buildRollup("v2"); // the rollup catches up
+    store.clear(); // the 2 s cache entry has expired (the fake redis ignores TTLs)
     const ok = await g.query(S, q(["live.oneclick_swap_count"]));
     expect(ok.ok).toBe(true);
     if (ok.ok) {
@@ -209,6 +219,7 @@ describe("F4 the envelope carries what the panel needs: coverage, gaps incl. par
       format: "JSONEachRow",
     });
     store.clear();
+    ttls.clear();
     cubeData = days.map((d) => day(d, { [CNT]: 3 }));
     const r = await gw().query(S, q(["live.oneclick_swap_count"]));
     expect(r.ok).toBe(true);

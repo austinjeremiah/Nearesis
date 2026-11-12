@@ -112,6 +112,8 @@ export function formatScale(v: string, scale: number): string {
   return `${neg ? "-" : ""}${i}${scale > 0 ? `.${frac}` : ""}`;
 }
 
+/** How long a result labelled stale may be served from the gateway cache. */
+const STALE_CACHE_TTL_SECONDS = 2;
 const zeroOf = (scale: number) => (scale > 0 ? `0.${"0".repeat(scale)}` : "0");
 const ZERO_FILLABLE = new Set(["sum", "count_distinct", "non_additive"]);
 
@@ -402,10 +404,13 @@ export function createGateway(opts: GatewayOptions) {
         estRows: est,
       });
       await persist(queryHash, ast);
-      // A result served from a lagging rollup is never cached: the cache key is the source vintage, which does not change
-      // when the rollup catches up, so a cached stale envelope would stay stale for the whole TTL.
-      if (env.certification !== "stale")
-        await opts.redis.set(cacheKey, JSON.stringify(env), "EX", policy.cacheTtlSeconds);
+      // A result served from a lagging rollup (labelled stale) is cached for seconds only: the cache key is the source vintage,
+      // which does not change when the rollup catches up, so a full-TTL entry would keep the stale label long after.
+      const ttl =
+        env.certification === "stale"
+          ? Math.min(policy.cacheTtlSeconds, STALE_CACHE_TTL_SECONDS)
+          : policy.cacheTtlSeconds;
+      await opts.redis.set(cacheKey, JSON.stringify(env), "EX", ttl);
       return { ok: true, status: 200, queryHash, cache: "miss", cacheKey, envelope: env };
     } catch (e) {
       return fail("INTERNAL", "INTERNAL", `Internal error: ${(e as Error).message.slice(0, 120)}`);

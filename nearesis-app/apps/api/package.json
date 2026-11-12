@@ -15,6 +15,7 @@
     "@clickhouse/client": "1.25.0",
     "@nearesis/acceptance": "workspace:*",
     "@nearesis/analytics": "workspace:*",
+    "@nearesis/canvas-schema": "workspace:*",
     "@nearesis/capsule": "workspace:*",
     "@nearesis/contracts": "workspace:*",
     "@nearesis/kernel": "workspace:*",
@@ -24,6 +25,7 @@
     "@nearesis/workflow": "workspace:*",
     "fastify": "5.12.8",
     "ioredis": "6.0.0",
+    "jose": "6.2.14",
     "zod": "4.6.7"
   }
 }

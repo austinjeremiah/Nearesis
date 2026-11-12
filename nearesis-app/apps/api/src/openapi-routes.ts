@@ -48,6 +48,21 @@ import {
   MetricVersionPin,
   AnalyticsPanelData,
   RunFindingsFields,
+  CanvasPatch,
+  CanvasPreviewResponse,
+  CollabTicketRequest,
+  CollabTicketResponse,
+  GlobalApprovalList,
+  GlobalMetricList,
+  GlobalNotificationList,
+  GlobalSourceList,
+  MeResponse,
+  OidcCallbackResponse,
+  OidcLoginResponse,
+  PanelDataResponse,
+  PublicationList,
+  QuestionPreviewRequest,
+  QuestionPreviewResponse,
 } from "@nearesis/contracts";
 import type { ApiState, HttpMethod, NamedSchema, ResponseSpec, RouteSpec } from "@nearesis/contracts";
 
@@ -856,6 +871,156 @@ export const ROUTES: RouteSpec[] = [
         AnalyticsPanelData,
         "Chart rows, shape, provenance (call, coverage, caveats) and cannotCompute when the source cannot answer",
       ),
+    },
+  ),
+
+  // ---- standalone frontend surface (contracts 1.9.0) ---------------------------------------------------------------------
+  R(
+    "get",
+    `${W}/panels/:hash/data`,
+    "frontend",
+    "Data of any panel by its query hash: semantic and analytics panels on one route (dispatch on the stored query kind)",
+    {
+      description:
+        "`kind` says which engine answered. Semantic: the guarded gateway with a session bound to the caller (certified or experimental; coverage, gaps, freshness, rollupFreshness, cost). Analytics: the stored capability call re-executed (never a certified metric); `cannotCompute` is HTTP 200 with `chart: null`. `source` (fixture|live) overrides the layer inferred from the stored model hash. 404 QUERY_UNKNOWN when no query is stored under the hash.",
+      query: z.object({ source: z.enum(["fixture", "live"]).optional() }),
+      capability: "panel data over HTTP",
+      states: S(
+        "complete",
+        "partial",
+        "stale",
+        "truncated",
+        "insufficient_data",
+        "source_unavailable",
+        "budget_exhausted",
+      ),
+      ok: typed(
+        PanelDataResponse,
+        "Chart, shape, provenance, gaps, coverage, freshness, rollupFreshness and cost",
+      ),
+    },
+  ),
+  R(
+    "post",
+    `${W}/canvas/preview`,
+    "frontend",
+    "Preview a canvas patch: validation plus query cost estimate, no side effects",
+    {
+      description:
+        "Pure: no write, no event, no run, no spend. A rejected patch is 422 PATCH_REJECTED with per-operation issues and lastStableRevision. The estimate lists each query the patch adds or changes (rows, bytes, whether the gateway cache already holds it) and the panels it would leave unservable.",
+      body: CanvasPatch,
+      capability: "canvas patch preview",
+      ok: typed(CanvasPreviewResponse, "Preview hash, base revision, per-operation report and cost estimate"),
+    },
+  ),
+  R(
+    "post",
+    `${W}/questions/preview`,
+    "frontend",
+    "Plan a question without starting a run (no model call, no spend)",
+    {
+      description:
+        "Live questions have a deterministic plan (one composer task, then an approval-gated canvas apply), shown exactly. Fixture-source plans come from the director model, so `plan` is null: previewing would cost a model call. `canStart` is false with `blockers` when the caller cannot ask (viewer), the budget is below the minimum, or no engine is configured.",
+      body: QuestionPreviewRequest,
+      capability: "question plan preview",
+      ok: typed(QuestionPreviewResponse, "Plan, budget check and blockers"),
+    },
+  ),
+  R(
+    "post",
+    `${W}/collab/ticket`,
+    "frontend",
+    "Single-use, 30-second ticket for the collaboration WebSocket",
+    {
+      description:
+        "Open `/v1/workspaces/:id/collab/{scope}/ws` with the WebSocket subprotocol `nearesis.ticket.<ticket>` instead of a bearer token. The ticket is bound to this workspace (and `scope` when given) and to the caller, and is burned by its first use.",
+      body: CollabTicketRequest,
+      status: "201",
+      capability: "collaboration socket ticket",
+      ok: typed(CollabTicketResponse, "Ticket, expiry and the socket path"),
+    },
+  ),
+  R("get", "/v1/me", "frontend", "The caller: principal, organisation, role and workspaces", {
+    capability: "identity",
+    ok: typed(MeResponse),
+  }),
+  R(
+    "get",
+    "/v1/notifications",
+    "frontend",
+    "Monitor notifications across the caller's workspaces, newest first",
+    {
+      query: z.object({
+        unread: z.enum(["1", "true", "0", "false"]).optional(),
+        limit: z.number().int().min(1).max(500).optional(),
+      }),
+      capability: "global notifications",
+      ok: typed(GlobalNotificationList),
+    },
+  ),
+  R("get", "/v1/approvals", "frontend", "Approvals across the caller's workspaces (pending by default)", {
+    query: z.object({ status: z.enum(["pending", "all"]).optional() }),
+    capability: "global approvals",
+    ok: typed(GlobalApprovalList),
+  }),
+  R(
+    "get",
+    "/v1/publications",
+    "frontend",
+    "Capsules of the caller's organisation with their publication state",
+    {
+      capability: "publications list",
+      ok: typed(PublicationList),
+    },
+  ),
+  R(
+    "get",
+    "/v1/metrics",
+    "frontend",
+    "Metric catalogue across the caller's workspaces, with authored statuses",
+    {
+      capability: "global metric catalogue",
+      states: S("complete", "metric_uncertified"),
+      ok: typed(GlobalMetricList),
+    },
+  ),
+  R(
+    "get",
+    "/v1/sources",
+    "frontend",
+    "Source health: watermark, lag, coverage, recent errors and rate-limit status",
+    {
+      description:
+        "Platform-wide state recorded by ingestion; contains no tenant data. `rateLimit` is null because ingestion does not record provider rate limits. When the health store cannot be read the list is empty and `unavailable` says why (HTTP 200).",
+      capability: "source health",
+      states: S("complete", "stale", "source_unavailable"),
+      ok: typed(GlobalSourceList),
+    },
+  ),
+  R("get", "/v1/auth/oidc/login", "session", "Start an OpenID Connect sign-in (authorization code + PKCE)", {
+    auth: "none",
+    description:
+      "302 to the identity provider, or JSON `{authorizationUrl,state,expiresInSeconds}` with `mode=json` or `Accept: application/json`. 404 OIDC_NOT_CONFIGURED when no issuer is configured.",
+    query: z.object({ returnTo: z.string().optional(), mode: z.enum(["redirect", "json"]).optional() }),
+    ok: typed(OidcLoginResponse, "Provider URL (mode=json)"),
+    conditional: "NEARESIS_OIDC_ISSUER, NEARESIS_OIDC_CLIENT_ID and NEARESIS_OIDC_REDIRECT_URI are set",
+  }),
+  R(
+    "get",
+    "/v1/auth/oidc/callback",
+    "session",
+    "Complete an OpenID Connect sign-in and receive the session token",
+    {
+      auth: "none",
+      description:
+        "Called server-to-server by the frontend with the `code` and `state` the provider returned. Returns the same session JWT as dev login. The identity must match an existing user (`users.oidc_subject`); nothing is provisioned.",
+      query: z.object({
+        code: z.string().optional(),
+        state: z.string().optional(),
+        error: z.string().optional(),
+      }),
+      ok: typed(OidcCallbackResponse),
+      conditional: "NEARESIS_OIDC_ISSUER, NEARESIS_OIDC_CLIENT_ID and NEARESIS_OIDC_REDIRECT_URI are set",
     },
   ),
 

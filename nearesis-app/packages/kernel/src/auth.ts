@@ -55,6 +55,15 @@ export class DevAuthProvider implements AuthProvider {
     if (this.nodeEnv === "production") {
       throw new KernelError("NOT_FOUND", "NOT_FOUND", "Not found.");
     }
+    return this.issueSession(oidcSubject);
+  }
+
+  /**
+   * Issues the session JWT for an already-verified subject (a seeded user). Unlike `login`, this works in production: the
+   * caller must have verified the subject itself (the OIDC callback verifies the ID token first). No auto-provisioning:
+   * an unknown subject is refused.
+   */
+  async issueSession(oidcSubject: string): Promise<string> {
     const r = await this.db.txGlobal((tx) =>
       tx.query<{ user_id: string; org_id: string }>("SELECT user_id, org_id FROM auth_resolve_subject($1)", [
         oidcSubject,

@@ -34,6 +34,7 @@ import { validateQuery, INDEX_UNIT, SAFE_FILTER_VALUE, type Plan } from "./valid
 import type {
   AuditRecord,
   CatalogResult,
+  EstimateResult,
   GatewayOptions,
   GatewayStats,
   Policy,
@@ -417,6 +418,73 @@ export function createGateway(opts: GatewayOptions) {
     }
   }
 
+  /**
+   * Cost estimate for a query WITHOUT executing it (no Cube load, no cache write, no audit entry): the same validation, the
+   * same cost gate inputs (row rates, rollup-aware) and the same cache key as `query`. `cached` is true when `query` would be
+   * served from the result cache. Estimated bytes follow the envelope's rule (rows x 200). ClickHouse reads on the local
+   * stack carry no per-query charge, so there is no USD figure here (never a made-up one).
+   */
+  async function estimate(session: Session, input: unknown): Promise<EstimateResult> {
+    try {
+      const policy: Policy = await opts.policyResolver(session);
+      const v = validateQuery(input, policy, reg);
+      if (!v.ok) return v;
+      const plan = v.plan;
+      const ast = plan.ast;
+      const fromMs = Date.parse(ast.time.from);
+      const toMs = Date.parse(ast.time.to);
+      const sources = [...new Set(plan.metrics.flatMap((m) => m.sources))];
+      const { perDay, unknown } = await rates.get(`rpd:${srcKey(sources)}`, () => rowRates(ch, sources));
+      if (unknown.length)
+        return fail(
+          "BUDGET_EXCEEDED",
+          "COVERAGE_UNKNOWN",
+          `Row volume cannot be estimated: no loaded coverage for ${unknown.join(", ")}.`,
+          { details: [{ path: "time", issue: "COVERAGE_UNKNOWN" }] },
+        );
+      const days = (toMs - fromMs) / DAY_MS;
+      let rollups: RollupRate[] = [];
+      if (opts.rollupAwareCost !== false) {
+        const shape = makeCubeQuery(plan, ast, fromMs, toMs, metricById);
+        const dateless = {
+          ...shape,
+          timeDimensions: shape.timeDimensions.map(({ dateRange: _d, ...t }) => t),
+        };
+        rollups = await rates
+          .get(`rollup:${queryHashOf(dateless)}`, () =>
+            rollupRates(ch, opts.cubeUrl, signCubeToken(opts.cubeSecret, ctxOf(session)), shape),
+          )
+          .catch(() => []);
+      }
+      const { perDay: costRates, served } = applyRollupRates(perDay, rollups);
+      const est = estimateRows(costRates, days);
+      const queryHash = queryHashOf(ast);
+      const vintage = await reads.get(`vin:${srcKey(sources)}`, () => sourceVintage(ch, sources));
+      const cacheKey = buildCacheKey({
+        tenantId: session.tenantId,
+        workspaceId: session.workspaceId,
+        aclClasses: session.aclClasses,
+        semanticVersion: reg.semanticVersion,
+        semanticModelHash: reg.contentHash,
+        sourceVintage: vintage,
+        queryHash,
+      });
+      const cached = (await opts.redis.get(cacheKey)) !== null;
+      return {
+        ok: true,
+        queryHash,
+        estimatedRows: est,
+        bytesEstimated: est * 200,
+        maxEstimatedRows: policy.maxEstimatedRows,
+        withinCap: est <= policy.maxEstimatedRows,
+        rollupServed: served.length > 0,
+        cached,
+      };
+    } catch (e) {
+      return fail("INTERNAL", "INTERNAL", `Internal error: ${(e as Error).message.slice(0, 120)}`);
+    }
+  }
+
   async function discover(session: Session): Promise<CatalogResult> {
     const policy = await opts.policyResolver(session);
     const g = new Set(policy.grantedMembers);
@@ -430,6 +498,7 @@ export function createGateway(opts: GatewayOptions) {
 
   return {
     query,
+    estimate,
     discover,
 
     stats: () => ({ ...stats }),

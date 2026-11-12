@@ -41,3 +41,4 @@ export { outsideConfinement as unconfined } from "./plugins/confine.ts";
 export * from "./mcp-policy.ts";
 export * from "./verified-wiring.ts";
 export * from "./telemetry.ts";
+export * from "./oidc.ts";

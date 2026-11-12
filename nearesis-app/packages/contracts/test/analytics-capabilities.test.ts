@@ -25,7 +25,7 @@ const binding = {
 
 describe("contracts 1.8.0: analytics capabilities and analytics panels (additive)", () => {
   it("bumps the contract version and keeps every older panel valid", () => {
-    expect(C.CONTRACTS_VERSION).toBe("1.8.0");
+    expect(C.CONTRACTS_VERSION).toBe("1.9.0");
     expect(C.PanelSpec.safeParse(base).success).toBe(true); // semantic-query panel without the new fields
   });
   it("an analytics_result panel needs the ANALYTICS_RESULT binding, and only it may carry one", () => {

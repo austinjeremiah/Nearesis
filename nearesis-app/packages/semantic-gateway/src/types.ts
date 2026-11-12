@@ -87,6 +87,19 @@ export interface QueryErr {
 }
 export type QueryResult = QueryOk | QueryErr;
 
+export interface EstimateOk {
+  ok: true;
+  queryHash: string;
+  estimatedRows: number;
+  bytesEstimated: number;
+  maxEstimatedRows: number;
+  withinCap: boolean;
+  rollupServed: boolean;
+  /** The result cache already holds this query for this tenant and workspace: running it costs nothing. */
+  cached: boolean;
+}
+export type EstimateResult = EstimateOk | QueryErr;
+
 export interface CatalogResult {
   semanticVersion: string;
   semanticModelHash: string;

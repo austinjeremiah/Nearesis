@@ -5,6 +5,7 @@ import { KernelError, workspaceNotFound } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
 import { historyService } from "@nearesis/kernel";
 import { attachCollabWebSocket } from "./collab-ws.ts";
+import "./collab-ticket.ts";
 import { pinHistorySnapshot, principalOf } from "./metric-publish-guard.ts";
 import type { PublishAuthoring } from "./metric-publish-guard.ts";
 
@@ -24,7 +25,9 @@ const Uuid = z.uuid();
 export const historyRoutes: FastifyPluginAsync<HistoryRoutesOptions> = async (app, { kernel, authoring }) => {
   const svc = historyService(kernel);
   // Yjs over WebSocket: a transport for svc.collab (same authorisation, validation and persistence as the REST routes)
-  const ws = attachCollabWebSocket(app.server, kernel, svc.collab);
+  const ws = attachCollabWebSocket(app.server, kernel, svc.collab, {
+    ...(app.collabTickets ? { tickets: app.collabTickets } : {}),
+  });
   app.addHook("onClose", async () => ws.closeAll());
 
   async function authenticate(req: FastifyRequest): Promise<Session> {

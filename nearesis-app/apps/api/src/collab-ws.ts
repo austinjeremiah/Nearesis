@@ -3,6 +3,7 @@ import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { CollabScope } from "@nearesis/contracts";
 import { KernelError } from "@nearesis/kernel";
+import type { CollabTicketStore } from "./collab-ticket.ts";
 import type { CollabConnection, CollabFrame, CollabService, Kernel, Session } from "@nearesis/kernel";
 
 /**
@@ -147,7 +148,12 @@ export interface CollabWsHandle {
   count(): number;
 }
 
-export function attachCollabWebSocket(server: Server, kernel: Kernel, collab: CollabService): CollabWsHandle {
+export function attachCollabWebSocket(
+  server: Server,
+  kernel: Kernel,
+  collab: CollabService,
+  opts: { tickets?: CollabTicketStore } = {},
+): CollabWsHandle {
   const peers = new Set<Peer>();
   const timer = setInterval(() => {
     for (const p of peers) {
@@ -187,13 +193,25 @@ export function attachCollabWebSocket(server: Server, kernel: Kernel, collab: Co
     const token = h?.toLowerCase().startsWith("bearer ")
       ? h.slice(7).trim()
       : viaProto?.slice("nearesis.bearer.".length);
-    let session: Session;
-    try {
-      session = await kernel.identity.resolveSession(token);
-    } catch {
-      return refuse(sock, 401, "Unauthorized");
-    }
     const scope = CollabScope.safeParse(m[2]);
+    // No bearer token: a single-use ticket from `POST /v1/workspaces/:id/collab/ticket`, offered as `nearesis.ticket.<t>`.
+    const ticketProto = token ? undefined : protos.find((x) => x.startsWith("nearesis.ticket."));
+    let session: Session;
+    if (ticketProto && opts.tickets) {
+      const redeemed = opts.tickets.redeem(
+        ticketProto.slice("nearesis.ticket.".length),
+        m[1]!,
+        scope.success ? scope.data : m[2]!,
+      );
+      if (!redeemed) return refuse(sock, 401, "Unauthorized");
+      session = redeemed;
+    } else {
+      try {
+        session = await kernel.identity.resolveSession(token);
+      } catch {
+        return refuse(sock, 401, "Unauthorized");
+      }
+    }
     if (!scope.success) return refuse(sock, 404, "Not Found");
     let conn: CollabConnection;
     try {
@@ -214,7 +232,7 @@ export function attachCollabWebSocket(server: Server, kernel: Kernel, collab: Co
         "Upgrade: websocket",
         "Connection: Upgrade",
         `Sec-WebSocket-Accept: ${accept}`,
-        ...(viaProto ? [`Sec-WebSocket-Protocol: ${viaProto}`] : []),
+        ...(viaProto || ticketProto ? [`Sec-WebSocket-Protocol: ${viaProto ?? ticketProto}`] : []),
         "",
         "",
       ].join("\r\n"),

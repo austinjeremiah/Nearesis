@@ -21,6 +21,7 @@ export * from "./capsule.ts";
 export * from "./overload.ts";
 export * from "./spend-gate.ts";
 export * from "./metric-authoring.ts";
+export * from "./frontend-api.ts";
 export * from "./openapi-states.ts";
 export * from "./openapi-cost.ts";
 export * from "./openapi-sse.ts";

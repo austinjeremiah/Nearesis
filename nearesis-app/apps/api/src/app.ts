@@ -19,6 +19,13 @@ import { realtimeRoutes } from "./realtime-routes.ts";
 import { intentsRoutes } from "./intents-routes.ts";
 import { accountRoutes } from "./account-routes.ts";
 import { analyticsPanelRoutes } from "./analytics-panel-routes.ts";
+import { CollabTicketStore } from "./collab-ticket.ts";
+import { frontendRoutes } from "./frontend-routes.ts";
+import { globalRoutes } from "./global-routes.ts";
+import { oidcRoutes } from "./oidc-routes.ts";
+import type { OidcClient } from "@nearesis/kernel";
+import type { PanelDataPort } from "./panel-data.ts";
+import type { SourceHealthPort } from "./source-health.ts";
 import { metricRoutes } from "./metric-routes.ts";
 import { createMetricCorrectionPort } from "./metric-correction.ts";
 import type { AuthoringService } from "@nearesis/semantic-gateway";
@@ -73,6 +80,14 @@ export interface AppOptions {
   };
   /** Enables `GET /v1/gateway/runs/:id` for the MCP gateway's audience-constrained credential. Absent: route does not exist. */
   gatewayCredential?: GatewayCredentialConfig;
+  /** Test seams for the frontend routes (panel data, source health, OIDC client, collaboration ticket lifetime). */
+  frontend?: {
+    panelData?: PanelDataPort;
+    sources?: SourceHealthPort;
+    oidc?: OidcClient | null;
+    capsuleRoot?: () => string;
+    collabTicketTtlMs?: number;
+  };
   /** Feeds the api_availability SLO from every response (cost-routes.ts). Absent: SLO recording is off. */
   sloRecorder?: SloRecorder;
 }
@@ -117,6 +132,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   app.decorate("overload", { admission, sse: sseLimiter });
   app.addHook("onClose", async () => admission?.close());
 
+  app.decorate("collabTickets", new CollabTicketStore(opts.frontend?.collabTicketTtlMs));
   app.decorateRequest("traceId", "");
   app.addHook("onRequest", async (req, reply) => {
     const incoming = req.headers["x-trace-id"];
@@ -559,6 +575,25 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       authoring: opts.authoring,
       onCorrection: createMetricCorrectionPort(kernel),
     });
+
+  await app.register(frontendRoutes, {
+    kernel,
+    authenticate,
+    engineAvailable: opts.engine !== undefined,
+    ...(opts.frontend?.panelData ? { panelData: opts.frontend.panelData } : {}),
+  });
+  await app.register(globalRoutes, {
+    kernel,
+    authenticate,
+    runs,
+    authoring: opts.authoring,
+    ...(opts.frontend?.sources ? { sources: opts.frontend.sources } : {}),
+    ...(opts.frontend?.capsuleRoot ? { capsuleRoot: opts.frontend.capsuleRoot } : {}),
+  });
+  await app.register(oidcRoutes, {
+    kernel,
+    ...(opts.frontend?.oidc !== undefined ? { client: opts.frontend.oidc } : {}),
+  });
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.
   void HTTP_STATUS_FOR;

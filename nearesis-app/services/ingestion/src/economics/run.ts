@@ -94,6 +94,11 @@ export function packIntoQuotaDays(
   return { days, oversize };
 }
 
+/** BigQuery bills at least 10 MiB per query job, so a cap below it always fails (`bytesBilledLimitExceeded`). */
+export const MIN_BILLED_BYTES = 10 * MIB;
+/** Per-job maximumBytesBilled: the ledger's cap (1.1 x estimate), never below the 10 MiB billing minimum. */
+export const jobCapBytes = (ledgerCap: number): number => Math.max(ledgerCap, MIN_BILLED_BYTES);
+
 export const toGiB = (b: number): string => (b / (1024 * MIB)).toFixed(2);
 
 export interface EconomicsDone {
@@ -157,7 +162,8 @@ export async function runEconomicsPhase(d: {
     if (!Number.isFinite(est))
       throw new IngestionError("BQ_REJECTED", false, { reason: "dry run returned no byte estimate" });
     const fit = d.ledger.check(est);
-    if (!fit.ok || spentEstimate + est > (d.approvedMaxBytes as number)) {
+    const countedBytes = Math.max(est, MIN_BILLED_BYTES); // each job counts at least its billed minimum
+    if (!fit.ok || spentEstimate + countedBytes > (d.approvedMaxBytes as number)) {
       res.skippedForBudget.push({ id: chunk.id, estimateBytes: est });
       log(`skip ${chunk.id}: est ${est} B (ledger or owner authorisation)`);
       continue;
@@ -165,7 +171,7 @@ export async function runEconomicsPhase(d: {
     const [job] = await d.bq.createQueryJob({
       query: sql,
       location: d.location,
-      maximumBytesBilled: String(fit.maximumBytesBilled),
+      maximumBytesBilled: String(jobCapBytes(fit.maximumBytesBilled)),
       useQueryCache: false,
       labels: { source: "nearesis_economics_backfill" },
     });
@@ -180,9 +186,9 @@ export async function runEconomicsPhase(d: {
         billed = Number(m.statistics?.query?.totalBytesBilled ?? Number.NaN);
       }
     }
-    const billedBytes = Number.isFinite(billed) ? billed : fit.maximumBytesBilled; // unknown is never free
+    const billedBytes = Number.isFinite(billed) ? billed : jobCapBytes(fit.maximumBytesBilled); // unknown is never free
     d.ledger.record(chunk.id, est, billedBytes);
-    spentEstimate += est;
+    spentEstimate += countedBytes;
     const iso = new Date(now()).toISOString();
     const a = await d.archive.archive({
       providerId: "near-bigquery",

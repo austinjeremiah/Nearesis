@@ -404,16 +404,16 @@ describe("budgeted runner (no billed query without approval)", () => {
     await expect(runEconomicsPhase(mk(undefined))).rejects.toThrow(/approvedMaxBytes/);
     await expect(runEconomicsPhase(mk(0))).rejects.toThrow(/approvedMaxBytes/);
     expect(calls).toHaveLength(0);
-    // ceiling of 1500 B: the first chunk (1000 B) fits, the second would exceed the total and is skipped without a billed job
+    // ceiling of 10 MiB + 1500 B: the first chunk fits, the second would exceed the total and is skipped without a billed job
     let r;
     try {
-      r = await runEconomicsPhase(mk(1500));
+      r = await runEconomicsPhase(mk(10 * 1024 * 1024 + 1500)); // each tiny job counts at the 10 MiB billed minimum
     } catch {
       /* loading into the stub ClickHouse is not under test */
     }
     const billed = calls.filter((c) => !c.dryRun);
     expect(billed).toHaveLength(1);
-    for (const b of billed) expect(b.maximumBytesBilled).toBe(String(Math.ceil((1000 * 11) / 10)));
+    for (const b of billed) expect(b.maximumBytesBilled).toBe(String(10 * 1024 * 1024)); // 1.1 x 1000 B is below the 10 MiB billing minimum
     if (r) expect(r.skippedForBudget).toHaveLength(1);
   });
   it("digest changes when the SQL changes", () => {

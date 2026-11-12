@@ -1,0 +1,193 @@
+/* =============================================================================
+   Nearesis design tokens.
+
+   The Frontend Product Spec proposes its own palette in section 3.2 (ivory and
+   graphite, burnt-orange accent). We deviate deliberately: the marketing site
+   already ships a complete visual language and the product has to look like the
+   same company. Spec section 0 requires deviations to be logged, so this is the
+   log. Everything else in section 3 is followed, in particular 3.1's direction:
+   editorial research terminal meets institutional financial workstation. No
+   gradients, no glass, no glow, no page of pill buttons.
+
+   Scale, density and component inventory come from the spec. Only the colour,
+   type and corner treatment come from the template.
+   ========================================================================== */
+
+:root {
+  /* --- surface ----------------------------------------------------------- */
+  --page: #f1efe2; /* cream paper, the page itself */
+  --surface: #f7f6ef; /* cards and panels, one step up from the page */
+  --raised: #fbfaf5; /* inputs and hovered rows */
+  --sunken: #dbdac8; /* wells, table headers, inactive tabs */
+  --ink: #000000; /* primary text and hard rules */
+  --ink-soft: #2a2a2a; /* dark panels, chart backgrounds */
+  --invert: #f1efe2; /* text on dark surfaces */
+
+  /* --- text -------------------------------------------------------------- */
+  --text: #000000;
+  --text-2: #4a4940; /* secondary copy */
+  --text-3: #76756a; /* metadata, timestamps, units */
+  --text-on-dark: #f1efe2;
+  --text-on-dark-2: rgba(241, 239, 226, 0.62);
+
+  /* --- line -------------------------------------------------------------- */
+  --line: rgba(0, 0, 0, 0.14); /* ordinary separators */
+  --line-strong: rgba(0, 0, 0, 0.34); /* section and table boundaries */
+  --line-hard: #000000; /* emphasis rules, active borders */
+
+  /* --- accent ------------------------------------------------------------
+     One accent, used for the primary affordance and for the active state. It is
+     never the only carrier of meaning: status always pairs colour with a label
+     or icon, per spec 3.1. */
+  --accent: #00ec97; /* NEAR green */
+  --accent-2: #19ffaa; /* hover / lighter fills */
+  --accent-ink: #00301f; /* text on an accent fill, where black is too hard */
+
+  /* --- status ------------------------------------------------------------
+     Muted on purpose. These sit inside dense tables, so they read as paper
+     stamps rather than alerts. */
+  --ok: #1d6b45;
+  --ok-bg: #d8ead9;
+  --warn: #7d5209;
+  --warn-bg: #f2e6c4;
+  --bad: #9c2b27;
+  --bad-bg: #f2dcd8;
+  --info: #22508f;
+  --info-bg: #dbe4f4;
+  --neutral: #55544b;
+  --neutral-bg: #e3e2d4;
+
+  /* --- data-mode -----------------------------------------------------------
+     Spec 4.1 keeps time mode and dataset origin as separate axes, so they get
+     separate colours and are never merged into one badge. */
+  --mode-live: #1d6b45;
+  --mode-frozen: #22508f;
+  --mode-replay: #7d5209;
+  --origin-fixture: #9c2b27;
+
+  /* --- type ---------------------------------------------------------------
+     Inter Tight for the interface, Stack Sans Notch for display numerals and
+     headlines, IBM Plex Mono for anything a machine produced: metric ids,
+     hashes, query AST, timestamps. Spec 3.1 asks for exactly this separation so
+     a reader can tell a label from a value at a glance. */
+  --font: 'Inter Tight', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Stack Sans Notch', 'Inter Tight', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --fs-micro: 10.5px; /* uppercase micro-labels */
+  --fs-tiny: 11.5px;
+  --fs-small: 12.5px; /* metadata, per spec 3.2's 12-13px */
+  --fs-body: 14px; /* spec floor for body text */
+  --fs-lg: 16px;
+  --fs-h3: 18px;
+  --fs-h2: 22px;
+  --fs-h1: 30px; /* spec 3.2 caps page headlines at 28-32px */
+
+  --lh-tight: 1.15;
+  --lh-body: 1.45;
+  --ls-label: 0.1em; /* uppercase micro-label tracking */
+  --ls-display: -0.03em; /* matches the landing headline */
+
+  /* --- layout, from spec 2.3 --------------------------------------------- */
+  --topbar-h: 56px;
+  --nav-w: 248px;
+  --nav-w-collapsed: 64px;
+  --pageheader-h: 60px;
+  --inspector-w: 344px;
+  --inspector-w-max: 420px;
+  --runstrip-h: 44px;
+
+  --row-compact: 36px;
+  --row-comfortable: 44px;
+  --control-h: 32px;
+  --control-h-lg: 40px;
+
+  /* --- space -------------------------------------------------------------- */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 24px;
+  --s8: 32px;
+  --s10: 40px;
+  --s12: 48px;
+
+  /* --- corners -------------------------------------------------------------
+     Square. The landing page is square and the mix of radii is what makes an
+     interface read as a component-library default. */
+  --radius: 0px;
+
+  /* --- focus ---------------------------------------------------------------
+     A solid offset ring rather than a glow, visible on cream and on ink. */
+  --focus: var(--accent);
+  --focus-ring: 0 0 0 2px var(--page), 0 0 0 4px var(--accent);
+
+  /* --- motion --------------------------------------------------------------
+     Short and linear. Nothing springs. */
+  --t-fast: 100ms;
+  --t: 150ms;
+  --ease: cubic-bezier(0.2, 0, 0.1, 1);
+
+  /* --- elevation -----------------------------------------------------------
+     Spec 3.2: avoid gratuitous shadows, a 1px border and subtle elevation are
+     enough. Only overlays get a shadow at all. */
+  --shadow-overlay: 0 1px 0 var(--line-hard), 0 18px 40px rgba(0, 0, 0, 0.18);
+
+  /* --- z ------------------------------------------------------------------ */
+  --z-nav: 20;
+  --z-topbar: 30;
+  --z-runstrip: 40;
+  --z-popover: 60;
+  --z-overlay: 80;
+  --z-toast: 90;
+}
+
+/* -----------------------------------------------------------------------------
+   Dark theme. Spec 3.1 asks for a complete token variant rather than an inverted
+   screenshot, so the surface ramp is rebuilt rather than negated: the cream page
+   becomes a warm near-black, and the accent is held back slightly because full
+   #00ec97 vibrates against dark backgrounds.
+   -------------------------------------------------------------------------- */
+:root[data-theme='dark'] {
+  --page: #17170f;
+  --surface: #1e1e16;
+  --raised: #26261c;
+  --sunken: #131310;
+  --ink: #f1efe2;
+  --ink-soft: #0e0e0a;
+  --invert: #17170f;
+
+  --text: #f1efe2;
+  --text-2: #b9b7a8;
+  --text-3: #8b8a7d;
+  --text-on-dark: #f1efe2;
+  --text-on-dark-2: rgba(241, 239, 226, 0.62);
+
+  --line: rgba(241, 239, 226, 0.14);
+  --line-strong: rgba(241, 239, 226, 0.3);
+  --line-hard: #f1efe2;
+
+  --accent: #00d487;
+  --accent-2: #00ec97;
+  --accent-ink: #00301f;
+
+  --ok: #6dcf9c;
+  --ok-bg: #16311f;
+  --warn: #e0b45d;
+  --warn-bg: #332715;
+  --bad: #e8877f;
+  --bad-bg: #351a18;
+  --info: #8fb4e8;
+  --info-bg: #15243b;
+  --neutral: #a3a295;
+  --neutral-bg: #26261c;
+
+  --mode-live: #6dcf9c;
+  --mode-frozen: #8fb4e8;
+  --mode-replay: #e0b45d;
+  --origin-fixture: #e8877f;
+
+  --focus-ring: 0 0 0 2px var(--page), 0 0 0 4px var(--accent);
+  --shadow-overlay: 0 1px 0 var(--line-hard), 0 18px 40px rgba(0, 0, 0, 0.5);
+}

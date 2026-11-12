@@ -50,6 +50,7 @@ const kernel = new Kernel({
 });
 await kernel.boot();
 kernel.outbox.start();
+kernel.telemetry?.start();
 // SLO recording + burn alerts (needs runtime migration 005): NEARESIS_COST_CONTROL=1.
 const ops = process.env.NEARESIS_COST_CONTROL === "1" ? startOpsBackground(kernel) : undefined;
 const app = await buildApp({

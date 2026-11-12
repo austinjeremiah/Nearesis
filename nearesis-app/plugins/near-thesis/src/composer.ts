@@ -53,6 +53,9 @@ interface CatalogMetric {
   sources?: string[];
 }
 
+/** Marker set by the kernel's `guardInference` (kept as a registry symbol so the plugin needs no kernel import). */
+const GUARDED = Symbol.for("nearesis.guardedInference");
+
 export async function composeCanvas(args: {
   prompt: string;
   provider: InferenceProvider;
@@ -61,6 +64,9 @@ export async function composeCanvas(args: {
   expectedRevision: number;
   idempotencyKey: string;
 }): Promise<ComposeResult> {
+  // FND-073: the composer never calls a model through a provider that has not passed the classification guard.
+  if ((args.provider as unknown as Record<symbol, unknown>)[GUARDED] !== true)
+    throw new Error("UNGUARDED_INFERENCE_PROVIDER: wrap the provider with guardInference before composing");
   const disc = (await args.invoke("semantic.discover@1", {})) as {
     ok: boolean;
     semanticVersion: string;

@@ -7,7 +7,15 @@ import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import { createProviderFromEnv, loadEnvVar, resolveProviderMode } from "@nearesis/inference";
 import { composeCanvas, registerRunSource, type SourceHealth } from "@nearesis/near-thesis";
-import { DEFAULT_ENGINE_INTERFACES, Db, Kernel, type Session } from "@nearesis/kernel";
+import {
+  DEFAULT_ENGINE_INTERFACES,
+  Db,
+  Kernel,
+  InferenceVerification,
+  guardInference,
+  modelPolicyFromEnv,
+  type Session,
+} from "@nearesis/kernel";
 import type { ExecutionRequest, InferenceProvider, ToolGateway } from "@nearesis/contracts";
 import {
   INVESTIGATION_GRANT,
@@ -25,6 +33,7 @@ import {
   type Policy,
 } from "@nearesis/agent-runtime";
 import type { ActivityDeps, CanvasExecutor } from "./activities.ts";
+import { applyProgressively } from "./progressive-canvas.ts";
 
 /**
  * Model selection from the environment (INFERENCE_PROVIDER, root .env): `openrouter` uses the live provider (spend
@@ -32,7 +41,8 @@ import type { ActivityDeps, CanvasExecutor } from "./activities.ts";
  * inject a scripted provider instead.
  */
 export function createRuntimeProvider(): InferenceProvider {
-  return createProviderFromEnv();
+  // FND-073: the production provider is never handed out unguarded.
+  return guardInference(createProviderFromEnv(), modelPolicyFromEnv());
 }
 export const liveModelFromEnv = (): string =>
   loadEnvVar("OPENROUTER_PRIMARY_MODEL")?.trim() || "openai/gpt-4o-mini";
@@ -156,8 +166,7 @@ export class KernelCanvas implements CanvasExecutor {
         expectedRevision: revision,
         operationId: taskIdFromHash(a.actionHash),
       };
-      const r = await exec.apply(session, a.workspaceId, patch as never);
-      return { state: "ok", detail: { workspaceVersion: r.workspaceVersion, eventSeq: r.eventSeq } };
+      return this.progressive(exec, session, a, patch);
     }
     const req: ExecutionRequest = {
       requestId: randomUUID(),
@@ -184,8 +193,40 @@ export class KernelCanvas implements CanvasExecutor {
     if (!prev.ok || !prev.patch) return { state: "rejected", detail: { issues: prev.issues } };
     // The approved action hash is the patch's idempotency identity: a retried execution replays, never re-applies.
     const patch = { ...prev.patch, operationId: taskIdFromHash(a.actionHash) };
-    const r = await exec.apply(session, a.workspaceId, patch as never);
-    return { state: "ok", detail: { workspaceVersion: r.workspaceVersion, eventSeq: r.eventSeq } };
+    return this.progressive(exec, session, a, patch);
+  }
+
+  /**
+   * After approval the patch is applied panel by panel (see `applyProgressively`), so each panel reaches the canvas and the
+   * SSE stream as soon as it is committed. Each operation has its own operation id derived from the approved action hash.
+   */
+  private async progressive(
+    exec: KernelCanvasExecutor,
+    session: Session,
+    a: Parameters<CanvasExecutor["apply"]>[0],
+    patch: Record<string, unknown>,
+  ) {
+    const r = await applyProgressively({
+      kernel: this.o.kernel,
+      exec,
+      session,
+      workspaceId: a.workspaceId,
+      runId: a.runId,
+      actionHash: a.actionHash,
+      patch: patch as never,
+    });
+    return r.state === "ok"
+      ? {
+          state: "ok",
+          detail: {
+            workspaceVersion: r.workspaceVersion,
+            eventSeq: r.eventSeq,
+            panels: r.total,
+            applied: r.applied,
+            resumed: r.skipped,
+          },
+        }
+      : { state: "rejected", detail: { failure: r.failure, applied: r.applied } };
   }
 }
 
@@ -229,6 +270,7 @@ export function buildKernelDeps(a: {
     localTools: { "canvas.patch@1": canvasPatchProposalTool(leases) },
     kernelMode: true,
     sourceHealth: ingestionSourceHealth(a.pool),
+    verification: new InferenceVerification(a.kernel.verifiedState),
     provider: a.provider ?? createRuntimeProvider(),
     ...(a.model ? { model: a.model } : live ? { model: liveModelFromEnv() } : {}),
     ...(live

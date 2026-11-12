@@ -1,5 +1,6 @@
 import { CATALOG_UNAVAILABLE, catalogUnreadable } from "./source-gate.ts";
 import { randomUUID } from "node:crypto";
+import { guardInference, modelPolicyFromEnv, type InferenceVerification } from "@nearesis/kernel";
 import type { z } from "zod";
 import { ApplicationFailure, CancelledFailure, Context } from "@temporalio/activity";
 import type pg from "pg";
@@ -97,6 +98,8 @@ const isScripted = (text: string): boolean => /\[scenario=(?!none\])/.test(text)
 
 export interface ActivityDeps {
   liveComposer?: LiveComposer;
+  /** Verified-state wiring (FND-072): records each model result's verification and reads the label a proposal must show. */
+  verification?: InferenceVerification;
   /** App-role pool (nearesis_app, search_path=runtime). */
   pool: pg.Pool;
   /** Connection string for the LangGraph Postgres checkpointer (app role). Checkpointing is off when absent. */
@@ -146,6 +149,24 @@ export function createActivities(d: ActivityDeps) {
   const supervisor = new Supervisor(d.pool, d.policy, d.audit, roles);
   const meter = new ToolCallMeter(d.pool, d.policy, d.audit);
   const now = d.now ?? (() => Date.now());
+  // FND-073: every model call of every workflow agent, the composer and the research agents goes through this one
+  // provider, so the classification guard applies to all of them whatever `d.provider` was injected.
+  const egress = guardInference(d.provider, modelPolicyFromEnv());
+  // FND-072: each delivered model result is submitted to the verifier-only state store (no-op without a verifier identity).
+  const onResult = (tenantId: string, workspaceId: string) =>
+    d.verification?.enabled
+      ? {
+          onProviderResult: async (e: { key: string; result: Parameters<typeof egress.verifyResponse>[0] }) => {
+            await d.verification!.record({
+              orgId: tenantId,
+              workspaceId,
+              key: e.key,
+              result: e.result,
+              verify: (r) => egress.verifyResponse(r),
+            });
+          },
+        }
+      : {};
 
   async function guarded<T>(fn: () => Promise<T>): Promise<T> {
     try {
@@ -250,7 +271,7 @@ export function createActivities(d: ActivityDeps) {
         );
       return out.response.payload;
     };
-    const provider: InferenceProvider = {
+    const ledgerProvider: InferenceProvider = {
       id: "ledger",
       health: async () => ({ ok: true, detail: "ledger" }),
       listModels: async () => [],
@@ -290,6 +311,9 @@ export function createActivities(d: ActivityDeps) {
         reason: "LEDGER_WRAPPER",
       }),
     } as unknown as InferenceProvider;
+    // The routed wrapper is itself marked guarded (policy approves only the `ledger` routing id); the real binding is
+    // checked again inside LedgerInference against `egress`.
+    const provider = guardInference(ledgerProvider, modelPolicyFromEnv());
     const base = {
       taskId: i.taskId,
       role: "composer" as const,
@@ -354,7 +378,23 @@ export function createActivities(d: ActivityDeps) {
           missingMetric: null,
           nextMeasurement: null,
         },
-        proposal: { patch: res.patch, plan: res.plan, modelRequestId: res.modelRequestId },
+        proposal: {
+          patch: res.patch,
+          plan: res.plan,
+          modelRequestId: res.modelRequestId,
+          // ch.12: the proposal shows the verification state of the model result that produced it; no stored state means
+          // `unverified`, and a failed or tampered state is shown as failed, never as verified.
+          verification: await (async () => {
+            const l = await (d.verification ?? null)?.labelFor({
+              orgId: i.tenantId,
+              workspaceId: i.workspaceId,
+              key: `${i.taskId}:compose`,
+            });
+            return l
+              ? { state: l.state, text: l.badge.text }
+              : { state: "unverified" as const, text: "Unverified" };
+          })(),
+        },
       };
     if (res.status === "cannot_compute")
       return {
@@ -554,7 +594,7 @@ export function createActivities(d: ActivityDeps) {
         const saver = d.appUrl ? openCheckpointer(d.appUrl) : undefined;
         try {
           const inference = new LedgerInference(
-            d.provider,
+            egress,
             d.pool,
             supervisor,
             {
@@ -564,6 +604,7 @@ export function createActivities(d: ActivityDeps) {
               budgetId: i.budgetId,
               taskId: i.directorTaskId,
               model: model(d),
+              ...onResult(i.tenantId, i.workspaceId),
               ...(Context.current().cancellationSignal
                 ? { signal: Context.current().cancellationSignal }
                 : {}),
@@ -935,7 +976,7 @@ export function createActivities(d: ActivityDeps) {
           ...(d.localTools ? { local: d.localTools } : {}),
         });
         const inference = new LedgerInference(
-          d.provider,
+          egress,
           d.pool,
           supervisor,
           {
@@ -945,6 +986,7 @@ export function createActivities(d: ActivityDeps) {
             budgetId: i.budgetId,
             taskId: i.taskId,
             model: model(d),
+            ...onResult(i.tenantId, i.workspaceId),
             signal: ctx.cancellationSignal,
           },
           d.cost,

@@ -1,7 +1,13 @@
 import type { z } from "zod";
-import type { InferenceProvider } from "@nearesis/contracts";
+import type { InferenceProvider, StructuredResult } from "@nearesis/contracts";
 import type pg from "pg";
-import { containsSecretShape, scrubSecretShapes } from "@nearesis/kernel";
+import {
+  containsSecretShape,
+  guardInference,
+  isGuardedInference,
+  modelPolicyFromEnv,
+  scrubSecretShapes,
+} from "@nearesis/kernel";
 import { AbortedError, runExternalEffect } from "./ledger.ts";
 import { usdForTokens, type Supervisor } from "./supervisor.ts";
 import type { CostGovernor } from "./cost/governor.ts";
@@ -14,6 +20,11 @@ export interface InferenceCtx {
   taskId: string;
   model: string;
   signal?: AbortSignal;
+  /**
+   * Called once per delivered provider result, before the output is scrubbed and stored, so a verifier can record the
+   * result's verification state (FND-072). A failure here never fails the call: the result then simply stays unverified.
+   */
+  onProviderResult?: (e: { key: string; result: StructuredResult<unknown> }) => Promise<void>;
 }
 
 /**
@@ -23,14 +34,18 @@ export interface InferenceCtx {
  * counted in `agent_side_effects.provider_calls` (at-least-once delivery disclosure).
  */
 export class LedgerInference {
+  private readonly provider: InferenceProvider;
   constructor(
-    private readonly provider: InferenceProvider,
+    provider: InferenceProvider,
     private readonly pool: pg.Pool,
     private readonly supervisor: Supervisor,
     private readonly ctx: InferenceCtx,
     /** Optional spend governor (ch.13 cost model): authorises BEFORE the provider is called, settles after. */
     private readonly cost?: CostGovernor,
-  ) {}
+  ) {
+    // FND-073: no model call leaves this class unguarded, whatever provider the caller passed.
+    this.provider = isGuardedInference(provider) ? provider : guardInference(provider, modelPolicyFromEnv());
+  }
 
   async generate<T>(a: {
     key: string;
@@ -59,6 +74,11 @@ export class LedgerInference {
             idempotencyKey: a.key,
             maxTokens: a.maxTokens ?? 2000,
           });
+          try {
+            await c.onProviderResult?.({ key: a.key, result: r as StructuredResult<unknown> });
+          } catch {
+            // fail closed on the label: no recorded state means `unverified`
+          }
           // ch.12: a model response is untrusted. Credential shapes (plain, base64, split by invisible characters) are
           // scrubbed BEFORE the durable record is written, so neither the ledger nor any later replay can carry them.
           const secretsRedacted = containsSecretShape(r.output);

@@ -9,7 +9,7 @@ import type { z } from "zod";
 import type { InferenceProvider, StructuredResult } from "@nearesis/contracts";
 import { CUBE_URL_DEFAULT, cubeReady } from "@nearesis/analytics";
 import { validatePanelSpec } from "@nearesis/canvas-schema";
-import type { Kernel, Session } from "@nearesis/kernel";
+import { guardInference, modelPolicyFromEnv, type Kernel, type Session } from "@nearesis/kernel";
 import {
   createTestDb,
   createWs,
@@ -138,7 +138,7 @@ describe("composer path (scripted provider, real kernel tools)", () => {
         if (r.state !== "ok") throw new Error(`${capability}: ${r.state} ${r.reasonCode ?? ""}`);
         return r.payload;
       };
-      const provider = new ScriptedProvider();
+      const provider = guardInference(new ScriptedProvider(), modelPolicyFromEnv());
       const res = await composeCanvas({
         prompt: C01_PROMPT,
         provider,

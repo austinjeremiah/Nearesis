@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Tx } from "./db/pool.ts";
 import { KernelError } from "./errors.ts";
 
@@ -11,6 +11,13 @@ export function operationIdFromActionHash(h: string): string {
 }
 
 export const DEFAULT_APPROVAL_TTL_MS = 24 * 3600_000;
+
+/** Hash of part `index` of an approved action: the identity of one derived approval (see `delegateParts`). */
+export const partActionHash = (actionHash: string, index: number): string =>
+  createHash("sha256").update(`${actionHash}:${index}`).digest("hex");
+/** Operation id a command must carry to consume part `index` of the approved action (same derivation as the runtime's). */
+export const partOperationId = (actionHash: string, index: number): string =>
+  operationIdFromActionHash(partActionHash(actionHash, index));
 
 /**
  * Approval records the kernel itself verifies (ch.05). A record is created when an authorised human approves an exact
@@ -117,5 +124,50 @@ export class ApprovalService {
     );
     if (upd.rowCount !== 1) return deny("APPROVAL_REUSED", "This approval was already used.");
     return { approvalId: usable.id, actionHash: usable.action_hash };
+  }
+
+  /**
+   * Splits ONE approved action into `parts` single-use derived approvals, so an approved patch can be applied as several
+   * commands (progressive composition, PERF06) without weakening exactly-once consumption. The parent approval (an existing,
+   * unused, unexpired, unrevoked approval of `actionHash` for this run) is consumed here, atomically with the creation of
+   * the children; each child carries the parent's approver, expiry and revocability and authorises exactly the command whose
+   * `operationId` is `partOperationId(actionHash, i)`, once. Idempotent: when the children already exist (a retried
+   * execution) nothing is consumed again and the same operation ids are returned, so execution resumes where it stopped.
+   */
+  async delegateParts(
+    tx: Tx,
+    a: {
+      workspaceId: string;
+      runId: string | undefined;
+      actionHash: string;
+      parts: number;
+      usedBy: string;
+      approverRoles?: readonly string[];
+    },
+  ): Promise<string[]> {
+    const ids = Array.from({ length: a.parts }, (_, i) => partOperationId(a.actionHash, i));
+    if (!a.runId)
+      throw new KernelError("APPROVAL_REQUIRED", "APPROVAL_MISSING", "An approved run is required.");
+    const existing = await tx.query(
+      "SELECT 1 FROM command_approvals WHERE workspace_id = $1 AND run_id = $2 AND action_hash = $3",
+      [a.workspaceId, a.runId, partActionHash(a.actionHash, 0)],
+    );
+    if (existing.rowCount === 1) return ids;
+    const consumed = await this.consume(tx, {
+      workspaceId: a.workspaceId,
+      runId: a.runId,
+      usedBy: a.usedBy,
+      matches: (h) => h === a.actionHash,
+      ...(a.approverRoles ? { approverRoles: a.approverRoles } : {}),
+    });
+    await tx.query(
+      `INSERT INTO command_approvals(id, org_id, workspace_id, run_id, action_hash, approved_by, expires_at)
+       SELECT gen_random_uuid(), p.org_id, p.workspace_id, p.run_id, h.hash, p.approved_by, p.expires_at
+         FROM command_approvals p, unnest($2::text[]) AS h(hash)
+        WHERE p.id = $1
+       ON CONFLICT (workspace_id, run_id, action_hash) DO NOTHING`,
+      [consumed.approvalId, ids.map((_, i) => partActionHash(a.actionHash, i))],
+    );
+    return ids;
   }
 }

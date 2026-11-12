@@ -1,19 +1,19 @@
 # Production image: api. Built from the repository root: docker build -f infrastructure/deploy/Dockerfile.api .
-# Base is pinned by digest (node 24.22.3, alpine; the Debian bases carry zlib CVE-2023-45853, critical). No secret enters the image: configuration is injected at run
+# Build stage: node 24 trixie-slim pinned by index digest (glibc, matches the runtime). Runtime stage: Google distroless nodejs24-debian13
+# pinned by index digest (node 24.22.3; no shell, no package manager, no npm; the Debian 12 bases carry zlib CVE-2023-45853, critical).
+# No secret enters the image: configuration is injected at run
 # time (environment) and .env is excluded by the Dockerfile's .dockerignore.
-FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS build
+FROM node:24-trixie-slim@sha256:af02d57b57719b9657a45199a79264a9437940cd55b3c7b3fc99615654f124a0 AS build
 ENV CI=true COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 WORKDIR /app
 RUN corepack enable
 COPY . .
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
-FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS runtime
+FROM gcr.io/distroless/nodejs24-debian13@sha256:d1c8c1be703f1dca243457ac656e7eee7c571a7136a6e681d17c4294e6fe7a6d AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=10001:10001 /app /app
-# the npm that ships in the base image (and its bundled dependencies) is not used at run time; remove it from the attack surface
-RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 USER 10001:10001
 EXPOSE 4100
-CMD ["node_modules/.bin/tsx", "apps/api/src/main.ts"]
+CMD ["node_modules/tsx/dist/cli.mjs", "apps/api/src/main.ts"]

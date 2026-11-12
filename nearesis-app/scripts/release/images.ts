@@ -61,6 +61,18 @@ export interface BuildRecord {
   vulnerabilityScan: ScanRecord | NotRunRecord;
 }
 
+/** Lists secret-bearing file names (.env, .env.*, *.pem) outside node_modules, without a shell. */
+const ENV_FILE_WALK = `const fs=require("fs");const skip=new Set(["/proc","/sys","/dev"]);
+function w(d){let es;try{es=fs.readdirSync(d,{withFileTypes:true})}catch{return}
+for(const e of es){const p=(d==="/"?"":d)+"/"+e.name;if(skip.has(p)||e.name==="node_modules")continue;
+if(e.isDirectory())w(p);else if(e.isFile()&&(e.name===".env"||e.name.startsWith(".env.")||e.name.endsWith(".pem")))console.log(p)}}w("/")`;
+/** Prints "name version" per installed OS package: dpkg status.d (distroless) or the dpkg status file (full Debian). */
+const OS_PACKAGE_LIST = `const fs=require("fs");const out=[];
+const add=(t)=>{const n=/^Package: (.+)$/m.exec(t),v=/^Version: (.+)$/m.exec(t);if(n&&v)out.push(n[1]+" "+v[1])};
+try{for(const f of fs.readdirSync("/var/lib/dpkg/status.d"))add(fs.readFileSync("/var/lib/dpkg/status.d/"+f,"utf8"))}catch{}
+try{for(const b of fs.readFileSync("/var/lib/dpkg/status","utf8").split("\\n\\n"))add(b)}catch{}
+console.log(out.join("\\n"))`;
+
 export const DIGEST = /^sha256:[0-9a-f]{64}$/;
 
 export function inspectImage(
@@ -139,15 +151,8 @@ export function buildImages(opts: {
       if (b.code !== 0) throw new Error(`docker build ${name} failed: ${b.err.slice(-400)}`);
       const info = inspectImage(run, tag);
       if (!info || !DIGEST.test(info.id)) throw new Error(`cannot inspect ${tag}`);
-      const envFiles = run("docker", [
-        "run",
-        "--rm",
-        "--entrypoint",
-        "sh",
-        tag,
-        "-c",
-        "find / -xdev \\( -name '.env' -o -name '.env.*' -o -name '*.pem' \\) -not -path '*/node_modules/*' 2>/dev/null; true",
-      ]);
+      // the runtime image may be distroless (no shell): walk the filesystem with the image's own node
+      const envFiles = run("docker", ["run", "--rm", "--entrypoint", "node", tag, "-e", ENV_FILE_WALK]);
       images[name] = {
         tag,
         digest: info.id,
@@ -229,16 +234,7 @@ export function writeSbom(
   const unique = [...new Set(pkgs)].sort();
   const osPackages: Record<string, string[]> = {};
   for (const [name, img] of Object.entries(rec.images)) {
-    const r = run("docker", [
-      "run",
-      "--rm",
-      "--entrypoint",
-      "dpkg-query",
-      img.tag,
-      "-W",
-      "-f",
-      "${Package} ${Version}\\n",
-    ]);
+    const r = run("docker", ["run", "--rm", "--entrypoint", "node", img.tag, "-e", OS_PACKAGE_LIST]);
     osPackages[name] = r.out.split("\n").filter(Boolean).sort();
   }
   const doc = {

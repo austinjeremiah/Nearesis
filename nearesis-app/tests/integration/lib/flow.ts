@@ -8,6 +8,7 @@ import { join } from "node:path";
 import {
   FreezeRefused,
   NEAR_THESIS_DESCRIPTOR,
+  registerRunSource,
   PublicationBlocked,
   StepFailure,
   ThesisLifecycle,
@@ -17,6 +18,7 @@ import {
   type StepMode,
   type StepName,
 } from "../../../plugins/near-thesis/src/index.ts";
+import { LIVE_SCENARIO, liveQuery } from "../../../packages/agent-runtime/src/testing/scenarios-live.ts";
 import type { RunContextHashes } from "../../../packages/workflow/src/types.ts";
 import { buildCapsule, loadSnapshot, verifyCapsule } from "../../../packages/capsule/src/index.ts";
 import { execReq, giveLease, grant } from "../../../packages/kernel/test/helpers/index.ts";
@@ -38,6 +40,12 @@ export interface FlowOptions {
   extraNotes?: string[];
   /** Proof leg of the audit step: absent = not attempted. */
   proof?: ProofMode;
+  /**
+   * Run the semantic layer LIVE (cube-live :4001, nearesis_live, read-only): discovery and a recorded query go through
+   * the kernel gateway under a live-source run principal, and the question is submitted with `source: "live"` under
+   * the scripted live scenario. Inference stays scripted and labelled `mock`.
+   */
+  live?: boolean;
 }
 
 export interface FlowResult {
@@ -48,6 +56,17 @@ export interface FlowResult {
   graph?: { source: string; query: string; model: string; result: string; claim: string };
   runId?: string;
   panelIds: string[];
+  /** Live mode only: what discovery and the recorded query returned from the live layer. */
+  liveSemantic?: {
+    semanticVersion: string;
+    source: string;
+    metrics: string[];
+    queryHash: string;
+    measure: string;
+    rows: Array<Array<string | number | null>>;
+    columns: Array<{ name: string; type?: string }>;
+    dataWindows: Record<string, { from: string; to: string } | null>;
+  };
   markerId?: string;
   capsuleDir?: string;
   capsuleHash?: string;
@@ -64,6 +83,13 @@ export interface FlowResult {
   postedQuestion?: string;
   headline?: { status: string; deltaMae: number | null };
   texts: Record<string, string>;
+}
+
+/** A run id registered as a live-source run, so gateway calls made under it reach cube-live (the worker does the same for real runs). */
+function liveProbeRun(register: (runId: string, source: "live") => void): string {
+  const id = crypto.randomUUID();
+  register(id, "live");
+  return id;
 }
 
 const tmp = (p: string) => mkdtempSync(join(tmpdir(), `${p}-`));
@@ -124,6 +150,7 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
   );
 
   const preregHash = prereg?.preregistrationHash;
+  const scenarioName = o.live ? LIVE_SCENARIO : "A20-P";
 
   // 3. Acquire: the Explorer collector against the fixture server, plus the frozen raw snapshot
   let snapshotId = "";
@@ -166,15 +193,16 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
   // 4. Discover through the kernel gateway (real near-thesis plugin, real semantic layer)
   await tr.step(
     "discover",
-    { ...mockOr("discover", "semantic.discover", "fixture"), input: { workspace: ws } },
+    { ...mockOr("discover", "semantic.discover", o.live ? "live" : "fixture"), input: { workspace: ws } },
     async () => {
       await giveLease(k.kernel, k.session, ws, "semantic.discover@1", [
         grant({ resource: "semantic", action: "discover" }),
       ]);
-      const d = await k.kernel.gateway.invoke(
-        k.session.principal,
-        execReq(k.session, ws, "semantic.discover@1", {}),
-      );
+      // live: the plugin picks its layer from the run id on the principal; a registered live run id selects cube-live
+      const principal = o.live
+        ? { ...k.session.principal, parentRunId: liveProbeRun(registerRunSource) }
+        : k.session.principal;
+      const d = await k.kernel.gateway.invoke(principal, execReq(k.session, ws, "semantic.discover@1", {}));
       if (d.state !== "ok")
         throw new StepFailure(
           "DISCOVER_FAILED",
@@ -183,16 +211,59 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
       const p = d.payload as {
         semanticVersion: string;
         semanticModelHash: string;
+        source?: string;
+        dataWindows?: Record<string, { from: string; to: string } | null>;
         metrics: Array<{ id: string; certifiedVersion?: string }>;
       };
       for (const m of p.metrics) metricVersions[m.id] = m.certifiedVersion ?? p.semanticVersion;
+      const evidence = [{ kind: "semantic-model", ref: p.semanticModelHash }];
+      let liveHash: string | undefined;
+      if (o.live) {
+        if (p.source !== "live")
+          throw new StepFailure("NOT_LIVE", `discover served source=${String(p.source)}, expected live`);
+        await giveLease(k.kernel, k.session, ws, "semantic.query@1", [
+          grant({ resource: "semantic", action: "query" }),
+        ]);
+        const qr = await k.kernel.gateway.invoke(
+          principal,
+          execReq(k.session, ws, "semantic.query@1", liveQuery()),
+        );
+        if (qr.state !== "ok")
+          throw new StepFailure(
+            "LIVE_QUERY_FAILED",
+            `semantic.query ${qr.state} ${JSON.stringify(qr).slice(0, 400)}`,
+          );
+        const qp = qr.payload as {
+          ok: boolean;
+          queryHash: string;
+          envelope: {
+            columns: Array<{ name: string; type?: string }>;
+            rows: Array<Array<string | number | null>>;
+          };
+        };
+        if (!qp.ok || !qp.envelope.rows.length)
+          throw new StepFailure("LIVE_QUERY_EMPTY", "the live query returned no rows");
+        out.liveSemantic = {
+          semanticVersion: p.semanticVersion,
+          source: p.source,
+          metrics: p.metrics.map((m) => m.id),
+          queryHash: qp.queryHash,
+          measure: liveQuery().measures[0]!,
+          rows: qp.envelope.rows,
+          columns: qp.envelope.columns,
+          dataWindows: p.dataWindows ?? {},
+        };
+        liveHash = qp.queryHash;
+        evidence.push({ kind: "live-query", ref: qp.queryHash });
+      }
       return {
         output: {
           semanticVersion: p.semanticVersion,
           semanticModelHash: p.semanticModelHash,
           metrics: p.metrics.length,
+          ...(liveHash ? { liveQueryHash: liveHash } : {}),
         },
-        evidence: [{ kind: "semantic-model", ref: p.semanticModelHash }],
+        evidence,
       };
     },
   );
@@ -208,14 +279,13 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
       input: { question, preregHash },
     },
     async () => {
-      const r = await ask(
-        s,
-        ws,
-        "A20-P",
-        question,
-        preregHash && /^sha256:[0-9a-f]{64}$/.test(preregHash) ? { preregistrationHash: preregHash } : {},
-      );
-      out.postedQuestion = `[scenario=A20-P] ${question}`;
+      const r = await ask(s, ws, scenarioName, question, {
+        ...(preregHash && /^sha256:[0-9a-f]{64}$/.test(preregHash)
+          ? { preregistrationHash: preregHash }
+          : {}),
+        ...(o.live ? { source: "live" } : {}),
+      });
+      out.postedQuestion = `[scenario=${scenarioName}] ${question}`;
       runId = r.runId;
       workflowId = r.workflowId;
       out.runId = runId;

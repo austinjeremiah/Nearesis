@@ -4,6 +4,7 @@ import { SourceUnavailable } from "./fake-gateway.ts";
 import type { ScriptRule } from "./scripted-provider.ts";
 import { hashOf } from "../canonical.ts";
 import { TOOL_CATALOG } from "../tools.ts";
+import { LIVE_SCENARIO, livePlan, liveScenarioRules } from "./scenarios-live.ts";
 
 /**
  * Test fixtures `fx.agents.*` as scripted-model rules + fake-gateway handlers. Scenario selection travels in the
@@ -106,6 +107,8 @@ export function planFor(scn: string): Plan {
     estimatedCost: { tokens: 60000, toolCalls: 200, usd: 5 },
   };
   switch (scn) {
+    case LIVE_SCENARIO:
+      return livePlan(scn);
     case "A20-P":
     case "A20-N1":
     case "A20-N2":
@@ -219,6 +222,9 @@ export function scenarioRules(o: ScenarioOpts = {}): ScriptRule[] {
       delayMs: delay,
       ...(usage ? { usage } : {}),
     });
+
+  // live-data scenario (own rules, matched first)
+  rules.push(...liveScenarioRules());
 
   // Director planning
   R(
@@ -398,7 +404,7 @@ export function scenarioRules(o: ScenarioOpts = {}): ScriptRule[] {
   );
 
   // --- generic success paths for A20/A02/A10/basic/priv/A01/A18
-  const general = notScn("A19", "A05-over", "A12-toolloop", "A12-slow", "A12-storm", "A09");
+  const general = notScn(LIVE_SCENARIO, "A19", "A05-over", "A12-toolloop", "A12-slow", "A12-storm", "A09");
   R(
     (p) => general(p) && has(p, rl("semantic_analyst"), step(0)),
     () => ({ action: "tool", tool: "semantic.discover@1", input: {} }),

@@ -1,13 +1,14 @@
-import { NotConnected } from '@/components/nx/states';
 import { Content, PageHeader } from '@/components/nx/shell';
+import { DataNav } from '@/components/nx/data/kit';
+import QuotesView from '@/components/nx/data/quotes-view';
 
-/** Not connected to the API yet (WS5). Renders an honest typed state, never placeholder figures. */
 export default function Page() {
   return (
     <>
-      <PageHeader title="Quote observatory" description="Intents quotes." />
+      <PageHeader title="Quote observatory" description="Dry 1Click quote sampling per route: availability, latency, indicative cost and signature status." crumbs={[{ label: 'Data', href: '/data' }, { label: 'Quotes' }]} />
       <Content>
-        <NotConnected what="Quote observatory" stream="WS5" />
+        <DataNav />
+        <QuotesView />
       </Content>
     </>
   );

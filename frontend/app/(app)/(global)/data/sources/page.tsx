@@ -1,13 +1,14 @@
-import { NotConnected } from '@/components/nx/states';
 import { Content, PageHeader } from '@/components/nx/shell';
+import { DataNav } from '@/components/nx/data/kit';
+import { SourcesList } from '@/components/nx/data/sources-view';
 
-/** Not connected to the API yet (WS5). Renders an honest typed state, never placeholder figures. */
 export default function Page() {
   return (
     <>
-      <PageHeader title="Sources" description="Source freshness and coverage." />
+      <PageHeader title="Sources" description="Watermark, lag, gaps and 90-day coverage per data source." crumbs={[{ label: 'Data', href: '/data' }, { label: 'Sources' }]} />
       <Content>
-        <NotConnected what="Sources" stream="WS5" />
+        <DataNav />
+        <SourcesList />
       </Content>
     </>
   );

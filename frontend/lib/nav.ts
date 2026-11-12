@@ -6,6 +6,7 @@ import {
   Boxes,
   Braces,
   Clock,
+  Coins,
   Database,
   FileText,
   FlaskConical,
@@ -106,6 +107,7 @@ export const WORKSPACE_NAV: NavGroup[] = [
     items: [
       { href: '/w/:wid/thesis', label: 'Thesis and reports', icon: FileText },
       { href: '/w/:wid/capsules', label: 'Capsules', icon: Package },
+      { href: '/w/:wid/cost', label: 'Cost', icon: Coins, hint: 'Spend, caps and forecast' },
     ],
   },
 ];
@@ -120,6 +122,11 @@ export const DATA_NAV: NavItem[] = [
   { href: '/data', label: 'Metric catalog', icon: Database },
   { href: '/data/sources', label: 'Sources', icon: Network },
   { href: '/data/quotes', label: 'Quote observatory', icon: Search },
+  { href: '/data/intents', label: 'Intents analytics', icon: Search },
+  { href: '/data/ecosystem', label: 'Ecosystem entities', icon: Network },
+  { href: '/data/accounts', label: 'Accounts', icon: Network },
+  { href: '/data/economics', label: 'Economics', icon: Database },
+  { href: '/data/realtime', label: 'Real-time feed', icon: Radio },
 ];
 
 export function withWorkspace(href: string, wid: string): string {

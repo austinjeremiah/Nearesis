@@ -1,13 +1,17 @@
-import { NotConnected } from '@/components/nx/states';
 import { Content, PageHeader } from '@/components/nx/shell';
+import { DataNav } from '@/components/nx/data/kit';
+import { MetricDetail } from '@/components/nx/data/metrics-view';
 
-/** Not connected to the API yet (WS5). Renders an honest typed state, never placeholder figures. */
-export default function Page() {
+export default async function Page({ params, searchParams }: { params: Promise<{ metricId: string }>; searchParams: Promise<{ w?: string }> }) {
+  const { metricId } = await params;
+  const { w } = await searchParams;
+  const key = decodeURIComponent(metricId);
   return (
     <>
-      <PageHeader title="Metric" description="Metric definition and versions." />
+      <PageHeader title="Metric" description="Definition, versions, validation, certification and audit trail." crumbs={[{ label: 'Data', href: '/data' }, { label: key }]} />
       <Content>
-        <NotConnected what="Metric" stream="WS5" />
+        <DataNav />
+        <MetricDetail metricKey={key} wid={w ?? null} />
       </Content>
     </>
   );

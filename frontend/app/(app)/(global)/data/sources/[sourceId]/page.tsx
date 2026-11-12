@@ -1,13 +1,16 @@
-import { NotConnected } from '@/components/nx/states';
 import { Content, PageHeader } from '@/components/nx/shell';
+import { DataNav } from '@/components/nx/data/kit';
+import { SourceDetail } from '@/components/nx/data/sources-view';
 
-/** Not connected to the API yet (WS5). Renders an honest typed state, never placeholder figures. */
-export default function Page() {
+export default async function Page({ params }: { params: Promise<{ sourceId: string }> }) {
+  const { sourceId } = await params;
+  const id = decodeURIComponent(sourceId);
   return (
     <>
-      <PageHeader title="Source" description="Source detail." />
+      <PageHeader title={id} description="Source health: watermark, coverage heatmap, errors and rate limits." crumbs={[{ label: 'Data', href: '/data' }, { label: 'Sources', href: '/data/sources' }, { label: id }]} />
       <Content>
-        <NotConnected what="Source" stream="WS5" />
+        <DataNav />
+        <SourceDetail sourceId={id} />
       </Content>
     </>
   );

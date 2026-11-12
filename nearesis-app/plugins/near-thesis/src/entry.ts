@@ -24,7 +24,15 @@ import {
 } from "@nearesis/analytics";
 import { createGateway, DEFAULT_POLICY, type Session } from "@nearesis/semantic-gateway";
 import { definePlugin, type InvocationContext } from "@nearesis/plugin-sdk";
-import { PreviewInput } from "./capabilities.ts";
+import { MetricProposeInput, PreviewInput } from "./capabilities.ts";
+import { AuthoredMetricStore } from "@nearesis/analytics";
+import {
+  MetricAuthoringError,
+  buildSourceCatalogue,
+  createAuthoringService,
+  type AuthoringPrincipal,
+  type SourceCatalogue,
+} from "@nearesis/semantic-gateway";
 import { annotateEnvelope } from "./lifecycle/degradation.ts";
 
 type Gateway = ReturnType<typeof createGateway>;
@@ -182,8 +190,75 @@ export function completenessOf(env: DataFrameEnvelope): "complete" | "partial" |
     : "complete";
 }
 
+let authoring: { svc: ReturnType<typeof createAuthoringService> } | null = null;
+let catalogueCache: { at: number; c: SourceCatalogue } | null = null;
+/** Authoring service over the LIVE database: generated source catalogue (cached 5 min), read-only bounded execution. */
+function authoringService() {
+  if (authoring) return authoring;
+  const ch = createCh({ database: LIVE_DATABASE });
+  const svc = createAuthoringService({
+    store: new AuthoredMetricStore(pool()),
+    ch,
+    registry: loadLiveRegistry(),
+    catalogue: async () => {
+      if (!catalogueCache || Date.now() - catalogueCache.at > 300_000)
+        catalogueCache = { at: Date.now(), c: await buildSourceCatalogue(ch, { database: LIVE_DATABASE }) };
+      return catalogueCache.c;
+    },
+  });
+  return (authoring = { svc });
+}
+
 export default definePlugin({
   handlers: {
+    /**
+     * Governed metric authoring for agents. The proposal's author is overwritten from the kernel principal; there is no SQL
+     * surface. The result is a validation report; the metric stays DRAFT/VALIDATED (exploratory) until a human certifies it.
+     */
+    "metric.propose@1": async (input, ctx) => {
+      const parsed = MetricProposeInput.parse(input);
+      const p: AuthoringPrincipal = {
+        id: ctx.principal.actorId,
+        kind: ctx.principal.kind,
+        role: null,
+        tenantId: ctx.principal.orgId,
+        workspaceId: ctx.workspaceId,
+      };
+      const proposal = {
+        ...parsed.proposal,
+        author: { principalId: p.id, kind: p.kind, tenantId: p.tenantId },
+      };
+      const { svc } = authoringService();
+      const out = (
+        status: "REFUSED" | "DRAFT" | "VALIDATED",
+        extra: { metricKey?: string; version?: number; issues?: Array<{ reason: string; path: string; message: string }>; report?: unknown },
+      ) => ({
+        ok: true as const,
+        mode: parsed.mode,
+        status,
+        metricKey: extra.metricKey ?? null,
+        version: extra.version ?? null,
+        issues: extra.issues ?? [],
+        report: extra.report ?? null,
+        exploratory: true as const,
+      });
+      if (parsed.mode === "check") {
+        const r = await svc.check(p, proposal);
+        return out(r.ok ? "DRAFT" : "REFUSED", { issues: r.issues });
+      }
+      try {
+        const r = await svc.propose(p, proposal);
+        return out(r.record.status === "VALIDATED" ? "VALIDATED" : "DRAFT", {
+          metricKey: r.record.metricKey,
+          version: r.record.version,
+          issues: r.report?.issues ?? [],
+          report: r.report,
+        });
+      } catch (e) {
+        if (e instanceof MetricAuthoringError) return out("REFUSED", { issues: e.issues.length ? e.issues : [{ reason: e.reason, path: "", message: e.message }] });
+        throw e;
+      }
+    },
     "semantic.discover@1": async (_input, ctx) => {
       const source = sourceOf(ctx);
       const g = gateway(source);

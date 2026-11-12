@@ -23,7 +23,7 @@ export function buildManifest(
     publisher: opts.publisher,
     artifactSha256: createHash("sha256").update(readFileSync(ENTRY_FILE)).digest("hex"),
     capabilities: CAPABILITIES,
-    permissions: ["semantic:read", "canvas:preview"],
+    permissions: ["semantic:read", "canvas:preview", "metric:propose"],
     networkHosts: [
       "127.0.0.1:4000",
       "127.0.0.1:4001",

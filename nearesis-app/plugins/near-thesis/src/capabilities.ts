@@ -34,6 +34,22 @@ export const DiscoverOutput = z.object({
   metrics: z.array(z.unknown()),
   dimensions: z.array(z.unknown()),
 });
+/** Agent-facing input of metric.propose@1: the typed proposal (author is set by the kernel from the principal, never trusted). */
+export const MetricProposeInput = z.object({
+  proposal: z.record(z.string(), z.unknown()),
+  /** `check` compiles only; `propose` stores a DRAFT and runs the full validation gate. */
+  mode: z.enum(["check", "propose"]).default("propose"),
+});
+export const MetricProposeOutput = z.object({
+  ok: z.literal(true),
+  mode: z.enum(["check", "propose"]),
+  status: z.enum(["REFUSED", "DRAFT", "VALIDATED"]),
+  metricKey: z.string().nullable(),
+  version: z.number().nullable(),
+  issues: z.array(z.object({ reason: z.string(), path: z.string(), message: z.string() })),
+  report: z.unknown().nullable(),
+  exploratory: z.literal(true),
+});
 export const PreviewInput = z.object({
   expectedRevision: z.number().int().nonnegative(),
   requests: z.array(z.record(z.string(), z.unknown())).min(1).max(12),
@@ -71,6 +87,18 @@ export const CAPABILITIES: CapabilityDecl[] = [
     inputSchema: schema(z.object({}).strict()),
     outputSchema: schema(resultOf(DiscoverOutput)),
     requiredGrants: ["semantic:discover"],
+  },
+  {
+    ...base,
+    id: "metric.propose@1",
+    category: "semantic.metricpack",
+    // stores a DRAFT metric definition (never certified, never published); no workspace content changes, no paid calls
+    sideEffect: "read_only",
+    idempotent: false,
+    timeoutMs: 60_000,
+    inputSchema: schema(MetricProposeInput),
+    outputSchema: schema(resultOf(MetricProposeOutput)),
+    requiredGrants: ["metric:propose"],
   },
   {
     ...base,

@@ -60,6 +60,15 @@ export const TOOL_CATALOG: ToolSpec[] = [
   { id: "semantic.discover@1", input: obj({}), sideEffect: "read_only" },
   /** Provider schema: the contracts SemanticQuery AST. The model never emits SQL; the gateway compiles the AST. */
   { id: "semantic.query@1", input: SemanticQuery as z.ZodType<unknown>, sideEffect: "read_only" },
+  /** Governed metric authoring (A19): a typed proposal, never SQL. The kernel sets the author; the result is a validation report. */
+  {
+    id: "metric.propose@1",
+    input: obj({
+      proposal: z.record(z.string(), z.unknown()),
+      mode: z.enum(["check", "propose"]).optional(),
+    }),
+    sideEffect: "read_only",
+  },
   { id: "registry.read@1", input: obj({ key: s }), sideEffect: "read_only" },
   { id: "adapter.docs@1", input: obj({ adapter: s }), sideEffect: "read_only" },
   { id: "web.fetch_approved@1", input: obj({ url: s }), sideEffect: "read_only" },

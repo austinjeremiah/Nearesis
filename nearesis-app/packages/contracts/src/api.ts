@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Uuid } from "./common.ts";
+import { SubmissionPriority } from "./overload.ts";
 import { NetworkScope } from "./identity.ts";
 
 /** Versioned API commands (ch.11 REST v1). Idempotency-Key and If-Match travel as headers too. */
@@ -74,6 +75,8 @@ export const SubmitQuestionRequest = z.strictObject({
   }),
   /** Additive: delegation grants (marker.assign). Narrows every child's capability leases; it can never widen them. */
   grants: z.array(z.string().min(1).max(100)).max(64).optional(),
+  /** v1.6.0 (additive): queue priority under tenant overload. A caller can only lower it. Default `normal`. */
+  priority: SubmissionPriority.optional(),
 });
 export const SubmitQuestionResponse = z.strictObject({ runId: Uuid, workflowId: z.string() });
 

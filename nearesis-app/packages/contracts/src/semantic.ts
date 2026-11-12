@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { IsoDateTime, Sha256Hex, SemVer, Visibility } from "./common.ts";
+import { ResultTruncation } from "./overload.ts";
 
 const MemberName = z.string().regex(/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/, "cube.member");
 
@@ -92,5 +93,7 @@ export const DataFrameEnvelope = z.strictObject({
   cost: z.strictObject({ bytesEstimated: z.number().nonnegative(), bytesBilled: z.number().nonnegative() }),
   planFingerprint: Sha256Hex,
   generatedAt: IsoDateTime,
+  /** v1.6.0 (additive): present only when the max-rows rule cut the result. Absent means nothing was cut. */
+  truncation: ResultTruncation.optional(),
 });
 export type DataFrameEnvelope = z.infer<typeof DataFrameEnvelope>;

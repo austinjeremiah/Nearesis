@@ -4,7 +4,7 @@
   "properties": {
     "testId": {
       "type": "string",
-      "pattern": "^(BOOT|K|D|S|A|C)\\d{2}$"
+      "pattern": "^(BOOT|K|D|S|A|C|M|Q|W|V|B|SEC|PERF|N)\\d{2}$"
     },
     "phase": {
       "type": "string"

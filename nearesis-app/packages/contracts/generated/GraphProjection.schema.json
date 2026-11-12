@@ -31,7 +31,10 @@
               "model",
               "source",
               "marker",
-              "agent"
+              "agent",
+              "statistical_result",
+              "claim",
+              "verification_artifact"
             ]
           },
           "label": {
@@ -63,6 +66,32 @@
               "type": "string"
             },
             "additionalProperties": {}
+          },
+          "support": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "unsupported",
+              "contradicted"
+            ]
+          },
+          "recheckRequired": {
+            "type": "boolean"
+          },
+          "tombstone": {
+            "type": "boolean"
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confidenceTier": {
+            "type": "string"
+          },
+          "evidenceUnavailable": {
+            "type": "boolean"
           }
         },
         "required": [

@@ -96,6 +96,93 @@
           "type": "null"
         }
       ]
+    },
+    "truncation": {
+      "type": "object",
+      "properties": {
+        "truncated": {
+          "type": "boolean",
+          "const": true
+        },
+        "reason": {
+          "type": "string",
+          "const": "MAX_ROWS"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "truncate",
+            "min_max_bucket",
+            "lttb"
+          ]
+        },
+        "requestedRows": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "requestedRowsIsLowerBound": {
+          "type": "boolean"
+        },
+        "returnedRows": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "maxRows": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "truncated",
+        "reason",
+        "method",
+        "requestedRows",
+        "returnedRows",
+        "maxRows"
+      ],
+      "additionalProperties": false
+    },
+    "freshnessWarning": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "SOURCE_DEGRADED",
+            "SOURCE_UNAVAILABLE",
+            "BREAKER_OPEN"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "asOf": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+        },
+        "staleSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "degradedSince": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "asOf",
+        "staleSeconds",
+        "degradedSince"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [

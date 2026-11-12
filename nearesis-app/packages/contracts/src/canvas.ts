@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { IsoDateTime, Sha256Hex, SemVer, Uuid } from "./common.ts";
+import { FreshnessWarning, ResultTruncation } from "./overload.ts";
 
 /** Registered panel kinds (Bible schemas/canvas_panel.schema.json). Unknown kinds are rejected (C09). */
 export const PanelKind = z.enum([
@@ -162,6 +163,10 @@ export const ChartData = z.strictObject({
   }),
   freshness: z.enum(["fresh", "late", "partial", "unavailable"]),
   sourceWatermark: IsoDateTime.nullable(),
+  /** v1.6.0 (additive): present only when the max-rows rule truncated or downsampled this data (label it in the UI). */
+  truncation: ResultTruncation.optional(),
+  /** v1.6.0 (additive): present while the source is degraded and this is the last finalized snapshot. */
+  freshnessWarning: FreshnessWarning.optional(),
 });
 export type ChartData = z.infer<typeof ChartData>;
 export type MarkerAnchor = z.infer<typeof MarkerAnchor>;

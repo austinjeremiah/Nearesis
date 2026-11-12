@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Contract family version. Breaking change => major bump + ADR (CONTRACT_REGISTRY.md). */
-export const CONTRACTS_VERSION = "1.5.0";
+export const CONTRACTS_VERSION = "1.6.0";
 
 export const Uuid = z.uuid();
 export const IsoDateTime = z.iso.datetime({ offset: true });
@@ -40,6 +40,8 @@ export const ErrorResponse = z.strictObject({
     .array(z.strictObject({ path: z.string(), issue: z.string() }))
     .max(100)
     .optional(),
+  /** v1.6.0 (additive): seconds to wait before retrying; mirrors the `Retry-After` header on 429 overload refusals. */
+  retryAfterSeconds: z.number().int().positive().max(3600).optional(),
 });
 export type ErrorResponse = z.infer<typeof ErrorResponse>;
 

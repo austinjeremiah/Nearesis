@@ -133,6 +133,17 @@ describe("publication check", () => {
     ).violations.map((v) => v.kind);
     expect(kinds).toEqual(["MISSING_CITATION", "UNKNOWN_RESULT", "VALUE_NOT_IN_RESULT"]);
   });
+  it("exempts only exact live snapshot and capsule ids, not numbers glued to a prefix", () => {
+    const ok = checkPublication(
+      "Snapshot live-20260603-20261111-live-organic-v2-15fe2ad62d6c and cap-live-20260603-20261111-live-organic-v2-15fe2ad62d6c in v-bf7d175cfb97.",
+      results,
+    );
+    expect(ok).toMatchObject({ ok: true });
+    const kinds = checkPublication("Volume rose live-12.5 percent and cap-3x.", results).violations.map(
+      (v) => v.kind,
+    );
+    expect(kinds).toEqual(["MISSING_CITATION", "MISSING_CITATION"]);
+  });
 });
 
 describe("prereg readback comparison (offline logic only)", () => {

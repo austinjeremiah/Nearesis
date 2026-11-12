@@ -41,7 +41,8 @@ export function checkPublication(markdown: string, results: CitableResult[]): Pu
       .replace(/^\s*\d+[.)]\s+/, "")
       .replace(/https?:\/\/\S+/g, " ")
       .replace(/\b[0-9a-f]{16,}\b/gi, " ")
-      .replace(/\b(?:live|cap)-[A-Za-z0-9._-]+/g, " ")
+      // Only the exact snapshot/capsule id shape: live-<from>-<to>-<method>-<hash12>, optionally prefixed cap-.
+      .replace(/\b(?:cap-)?live-\d{8}-\d{8}-[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{12}\b/g, " ")
       .replace(/\bv-[0-9a-f]{12}\b/g, " ")
       .replace(/\b\d{4}-\d{2}-\d{2}(?:T[\d:.]+Z?)?\b/g, " ");
     for (const m of stripped.matchAll(NUM)) {

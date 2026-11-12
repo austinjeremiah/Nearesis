@@ -1,14 +1,6 @@
-import { NotConnected } from '@/components/nx/states';
-import { Content, PageHeader } from '@/components/nx/shell';
+import ExperimentView from './experiment-view';
 
-/** Not connected to the API yet (WS4). Renders an honest typed state, never placeholder figures. */
-export default function Page() {
-  return (
-    <>
-      <PageHeader title="Experiment" description="Experiment detail." />
-      <Content>
-        <NotConnected what="Experiment" stream="WS4" />
-      </Content>
-    </>
-  );
+export default async function Page({ params }: { params: Promise<{ wid: string; experimentId: string }> }) {
+  const { wid, experimentId } = await params;
+  return <ExperimentView wid={wid} eid={experimentId} />;
 }

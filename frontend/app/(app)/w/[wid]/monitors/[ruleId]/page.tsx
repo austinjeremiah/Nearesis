@@ -1,14 +1,6 @@
-import { NotConnected } from '@/components/nx/states';
-import { Content, PageHeader } from '@/components/nx/shell';
+import RuleView from './rule-view';
 
-/** Not connected to the API yet (WS4). Renders an honest typed state, never placeholder figures. */
-export default function Page() {
-  return (
-    <>
-      <PageHeader title="Monitor rule" description="Rule detail." />
-      <Content>
-        <NotConnected what="Monitor rule" stream="WS4" />
-      </Content>
-    </>
-  );
+export default async function Page({ params }: { params: Promise<{ wid: string; ruleId: string }> }) {
+  const { wid, ruleId } = await params;
+  return <RuleView wid={wid} ruleId={ruleId} />;
 }

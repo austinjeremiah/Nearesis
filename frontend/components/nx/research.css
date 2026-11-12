@@ -1,0 +1,23 @@
+/* Research surfaces: evidence graph tags, wider inspector, small form grids. */
+.graph-detail { width: min(380px, calc(100% - 24px)); }
+.gnode .gtag {
+  margin-left: auto;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  background: var(--sunken);
+  color: var(--text-2);
+}
+.gnode .gtag.warn { background: color-mix(in srgb, var(--warn, #b3701a) 22%, transparent); }
+.gnode .gtag.bad { background: color-mix(in srgb, var(--bad, #b3261e) 22%, transparent); }
+.gnode .gtag.ok { background: color-mix(in srgb, var(--ok, #2f7d4a) 22%, transparent); }
+.gnode[data-kind='agent'] .k::before { background: var(--line-hard); }
+.gnode[data-kind='query'] .k::before { background: var(--info, #2d5f9a); }
+.gnode[data-kind='marker'] .k::before { background: var(--warn, #b3701a); }
+.gnode[data-kind='statistical_result'] .k::before,
+.gnode[data-kind='model'] .k::before { background: var(--ok, #2f7d4a); }
+.rs-form { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); align-items: start; }
+.rs-form .wide { grid-column: 1 / -1; }
+.rs-pre { white-space: pre-wrap; word-break: break-word; font-family: var(--font-mono); font-size: var(--fs-small); margin: 0; }
+.rs-scroll { max-height: 360px; overflow: auto; }

@@ -50,6 +50,8 @@ export interface AppOptions {
   authoring?: AuthoringService;
   /** Model USD recorded outside Postgres (inference spend files); counted in the global ceiling view. */
   externalModelSpend?: () => Promise<number>;
+  /** Independent time anchor for published manifests (NEAR testnet hash commit). Absent: log-only anchoring. */
+  publishAnchorChain?: (manifestHash: string) => Promise<import("@nearesis/capsule").ChainCommitPayload>;
   /** Starts/signals investigation workflows (production: `temporalEngine()`). Without one, question/cancel/approval writes are 503. */
   engine?: InvestigationEngine;
   nodeEnv?: string | undefined;
@@ -529,7 +531,11 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
 
   await app.register(historyRoutes, { kernel, ...(opts.authoring ? { authoring: opts.authoring } : {}) });
   await app.register(capsuleRoutes, { kernel, ...(opts.authoring ? { authoring: opts.authoring } : {}) });
-  await app.register(publishRoutes, { kernel, ...(opts.authoring ? { authoring: opts.authoring } : {}) });
+  await app.register(publishRoutes, {
+    kernel,
+    ...(opts.authoring ? { authoring: opts.authoring } : {}),
+    ...(opts.publishAnchorChain ? { anchorChain: opts.publishAnchorChain } : {}),
+  });
   await app.register(integrityRoutes, { kernel });
   if (opts.gatewayCredential)
     await app.register(gatewayRoutes, { kernel, credential: opts.gatewayCredential });

@@ -103,7 +103,17 @@ const authoring = createAuthoringService({
   },
   registry: loadLiveRegistry(),
 });
+// Testnet time anchor for publish manifests (ADR-20261111-005/006 hash-only commits), opt-in.
+const publishAnchorChain =
+  process.env.NEARESIS_PUBLISH_ANCHOR_TESTNET === "1"
+    ? async (manifestHash: string) =>
+        (await import("../../../scripts/release/testnet-anchor-manifest.ts")).anchorManifestOnChain(
+          manifestHash,
+          "api publish anchor",
+        )
+    : undefined;
 const app = await buildApp({
+  ...(publishAnchorChain ? { publishAnchorChain } : {}),
   kernel,
   authoring,
   externalModelSpend: externalModelSpend(),

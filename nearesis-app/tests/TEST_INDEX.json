@@ -2917,10 +2917,10 @@
       "passCondition": "all PASS criteria (a)-(e) of ch16b PERF09, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": ["tests/perf/PERF09.pool.test.ts"],
       "live": false,
-      "status": "DEFINED",
-      "required": false,
+      "status": "IMPLEMENTED",
+      "required": true,
       "dependsOn": ["C15", "C18", "B09", "SEC17"]
     },
     {

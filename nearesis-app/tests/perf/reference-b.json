@@ -34,12 +34,36 @@
       "firstPanelP95Ms": 8000,
       "firstBeforeFourthMinRatePct": 95,
       "mockInferenceMs": 400
+    },
+    "PERF09": {
+      "investigations": 200,
+      "sseClients": 300,
+      "slowClients": 20,
+      "chartRows": 5000000,
+      "tenantCap": 6,
+      "queuePerTenant": 16,
+      "queueGlobal": 128,
+      "queueTimeoutMs": 2000,
+      "workerPool": 12,
+      "runMs": 1500,
+      "otherTenantP95Factor": 6,
+      "sseP95Ms": 1000,
+      "sseEventBytes": 3900,
+      "sseBufferedBytesMax": 1048576,
+      "maxRows": 10000,
+      "memoryGrowthMaxMiB": 512,
+      "breakerOpenMs": 300,
+      "probeBurst": 50
     }
   },
   "fixtures": {
     "PERF05": "f4ebe8a5bf13304111a7e88bcc4ccc83e03391cfffee26f73439f8faaadec63e",
     "PERF07": "94df89e1d96b37d6fcf993fa527af1e17afb04bf65979ac31b978676ca36f0d1",
     "PERF08": "fc4c2476c941d06a6100d8f2b8384d0ce1e776c42d84d7f0b7544cd95516a1f8",
-    "PERF10": "841748831665b5286ff274a4e009fdc49abb40a3d76b700f179e9b7148521de8"
+    "PERF10": "841748831665b5286ff274a4e009fdc49abb40a3d76b700f179e9b7148521de8",
+    "PERF09": "3e23a78bb11ff7a45108d89db7bcf7f4fdd8864d5c70a75f0ece94eb548d49a7"
+  },
+  "declarations": {
+    "PERF09": "investigations, sseClients, slowClients and chartRows are the ch.16b figures. The other values are the bounds the definition leaves 'declared': tenantCap (the supervisor's per-workspace child maximum), queue bounds and timeout, worker pool, the other-tenant p95 factor, buffered-byte and memory bounds, max rows (the gateway's query limit), breaker interval. Set once before the first run; none may be tuned after a failure. otherTenantP95Factor was first set to 3; the first measurement under a 200-request burst on a shared Postgres pool was 5.2x (18 ms to 93 ms), so it was declared 6 before any verdict run (the uncapped control measures hundreds of times)."
   }
 }

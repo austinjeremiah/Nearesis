@@ -2861,10 +2861,10 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b PERF05, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": ["tests/perf/PERF05.accept.test.ts"],
       "live": false,
-      "status": "DEFINED",
-      "required": false,
+      "status": "IMPLEMENTED",
+      "required": true,
       "dependsOn": ["PERF01", "PERF02", "C06"]
     },
     {
@@ -2889,10 +2889,10 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b PERF07, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": ["tests/perf/PERF07.accept.test.ts"],
       "live": false,
-      "status": "DEFINED",
-      "required": false,
+      "status": "IMPLEMENTED",
+      "required": true,
       "dependsOn": ["M13", "C15", "PERF03"]
     },
     {
@@ -2903,10 +2903,10 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b PERF08, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": ["tests/perf/PERF08.accept.test.ts"],
       "live": false,
-      "status": "DEFINED",
-      "required": false,
+      "status": "IMPLEMENTED",
+      "required": true,
       "dependsOn": ["D02", "D04", "D07", "D05"]
     },
     {
@@ -2931,10 +2931,10 @@
       "passCondition": "all PASS criteria (a)-(d) of ch16b PERF10, with its negative control detected",
       "owner": "ENGINE_A",
       "definition": "ch16b",
-      "testFiles": [],
+      "testFiles": ["tests/perf/PERF10.accept.test.ts"],
       "live": false,
-      "status": "DEFINED",
-      "required": false,
+      "status": "IMPLEMENTED",
+      "required": true,
       "dependsOn": ["S09", "S13", "PERF01"]
     },
     {

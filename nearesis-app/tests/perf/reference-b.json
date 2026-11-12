@@ -1,0 +1,37 @@
+{
+  "note": "Thresholds and fixture-spec hashes for PERF05-PERF12 (ch.16b section 6.2). Accepted as written; none may be tuned, relaxed or re-interpreted after a failure. Same reference profile as ADR-20261111-002.",
+  "thresholds": {
+    "PERF05": {
+      "workspaces": 20,
+      "loadsPerWorkspace": 50,
+      "concurrentUsers": 20,
+      "mutations": 500,
+      "cachedLoadP95Ms": 1500,
+      "ackP95Ms": 250,
+      "maxErrors": 0
+    },
+    "PERF07": {
+      "rules": 100,
+      "watermarks": 200,
+      "sseClients": 20,
+      "commands": 500,
+      "triggerToTaskP95Ms": 10000,
+      "sseP95Ms": 1000
+    },
+    "PERF08": {
+      "mockMinutes": 10,
+      "cadenceMs": 300000,
+      "rounds": 12
+    },
+    "PERF10": {
+      "concurrentWorkspaces": 20,
+      "warmP95Ms": 1000
+    }
+  },
+  "fixtures": {
+    "PERF05": "f4ebe8a5bf13304111a7e88bcc4ccc83e03391cfffee26f73439f8faaadec63e",
+    "PERF07": "94df89e1d96b37d6fcf993fa527af1e17afb04bf65979ac31b978676ca36f0d1",
+    "PERF08": "fc4c2476c941d06a6100d8f2b8384d0ce1e776c42d84d7f0b7544cd95516a1f8",
+    "PERF10": "841748831665b5286ff274a4e009fdc49abb40a3d76b700f179e9b7148521de8"
+  }
+}

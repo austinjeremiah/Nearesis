@@ -35,6 +35,27 @@ const cases: Case[] = [
     exact: true,
   },
   {
+    rollup: "intents_swaps.daily_status_rollup",
+    member: "intents.oneclick_volume_usd",
+    view: "intents",
+    sql: "SELECT toString(created_day) AS d, toString(sumIf(amount_in_usd, status = 'SUCCESS' AND amount_final = 1)) AS v FROM intents_swaps FINAL GROUP BY d",
+    exact: true,
+  },
+  {
+    rollup: "intents_swaps.daily_asset_rollup",
+    member: "intents.oneclick_amount_in_smallest_unit",
+    view: "intents",
+    sql: "SELECT toString(created_day) AS d, toString(sumIf(amount_in, status = 'SUCCESS' AND amount_final = 1)) AS v FROM intents_swaps FINAL GROUP BY d",
+    exact: true,
+  },
+  {
+    rollup: "intents_swaps.daily_status_rollup",
+    member: "intents.oneclick_completion_rate",
+    view: "intents",
+    sql: "SELECT toString(created_day) AS d, toString(countIf(status = 'SUCCESS') / count()) AS v FROM intents_swaps FINAL GROUP BY d",
+    exact: false,
+  },
+  {
     rollup: "quote_attempts.daily_route_rollup",
     member: "quotes.route_quote_availability",
     view: "quotes",
@@ -91,7 +112,7 @@ test("S09 pre-aggregation results equal raw results within the documented tolera
   });
   const viaRaw = await cubeLoad(CUBE_URL, cubeToken(), {
     measures: ["intents.oneclick_completed_swap_count"],
-    dimensions: ["intents.canonical_origin_asset"],
+    dimensions: ["intents.referral"], // referral is in no rollup: Cube must scan the table
     timeDimensions: [{ dimension: "intents.day", dateRange: RANGE }],
     cache: "must-revalidate",
   });
@@ -99,13 +120,42 @@ test("S09 pre-aggregation results equal raw results within the documented tolera
   expect(Object.keys(viaRaw.usedPreAggregations ?? {})).toHaveLength(0);
   const sumRaw = viaRaw.data.reduce((a, r) => a + Number(r["intents.oneclick_completed_swap_count"]), 0);
   expect(String(sumRaw)).toBe(String(viaRollup.data[0]!["intents.oneclick_completed_swap_count"]));
+  // Per-asset slices come from the asset rollup too and must equal raw per (day, asset): amount is only meaningful per asset.
+  const byAsset = await cubeLoad(CUBE_URL, cubeToken(), {
+    measures: ["intents.oneclick_amount_in_smallest_unit", "intents.oneclick_volume_usd"],
+    dimensions: ["intents.canonical_origin_asset"],
+    timeDimensions: [{ dimension: "intents.day", granularity: "day", dateRange: RANGE }],
+    cache: "must-revalidate",
+  });
+  expect(Object.keys(byAsset.usedPreAggregations ?? {})).toEqual([
+    "nearesis_preagg.intents_swaps_daily_asset_rollup",
+  ]);
+  const rawAsset = new Map(
+    (
+      await queryRows<{ k: string; a: string; u: string }>(
+        env.ch,
+        `SELECT concat(toString(created_day), '|', canonical_origin_asset) AS k,
+                toString(sumIf(amount_in, status = 'SUCCESS' AND amount_final = 1)) AS a,
+                toString(sumIf(amount_in_usd, status = 'SUCCESS' AND amount_final = 1)) AS u
+         FROM intents_swaps FINAL
+         WHERE created_day >= '2026-10-01' AND created_day <= '2026-10-10' GROUP BY k`,
+      )
+    ).map((r) => [r.k, r]),
+  );
+  expect(byAsset.data).toHaveLength(rawAsset.size);
+  for (const r of byAsset.data) {
+    const k = `${String(r["intents.day.day"]).slice(0, 10)}|${String(r["intents.canonical_origin_asset"])}`;
+    expect(String(r["intents.oneclick_amount_in_smallest_unit"]), k).toBe(rawAsset.get(k)!.a);
+    expect(String(r["intents.oneclick_volume_usd"]), k).toBe(rawAsset.get(k)!.u);
+  }
   observe({
     testId: "S09",
-    observed: `4 rollups each served their query and equal independent raw FINAL SQL per day (counts/sums exact, ratios within relative tolerance ${REL_TOL}); rollup total equals the non-rollup Cube path total (${sumRaw})`,
+    observed: `7 rollup-served members (counts, USD volume, origin amount, completion rate, route, taxonomy, usage) each served their query and equal independent raw FINAL SQL per day (counts/sums exact, ratios within relative tolerance ${REL_TOL}); rollup total equals the non-rollup Cube path total (${sumRaw})`,
     fixtureHash: baseline().digest,
     evidence: {
       tolerance: { exact: "string equality", ratios: `relative <= ${REL_TOL}` },
       rollups: rows,
+      perAssetRows: byAsset.data.length,
       rollupTotal: viaRollup.data[0]!["intents.oneclick_completed_swap_count"],
       rawPathTotal: sumRaw,
     },

@@ -53,6 +53,10 @@ export interface GatewayOptions {
   readCacheMs?: number;
   /** TTL of the per-source row-rate estimate (default 60 s; 0 when readCacheMs is 0). */
   rowRateCacheMs?: number;
+  /** Estimate cost from a built, fresh covering pre-aggregation instead of the raw table (default true). */
+  rollupAwareCost?: boolean;
+  /** Start a one-day load that builds a covering rollup when it is unbuilt or stale (default true). */
+  warmRollups?: boolean;
 }
 
 export interface AuditRecord {
@@ -97,6 +101,8 @@ export interface GatewayStats {
   cacheMisses: number;
   rejected: number;
   coverageProbes: number;
+  /** Cost estimates that were taken from a fresh covering pre-aggregation instead of the raw table. */
+  rollupEstimates?: number;
 }
 
 export type { SemanticQuery };

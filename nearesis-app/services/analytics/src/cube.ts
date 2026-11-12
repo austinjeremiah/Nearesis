@@ -109,3 +109,26 @@ export async function cubeReady(url: string): Promise<boolean> {
     return false;
   }
 }
+
+export interface CubePreAggregationUse {
+  preAggregationId: string;
+  /** `<schema>.<base table>`: the built table is `<base table>_<hash>_<hash>_<version>` */
+  tableName: string;
+  preAggregationsSchema: string;
+}
+
+/** GET /sql: which pre-aggregations Cube would serve this query from (Cube's own matching, not a re-implementation). Executes nothing. */
+export async function cubeSqlPreAggregations(
+  url: string,
+  token: string,
+  query: Record<string, unknown>,
+): Promise<CubePreAggregationUse[]> {
+  const res = await cubeFetch(url, token, `sql?query=${encodeURIComponent(JSON.stringify(query))}`);
+  if (!res.ok) throw new CubeError(`cube sql ${res.status}: ${(await res.text()).slice(0, 300)}`, res.status);
+  const body = (await res.json()) as { sql?: { preAggregations?: CubePreAggregationUse[] } };
+  return (body.sql?.preAggregations ?? []).map((p) => ({
+    preAggregationId: p.preAggregationId,
+    tableName: p.tableName,
+    preAggregationsSchema: p.preAggregationsSchema,
+  }));
+}

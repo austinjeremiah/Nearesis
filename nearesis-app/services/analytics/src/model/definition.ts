@@ -26,6 +26,8 @@ export interface RollupDef {
   name: string;
   measures: string[];
   dimensions: string[];
+  /** Sorting-key columns of the rollup table (default: all dimensions). ClickHouse refuses Nullable columns in the key, so a rollup over a Nullable dimension lists only the others here. */
+  keyDimensions?: string[];
 }
 export interface CubeDef {
   name: string;
@@ -221,16 +223,31 @@ export const CUBES: CubeDef[] = [
         description: "Completed swaps in the private settlement era",
       },
       {
+        // Additive building blocks of the two exact-decimal measures below: a rollup can store and re-add a `sum`, never a `toString(sumIf(...))`.
+        name: "oneclick_volume_usd_sum",
+        type: "sum",
+        sql: "amount_in_usd",
+        filter: "{CUBE}.status = 'SUCCESS' AND {CUBE}.amount_final = 1",
+        description: "Rollup building block of oneclick_volume_usd (additive decimal)",
+      },
+      {
+        name: "oneclick_amount_in_sum",
+        type: "sum",
+        sql: "amount_in",
+        filter: "{CUBE}.status = 'SUCCESS' AND {CUBE}.amount_final = 1",
+        description: "Rollup building block of oneclick_amount_in_smallest_unit (additive decimal)",
+      },
+      {
         name: "oneclick_volume_usd",
         type: "number",
-        sql: "toString(sumIf({CUBE}.amount_in_usd, {CUBE}.status = 'SUCCESS' AND {CUBE}.amount_final = 1))",
+        sql: "toString({oneclick_volume_usd_sum})",
         exactScale: 18,
         description: "USD value of final-amount completed swaps (exact decimal string, scale 18)",
       },
       {
         name: "oneclick_amount_in_smallest_unit",
         type: "number",
-        sql: "toString(sumIf({CUBE}.amount_in, {CUBE}.status = 'SUCCESS' AND {CUBE}.amount_final = 1))",
+        sql: "toString({oneclick_amount_in_sum})",
         exactScale: 0,
         description:
           "Sum of origin amounts in smallest units (exact integer string); only meaningful per canonical origin asset",
@@ -251,8 +268,32 @@ export const CUBES: CubeDef[] = [
           "oneclick_failed_swap_count",
           "oneclick_refunded_swap_count",
           "oneclick_private_settlement_swap_count",
+          "oneclick_volume_usd_sum",
         ],
         dimensions: ["status", "privacy_era"],
+      },
+      {
+        // Every certified swap metric (counts, USD volume, origin amount, completion rate) by asset pair at day and coarser grain.
+        name: "daily_asset_rollup",
+        measures: [
+          "oneclick_total_swap_count",
+          "oneclick_completed_swap_count",
+          "oneclick_failed_swap_count",
+          "oneclick_refunded_swap_count",
+          "oneclick_private_settlement_swap_count",
+          "oneclick_volume_usd_sum",
+          "oneclick_amount_in_sum",
+        ],
+        dimensions: [
+          "status",
+          "privacy_era",
+          "canonical_origin_asset",
+          "canonical_destination_asset",
+          "deposit_type",
+          "reconciliation_level",
+        ],
+        // canonical_*_asset are Nullable (NULL = unmapped asset): they stay out of the sorting key
+        keyDimensions: ["status", "privacy_era", "deposit_type", "reconciliation_level"],
       },
     ],
   },

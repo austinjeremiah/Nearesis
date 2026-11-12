@@ -144,9 +144,16 @@ export const LIVE_CUBES: CubeDef[] = [
         description: "Swaps with an unknown token amount on either side (NULL, never counted as zero)",
       },
       {
+        name: "volume_usd_known_sum",
+        type: "sum",
+        sql: "amount_in_usd",
+        description:
+          "Rollup building block of volume_usd_known (additive decimal; NULL when no value is known)",
+      },
+      {
         name: "volume_usd_known",
         type: "number",
-        sql: "toString(sum({CUBE}.amount_in_usd))",
+        sql: "toString({volume_usd_known_sum})",
         exactScale: 18,
         description:
           "Sum of input USD over swaps whose USD value is KNOWN only (exact decimal string). NULL when no swap in the slice has a known value. Read it with usd_completeness",
@@ -158,7 +165,20 @@ export const LIVE_CUBES: CubeDef[] = [
         description: "Share of swaps (0..1) whose USD value is known: the completeness of volume_usd_known",
       },
     ],
-    rollups: [],
+    rollups: [
+      {
+        name: "daily_swaps_rollup",
+        measures: [
+          "swap_count",
+          "completed_swap_count",
+          "usd_known_swap_count",
+          "usd_unknown_swap_count",
+          "amount_unknown_swap_count",
+          "volume_usd_known_sum",
+        ],
+        dimensions: ["source_label", "status", "privacy_era"],
+      },
+    ],
   },
   {
     name: "quote_attempts_live_facts",

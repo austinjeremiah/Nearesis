@@ -61,7 +61,7 @@ export function renderCubeFile(c: CubeDef, registry: Registry): string {
       L.push(
         "        indexes:",
         "          - name: idx_dims",
-        `            columns: [${r.dimensions.join(", ")}]`,
+        `            columns: [${(r.keyDimensions ?? r.dimensions).join(", ")}]`,
       );
       L.push(
         "        refresh_key:",

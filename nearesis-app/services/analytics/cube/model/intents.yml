@@ -184,9 +184,21 @@ cubes:
             "uncertainty": "Private-era swaps cannot be reconciled to public swap hashes (D09).",
             "cubeMember": "intents.oneclick_private_settlement_swap_count",
           }
+      - name: oneclick_volume_usd_sum
+        type: sum
+        sql: "amount_in_usd"
+        filters:
+          - sql: "{CUBE}.status = 'SUCCESS' AND {CUBE}.amount_final = 1"
+        description: "Rollup building block of oneclick_volume_usd (additive decimal)"
+      - name: oneclick_amount_in_sum
+        type: sum
+        sql: "amount_in"
+        filters:
+          - sql: "{CUBE}.status = 'SUCCESS' AND {CUBE}.amount_final = 1"
+        description: "Rollup building block of oneclick_amount_in_smallest_unit (additive decimal)"
       - name: oneclick_volume_usd
         type: number
-        sql: "toString(sumIf({CUBE}.amount_in_usd, {CUBE}.status = 'SUCCESS' AND {CUBE}.amount_final = 1))"
+        sql: "toString({oneclick_volume_usd_sum})"
         description: "USD value of final-amount completed swaps (exact decimal string, scale 18)"
         meta:
           {
@@ -217,7 +229,7 @@ cubes:
           }
       - name: oneclick_amount_in_smallest_unit
         type: number
-        sql: "toString(sumIf({CUBE}.amount_in, {CUBE}.status = 'SUCCESS' AND {CUBE}.amount_final = 1))"
+        sql: "toString({oneclick_amount_in_sum})"
         description: "Sum of origin amounts in smallest units (exact integer string); only meaningful per canonical origin asset"
         meta:
           {
@@ -281,6 +293,7 @@ cubes:
             oneclick_failed_swap_count,
             oneclick_refunded_swap_count,
             oneclick_private_settlement_swap_count,
+            oneclick_volume_usd_sum,
           ]
         dimensions: [status, privacy_era]
         time_dimension: day
@@ -289,6 +302,35 @@ cubes:
         indexes:
           - name: idx_dims
             columns: [status, privacy_era]
+        refresh_key:
+          sql: "SELECT toString(max(modification_time)), toString(sum(rows)), toString(count()) FROM system.parts WHERE database = currentDatabase() AND table = 'intents_swaps' AND active"
+          every: 5 second
+      - name: daily_asset_rollup
+        measures:
+          [
+            oneclick_total_swap_count,
+            oneclick_completed_swap_count,
+            oneclick_failed_swap_count,
+            oneclick_refunded_swap_count,
+            oneclick_private_settlement_swap_count,
+            oneclick_volume_usd_sum,
+            oneclick_amount_in_sum,
+          ]
+        dimensions:
+          [
+            status,
+            privacy_era,
+            canonical_origin_asset,
+            canonical_destination_asset,
+            deposit_type,
+            reconciliation_level,
+          ]
+        time_dimension: day
+        granularity: day
+        external: false
+        indexes:
+          - name: idx_dims
+            columns: [status, privacy_era, deposit_type, reconciliation_level]
         refresh_key:
           sql: "SELECT toString(max(modification_time)), toString(sum(rows)), toString(count()) FROM system.parts WHERE database = currentDatabase() AND table = 'intents_swaps' AND active"
           every: 5 second

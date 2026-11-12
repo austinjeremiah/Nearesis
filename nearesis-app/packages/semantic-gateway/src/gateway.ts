@@ -21,6 +21,7 @@ import {
   type CoverageState,
 } from "./coverage.ts";
 import { fail } from "./errors.ts";
+import { applyRollupRates, rollupRates, type RollupRate } from "./rollup.ts";
 import { ReadCache } from "./read-cache.ts";
 import { DAY_MS, bucketStart, cubeTime, daysBetween, isoDay, nextBucket, type Grain } from "./time.ts";
 import { validateQuery, INDEX_UNIT, SAFE_FILTER_VALUE, type Plan } from "./validate.ts";
@@ -108,6 +109,42 @@ export function formatScale(v: string, scale: number): string {
 const zeroOf = (scale: number) => (scale > 0 ? `0.${"0".repeat(scale)}` : "0");
 const ZERO_FILLABLE = new Set(["sum", "count_distinct", "non_additive"]);
 
+/** The Cube query for a validated plan (also used, without executing, to ask Cube which pre-aggregation would serve it). */
+function makeCubeQuery(
+  plan: Plan,
+  ast: Plan["ast"],
+  fromMs: number,
+  toMs: number,
+  metricById?: Map<string, { cubeMember: string }>,
+) {
+  return {
+    measures: plan.metrics.map((m) => m.cubeMember),
+    dimensions: plan.dimensions.map((d) => d.id),
+    timeDimensions: [
+      {
+        dimension: `${plan.view}.day`,
+        granularity: ast.time.grain,
+        dateRange: [cubeTime(fromMs), cubeTime(toMs - 1)],
+      },
+    ],
+    filters: ast.filters.map((f) => ({
+      member: f.member,
+      operator: OPS[f.operator]!,
+      values: f.values.map(String),
+    })),
+    order: ast.order.length
+      ? ast.order.map((o) => [
+          metricById?.get(o.member)?.cubeMember ??
+            (o.member === ast.time.field ? `${plan.view}.day` : o.member),
+          o.direction,
+        ])
+      : [[`${plan.view}.day`, "asc"]],
+    // One extra row tells the gateway that the limit cut the result, so it can say so (ResultTruncation).
+    limit: ast.limit + 1,
+    timezone: "UTC",
+  };
+}
+
 export function createGateway(opts: GatewayOptions) {
   const ch = opts.ch ?? createCh();
   const reg: Registry = opts.registry;
@@ -118,6 +155,21 @@ export function createGateway(opts: GatewayOptions) {
   const rates = new ReadCache(opts.rowRateCacheMs ?? (opts.readCacheMs === 0 ? 0 : 60_000));
   const srcKey = (xs: string[]) => [...new Set(xs)].sort().join("|");
   const metricById = new Map(reg.metrics.map((m) => [m.id, m]));
+
+  // Rollups are built on first use (no refresh worker): a query that would be served from an unbuilt or stale rollup
+  // starts a one-day, one-row load of the same shape so the build happens, at most once a minute per rollup.
+  const warmedAt = new Map<string, number>();
+  const warm = (session: Session, plan: Plan, ast: Plan["ast"], toMs: number, id: string) => {
+    const t = opts.clock().getTime();
+    if (t - (warmedAt.get(id) ?? 0) < 60_000) return;
+    warmedAt.set(id, t);
+    const q = makeCubeQuery(plan, ast, toMs - DAY_MS, toMs, metricById);
+    void cubeLoad(opts.cubeUrl, signCubeToken(opts.cubeSecret, ctxOf(session)), {
+      ...q,
+      limit: 1,
+      cache: "must-revalidate",
+    }).catch(() => undefined);
+  };
 
   const record = (a: Omit<AuditRecord, "at">) => audit.push({ at: opts.clock().toISOString(), ...a });
   const ctxOf = (s: Session) => ({
@@ -187,7 +239,27 @@ export function createGateway(opts: GatewayOptions) {
             },
           ),
         );
-      const est = estimateRows(perDay, (toMs - fromMs) / DAY_MS);
+      // Rollup-aware: a query fully covered by a BUILT, FRESH pre-aggregation scans the rollup, not the fact table.
+      // Unbuilt, stale, unreachable or unmatched all fall back to the raw rate (never an under-estimate).
+      const days = (toMs - fromMs) / DAY_MS;
+      let rollups: RollupRate[] = [];
+      if (opts.rollupAwareCost !== false) {
+        const shape = makeCubeQuery(plan, ast, fromMs, toMs, metricById);
+        const dateless = {
+          ...shape,
+          timeDimensions: shape.timeDimensions.map(({ dateRange: _d, ...t }) => t),
+        };
+        rollups = await rates
+          .get(`rollup:${queryHashOf(dateless)}`, () =>
+            rollupRates(ch, opts.cubeUrl, signCubeToken(opts.cubeSecret, ctxOf(session)), shape),
+          )
+          .catch(() => []);
+      }
+      const { perDay: costRates, served, notReady } = applyRollupRates(perDay, rollups);
+      const est = estimateRows(costRates, days);
+      if (served.length) stats.rollupEstimates = (stats.rollupEstimates ?? 0) + 1;
+      if (notReady.length && opts.warmRollups !== false)
+        for (const r of notReady) warm(session, plan, ast, toMs, r.preAggregationId);
       if (est > policy.maxEstimatedRows)
         return rejectAudit(
           fail(
@@ -196,7 +268,9 @@ export function createGateway(opts: GatewayOptions) {
             `Estimated ${est} rows exceeds the cap of ${policy.maxEstimatedRows}.`,
             {
               details: [{ path: "time", issue: "COST_CAP" }],
-              nextAction: "Narrow the date range or reduce measures.",
+              nextAction: notReady.length
+                ? "Narrow the date range or reduce measures. A covering pre-aggregation is not built or is stale; it is being refreshed, retry shortly."
+                : "Narrow the date range or reduce measures.",
             },
           ),
         );
@@ -269,31 +343,8 @@ export function createGateway(opts: GatewayOptions) {
       stats.cacheMisses++;
 
       const cubeQuery = {
-        measures: plan.metrics.map((m) => m.cubeMember),
-        dimensions: plan.dimensions.map((d) => d.id),
-        timeDimensions: [
-          {
-            dimension: `${plan.view}.day`,
-            granularity: ast.time.grain,
-            dateRange: [cubeTime(fromMs), cubeTime(toMs - 1)],
-          },
-        ],
-        filters: ast.filters.map((f) => ({
-          member: f.member,
-          operator: OPS[f.operator]!,
-          values: f.values.map(String),
-        })),
-        order: ast.order.length
-          ? ast.order.map((o) => [
-              metricById.get(o.member)?.cubeMember ??
-                (o.member === ast.time.field ? `${plan.view}.day` : o.member),
-              o.direction,
-            ])
-          : [[`${plan.view}.day`, "asc"]],
-        // One extra row tells the gateway that the limit cut the result, so it can say so (ResultTruncation).
-        limit: ast.limit + 1,
-        timezone: "UTC",
-        cache: "must-revalidate",
+        ...makeCubeQuery(plan, ast, fromMs, toMs, metricById),
+        cache: "must-revalidate" as const,
       };
 
       const boundContext = ctxOf(session);

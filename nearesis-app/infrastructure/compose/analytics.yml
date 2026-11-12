@@ -60,7 +60,10 @@ services:
       CUBEJS_DB_PASS: nearesis
       CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:-nearesis-dev-cube-secret-not-for-production}
       CUBEJS_PRE_AGGREGATIONS_SCHEMA: nearesis_preagg_live
-      CUBEJS_REFRESH_WORKER: "false"
+      # Rollups (swap daily rollup) are built by the refresh worker: without it a query Cube routes to an unbuilt rollup fails.
+      CUBEJS_REFRESH_WORKER: "true"
+      CUBEJS_SCHEDULED_REFRESH_TIMER: "2"
+      CUBEJS_SCHEDULED_REFRESH_DEFAULT: "true"
       CUBEJS_CACHE_AND_QUEUE_DRIVER: memory
       CUBEJS_LOG_LEVEL: warn
       CUBEJS_TELEMETRY: "false"

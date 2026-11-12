@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Client } from "@temporalio/client";
 import type { Worker } from "@temporalio/worker";
+import type { InferenceProvider } from "@nearesis/contracts";
 import { ScriptedProvider, scenarioRules, setupCheckpointer, type Policy } from "@nearesis/agent-runtime";
 import { APP_ROOT, makeKernelEnv, type KernelEnv } from "../../../agent-runtime/src/testing/kernel-env.ts";
 import {
@@ -89,7 +90,14 @@ export async function seedBudget(
 /** In-process worker (shares the test's pool). */
 export async function startWorker(
   env: Env,
-  o: { policy?: Partial<Policy>; stepDelayMs?: number; taskQueue?: string; live?: boolean } = {},
+  o: {
+    policy?: Partial<Policy>;
+    stepDelayMs?: number;
+    taskQueue?: string;
+    live?: boolean;
+    /** With `live`: the provider the worker uses instead of the env-selected one (e.g. a router that keeps scripted scenarios scripted). */
+    provider?: InferenceProvider;
+  } = {},
 ) {
   const deps = env.kernel
     ? buildKernelDeps({
@@ -98,7 +106,7 @@ export async function startWorker(
         kernel: env.kernel.kernel,
         ...(o.policy ? { policy: o.policy } : {}),
         ...(o.live
-          ? { provider: createRuntimeProvider(), liveComposer: true, model: liveModelFromEnv() }
+          ? { provider: o.provider ?? createRuntimeProvider(), liveComposer: true, model: liveModelFromEnv() }
           : { provider: new ScriptedProvider(scenarioRules({ stepDelayMs: o.stepDelayMs ?? 0 })) }),
       })
     : buildDevDeps({

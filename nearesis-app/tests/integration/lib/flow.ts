@@ -26,6 +26,7 @@ import { ExplorerFixtureServer } from "../../../services/ingestion/src/testing/s
 import { loadPages, setupEnv as setupIngestion } from "../../../services/ingestion/test/helpers/env.ts";
 import { evaluate, preregistrationHash, SNAPSHOT_DIR } from "./research.ts";
 import { proofStep, type ProofMode, type ProofOutcome } from "./proof.ts";
+import { commitThroughGateway, type CommitOutcome } from "./commit.ts";
 import { approve, ask, markerCommand, q, waitFor, waitRunDone, waitState, type Stack } from "./stack.ts";
 
 export interface FlowOptions {
@@ -46,6 +47,26 @@ export interface FlowOptions {
    * the scripted live scenario. Inference stays scripted and labelled `mock`.
    */
   live?: boolean;
+  /**
+   * Step 12 commits `payloadHash` through the chain-commit plugin, an owner approval and the kernel gateway. `fixture` uses a
+   * loopback chain; `live` is NEAR testnet (ADR-20261111-005/-006). Absent: the step is recorded as blocked (nothing is signed).
+   */
+  commit?: {
+    mode: "fixture" | "live";
+    /** Default: the audited capsule's hash. */ payloadHash?: string;
+    note?: string;
+  };
+  /**
+   * Real inference: the question carries no scenario tag, so the worker's live composer plans canvas panels with the real
+   * provider (OpenRouter, spend on the shared ledger); the stack must be opened with `openStack({ liveInference: true })`.
+   * Requires `live`. The marker agents of step 8 stay on their scripted rules and are labelled `mock`.
+   */
+  liveInference?: boolean;
+  /**
+   * Audit and publish steps build and publish THIS capsule (a LIVE capsule from a pinned live snapshot and its recorded
+   * research run) instead of the SYNTHETIC fixture capsule; the engine evaluation of step 6 still runs on the fixture.
+   */
+  liveCapsule?: { snapshotDir: string; researchBundleDir: string };
 }
 
 export interface FlowResult {
@@ -74,6 +95,8 @@ export interface FlowResult {
   artifact?: Record<string, unknown>;
   publication?: { label: string; cap?: string; blockedReason?: string };
   proof?: ProofOutcome;
+  /** Step 12 outcome when `commit` was requested. */
+  commit?: CommitOutcome;
   /** What the real workflow froze for the run and dispatched to each child (read back from the runtime tables). */
   dispatch?: {
     run: RunContextHashes;
@@ -150,7 +173,7 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
   );
 
   const preregHash = prereg?.preregistrationHash;
-  const scenarioName = o.live ? LIVE_SCENARIO : "A20-P";
+  const scenarioName = o.liveInference ? "none" : o.live ? LIVE_SCENARIO : "A20-P";
 
   // 3. Acquire: the Explorer collector against the fixture server, plus the frozen raw snapshot
   let snapshotId = "";
@@ -202,7 +225,14 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
       const principal = o.live
         ? { ...k.session.principal, parentRunId: liveProbeRun(registerRunSource) }
         : k.session.principal;
-      const d = await k.kernel.gateway.invoke(principal, execReq(k.session, ws, "semantic.discover@1", {}));
+      // the first call into a freshly started plugin process can exceed its 5 s limit under load: retry a timeout, nothing else
+      let d = await k.kernel.gateway.invoke(principal, execReq(k.session, ws, "semantic.discover@1", {}));
+      for (
+        let i = 0;
+        i < 3 && d.state !== "ok" && (d as { reasonCode?: string }).reasonCode === "PLUGIN_TIMEOUT";
+        i++
+      )
+        d = await k.kernel.gateway.invoke(principal, execReq(k.session, ws, "semantic.discover@1", {}));
       if (d.state !== "ok")
         throw new StepFailure(
           "DISCOVER_FAILED",
@@ -274,8 +304,10 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
   await tr.step(
     "plan",
     {
-      component: { id: "inference.scripted.director", version: "scripted-1" },
-      mode: "mock",
+      component: o.liveInference
+        ? { id: "workflow.live-plan", version: "1" }
+        : { id: "inference.scripted.director", version: "scripted-1" },
+      mode: o.liveInference ? "live" : "mock",
       input: { question, preregHash },
     },
     async () => {
@@ -307,7 +339,13 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
   out.bundleDir = bundleDir;
   await tr.step(
     "execute",
-    { component: { id: "inference.scripted.roles", version: "scripted-1" }, mode: "mock", input: { runId } },
+    {
+      component: o.liveInference
+        ? { id: "inference.openrouter.composer", version: "1" }
+        : { id: "inference.scripted.roles", version: "scripted-1" },
+      mode: o.liveInference ? "live" : "mock",
+      input: { runId },
+    },
     async () => {
       await waitState(s, runId, ["APPROVAL_NEEDED"]);
       const tasks = await q<{ id: string; role: string; status: string; context: RunContextHashes | null }>(
@@ -359,8 +397,10 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
   await tr.step(
     "compose",
     {
-      component: { id: "inference.scripted.composer", version: "scripted-1" },
-      mode: "mock",
+      component: o.liveInference
+        ? { id: "inference.openrouter.composer", version: "1" }
+        : { id: "inference.scripted.composer", version: "scripted-1" },
+      mode: o.liveInference ? "live" : "mock",
       input: { runId },
     },
     async () => {
@@ -488,9 +528,9 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
       const bundle = labelledBundle(out, lc);
       out.bundleDir = bundle;
       const manifest = buildCapsule({
-        snapshotDir: SNAPSHOT_DIR,
+        snapshotDir: o.liveCapsule?.snapshotDir ?? SNAPSHOT_DIR,
         outDir: capsuleDir,
-        researchBundleDir: bundle,
+        researchBundleDir: o.liveCapsule?.researchBundleDir ?? bundle,
         ...(lc.label === "pre_registered" ? {} : { registrationLabel: lc.label }),
         extraThesisNotes: [...postHocNotes(lc), ...proofNotes, ...(o.extraNotes ?? [])],
       });
@@ -520,7 +560,11 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
         });
         if (r.status >= 300) throw new StepFailure("GRAPH_EDGE_FAILED", JSON.stringify(r.json).slice(0, 200));
       };
-      const art = out.artifact as { preregistration?: { hash?: string }; status?: string };
+      const art = (
+        o.liveCapsule
+          ? JSON.parse(readFileSync(join(o.liveCapsule.researchBundleDir, "research_run.json"), "utf8"))
+          : out.artifact
+      ) as { preregistration?: { hash?: string }; status?: string };
       const gSource = await gnode("source", `snapshot ${snapshotId}`, { manifestHash: dataHash, snapshotId });
       const canvasNow = (await s.owner.call("GET", `/v1/workspaces/${ws}/canvas`)).json as {
         panels: Array<{ panelId: string; queryRef: { hash: string; semanticVersion: string } }>;
@@ -587,18 +631,54 @@ export async function runFlow(s: Stack, o: FlowOptions = {}): Promise<FlowResult
     },
   );
 
-  // 12. Commit: a testnet commitment is a signing step the owner has not authorised; nothing is written
-  await tr.blocked(
-    "commit",
-    {
-      component: { id: "chain.testnet-commit", version: "1" },
-      mode: "fixture",
-      input: { capsuleHash: out.capsuleHash },
-    },
-    "BLOCKED_DEPENDENCY",
-    "BLK-20261110-003: no signing or transaction is permitted; the commitment is a human step",
-    [{ kind: "blocker", ref: "BLK-20261110-003" }],
-  );
+  // 12. Commit: a hash-only testnet commitment through the plugin, an owner approval and the kernel gateway
+  if (o.commit) {
+    const c = o.commit;
+    await tr.step(
+      "commit",
+      {
+        component: { id: "chain.testnet-commit", version: "1" },
+        mode: c.mode === "live" ? "live" : "fixture",
+        input: { payloadHash: c.payloadHash ?? out.capsuleHash, capsuleHash: out.capsuleHash },
+      },
+      async () => {
+        const r = await commitThroughGateway({
+          kernel: k,
+          workspaceId: ws,
+          runId,
+          payloadHash: c.payloadHash ?? out.capsuleHash!,
+          mode: c.mode,
+          note: c.note ?? "P10 lifecycle step 12",
+        });
+        out.commit = r;
+        return {
+          output: {
+            mode: r.mode,
+            payloadHash: r.payloadHash,
+            txHash: r.txHash,
+            contract: r.contract,
+            approvalActionHash: r.approvalActionHash,
+          },
+          evidence: [
+            { kind: "chain-tx", ref: String(r.txHash) },
+            { kind: "commitment", ref: r.payloadHash },
+          ],
+        };
+      },
+    );
+  } else
+    // no commit requested: a testnet commitment is a signing step the owner has not authorised; nothing is written
+    await tr.blocked(
+      "commit",
+      {
+        component: { id: "chain.testnet-commit", version: "1" },
+        mode: "fixture",
+        input: { capsuleHash: out.capsuleHash },
+      },
+      "BLOCKED_DEPENDENCY",
+      "BLK-20261110-003: no signing or transaction is permitted; the commitment is a human step",
+      [{ kind: "blocker", ref: "BLK-20261110-003" }],
+    );
 
   out.trace = tr.trace();
   out.events = lc.events;

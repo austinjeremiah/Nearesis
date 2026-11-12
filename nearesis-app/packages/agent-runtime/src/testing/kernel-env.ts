@@ -41,6 +41,8 @@ export interface KernelEnv {
   /** trusted publisher keys, for worker subprocesses that boot their own kernel */
   trustedKeys: Record<string, string[]>;
   newWorkspace(objective?: string): Promise<string>;
+  /** Installs and enables another first-party plugin, signed with this environment's deployer key (entry path absolute). */
+  installPlugin(m: PluginManifest, entryAbs: string): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -132,6 +134,10 @@ export async function makeKernelEnv(opts: { rtdb?: TestDatabase } = {}): Promise
     workspaceId,
     trustedKeys,
     newWorkspace,
+    async installPlugin(m: PluginManifest, entryAbs: string) {
+      await kernel.plugins.install(userId, signedFor(m, entryAbs, keys.privateKey));
+      await kernel.plugins.enable(userId, m.pluginId);
+    },
     async stop() {
       await kernel.close().catch(() => undefined);
       await kernelAdmin.end().catch(() => undefined);

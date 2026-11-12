@@ -4,6 +4,8 @@
  * inference, and the real API (apps/api buildApp) over it. No component under test is replaced.
  */
 import { randomUUID } from "node:crypto";
+import { createRuntimeProvider } from "../../../packages/workflow/src/kernel-deps.ts";
+import { ScenarioRoutingProvider } from "./routing-provider.ts";
 import {
   makeEnv,
   q,
@@ -30,10 +32,15 @@ export interface Stack {
   close(): Promise<void>;
 }
 
-export async function openStack(): Promise<Stack> {
+export async function openStack(o: { liveInference?: boolean } = {}): Promise<Stack> {
   const env = await makeEnv({ kernel: true });
   const api = await startApi(env);
-  const worker = await startWorker(env);
+  // liveInference: the worker's live composer uses the real provider (INFERENCE_PROVIDER=openrouter); every question that
+  // carries a `[scenario=<name>]` tag (name != none) stays on the scripted rules, so only live questions spend money.
+  const worker = await startWorker(
+    env,
+    o.liveInference ? { live: true, provider: new ScenarioRoutingProvider(createRuntimeProvider()) } : {},
+  );
   const k = env.kernel!;
   const owner = actorFor(api.app, "owner", k.userId, await k.kernel.devAuth!.login(k.subject));
   return {

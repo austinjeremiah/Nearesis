@@ -2,11 +2,13 @@
  * P10 integrated workflow: the near-thesis plugin carries one investment question through all 12 lifecycle steps (ch.25)
  * in ONE test, against the real kernel (plugin installed under production trust), the real Temporal InvestigationWorkflow
  * and API, and the LIVE semantic layer (cube-live :4001 over `nearesis_live`, read-only). Model decisions are scripted and
- * labelled `mock` (no paid call). The commit step is a recorded block: no signing is permitted here.
+ * labelled `mock` (no paid call). The audited, published and committed capsule is the LIVE one (pinned snapshot, INSUFFICIENT_DATA); step 12 commits its hash through the chain-commit plugin (loopback chain, or NEAR testnet with NEARESIS_ACCEPT_LIVE=1).
  */
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { createHash, generateKeyPairSync } from "node:crypto";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   createCh,
   createPg,
@@ -24,9 +26,21 @@ import {
   engineInterfaces,
   validateTrace,
 } from "../../plugins/near-thesis/src/index.ts";
-import { checkPublication, canonicalJson } from "../../packages/capsule/src/index.ts";
+import {
+  buildLiveCapsuleInput,
+  checkPublication,
+  canonicalJson,
+  publishStatic,
+  verifyPublishManifest,
+} from "../../packages/capsule/src/index.ts";
 import { runFlow } from "./lib/flow.ts";
 import { openStack, q, type Stack } from "./lib/stack.ts";
+
+/** Pinned live snapshot (B3) and its recorded INSUFFICIENT_DATA run: the capsule this lifecycle audits, publishes and commits. */
+const LIVE_ID = "live-20260603-20261111-live-organic-v2-15fe2ad62d6c";
+const APP = join(import.meta.dirname, "..", "..");
+/** Explicit live flag (same as the acceptance runner): the commit goes to NEAR testnet instead of the loopback chain. */
+const LIVE_CHAIN = process.env.NEARESIS_ACCEPT_LIVE === "1";
 
 let s: Stack;
 let cubeUp = false;
@@ -38,7 +52,32 @@ afterAll(async () => s?.close(), 120_000);
 
 it("P10: all 12 lifecycle steps run in one workflow on the real kernel, Temporal and the live semantic layer", async () => {
   expect(cubeUp, "cube-live (:4001) must be reachable").toBe(true);
-  const f = await runFlow(s, { live: true });
+  // the live capsule: built from the pinned snapshot, published as a static bundle with a verified publish manifest
+  const input = mkdtempSync(join(tmpdir(), "p10-live-input-"));
+  buildLiveCapsuleInput({
+    liveSnapshotDir: join(APP, "docs/research/live-snapshots", LIVE_ID),
+    outDir: input,
+    analysisCodeCommit: "3b5c4fd",
+  });
+  const researchBundleDir = join(APP, "docs/research/live-results", LIVE_ID);
+  const pub = publishStatic({
+    snapshotDir: input,
+    researchBundleDir,
+    root: mkdtempSync(join(tmpdir(), "p10-live-pub-")),
+    signer: {
+      privateKeyPem: generateKeyPairSync("ed25519")
+        .privateKey.export({ type: "pkcs8", format: "pem" })
+        .toString(),
+    },
+  });
+  expect(verifyPublishManifest(pub.bundle.dir, pub.manifestPath).signature).toBe("valid");
+  expect(verifyPublishManifest(pub.bundle.dir, pub.manifestPath).problems).toEqual([]);
+
+  const f = await runFlow(s, {
+    live: true,
+    liveCapsule: { snapshotDir: input, researchBundleDir },
+    commit: { mode: LIVE_CHAIN ? "live" : "fixture", note: "P10 lifecycle step 12, live capsule hash" },
+  });
   const why = f.trace.steps
     .map((x) => `${x.name}:${x.status}:${x.reason_code ?? ""}:${x.detail ?? ""}`)
     .join(" | ");
@@ -50,8 +89,27 @@ it("P10: all 12 lifecycle steps run in one workflow on the real kernel, Temporal
   for (const n of STEP_NAMES.slice(0, 11))
     expect(f.trace.steps.find((x) => x.name === n)!.status, why).toBe("completed");
   const commit = f.trace.steps.find((x) => x.name === "commit")!;
-  expect(commit.status).toBe("blocked"); // no signing is authorised: the step is recorded, never faked
-  expect(commit.reason_code).toBe("BLOCKED_DEPENDENCY");
+  expect(commit.status, why).toBe("completed");
+  expect(commit.mode).toBe(LIVE_CHAIN ? "live" : "fixture");
+  // step 12 committed the LIVE capsule's hash through the plugin, an owner approval and the kernel gateway
+  expect(f.capsuleHash).toBe(pub.bundle.capsuleHash);
+  expect(f.commit!.payloadHash).toBe(pub.bundle.capsuleHash);
+  expect(f.commit!.contract).toBe("commit.majorlynx5104.testnet");
+  expect(f.commit!.method).toBe("commit_hash");
+  if (LIVE_CHAIN) {
+    // read back at FINAL: the transaction succeeded, its args carry the hash, and the contract view holds it
+    const rb = f.commit!.readback as {
+      finality: string;
+      succeeded: boolean;
+      argsHash: string;
+      equal: boolean;
+    };
+    expect(rb.finality).toBe("FINAL");
+    expect(rb.succeeded).toBe(true);
+    expect(rb.argsHash).toBe(pub.bundle.capsuleHash);
+    expect(rb.equal).toBe(true);
+    expect(BigInt(f.commit!.spentYocto!)).toBeLessThanOrEqual(10n ** 22n); // 0.01 NEAR budget
+  } else expect((f.commit!.readback as { signatureVerified: boolean }).signatureVerified).toBe(true);
   const discover = f.trace.steps.find((x) => x.name === "discover")!;
   expect(discover.mode).toBe("live");
   const mocks = f.trace.steps.filter((x) => x.mode === "mock").map((x) => x.name);
@@ -125,9 +183,9 @@ it("P10: all 12 lifecycle steps run in one workflow on the real kernel, Temporal
     results: Array<{ id: string; value: string }>;
     capsuleHash: string;
   };
-  const pub = checkPublication(thesis, manifest.results);
-  expect(pub.ok).toBe(true);
-  expect(pub.numbersChecked).toBeGreaterThan(5);
+  const pubCheck = checkPublication(thesis, manifest.results);
+  expect(pubCheck.ok, JSON.stringify(pubCheck.violations.slice(0, 3))).toBe(true);
+  expect(pubCheck.numbersChecked).toBeGreaterThan(5);
   expect(f.publication?.label).toBeTruthy();
   expect(createHash("sha256").update(canonicalJson(manifest.results)).digest("hex")).toMatch(
     /^[0-9a-f]{64}$/,

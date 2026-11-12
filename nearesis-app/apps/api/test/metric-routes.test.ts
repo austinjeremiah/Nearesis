@@ -14,6 +14,7 @@ const WS = "5a1b6c70-0000-4000-8000-000000000001";
 const ORG = "5a1b6c70-0000-4000-8000-0000000000aa";
 let h: Harness;
 let app: FastifyInstance;
+const corrections: Array<{ metricKey: string; version: number; workspaceId: string }> = [];
 
 beforeAll(async () => {
   h = await setup();
@@ -31,6 +32,14 @@ beforeAll(async () => {
   await app.register(metricRoutes, {
     kernel,
     authoring: h.svc,
+    onCorrection: async (c) => {
+      corrections.push({ metricKey: c.metricKey, version: c.version, workspaceId: c.workspaceId });
+      return {
+        semanticChange: { toVersion: `corrected:${c.version}`, flaggedCount: 2 },
+        disabledRules: ["r1"],
+        failedRules: [],
+      };
+    },
     authenticate: async (req): Promise<Session> => ({
       userId: String(req.headers["x-user"] ?? "user-1"),
       role: String(req.headers["x-role"] ?? "analyst") as Session["role"],
@@ -122,5 +131,31 @@ describe("metric authoring API", () => {
     });
     expect(pin.json().pins[0]).toMatchObject({ metricKey: "authored.api_metric", version: 1 });
     expect((await call("GET", "/metrics/pins/s1", "viewer", "v")).json().pins).toHaveLength(1);
+  });
+
+  it("V18: a correction deprecation runs the kernel adapter; a plain deprecation does not", async () => {
+    for (const name of ["api_corr", "api_plain"]) {
+      await call("POST", "/metrics/proposals", "analyst", "analyst-1", {
+        proposal: txPerDay(AGENT, { name }),
+      });
+      await call("POST", `/metrics/authored.${name}/versions/1/certify`, "owner", "owner-1");
+    }
+    const plain = await call("POST", "/metrics/authored.api_plain/versions/1/deprecate", "owner", "owner-1", {
+      reason: "superseded by a better definition",
+    });
+    expect(plain.statusCode).toBe(200);
+    expect(plain.json().kernel).toBeUndefined();
+    expect(corrections).toEqual([]);
+    const corr = await call("POST", "/metrics/authored.api_corr/versions/1/deprecate", "owner", "owner-1", {
+      reason: "the denominator was wrong",
+      correction: true,
+    });
+    expect(corr.statusCode).toBe(200);
+    expect(corr.json().kernel).toEqual({
+      semanticChange: { toVersion: "corrected:1", flaggedCount: 2 },
+      disabledRules: ["r1"],
+      failedRules: [],
+    });
+    expect(corrections).toEqual([{ metricKey: "authored.api_corr", version: 1, workspaceId: WS }]);
   });
 });

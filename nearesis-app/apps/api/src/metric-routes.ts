@@ -4,12 +4,15 @@ import { KernelError, workspaceNotFound } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
 import { MetricAuthoringError } from "@nearesis/semantic-gateway";
 import type { AuthoringPrincipal, AuthoringService } from "@nearesis/semantic-gateway";
+import type { MetricCorrectionPort } from "./metric-correction.ts";
 
 export interface MetricRoutesOptions {
   kernel: Kernel;
   authenticate(req: FastifyRequest): Promise<Session>;
   /** The authoring service (store, ClickHouse, catalogue). Wired by the API composition root. */
   authoring: AuthoringService;
+  /** V18: kernel effects of a correction (semantic change + monitor rule disable). Without it, only the correction rows are written. */
+  onCorrection?: MetricCorrectionPort;
 }
 
 const Uuid = z.uuid();
@@ -152,11 +155,20 @@ export const metricRoutes: FastifyPluginAsync<MetricRoutesOptions> = async (app,
     guard(req, (p) => authoring.certify(p, key(req.params.key), ver(req.params.v))),
   );
   app.post<WKV>("/v1/workspaces/:id/metrics/:key/versions/:v/deprecate", (req) =>
-    guard(req, (p) => {
+    guard(req, async (p, session) => {
       const b = parse(DeprecateBody, req.body);
-      return authoring.deprecate(p, key(req.params.key), ver(req.params.v), b.reason, {
-        correction: b.correction === true,
+      const k = key(req.params.key);
+      const v = ver(req.params.v);
+      const out = await authoring.deprecate(p, k, v, b.reason, { correction: b.correction === true });
+      if (b.correction !== true || !opts.onCorrection) return out;
+      const kernelEffects = await opts.onCorrection({
+        session,
+        workspaceId: req.params.id,
+        metricKey: k,
+        version: v,
+        reason: b.reason,
       });
+      return { ...out, kernel: kernelEffects };
     }),
   );
   app.post<WK>("/v1/workspaces/:id/metrics/:key/revisions", (req, reply) =>

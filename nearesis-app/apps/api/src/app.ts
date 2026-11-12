@@ -18,6 +18,7 @@ import { entityRoutes } from "./entity-routes.ts";
 import { intentsRoutes } from "./intents-routes.ts";
 import { accountRoutes } from "./account-routes.ts";
 import { metricRoutes } from "./metric-routes.ts";
+import { createMetricCorrectionPort } from "./metric-correction.ts";
 import type { AuthoringService } from "@nearesis/semantic-gateway";
 import type { SloRecorder } from "@nearesis/workflow";
 import type { GatewayCredentialConfig } from "./gateway-routes.ts";
@@ -541,7 +542,13 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   await app.register(entityRoutes, { authenticate });
   await app.register(intentsRoutes, { authenticate });
   await app.register(accountRoutes, { authenticate });
-  if (opts.authoring) await app.register(metricRoutes, { kernel, authenticate, authoring: opts.authoring });
+  if (opts.authoring)
+    await app.register(metricRoutes, {
+      kernel,
+      authenticate,
+      authoring: opts.authoring,
+      onCorrection: createMetricCorrectionPort(kernel),
+    });
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.
   void HTTP_STATUS_FOR;

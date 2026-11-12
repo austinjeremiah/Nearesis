@@ -318,6 +318,55 @@ describe("interpretation stage", () => {
     expect(out.findings[2]!.skepticNotes.join(" ")).toContain("skeptic pass was unavailable");
   });
 
+  it("analystSplit: concurrent per-panel analyst calls plus one across panels, same grounding, a failed call leaves a stated gap", async () => {
+    const calls: Array<{ key: string; system: string }> = [];
+    const m: InterpretationModel = {
+      async generate<T>(a: { key: string; system: string; prompt: string }): Promise<T> {
+        calls.push({ key: a.key, system: a.system });
+        if (a.key.includes(":skeptic")) return { notes: [] } as T;
+        if (a.key.endsWith(":interpret:1")) throw new Error("provider hiccup");
+        if (a.key.endsWith(":interpret:x"))
+          return {
+            findings: [
+              finding({
+                kind: "comparison",
+                basis: "inference",
+                statement:
+                  "Daily NEAR transactions rose from 1000 to 1800, a 80% increase, while intents swap volume also moved; the two series moved over the same window, which does not show that either drives the other.",
+              }),
+            ],
+          } as T;
+        // per-panel call: the panel it was given
+        return { findings: [finding()] } as T;
+      },
+    };
+    const out = await interpretRun({ ...base, panels: [TX, SWAP, PRICE], model: m, analystSplit: true });
+    const analyst = calls
+      .filter((c) => !c.key.includes(":skeptic"))
+      .map((c) => c.key)
+      .sort();
+    expect(analyst).toEqual([
+      `${base.runId}:interpret:0`,
+      `${base.runId}:interpret:1`,
+      `${base.runId}:interpret:2`,
+      `${base.runId}:interpret:x`,
+    ]);
+    expect(calls.find((c) => c.key.endsWith(":interpret:0"))!.system).toContain(
+      "covers only the panel(s) listed",
+    );
+    expect(calls.find((c) => c.key.endsWith(":interpret:x"))!.system).toContain("comparing or relating");
+    expect(out.state).toBe("ready");
+    // the two answered per-panel calls returned the same statement: kept once; the comparison is kept
+    expect(out.findings.map((f) => f.kind).sort()).toEqual(["change", "comparison"]);
+    // panel group 1 failed: every finding says so
+    for (const f of out.findings)
+      expect(f.limitations.join(" ")).toContain("did not complete (MODEL_ERROR: provider hiccup)");
+    // a single panel is never split
+    const single = model({ findings: [finding()] });
+    await interpretRun({ ...base, panels: [TX], model: single, analystSplit: true });
+    expect(single.calls).toEqual([`${base.runId}:interpret`, `${base.runId}:skeptic`]);
+  });
+
   it("adds skeptic notes: deterministic caveats always, model notes when clean, and a verdict can only lower the status", async () => {
     const sk: SkepticDraft = {
       notes: [

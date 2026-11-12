@@ -51,11 +51,25 @@ export interface InterpretInput {
   clock?: () => string;
   analystTimeoutMs?: number;
   skepticTimeoutMs?: number;
+  /**
+   * Analyst in parallel: with two or more panels, one concurrent call per panel group (findings about that group only) plus one
+   * call for comparisons across panels, instead of a single call over all panels. Every finding goes through the same grounding,
+   * guards and skeptic as before; only the wall time changes (the slowest small call instead of one long one). Default off.
+   */
+  analystSplit?: boolean;
 }
 
 // A live call takes 5 to 40 s: the provider also waits for the generation's billing metadata before it returns.
 const DEFAULT_ANALYST_MS = 110_000;
 const DEFAULT_SKEPTIC_MS = 80_000;
+/** Upper bound on concurrent per-panel analyst calls (panels beyond it share a call). */
+export const ANALYST_PARALLEL = 4;
+/** Findings kept from all analyst calls of one interpretation. */
+const MAX_MERGED_FINDINGS = 8;
+const PER_PANEL_NOTE =
+  " This call covers only the panel(s) listed: write 1 to 3 findings about them and do not compare them with other panels.";
+const CROSS_PANEL_NOTE =
+  " This call covers several panels. Write at most 2 findings, each comparing or relating two or more of the panels (for example two series moving together or apart over the same window). Do not restate what a single panel shows.";
 /** Upper bound on concurrent skeptic calls for one interpretation (see the skeptic stage). */
 export const SKEPTIC_PARALLEL = 3;
 
@@ -293,27 +307,83 @@ export async function interpretRun(input: InterpretInput): Promise<Interpretatio
   const panels = new Map(usable.map((p) => [p.panelId, p]));
   const rejected: RejectedFinding[] = [];
 
-  // ---- analyst: one model call
-  const prompt = [
+  // ---- analyst: one model call, or (analystSplit, two or more panels) concurrent calls per panel group plus one across panels
+  const header = [
     `[run=${input.runId}] [stage=interpretation]`,
     `<untrusted_data name="question">${JSON.stringify(input.question).slice(0, 2000)}</untrusted_data>`,
-    ...usable.map((p) => `<untrusted_data name="panel">\n${panelDigest(p)}\n</untrusted_data>`),
-  ].join("\n");
-  let draft: AnalystDraft;
-  try {
-    draft = await withTimeout(
-      input.model.generate({
-        key: `${input.runId}:interpret`,
-        system: ANALYST_SYSTEM,
-        prompt,
-        schema: AnalystDraft,
-        maxTokens: 4500,
-      }),
-      input.analystTimeoutMs ?? DEFAULT_ANALYST_MS,
-    );
-  } catch (e) {
-    return { state: "unavailable", reason: failureReason(e), findings: [], rejected };
+  ];
+  const digestsOf = (ps: PanelResult[]) =>
+    ps.map((p) => `<untrusted_data name="panel">\n${panelDigest(p)}\n</untrusted_data>`);
+  interface Job {
+    key: string;
+    system: string;
+    prompt: string;
+    maxTokens: number;
+    /** what is missing when the call fails */
+    scope: string;
   }
+  const jobs: Job[] = [];
+  if (input.analystSplit && usable.length >= 2) {
+    const groups = Math.min(ANALYST_PARALLEL, usable.length);
+    const sets: PanelResult[][] = Array.from({ length: groups }, () => []);
+    usable.forEach((p, i) => sets[i % groups]!.push(p));
+    sets.forEach((ps, g) =>
+      jobs.push({
+        key: `${input.runId}:interpret:${g}`,
+        system: ANALYST_SYSTEM + PER_PANEL_NOTE,
+        prompt: [...header, ...digestsOf(ps)].join("\n"),
+        maxTokens: 2200,
+        scope: ps.map((p) => `"${p.title}"`).join(", "),
+      }),
+    );
+    jobs.push({
+      key: `${input.runId}:interpret:x`,
+      system: ANALYST_SYSTEM + CROSS_PANEL_NOTE,
+      prompt: [...header, ...digestsOf(usable)].join("\n"),
+      maxTokens: 1800,
+      scope: "comparisons across panels",
+    });
+  } else
+    jobs.push({
+      key: `${input.runId}:interpret`,
+      system: ANALYST_SYSTEM,
+      prompt: [...header, ...digestsOf(usable)].join("\n"),
+      maxTokens: 4500,
+      scope: "",
+    });
+  const settled = await Promise.allSettled(
+    jobs.map((j) =>
+      withTimeout(
+        input.model.generate({
+          key: j.key,
+          system: j.system,
+          prompt: j.prompt,
+          schema: AnalystDraft,
+          maxTokens: j.maxTokens,
+        }),
+        input.analystTimeoutMs ?? DEFAULT_ANALYST_MS,
+      ),
+    ),
+  );
+  const answered = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+  const firstFailure = settled.find((r): r is PromiseRejectedResult => r.status === "rejected");
+  if (!answered.length)
+    return { state: "unavailable", reason: failureReason(firstFailure!.reason), findings: [], rejected };
+  // a call that failed leaves a stated gap in every finding, never a silent omission (failureReason rethrows a cancellation)
+  const missing = settled.flatMap((r, k) =>
+    r.status === "rejected" && jobs[k]!.scope
+      ? [
+          `The analysis of ${jobs[k]!.scope} did not complete (${failureReason(r.reason)}); findings on it are missing.`,
+        ]
+      : [],
+  );
+  const seen = new Set<string>();
+  const draft: AnalystDraft = {
+    findings: answered
+      .flatMap((a) => a.findings)
+      .filter((f) => (seen.has(f.statement) ? false : (seen.add(f.statement), true)))
+      .slice(0, MAX_MERGED_FINDINGS),
+  };
 
   // ---- ground + guard each draft finding
   interface Kept {
@@ -368,7 +438,7 @@ export async function interpretRun(input: InterpretInput): Promise<Interpretatio
       d,
       facts,
       panelIds,
-      limitations: [...new Set([...ownLimits, ...env.flatMap((e) => e.limitations)])],
+      limitations: [...new Set([...ownLimits, ...env.flatMap((e) => e.limitations), ...missing])],
       degrading: env.some((e) => e.degrading),
     });
   }

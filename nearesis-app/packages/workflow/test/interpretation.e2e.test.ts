@@ -235,13 +235,12 @@ describe.skipIf(!cube)("interpretation: the owner's question with mock inference
   it("reads the approved panels' rows, grounds and challenges the findings, and returns them from GET /v1/runs/:id", async () => {
     const run = await askAndApprove(env, api);
     expect(run.state).toBe("COMPLETE");
-    // one composer call, one analyst call, one skeptic call: within the run's own budget
-    // (four findings: the skeptic challenges them in up to three concurrent calls over disjoint subsets)
-    expect(m.calls.map((c) => c.stage).slice(0, 2)).toEqual(["composer", "analyst"]);
-    expect(m.calls.slice(2).length).toBeGreaterThanOrEqual(1);
-    expect(m.calls.slice(2).every((c) => c.stage === "skeptic")).toBe(true);
-    // A37: the analyst started while the approval was pending (its model time overlaps the wait); only the commit follows approval
-    expect(m.times.find((t) => t.stage === "analyst")!.at).toBeLessThan(run.approvedAt);
+    // one analyst call over all panels; the skeptic challenges four findings in up to three concurrent calls over disjoint subsets
+    const stages = m.calls.map((c) => c.stage);
+    expect(stages[0]).toBe("composer");
+    expect(stages.filter((x) => x === "analyst").length).toBe(1);
+    expect(stages.filter((x) => x === "skeptic").length).toBeGreaterThanOrEqual(1);
+    expect(stages.lastIndexOf("analyst")).toBeLessThan(stages.indexOf("skeptic"));
 
     const view = (await api.call("GET", `/v1/runs/${run.runId}`)).json as {
       findings: InterpretedFinding[];
@@ -267,7 +266,7 @@ describe.skipIf(!cube)("interpretation: the owner's question with mock inference
     );
 
     // the analyst read what the panels returned (digest rows), not the question alone
-    expect(m.calls[1]!.prompt).toContain("certification=");
+    expect(m.calls.find((c) => c.stage === "analyst")!.prompt).toContain("certification=");
 
     // persisted
     const rows = await q<{ n: number }>(

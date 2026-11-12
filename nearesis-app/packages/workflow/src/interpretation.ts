@@ -404,6 +404,8 @@ export async function computeInterpretation(
         runId: i.runId,
         question: i.question,
         panels: results,
+        // opt-in: measured no faster than one call on the live model (the cross-panel call is as slow as the single call)
+        analystSplit: process.env.NEARESIS_ANALYST_SPLIT === "1",
         model: {
           generate: async (a) => {
             const t = Date.now();

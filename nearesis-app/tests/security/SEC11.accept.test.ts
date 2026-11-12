@@ -210,7 +210,7 @@ it("SEC11: locked, pinned inputs with an SBOM; the negative-control branch is re
   if (scanner) {
     expect(scanner.pinOk, "trivy must be the pinned version and binary").toBe(true);
     const found = scanFs(work);
-    const v = evaluatePolicy(found, readWaivers());
+    const v = evaluatePolicy(found, readWaivers(), new Date(), { artifact: "lockfiles" });
     expect(v.blockers).toEqual([]);
     const planted = plantedArtifactDir();
     tmp.push(planted);

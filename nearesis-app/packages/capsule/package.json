@@ -14,6 +14,7 @@
     "research:prove": "tsx src/prove-cli.ts",
     "research:publish": "tsx src/cli.ts publish",
     "research:live-input": "tsx src/cli.ts live-input",
+    "research:publish-key": "tsx src/publish-key-cli.ts",
     "research:publish-verify": "tsx src/cli.ts publish-verify",
     "capsule:build": "tsx src/cli.ts build"
   },

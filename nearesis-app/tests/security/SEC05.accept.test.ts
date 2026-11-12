@@ -142,7 +142,7 @@ it("SEC05: no critical dependency finding and no committed or recorded credentia
   if (scanner) {
     expect(scanner.pinOk, "trivy must be the pinned version and binary").toBe(true);
     const found = scanFs(APP);
-    const verdict = evaluatePolicy(found, readWaivers());
+    const verdict = evaluatePolicy(found, readWaivers(), new Date(), { artifact: "lockfiles" });
     expect(verdict.blockers.map((b) => `${b.rule}:${b.id}:${b.target}:${b.detail}`)).toEqual([]);
     // negative control: a planted vulnerable lockfile and a planted secret through the same code path must be rejected
     const planted = plantedArtifactDir();

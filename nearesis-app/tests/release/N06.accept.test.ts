@@ -198,7 +198,7 @@ it("N06: the manifest builder and validator reject every bad variant naming the 
     if (live && scannerInfo()) {
       rescanned = {};
       for (const k of ["api", "worker", "web"] as const) {
-        const again = evaluatePolicy(scanImage(candidate!.images[k].tag), []);
+        const again = evaluatePolicy(scanImage(candidate!.images[k].tag), [], new Date(), { artifact: k });
         rescanned[k] = again.verdict;
         expect(again.verdict, `${k} re-scan must reproduce the recorded verdict`).toBe(
           ran.images[k]!.verdict.verdict,

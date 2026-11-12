@@ -11,6 +11,7 @@ import {
   gasPriceSql,
   outcomesFullSql,
   outcomesSql,
+  planDailyChunks,
   planEconomicsChunks,
   splitChunk,
   txCostSql,
@@ -344,6 +345,76 @@ describe("budgeted runner (no billed query without approval)", () => {
     await expect(runEconomicsPhase({ ...base, approvalDigest: undefined })).rejects.toThrow(/approval/);
     await expect(runEconomicsPhase({ ...base, approvalDigest: "0".repeat(64) })).rejects.toThrow(/approval/);
     expect(calls).toHaveLength(0);
+  });
+  it("a digest approved for the 7-day pilot window cannot run a different window", async () => {
+    const pilot = planDailyChunks("2026-11-03", "2026-11-10", ["gas_price"]);
+    const other = planDailyChunks("2026-11-04", "2026-11-11", ["gas_price"]);
+    const longer = planDailyChunks("2026-11-03", "2026-11-17", ["gas_price"]);
+    const subset = pilot.slice(0, 6);
+    const approved = planDigest(pilot);
+    for (const c of [other, longer, subset, [...pilot].reverse()]) {
+      expect(planDigest(c)).not.toBe(approved);
+      const calls: Array<{ dryRun?: boolean }> = [];
+      await expect(
+        runEconomicsPhase({
+          bq: fakeBq(calls),
+          archive: null as never,
+          ch: null as never,
+          ledger: new BudgetLedger(0),
+          location: "us-east1",
+          chunks: c,
+          approvalDigest: approved,
+          approvedMaxBytes: 1_000_000,
+          isDone: () => false,
+          markDone: () => undefined,
+        }),
+      ).rejects.toThrow(/does not match/);
+      expect(calls).toHaveLength(0);
+    }
+  });
+  it("refuses without approvedMaxBytes, enforces it, and sets maximumBytesBilled on every billed job", async () => {
+    const pilot = planDailyChunks("2026-11-03", "2026-11-05", ["gas_price"]);
+    const calls: Array<{ dryRun?: boolean; maximumBytesBilled?: string }> = [];
+    const mk = (approvedMaxBytes: number | undefined, est = 1000) => ({
+      bq: {
+        getProjectId: async () => "p",
+        getDatasetMetadata: async () => ({ location: "us-east1" }),
+        createQueryJob: async (o: { dryRun?: boolean; maximumBytesBilled?: string }) => {
+          calls.push(o);
+          return [
+            {
+              metadata: {
+                statistics: { totalBytesProcessed: String(est), query: { totalBytesBilled: String(est) } },
+              },
+              getQueryResults: async () => [[]],
+            },
+          ];
+        },
+      } as unknown as BigQueryLike,
+      archive: { archive: async () => ({ observation: { payloadObjectHash: "h" } }) } as never,
+      ch: { insert: async () => undefined, query: async () => ({ json: async () => [] }) } as never,
+      ledger: new BudgetLedger(0),
+      location: "us-east1",
+      chunks: pilot,
+      approvalDigest: planDigest(pilot),
+      approvedMaxBytes,
+      isDone: () => false,
+      markDone: () => undefined,
+    });
+    await expect(runEconomicsPhase(mk(undefined))).rejects.toThrow(/approvedMaxBytes/);
+    await expect(runEconomicsPhase(mk(0))).rejects.toThrow(/approvedMaxBytes/);
+    expect(calls).toHaveLength(0);
+    // ceiling of 1500 B: the first chunk (1000 B) fits, the second would exceed the total and is skipped without a billed job
+    let r;
+    try {
+      r = await runEconomicsPhase(mk(1500));
+    } catch {
+      /* loading into the stub ClickHouse is not under test */
+    }
+    const billed = calls.filter((c) => !c.dryRun);
+    expect(billed).toHaveLength(1);
+    for (const b of billed) expect(b.maximumBytesBilled).toBe(String(Math.ceil((1000 * 11) / 10)));
+    if (r) expect(r.skippedForBudget).toHaveLength(1);
   });
   it("digest changes when the SQL changes", () => {
     expect(planDigest(chunks)).toBe(planDigest(chunks));

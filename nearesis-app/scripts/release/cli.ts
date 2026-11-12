@@ -118,7 +118,7 @@ if (cmd === "manifest") {
     console.error("trivy is missing or is not the pinned version/binary (sh scripts/ci/install-trivy.sh)");
     process.exit(2);
   }
-  const verdict = evaluatePolicy(scanFs(root), readWaivers());
+  const verdict = evaluatePolicy(scanFs(root), readWaivers(), new Date(), { artifact: "lockfiles" });
   console.log(JSON.stringify({ scanner, verdict }, null, 2));
   process.exit(verdict.verdict === "PASS" ? 0 : 1);
 } else if (cmd === "scan") {

@@ -9,7 +9,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
+  acceptanceProblem,
   evaluatePolicy,
+  readAcceptances,
   plantedArtifactDir,
   readWaivers,
   scanFs,
@@ -17,7 +19,7 @@ import {
   scannerInfo,
   waiverProblem,
 } from "../../scripts/release/vuln-scan.ts";
-import type { Finding, Waiver } from "../../scripts/release/vuln-scan.ts";
+import type { Acceptance, Finding, Waiver } from "../../scripts/release/vuln-scan.ts";
 
 const NOW = new Date("2026-11-12T00:00:00Z");
 const vuln = (o: Partial<Finding> & { id: string }): Finding =>
@@ -45,7 +47,7 @@ const waiver = (o: Partial<Waiver> = {}): Waiver => ({
 });
 
 describe("policy", () => {
-  it("blocks CRITICAL and HIGH with a fix, not HIGH without a fix", () => {
+  it("blocks CRITICAL, HIGH with a fix, and HIGH without a fix that has no acceptance", () => {
     const v = evaluatePolicy(
       [
         vuln({ id: "C", severity: "CRITICAL" }),
@@ -55,11 +57,16 @@ describe("policy", () => {
       ],
       [],
       NOW,
+      { acceptances: [] },
     );
     expect(v.verdict).toBe("BLOCK");
-    expect(v.blockers.map((b) => `${b.rule}:${b.id}`)).toEqual(["CRITICAL:C", "HIGH_WITH_FIX:H-fix"]);
+    expect(v.blockers.map((b) => `${b.rule}:${b.id}`)).toEqual([
+      "CRITICAL:C",
+      "HIGH_WITH_FIX:H-fix",
+      "HIGH_NO_FIX_UNACCEPTED:H-nofix",
+    ]);
     expect(v.informational.highNoFix).toBe(1);
-    expect(evaluatePolicy([vuln({ id: "H-nofix" })], [], NOW).verdict).toBe("PASS");
+    expect(evaluatePolicy([vuln({ id: "H-nofix" })], [], NOW, { acceptances: [] }).verdict).toBe("BLOCK");
   });
   it("blocks any secret", () => {
     const v = evaluatePolicy(
@@ -105,6 +112,79 @@ describe("policy", () => {
   });
 });
 
+const acc = (o: Partial<Acceptance> = {}): Acceptance => ({
+  acceptanceId: "A1",
+  cve: "CVE-9",
+  package: "pkg",
+  artifact: "api",
+  justification: "no fix upstream; not reachable from the request path",
+  acceptedBy: { kind: "human", id: "owner" },
+  reviewer: "reviewer",
+  createdAt: "2026-11-10T00:00:00Z",
+  expiresAt: "2026-12-05T00:00:00Z",
+  ...o,
+});
+
+describe("risk-acceptance register for HIGH without a fix", () => {
+  const f = [vuln({ id: "CVE-9", target: "img (debian 12)" })];
+  const run = (a: Acceptance[], findings = f, artifact = "api") =>
+    evaluatePolicy(findings, [], NOW, { artifact, acceptances: a });
+  it("a valid acceptance for the exact cve, package and image passes", () => {
+    const v = run([acc()]);
+    expect(v.verdict).toBe("PASS");
+    expect(v.accepted).toEqual([{ id: "CVE-9", acceptanceId: "A1", expiresAt: "2026-12-05T00:00:00Z" }]);
+    expect(v.informational.highNoFixAccepted).toBe(1);
+    // a lockfile path also matches via the finding target
+    expect(run([acc({ artifact: "img (debian 12)" })], f, "lockfiles").verdict).toBe("PASS");
+  });
+  it("negative controls: wrong cve, package, artifact, or no entry block", () => {
+    expect(run([]).verdict).toBe("BLOCK");
+    expect(run([acc({ cve: "CVE-0" })]).verdict).toBe("BLOCK");
+    expect(run([acc({ package: "other" })]).verdict).toBe("BLOCK");
+    expect(run([acc({ artifact: "worker" })]).verdict).toBe("BLOCK");
+  });
+  it("an expired acceptance blocks and is reported", () => {
+    const v = run([acc({ createdAt: "2026-10-10T00:00:00Z", expiresAt: "2026-11-05T00:00:00Z" })]);
+    expect(v.verdict).toBe("BLOCK");
+    expect(v.invalidAcceptances).toEqual([{ acceptanceId: "A1", reason: "expired" }]);
+  });
+  it("a validity longer than 30 days is rejected", () => {
+    const longer = acc({ expiresAt: "2026-12-11T00:00:00Z" });
+    expect(acceptanceProblem(longer, NOW)).toMatch(/exceeds 30 days/);
+    expect(run([longer]).verdict).toBe("BLOCK");
+    expect(acceptanceProblem(acc({ expiresAt: "2026-12-10T00:00:00Z" }), NOW)).toBeNull();
+  });
+  it("agent acceptor, self-review, short justification and missing dates are rejected", () => {
+    const bad: Array<[string, Acceptance]> = [
+      ["agent", acc({ acceptedBy: { kind: "agent", id: "a" } })],
+      ["self review", acc({ reviewer: "owner" })],
+      ["no reviewer", acc({ reviewer: "" })],
+      ["short", acc({ justification: "ok" })],
+      ["no expiry", acc({ expiresAt: "" })],
+      ["no created", acc({ createdAt: "" })],
+      ["future", acc({ createdAt: "2026-11-20T00:00:00Z", expiresAt: "2026-12-01T00:00:00Z" })],
+    ];
+    for (const [name, a] of bad) {
+      expect(acceptanceProblem(a, NOW), name).not.toBeNull();
+      expect(run([a]).verdict, name).toBe("BLOCK");
+    }
+  });
+  it("a fix becoming available voids the acceptance", () => {
+    const v = run([acc()], [vuln({ id: "CVE-9", fixed: "2.0.0", target: "t" })]);
+    expect(v.verdict).toBe("BLOCK");
+    expect(v.blockers[0]?.rule).toBe("HIGH_WITH_FIX");
+    expect(v.accepted).toEqual([]);
+  });
+  it("a CRITICAL can never be accepted", () => {
+    const v = run([acc()], [vuln({ id: "CVE-9", severity: "CRITICAL" })]);
+    expect(v.verdict).toBe("BLOCK");
+    expect(v.blockers[0]?.rule).toBe("CRITICAL");
+  });
+  it("the committed register holds no invalid entry (owner creates entries; none are created by agents)", () => {
+    for (const a of readAcceptances()) expect(acceptanceProblem(a, new Date())).toBeNull();
+  });
+});
+
 const info = scannerInfo();
 const tmp: string[] = [];
 afterAll(() => tmp.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -128,7 +208,7 @@ describe.skipIf(!info)("real trivy scan of planted artifacts (negative control)"
       join(clean, "package-lock.json"),
       JSON.stringify({ name: "c", lockfileVersion: 3, packages: { "": { name: "c", version: "1.0.0" } } }),
     );
-    expect(evaluatePolicy(scanFs(clean), []).verdict).toBe("PASS");
+    expect(evaluatePolicy(scanFs(clean), [], new Date(), { acceptances: [] }).verdict).toBe("PASS");
   });
   it.skipIf(!process.env.NEARESIS_ACCEPT_LIVE)(
     "a planted vulnerable and secret-bearing local image is rejected",

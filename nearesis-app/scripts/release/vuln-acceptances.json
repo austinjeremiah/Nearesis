@@ -1,0 +1,4 @@
+{
+  "note": "Risk-acceptance register for HIGH vulnerabilities that have no fix. Every such finding in a release image or lockfile needs a matching entry (cve, package, artifact = image name or lockfile path) with a human acceptedBy, an independent reviewer, createdAt and expiresAt at most 30 days later. An expired entry, or one whose finding gained a fix, blocks the release. A CRITICAL can never be accepted. Entries are created by the owner only.",
+  "acceptances": []
+}

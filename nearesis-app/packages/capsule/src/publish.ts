@@ -5,6 +5,8 @@ import { buildPublicationBundle, verifyBundleHashes } from "./bundle.ts";
 import type { BundleOptions, BundleResult } from "./bundle.ts";
 import { canonicalJson, canonicalSha256, sha256Hex } from "./canonical.ts";
 import { liveQueryId } from "./live.ts";
+import { readRegistry, trustDecision } from "./trusted-keys.ts";
+import type { TrustedKeyRegistry } from "./trusted-keys.ts";
 
 /**
  * Static publication pipeline (ch.25: "The publisher consumes a signed manifest referencing all completed outputs, not
@@ -80,7 +82,16 @@ export interface PublishManifestBody {
 export interface PublishManifest extends PublishManifestBody {
   manifestHash: string;
   signature:
-    { alg: "ed25519"; keyId: string; publicKeyPem: string; value: string } | { alg: "none"; reason: string };
+    | {
+        alg: "ed25519";
+        keyId: string;
+        publicKeyPem: string;
+        value: string;
+        /** When the signer says it signed; bound by `signedAtSignature` (ed25519 over {manifestHash, signedAt}). */
+        signedAt?: string;
+        signedAtSignature?: string;
+      }
+    | { alg: "none"; reason: string };
 }
 
 const DOCS = ["THESIS.md", "METRICS.md", "EXPERIMENTS.md", "PREREGISTRATION.md", "DATA.md", "LIMITATIONS.md"];
@@ -104,7 +115,11 @@ function listFiles(dir: string, base = dir): string[] {
 const keyIdOf = (publicKeyPem: string): string =>
   sha256Hex(createPublicKey(publicKeyPem).export({ type: "spki", format: "der" }) as Buffer).slice(0, 16);
 
-export function buildPublishManifest(b: BundleResult, signer?: PublishSigner): PublishManifest {
+export function buildPublishManifest(
+  b: BundleResult,
+  signer?: PublishSigner,
+  signedAt: Date = new Date(),
+): PublishManifest {
   const dir = b.dir;
   const m = b.manifest;
   const hashes = JSON.parse(readFileSync(join(dir, "HASHES.json"), "utf8")) as {
@@ -274,6 +289,12 @@ export function buildPublishManifest(b: BundleResult, signer?: PublishSigner): P
       keyId: signer.keyId ?? keyIdOf(publicKeyPem),
       publicKeyPem,
       value: edSign(null, Buffer.from(canonicalJson(body)), priv).toString("base64"),
+      signedAt: signedAt.toISOString(),
+      signedAtSignature: edSign(
+        null,
+        Buffer.from(canonicalJson({ manifestHash, signedAt: signedAt.toISOString() })),
+        priv,
+      ).toString("base64"),
     },
   };
 }
@@ -306,6 +327,8 @@ export interface PublishVerification {
   signerKeyId: string | null;
   /** True only when the signature is valid AND the key id is in `trustedKeyIds`. */
   trusted: boolean;
+  /** Why `trusted` is what it is when a registry or pinned ids were supplied. */
+  trustReason: string;
 }
 
 /**
@@ -315,7 +338,7 @@ export interface PublishVerification {
 export function verifyPublishManifest(
   versionDir: string,
   manifestPath: string,
-  opts: { trustedKeyIds?: string[] } = {},
+  opts: { trustedKeyIds?: string[]; registry?: TrustedKeyRegistry | string } = {},
 ): PublishVerification {
   const problems: string[] = [];
   let m: PublishManifest;
@@ -328,6 +351,7 @@ export function verifyPublishManifest(
       signature: "unsigned",
       signerKeyId: null,
       trusted: false,
+      trustReason: "manifest unreadable",
     };
   }
   const hb = verifyBundleHashes(versionDir);
@@ -397,11 +421,41 @@ export function verifyPublishManifest(
     sig = valid ? "valid" : "invalid";
     if (!valid) problems.push("signature does not verify");
   }
+  let trusted = sig === "valid" && !!signerKeyId && (opts.trustedKeyIds ?? []).includes(signerKeyId);
+  let trustReason = trusted
+    ? "key id pinned by the caller"
+    : sig === "valid"
+      ? "key is not trusted"
+      : "no valid signature";
+  if (sig === "valid" && !trusted && opts.registry !== undefined && signature.alg === "ed25519") {
+    const reg = typeof opts.registry === "string" ? readRegistry(opts.registry) : opts.registry;
+    // the signing time counts only when its own signature verifies under the same key
+    let proven: string | null = null;
+    if (signature.signedAt && signature.signedAtSignature) {
+      try {
+        if (
+          edVerify(
+            null,
+            Buffer.from(canonicalJson({ manifestHash, signedAt: signature.signedAt })),
+            createPublicKey(signature.publicKeyPem),
+            Buffer.from(signature.signedAtSignature, "base64"),
+          )
+        )
+          proven = signature.signedAt;
+      } catch {
+        proven = null;
+      }
+    }
+    const d = trustDecision(reg, signature.publicKeyPem, proven);
+    trusted = d.trusted;
+    trustReason = d.reason;
+  }
   return {
     ok: problems.length === 0,
     problems,
     signature: sig,
     signerKeyId,
-    trusted: sig === "valid" && !!signerKeyId && (opts.trustedKeyIds ?? []).includes(signerKeyId),
+    trusted,
+    trustReason,
   };
 }

@@ -4,7 +4,10 @@
  *
  * Severity rule: ch.12/ch.17 give no numeric rule beyond SEC05 "no critical unmitigated finding or secret". Interpretation
  * (recorded for the owner): BLOCK on any CRITICAL vulnerability (SEC22: a critical is never waivable), BLOCK on any HIGH that
- * has a fixed version available, and BLOCK on any secret. A HIGH with no fix available is recorded but does not block.
+ * has a fixed version available, and BLOCK on any secret. A HIGH with no fix available BLOCKs unless it has a matching,
+ * unexpired entry in the risk-acceptance register (scripts/release/vuln-acceptances.json: CVE, package, image/lockfile,
+ * justification, human acceptor, independent reviewer, created and expiry date, at most 30 days). When a fix becomes
+ * available the acceptance is void and the finding blocks as HIGH_WITH_FIX. A CRITICAL can never be accepted.
  * A HIGH with a fix is waivable only by a signed SEC22 waiver (human signer, independent reviewer, unexpired).
  */
 import { spawnSync } from "node:child_process";
@@ -20,6 +23,8 @@ export const TRIVY_LOCK = JSON.parse(readFileSync(join(APP, "scripts/release/tri
   binarySha256: Record<string, string>;
 };
 export const WAIVER_FILE = join(APP, "scripts/release/vuln-waivers.json");
+export const ACCEPTANCE_FILE = join(APP, "scripts/release/vuln-acceptances.json");
+export const MAX_ACCEPTANCE_DAYS = 30;
 export const TRIVY_CACHE = join(APP, ".toolchain", "trivy-cache");
 
 export interface VulnFinding {
@@ -53,11 +58,29 @@ export interface Waiver {
   independentReviewRef: string;
   expiresAt: string;
 }
+/** Risk acceptance for a HIGH vulnerability that has no fix. Created by a human principal, never by an agent. */
+export interface Acceptance {
+  acceptanceId: string;
+  cve: string;
+  package: string;
+  /** Image name (key in the release image set, e.g. "api") or the lockfile path as trivy reports it. */
+  artifact: string;
+  justification: string;
+  acceptedBy: { kind: string; id: string };
+  reviewer: string;
+  createdAt: string;
+  expiresAt: string;
+}
+export interface PolicyContext {
+  /** The image name or "lockfiles" being evaluated; matched against Acceptance.artifact. */
+  artifact?: string;
+  acceptances?: Acceptance[];
+}
 export interface Blocker {
   kind: Finding["kind"];
   id: string;
   target: string;
-  rule: "CRITICAL" | "HIGH_WITH_FIX" | "SECRET";
+  rule: "CRITICAL" | "HIGH_WITH_FIX" | "HIGH_NO_FIX_UNACCEPTED" | "SECRET";
   detail: string;
 }
 export interface PolicyVerdict {
@@ -66,10 +89,12 @@ export interface PolicyVerdict {
   blockers: Blocker[];
   waived: Array<{ id: string; waiverId: string; expiresAt: string }>;
   invalidWaivers: Array<{ waiverId: string; reason: string }>;
-  informational: { highNoFix: number; total: number };
+  accepted: Array<{ id: string; acceptanceId: string; expiresAt: string }>;
+  invalidAcceptances: Array<{ acceptanceId: string; reason: string }>;
+  informational: { highNoFix: number; highNoFixAccepted: number; total: number };
 }
 export const POLICY_RULE =
-  "BLOCK on CRITICAL (never waivable), BLOCK on HIGH with a fixed version available unless a valid unexpired SEC22 waiver exists, BLOCK on any secret; HIGH without a fix is recorded only";
+  "BLOCK on CRITICAL (never waivable), BLOCK on HIGH with a fixed version available unless a valid unexpired SEC22 waiver exists, BLOCK on any secret; HIGH without a fix BLOCKs unless it has a valid unexpired risk acceptance (max 30 days, human acceptor, independent reviewer); a fix becoming available voids the acceptance";
 
 export function waiverProblem(w: Waiver, now: Date): string | null {
   if (w.severity.toUpperCase() === "CRITICAL") return "a critical finding is never waivable (SEC22)";
@@ -83,11 +108,48 @@ export function waiverProblem(w: Waiver, now: Date): string | null {
   return null;
 }
 
+export function acceptanceProblem(a: Acceptance, now: Date): string | null {
+  if (!a.cve || !a.package || !a.artifact) return "cve, package and artifact are required";
+  if (a.acceptedBy?.kind !== "human" || !a.acceptedBy.id) return "accepted-by is not a human principal";
+  if (!a.reviewer || a.reviewer === a.acceptedBy.id) return "no independent reviewer";
+  if ((a.justification ?? "").length < 20) return "justification too short";
+  const created = Date.parse(a.createdAt);
+  const exp = Date.parse(a.expiresAt);
+  if (!Number.isFinite(created)) return "no created date";
+  if (!Number.isFinite(exp)) return "no expiry";
+  if (created > now.getTime()) return "created in the future";
+  if (exp <= created) return "expiry precedes creation";
+  if (exp - created > MAX_ACCEPTANCE_DAYS * 86_400_000) return `validity exceeds ${MAX_ACCEPTANCE_DAYS} days`;
+  if (exp <= now.getTime()) return "expired";
+  return null;
+}
+
+export function readAcceptances(file = ACCEPTANCE_FILE): Acceptance[] {
+  return existsSync(file)
+    ? (JSON.parse(readFileSync(file, "utf8")) as { acceptances: Acceptance[] }).acceptances
+    : [];
+}
+
 export function readWaivers(file = WAIVER_FILE): Waiver[] {
   return existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as { waivers: Waiver[] }).waivers : [];
 }
 
-export function evaluatePolicy(findings: Finding[], waivers: Waiver[], now = new Date()): PolicyVerdict {
+export function evaluatePolicy(
+  findings: Finding[],
+  waivers: Waiver[],
+  now = new Date(),
+  ctx: PolicyContext = {},
+): PolicyVerdict {
+  const acceptances = ctx.acceptances ?? readAcceptances();
+  const invalidAcceptances: PolicyVerdict["invalidAcceptances"] = [];
+  const validAcc: Acceptance[] = [];
+  for (const a of acceptances) {
+    const p = acceptanceProblem(a, now);
+    if (p) invalidAcceptances.push({ acceptanceId: a.acceptanceId, reason: p });
+    else validAcc.push(a);
+  }
+  const accepted: PolicyVerdict["accepted"] = [];
+  let highNoFixAccepted = 0;
   const invalidWaivers: PolicyVerdict["invalidWaivers"] = [];
   const valid: Waiver[] = [];
   for (const w of waivers) {
@@ -120,6 +182,21 @@ export function evaluatePolicy(findings: Finding[], waivers: Waiver[], now = new
     } else if (f.severity === "HIGH") {
       if (!f.fixed) {
         highNoFix++;
+        const a = validAcc.find(
+          (x) =>
+            x.cve === f.id && x.package === f.pkg && (x.artifact === f.target || x.artifact === ctx.artifact),
+        );
+        if (a) {
+          highNoFixAccepted++;
+          accepted.push({ id: f.id, acceptanceId: a.acceptanceId, expiresAt: a.expiresAt });
+        } else
+          blockers.push({
+            kind: "vulnerability",
+            id: f.id,
+            target: f.target,
+            rule: "HIGH_NO_FIX_UNACCEPTED",
+            detail: `${f.pkg}@${f.installed} no fix, no valid risk acceptance for ${ctx.artifact ?? f.target}`,
+          });
         continue;
       }
       const w = valid.find((x) => x.findingId === f.id && (!x.package || x.package === f.pkg));
@@ -140,7 +217,9 @@ export function evaluatePolicy(findings: Finding[], waivers: Waiver[], now = new
     blockers,
     waived,
     invalidWaivers,
-    informational: { highNoFix, total: findings.length },
+    accepted,
+    invalidAcceptances,
+    informational: { highNoFix, highNoFixAccepted, total: findings.length },
   };
 }
 
@@ -359,11 +438,16 @@ export function scanRelease(opts: {
   if (!scanner) return { status: "NOT_RUN", reason: "trivy is not installed (run scripts/toolchain-env.sh)" };
   const waivers = readWaivers();
   const lock = scanFs(opts.dir);
-  const lockVerdict = evaluatePolicy(lock, waivers, opts.now);
+  const lockVerdict = evaluatePolicy(lock, waivers, opts.now, { artifact: "lockfiles" });
   const images: Record<string, ImageScanResult> = {};
   for (const [name, img] of Object.entries(opts.images)) {
     const f = scanImage(img.tag);
-    images[name] = summariseImage(img.tag, img.digest, f, evaluatePolicy(f, waivers, opts.now));
+    images[name] = summariseImage(
+      img.tag,
+      img.digest,
+      f,
+      evaluatePolicy(f, waivers, opts.now, { artifact: name }),
+    );
   }
   const all = [lockVerdict, ...Object.values(images).map((i) => i.verdict)];
   return {

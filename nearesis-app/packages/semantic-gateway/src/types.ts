@@ -51,6 +51,8 @@ export interface GatewayOptions {
    * change that this gateway has observed.
    */
   readCacheMs?: number;
+  /** TTL of the per-source row-rate estimate (default 60 s; 0 when readCacheMs is 0). */
+  rowRateCacheMs?: number;
 }
 
 export interface AuditRecord {

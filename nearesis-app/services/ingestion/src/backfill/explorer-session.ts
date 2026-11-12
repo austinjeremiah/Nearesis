@@ -14,7 +14,8 @@ import { systemClock } from "../clock.ts";
 import { ALLOW_EXPLORER, HttpClient } from "../http/client.ts";
 import type { CredentialSource } from "../http/credentials.ts";
 import { normalize } from "../normalize.ts";
-import { coverageRows, insertLive, refreshWatermarks, swapRows } from "./ch.ts";
+import { insertLive, refreshWatermarks, swapRows } from "./ch.ts";
+import { refreshExplorerCoverage } from "./explorer-coverage.ts";
 import { REDIS_URL } from "./env.ts";
 import { loadLiveAssetRegistry } from "../registry/live-registry.ts";
 import { addDays, WINDOW_FROM, WINDOW_TO } from "./plan.ts";
@@ -115,6 +116,8 @@ export async function loadSwapsToClickHouse(
     store.save();
   }
   if (loaded > 0) await refreshWatermarks(ch, nowMs);
+  // Coverage follows the loaded data on every load path (backfill, scheduler forward, raw replay).
+  await refreshExplorerCoverage(ch, nowMs);
   return loaded;
 }
 
@@ -252,25 +255,7 @@ export async function runExplorerSession(d: {
     "SELECT min(created_at) lo, max(created_at) hi FROM ingestion.explorer_swaps",
   );
   const complete = status === "complete";
-  if (complete) {
-    const v = Date.now();
-    const days: string[] = [];
-    for (let day = WINDOW_FROM; day <= WINDOW_TO; day = addDays(day, 1)) days.push(day);
-    await insertLive(
-      d.ch,
-      "source_coverage",
-      coverageRows(
-        days.map((day) => ({
-          provider_id: "near-explorer",
-          dataset: "intents_swaps",
-          day,
-          state: "complete" as const,
-          reason: null,
-          version: v,
-        })),
-      ),
-    );
-  }
+  if (complete) await refreshExplorerCoverage(d.ch, Date.now(), WINDOW_FROM);
   const ex = d.store.state.explorer;
   ex.requests += http.requestLog.filter((x) => x.outcome !== "denied").length;
   ex.sessions += 1;

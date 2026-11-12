@@ -15,7 +15,7 @@ import {
   loadCoverage,
   loadQualityGaps,
   loadWatermarks,
-  rowsPerDay,
+  rowRates,
   sourceVintage,
   type CoverageMap,
   type CoverageState,
@@ -114,6 +114,8 @@ export function createGateway(opts: GatewayOptions) {
   const stats: GatewayStats = { executions: 0, cacheHits: 0, cacheMisses: 0, rejected: 0, coverageProbes: 0 };
   const audit: AuditRecord[] = [];
   const reads = new ReadCache(opts.readCacheMs ?? 5000);
+  // Row rates need `count() FINAL` over a whole fact table (seconds at live volume) and move slowly: cache longer than the other reads.
+  const rates = new ReadCache(opts.rowRateCacheMs ?? (opts.readCacheMs === 0 ? 0 : 60_000));
   const srcKey = (xs: string[]) => [...new Set(xs)].sort().join("|");
   const metricById = new Map(reg.metrics.map((m) => [m.id, m]));
 
@@ -170,7 +172,21 @@ export function createGateway(opts: GatewayOptions) {
 
       // Cost gate before any Cube/ClickHouse fact load (S06).
       stats.coverageProbes++;
-      const perDay = await reads.get(`rpd:${srcKey(sources)}`, () => rowsPerDay(ch, sources));
+      const { perDay, unknown: unknownCoverage } = await rates.get(`rpd:${srcKey(sources)}`, () =>
+        rowRates(ch, sources),
+      );
+      if (unknownCoverage.length)
+        return rejectAudit(
+          fail(
+            "BUDGET_EXCEEDED",
+            "COVERAGE_UNKNOWN",
+            `Row volume cannot be estimated: no loaded coverage for ${unknownCoverage.join(", ")}.`,
+            {
+              details: [{ path: "time", issue: "COVERAGE_UNKNOWN" }],
+              nextAction: "Load the source (coverage rows) before querying it.",
+            },
+          ),
+        );
       const est = estimateRows(perDay, (toMs - fromMs) / DAY_MS);
       if (est > policy.maxEstimatedRows)
         return rejectAudit(

@@ -92,24 +92,47 @@ export async function loadWatermarks(
 
 const KNOWN_TABLES = new Set<string>(FACT_TABLES);
 
-/** Per-dataset row-rate estimate for the cost gate: rows / covered-day (count() on the table, covered days from coverage). */
-export async function rowsPerDay(ch: ClickHouseClient, sources: string[]): Promise<Record<string, number>> {
-  const out: Record<string, number> = {};
+export interface RowRates {
+  /** source -> current rows per covered day */
+  perDay: Record<string, number>;
+  /** sources backed by a fact table that has no loaded (complete or partial) coverage day: the row rate cannot be known */
+  unknown: string[];
+}
+
+/**
+ * Per-dataset row-rate estimate for the cost gate: CURRENT rows (`count() ... FINAL`, so re-derived ReplacingMergeTree versions are
+ * not counted twice) divided by the days that coverage says were loaded (complete or partial). A fact-table source with no
+ * loaded coverage day is reported in `unknown` instead of being treated as "everything in one day".
+ */
+export async function rowRates(ch: ClickHouseClient, sources: string[]): Promise<RowRates> {
+  const perDay: Record<string, number> = {};
+  const unknown: string[] = [];
   for (const s of new Set(sources)) {
     const { provider, dataset } = splitSource(s);
     if (!KNOWN_TABLES.has(dataset)) {
-      out[s] = 1;
+      perDay[s] = 1;
       continue;
     }
-    const total = await queryRows<{ n: string }>(ch, `SELECT toString(count()) AS n FROM ${dataset}`);
     const days = await queryRows<{ n: string }>(
       ch,
-      `SELECT toString(uniqExact(day)) AS n FROM source_coverage FINAL WHERE provider_id = {p:String} AND dataset = {d:String}`,
+      `SELECT toString(uniqExact(day)) AS n FROM source_coverage FINAL
+       WHERE provider_id = {p:String} AND dataset = {d:String} AND state IN ('complete', 'partial')`,
       { p: provider, d: dataset },
     );
-    out[s] = Math.max(1, Number(total[0]?.n ?? 0) / Math.max(1, Number(days[0]?.n ?? 0)));
+    const nDays = Number(days[0]?.n ?? 0);
+    if (nDays === 0) {
+      unknown.push(s);
+      continue;
+    }
+    const total = await queryRows<{ n: string }>(ch, `SELECT toString(count()) AS n FROM ${dataset} FINAL`);
+    perDay[s] = Math.max(1, Number(total[0]?.n ?? 0) / nDays);
   }
-  return out;
+  return { perDay, unknown };
+}
+
+/** Back-compatible wrapper: row rates only (unknown-coverage sources are absent). */
+export async function rowsPerDay(ch: ClickHouseClient, sources: string[]): Promise<Record<string, number>> {
+  return (await rowRates(ch, sources)).perDay;
 }
 
 /** Source vintage: versions of the fact tables and coverage rows a query depends on (changes when any dependency is re-delivered or updated). */

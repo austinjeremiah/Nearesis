@@ -16,6 +16,7 @@
     "monitor:dev": "pnpm --filter @nearesis/build-monitor dev",
     "accept": "tsx scripts/accept.ts",
     "test:deps": "tsx scripts/tests/validate-deps.ts",
+    "conformance": "tsx scripts/conformance.ts",
     "research:rebuild": "pnpm --filter @nearesis/capsule research:rebuild",
     "research:verify": "pnpm --filter @nearesis/capsule research:verify",
     "dev:seed": "tsx scripts/dev/seed.ts",

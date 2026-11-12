@@ -1,0 +1,251 @@
+{
+  "version": 1,
+  "source": "Build Bible chapter 24: feature traceability table (F01-F23) and hard launch checklist (L01-L14)",
+  "requirements": [
+    {
+      "id": "F01",
+      "text": "Original hypothesis and PREREGISTRATION.md",
+      "phases": ["P00", "P07", "P09"],
+      "code": ["plugins/near-thesis", "docs/research/PREREGISTRATION.md"],
+      "tests": ["Q16", "V05", "V13", "N01"]
+    },
+    {
+      "id": "F02",
+      "text": "BigQuery daily accounts/tx/contract SQL",
+      "phases": ["P02", "P03"],
+      "code": ["services/ingestion"],
+      "tests": ["D10", "D16"]
+    },
+    {
+      "id": "F03",
+      "text": "Explorer historical swaps",
+      "phases": ["P02"],
+      "code": ["services/ingestion"],
+      "tests": ["D01", "D02", "D03", "D04", "D06", "D18"]
+    },
+    {
+      "id": "F04",
+      "text": "1Click five-minute route quote memory",
+      "phases": ["P02", "P10"],
+      "code": ["services/ingestion"],
+      "tests": ["D07", "PERF08"]
+    },
+    {
+      "id": "F05",
+      "text": "NEAR price comparison",
+      "phases": ["P02"],
+      "code": ["services/ingestion"],
+      "tests": ["D13", "Q07"]
+    },
+    {
+      "id": "F06",
+      "text": "HOT/Omni/Rhea/Aurora/DAOs/agents/meme usage",
+      "phases": ["P02", "P07"],
+      "code": ["services/ingestion", "services/analytics"],
+      "tests": ["D08", "D09", "D17"]
+    },
+    {
+      "id": "F07",
+      "text": "Cube semantic layer and metrics",
+      "phases": ["P03"],
+      "code": ["services/analytics", "packages/semantic-gateway"],
+      "tests": ["S01", "S12", "S13"]
+    },
+    {
+      "id": "F08",
+      "text": "Robust stats + loss comparison",
+      "phases": ["P07"],
+      "code": ["services/research"],
+      "tests": ["Q11", "Q14", "Q18", "Q20"]
+    },
+    {
+      "id": "F09",
+      "text": "Canvas natural-language chart generation",
+      "phases": ["P05"],
+      "code": ["packages/canvas-schema", "packages/workflow"],
+      "tests": ["C01", "C09", "C11"]
+    },
+    {
+      "id": "F10",
+      "text": "Workspace isolation and persistent editing",
+      "phases": ["P01", "P05", "P08"],
+      "code": ["packages/kernel", "apps/api"],
+      "tests": ["K01", "K04", "C04", "SEC03", "SEC19"]
+    },
+    {
+      "id": "F11",
+      "text": "Markers and region lenses",
+      "phases": ["P06"],
+      "code": ["packages/kernel", "packages/workflow"],
+      "tests": ["M01", "M07", "M09", "C12"]
+    },
+    {
+      "id": "F12",
+      "text": "Monitoring agent + alerts",
+      "phases": ["P06"],
+      "code": ["packages/workflow", "apps/api"],
+      "tests": ["M03", "M04", "M05", "M06", "M13", "M16"]
+    },
+    {
+      "id": "F13",
+      "text": "Multiagent, delegation and skeptic",
+      "phases": ["P04", "P07"],
+      "code": ["packages/agent-runtime", "packages/workflow"],
+      "tests": ["A01", "A05", "M12", "Q19"]
+    },
+    {
+      "id": "F14",
+      "text": "Branch/time machine/evidence graph",
+      "phases": ["P08"],
+      "code": ["packages/kernel", "apps/api"],
+      "tests": ["W01", "W05", "W06", "W11", "W13", "W14"]
+    },
+    {
+      "id": "F15",
+      "text": "NEAR AI Cloud attested explanations",
+      "phases": ["P04"],
+      "code": ["packages/inference"],
+      "tests": ["A08", "A15", "A16", "A21"]
+    },
+    {
+      "id": "F16",
+      "text": "OutLayer WASM proof",
+      "phases": ["P09"],
+      "code": ["services/outlayer-verifier", "packages/capsule"],
+      "tests": ["V03", "V04", "V09", "V10", "V11"]
+    },
+    {
+      "id": "F17",
+      "text": "NEAR chain preregistration",
+      "phases": ["P09", "P12"],
+      "code": ["plugins/chain-commit"],
+      "tests": ["V05", "V13", "N01", "N03", "N11"]
+    },
+    {
+      "id": "F18",
+      "text": "Agent-accessible MCP and skill",
+      "phases": ["P09"],
+      "code": ["services/mcp-public"],
+      "tests": ["V08", "V17"]
+    },
+    {
+      "id": "F19",
+      "text": "Static dashboard + SQL per chart",
+      "phases": ["P09"],
+      "code": ["packages/capsule"],
+      "tests": ["V07", "V15"]
+    },
+    {
+      "id": "F20",
+      "text": "THESIS.md + MEMO.pdf + exports",
+      "phases": ["P09", "P10"],
+      "code": ["packages/capsule", "plugins/near-thesis"],
+      "tests": ["Q22", "V16"]
+    },
+    {
+      "id": "F21",
+      "text": "npm/pnpm run rebuild/verify",
+      "phases": ["P09"],
+      "code": ["packages/capsule", "services/research"],
+      "tests": ["V01", "V12", "B14"]
+    },
+    {
+      "id": "F22",
+      "text": "Full-system load/security/recovery",
+      "phases": ["P11"],
+      "code": ["tests/perf", "scripts/security"],
+      "tests": ["PERF01", "PERF04", "PERF09", "PERF11", "SEC22"]
+    },
+    {
+      "id": "F23",
+      "text": "Minimal NEAR mainnet check; independent Base read smoke",
+      "phases": ["P12"],
+      "code": ["plugins/chain-commit", "scripts/release"],
+      "tests": ["N03", "N05", "N11", "N12"]
+    },
+    {
+      "id": "L01",
+      "text": "Every critical integration has current official docs, schema fingerprint and verified environment.",
+      "code": ["services/ingestion"],
+      "tests": ["BOOT03", "D16"]
+    },
+    {
+      "id": "L02",
+      "text": "All code paths use policy-filtered capabilities; no ambient privileged shell in production research agents.",
+      "code": ["packages/kernel", "packages/agent-runtime"],
+      "tests": ["A11", "Q21", "SEC06", "SEC12"]
+    },
+    {
+      "id": "L03",
+      "text": "No workspace, agent memory, data or realtime room leaks to a second tenant.",
+      "code": ["packages/kernel", "apps/api"],
+      "tests": ["K04", "W04", "A17", "SEC03", "SEC19"]
+    },
+    {
+      "id": "L04",
+      "text": "BigQuery scanning is bounded; Explorer rate is globally enforced.",
+      "code": ["services/ingestion"],
+      "tests": ["D04", "D10", "PERF08"]
+    },
+    {
+      "id": "L05",
+      "text": "Private settlement regime and asset mapping changes are modeled explicitly.",
+      "code": ["services/ingestion"],
+      "tests": ["D08", "D09"]
+    },
+    {
+      "id": "L06",
+      "text": "Every published number resolves to a frozen input snapshot, metric model, query and computation code.",
+      "code": ["packages/capsule", "plugins/near-thesis"],
+      "tests": ["B07", "V06", "W10"]
+    },
+    {
+      "id": "L07",
+      "text": "Every panel has units, source timestamp, query/provenance and missing-data status.",
+      "code": ["packages/canvas-schema"],
+      "tests": ["C03", "C14", "S11"]
+    },
+    {
+      "id": "L08",
+      "text": "Marker -> subagent -> evidence loop passes end to end.",
+      "code": ["packages/workflow"],
+      "tests": ["M11"]
+    },
+    {
+      "id": "L09",
+      "text": "Statistical result includes valid chronological holdout and counterevidence.",
+      "code": ["services/research"],
+      "tests": ["Q11", "Q17", "Q22"]
+    },
+    {
+      "id": "L10",
+      "text": "Attested and merely reproduced results use different labels.",
+      "code": ["packages/capsule"],
+      "tests": ["V10", "SEC14", "B10"]
+    },
+    {
+      "id": "L11",
+      "text": "No uncontrolled mainnet writes; only approved hash-only commitment is enabled.",
+      "code": ["plugins/chain-commit"],
+      "tests": ["SEC04", "SEC15", "N02", "N08"]
+    },
+    {
+      "id": "L12",
+      "text": "Static report rebuild works without Explorer/NEAR AI partner keys.",
+      "code": ["packages/capsule"],
+      "tests": ["V01", "D15"]
+    },
+    {
+      "id": "L13",
+      "text": "All phase reports and individual blocker/finding files are present.",
+      "code": ["scripts/conformance.ts"],
+      "tests": ["N07"]
+    },
+    {
+      "id": "L14",
+      "text": "Security-critical FAIL or BLOCKED cases prevent release.",
+      "code": ["scripts/conformance.ts"],
+      "tests": ["SEC22", "N07"]
+    }
+  ]
+}

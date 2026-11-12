@@ -109,8 +109,9 @@ export function scanMigrations(root: string): {
     for (const f of walk(join(root, d)).filter((x) => x.endsWith(".sql"))) {
       names.push(relative(root, f));
       const sql = readFileSync(f, "utf8").replace(/--.*$/gm, "");
+      // `BEFORE TRUNCATE ON t` is a trigger event that blocks truncation (a guard), not a destructive statement
       const bad =
-        /\b(drop\s+(table|column|schema)|truncate|delete\s+from|rename\s+(to|column)|alter\s+column\s+\S+\s+(set\s+data\s+)?type)\b/i.exec(
+        /\b(drop\s+(table|column|schema)|truncate(?!\s+on\b)|delete\s+from|rename\s+(to|column)|alter\s+column\s+\S+\s+(set\s+data\s+)?type)\b/i.exec(
           sql,
         );
       if (bad) destructive.push(`${relative(root, f)}: ${bad[0].toLowerCase()}`);

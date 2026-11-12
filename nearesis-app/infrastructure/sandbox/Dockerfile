@@ -11,3 +11,5 @@ FROM gcr.io/distroless/nodejs24-debian13@sha256:d1c8c1be703f1dca243457ac656e7eee
 # The runner passes `node ...` as the command; the base entrypoint is already node, so clear it and put node on PATH.
 ENTRYPOINT []
 ENV PATH=/nodejs/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Unprivileged by default (the runner also passes --user 65534:65534); the release checks require a non-root image user.
+USER 65534:65534

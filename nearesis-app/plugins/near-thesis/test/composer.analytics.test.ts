@@ -12,7 +12,7 @@ import {
   type StructuredResult,
 } from "@nearesis/contracts";
 import { applyCanvasPatch } from "@nearesis/canvas-schema";
-import { runAnalytics, type AnalyticsDeps, type IntentsAnalytics } from "@nearesis/analytics";
+import { IntentsAnalytics, runAnalytics, type AnalyticsDeps } from "@nearesis/analytics";
 import { ANALYTICS_TOOLS, ComposerPlan, composeCanvas } from "../src/index.ts";
 
 const OWNER_QUESTION = "Intents swaps by status per week since August, how have refunds changed?";
@@ -101,6 +101,8 @@ const intents = {
         days: 7,
       },
     ]),
+  // static, window-free: the real inventory the API serves at /v1/intents/field-inventory
+  fieldInventory: () => new IntentsAnalytics(null as never).fieldInventory(),
   solverMetrics: async () => ({
     status: "CANNOT_COMPUTE" as const,
     metric: "intents.solver_metrics",
@@ -312,6 +314,36 @@ describe("composer: analytics tools when the certified catalogue lacks the metri
       ["OK", "status"],
       ["OK", "trend"],
     ]);
+  });
+
+  it("a field-inventory question is answered from intents.analyze@1 field_inventory as a table panel, not refused", async () => {
+    const t = compose(
+      () => ({
+        rationale: "which fields does the provider not expose",
+        panels: [],
+        analyticsPanels: [
+          {
+            title: "What the Explorer does and does not identify",
+            capability: "intents.analyze@1",
+            input: JSON.stringify({ analysis: "field_inventory" }),
+          },
+        ],
+      }),
+      "run-inv",
+      {
+        prompt:
+          "Which route metrics are unavailable because the provider does not expose the necessary fields?",
+      },
+    );
+    const r = await t.run();
+    expect(r.status).toBe("ok");
+    expect(r.analytics?.map((a) => [a.outcome, a.analysis])).toEqual([["OK", "field_inventory"]]);
+    const panel = (r.patch!.operations[0] as { panel: { title: string } }).panel;
+    expect(panel.title).toContain("does and does not identify");
+    expect(panel).toMatchObject({
+      kind: "table",
+      dataBinding: { fields: ["concept", "status", "source", "note"] },
+    });
   });
 
   it("tool calls run concurrently, with one discovery per composition", async () => {

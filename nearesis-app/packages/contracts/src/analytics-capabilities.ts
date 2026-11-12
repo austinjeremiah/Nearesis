@@ -106,6 +106,8 @@ export const IntentsAnalyzeInput = z.discriminatedUnion("analysis", [
     ...Win,
     era: z.enum(["public", "private_settlement"]).optional(),
   }),
+  /** What the Explorer does and does not identify per concept (static, no window): the answer to "which fields/metrics are unavailable". */
+  z.strictObject({ analysis: z.literal("field_inventory") }),
   /** Always CANNOT_COMPUTE (no settled_at in the source); carries a labelled indicative alternative when one exists. */
   z.strictObject({ analysis: z.literal("settlement_duration"), ...Win }),
   /** Always CANNOT_COMPUTE (the Explorer carries no solver identity). */

@@ -42,6 +42,11 @@ const chainSourceExpr = (a: string, reg: string, hot: string): string => `multiI
 /**
  * `sw`: deduplicated swaps (FINAL) in the window with both chains resolved. All numeric columns stay exact:
  * USD amounts are Decimal256(18) in the source and are summed as Decimals by ClickHouse.
+ *
+ * `do_not_merge_across_partitions_select_final`: intents_swaps is partitioned by toYYYYMM(created_day) and ordered by swap_key,
+ * and created_day is the day of the swap's immutable created_at, so every version of one swap lives in ONE partition (checked on
+ * all 11.4M rows: no swap_key spans two partitions). FINAL then deduplicates each partition on its own instead of merging the
+ * whole table: a 30-day summary went from 3.5 s to 0.3 s with identical counts and sums.
  */
 export function swapsCte(db: string, era: boolean): string {
   assertDb(db);
@@ -60,6 +65,7 @@ sw AS (
   LEFT JOIN hot AS oh ON oh.id = extract(s.origin_asset, 'hot\\\\.tg:([0-9]+)_')
   LEFT JOIN hot AS dh ON dh.id = extract(s.destination_asset, 'hot\\\\.tg:([0-9]+)_')
   WHERE s.created_day >= {from:Date} AND s.created_day <= {to:Date}${era ? " AND s.privacy_era = {era:String}" : ""}
+  SETTINGS do_not_merge_across_partitions_select_final = 1
 )`;
 }
 

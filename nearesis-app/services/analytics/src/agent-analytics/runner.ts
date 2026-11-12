@@ -284,6 +284,20 @@ async function runIntents(deps: AnalyticsDeps, input: IntentsAnalyzeInput): Prom
     });
   }
 
+  if (input.analysis === "field_inventory")
+    return fromIntents(ctx, { analysis: "field_inventory" }, a.fieldInventory(), (d) => ({
+      table: makeTable(
+        [
+          col("concept", "category"),
+          col("status", "category"),
+          col("source", "category"),
+          col("note", "category"),
+        ],
+        d.map((x) => ({ ...x })),
+      ),
+      chart: { kind: "table", y: [] },
+    }));
+
   const w = await resolveIntentsWindow(a, input);
   if (!w) return noWindow(`intents.${input.analysis}`);
   const base = { analysis: input.analysis, from: w.from, to: w.to };

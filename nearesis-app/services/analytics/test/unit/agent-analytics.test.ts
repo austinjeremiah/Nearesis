@@ -12,7 +12,7 @@ import {
   type AccountDay,
   type AnalyticsDeps,
   type EntityDataSource,
-  type IntentsAnalytics,
+  IntentsAnalytics,
   type IntentsResult,
 } from "../../src/index.ts";
 
@@ -161,6 +161,7 @@ const intents = {
     coverage: cov("2026-10-30", "2026-11-12"),
     provenance: prov,
   }),
+  fieldInventory: () => new IntentsAnalytics(null as never).fieldInventory(),
 } as unknown as IntentsAnalytics;
 
 const emptyEntities: EntityDataSource = {
@@ -293,6 +294,16 @@ describe("agent analytics: typed outputs", () => {
     expect(d.alternative?.table?.rows).toEqual([["eth", 5, 12, 30]]);
     expect(panelDataOf(d).cannotCompute).toEqual({ missing: ["settled_at"], explanation: "one timestamp" });
     expect(panelDataOf(d).chart.freshness).toBe("unavailable");
+  });
+
+  it("field_inventory needs no window and answers with the documented per-concept inventory", async () => {
+    const o = await run("intents.analyze@1", { analysis: "field_inventory" });
+    if (o.outcome !== "OK") throw new Error("expected OK");
+    expect(o.table.columns.map((c) => c.name)).toEqual(["concept", "status", "source", "note"]);
+    const status = new Map(o.table.rows.map((r) => [r[0], r[1]]));
+    expect(status.get("settlement time / completion time")).toBe("not_provided");
+    expect(status.get("solver / relayer / market-maker identity")).toBe("not_provided");
+    expect(o.table.rows.some((r) => r[1] === "not_provided")).toBe(true);
   });
 
   it("a source that is not loaded is CANNOT_COMPUTE, never a zero", async () => {

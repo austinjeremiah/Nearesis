@@ -85,17 +85,24 @@ const SYSTEM = [
   "Plan exactly four panels for an investigation request when the catalog allows it, each with a distinct measure.",
   "Analytics tools: when the certified catalog has no metric for the request (for example refunds or swap status, chain flows, concentration, unusual flows, entity or account activity), plan analyticsPanels instead of abstaining. These are analytics results computed from source tables, not certified metrics. Use only the capabilities and analyses listed in <analytics_tools>, give dates as YYYY-MM-DD inside the analytics data window, and never plan an analysis marked CANNOT_COMPUTE.",
   "Plan at most six analyticsPanels, each with a distinct analysis or parameter set. For a question about change over weeks, use grain week or granularity week.",
+  "For a question about which fields, metrics or concepts the provider does or does not expose or identify (for example settlement time, solver identity, quote linkage), plan ONE analyticsPanel intents.analyze@1 with analysis field_inventory instead of abstaining; it answers from the documented field inventory.",
   "If neither the certified catalog nor the analytics tools can answer the request, return zero panels in both lists and explain in rationale.",
 ].join(" ");
 
 /** What the model may ask of each analytics capability (kept in step with the capability input schemas by a test). */
-export const ANALYTICS_TOOLS = `intents.analyze@1: NEAR Intents swaps from the Explorer. analyses: status{grain:none|day|week}; trend{granularity:day|week|month, emphasis:swaps|refunds|refund_rate|volume}; refund_rates{by:chain_pair|asset_pair, top}; refund_causes{by:reason|week|day|chain_pair}; chain_flows{view:matrix|net}; concentration{dimension:origin_asset|destination_asset|origin_chain|destination_chain|chain_pair, measure:volume|count, top}; unusual_flows{baselineDays, recentDays}; summary; coverage. window: from,to (YYYY-MM-DD) or days (1 to 366). settlement_duration and solver_metrics are always CANNOT_COMPUTE (do not plan them).
+export const ANALYTICS_TOOLS = `intents.analyze@1: NEAR Intents swaps from the Explorer. analyses: status{grain:none|day|week}; trend{granularity:day|week|month, emphasis:swaps|refunds|refund_rate|volume}; refund_rates{by:chain_pair|asset_pair, top}; refund_causes{by:reason|week|day|chain_pair}; chain_flows{view:matrix|net}; concentration{dimension:origin_asset|destination_asset|origin_chain|destination_chain|chain_pair, measure:volume|count, top}; unusual_flows{baselineDays, recentDays}; summary; coverage; field_inventory{} (no window: what the Explorer does and does not identify, per concept). window: from,to (YYYY-MM-DD) or days (1 to 366). settlement_duration and solver_metrics are always CANNOT_COMPUTE (do not plan them).
 entities.analyze@1: ecosystem entities. analyses: changes{days, limit, type} ranked period-over-period interactions with unique signer change; metrics{entityId, from, to}; coverage{from,to|days}; unique_signers{entityId, from,to|days}; search{q, type, limit}.
 accounts.analyze@1: accounts (not people). analyses: daily{from,to|days} active, new, returning; growth{days, to}; retention; concentration{from,to|days}; coverage.
 Each analytics panel is {title, capability, input} where input is ONE JSON object string with "analysis" plus the parameters above, for example {"analysis":"status","from":"2026-08-01","to":"2026-11-10","grain":"week"}. Use no other keys.`;
 
+const NON_ADDITIVE = new Set(["count_distinct", "non_additive", "ratio"]);
+
 interface CatalogMetric {
   id: string;
+  /** How the metric aggregates; count_distinct, non_additive and ratio are never summed into a coarser grain. */
+  aggregationLaw?: string;
+  /** The grain the metric is defined at (day for the daily distinct metrics). */
+  grain?: string;
   cubeMember: string;
   unit: string;
   visibility: string;
@@ -183,18 +190,59 @@ export async function composeCanvas(args: {
   }
   const dims = new Set(disc.dimensions.map((d) => d.id ?? d.member ?? ""));
   const issues: ComposeResult["issues"] = [];
-  // A semantic query is limited to ONE view. A plan panel whose measures come from several views is split into one panel
-  // per view (validation is unchanged: the gateway still rejects any query that spans views).
+  // A semantic query is limited to ONE view and to ONE unit per axis, and a distinct count or ratio is never summed into a
+  // coarser grain. A plan panel that would break one of those rules is split into one panel per view, then per unit, and its
+  // non-additive measures are planned at day grain (their own grain) instead of being sent to a gateway that must refuse them.
+  // Validation is unchanged: the gateway and the canvas compiler still reject any query that breaks a rule.
   const viewOf = (ref: string) => (byRef.get(ref)?.cubeMember ?? ref).split(".")[0]!;
+  const unitOf = (ref: string) => byRef.get(ref)?.unit ?? "";
+  const nonAdditive = (ref: string) => NON_ADDITIVE.has(byRef.get(ref)?.aggregationLaw ?? "");
+  type PlanPanel = ComposerPlan["panels"][number];
+  type Part = {
+    title: string;
+    measures: string[];
+    grain: "day" | "week";
+    unitStrategy?: PlanPanel["unitStrategy"];
+  };
+  const groupBy = (ms: string[], key: (m: string) => string) => {
+    const g = new Map<string, string[]>();
+    for (const m of ms) g.set(key(m), [...(g.get(key(m)) ?? []), m]);
+    return [...g.entries()];
+  };
   const expanded = plan.panels.flatMap((p, planIdx) => {
-    const views = [...new Set(p.measures.map(viewOf))];
-    if (views.length <= 1) return [{ p, planIdx }];
-    return views.map((v) => ({
-      p: {
-        ...p,
-        title: `${p.title} (${v.replace(/_live$/, "").replace(/_/g, " ")})`.slice(0, 180),
-        measures: p.measures.filter((m) => viewOf(m) === v),
-      },
+    const parts: Part[] = [];
+    const byView = groupBy(p.measures, viewOf);
+    for (const [v, vm] of byView) {
+      const viewTitle =
+        byView.length > 1 ? `${p.title} (${v.replace(/_live$/, "").replace(/_/g, " ")})` : p.title;
+      const byUnit = groupBy(vm, unitOf);
+      for (const [u, um] of byUnit) {
+        const unitTitle = byUnit.length > 1 ? `${viewTitle} [${u}]` : viewTitle;
+        const additive = um.filter((m) => !nonAdditive(m));
+        const distinct = um.filter(nonAdditive);
+        const sameStrategy = byView.length === 1 && byUnit.length === 1 ? p.unitStrategy : undefined;
+        if (p.grain === "week" && distinct.length && additive.length) {
+          parts.push({
+            title: unitTitle,
+            measures: additive,
+            grain: "week",
+            ...(sameStrategy ? { unitStrategy: sameStrategy } : {}),
+          });
+          parts.push({ title: `${unitTitle} (daily)`, measures: distinct, grain: "day" });
+        } else if (p.grain === "week" && distinct.length)
+          parts.push({ title: `${unitTitle} (daily)`, measures: distinct, grain: "day" });
+        else
+          parts.push({
+            title: unitTitle,
+            measures: um,
+            grain: p.grain,
+            ...(sameStrategy ? { unitStrategy: sameStrategy } : {}),
+          });
+      }
+    }
+    const { unitStrategy: _dropped, ...rest } = p;
+    return parts.map((q) => ({
+      p: { ...rest, ...q, title: q.title.slice(0, 180) } as PlanPanel,
       planIdx,
     }));
   });
@@ -236,15 +284,51 @@ export async function composeCanvas(args: {
   // Analytics asks: validated against each capability's own typed input, then all tool calls (and the Cube preview) run
   // concurrently; nothing here depends on the order they finish in.
   const cubeCount = requests.length;
+  type Preview = {
+    ok: boolean;
+    patch: CanvasPatch | null;
+    issues: Array<{ index: number; code: string; message: string }>;
+  };
+  /**
+   * The gateway refuses a query whose estimated scan exceeds its row cap (COST_CAP; the cap is not loosened). When that is the
+   * only reason a panel is refused, the panel's window is narrowed (keeping its end) to the share the cap allows and the preview
+   * is repeated, at most twice; the narrowed span is stated in the panel title. Any other refusal is returned unchanged.
+   */
+  const previewWithinCostCap = async (): Promise<Preview> => {
+    let r = (await args.invoke("canvas.preview@1", {
+      expectedRevision: args.expectedRevision,
+      requests,
+    })) as Preview;
+    for (let attempt = 0; attempt < 2 && !r.ok && r.issues.length; attempt++) {
+      const capped = r.issues.map((x) => ({
+        x,
+        m: /Estimated (\d+) rows exceeds the cap of (\d+)/.exec(x.message),
+      }));
+      if (capped.some((c) => c.x.code !== "COST_CAP" || !c.m)) break;
+      let changed = false;
+      for (const { x, m } of capped) {
+        const req = requests[x.index];
+        if (!req || !m) continue;
+        const from = Date.parse(req.query.time.from);
+        const to = Date.parse(req.query.time.to);
+        const days = Math.floor((to - from) / 86_400_000);
+        const keep = Math.floor(((days * Number(m[2])) / Number(m[1])) * 0.9);
+        if (keep < 1 || keep >= days) continue;
+        req.query.time.from = new Date(to - keep * 86_400_000).toISOString();
+        req.title = `${req.title.replace(/ \(last \d+ days\)$/, "")} (last ${keep} days)`.slice(0, 180);
+        changed = true;
+      }
+      if (!changed) break;
+      r = (await args.invoke("canvas.preview@1", {
+        expectedRevision: args.expectedRevision,
+        requests,
+      })) as Preview;
+    }
+    return r;
+  };
   const asks = plan.analyticsPanels.map((ask, j) => ({ ask, j, input: analyticsInput(ask) }));
   const [prev, analytics] = await Promise.all([
-    requests.length
-      ? (args.invoke("canvas.preview@1", { expectedRevision: args.expectedRevision, requests }) as Promise<{
-          ok: boolean;
-          patch: CanvasPatch | null;
-          issues: Array<{ index: number; code: string; message: string }>;
-        }>)
-      : Promise.resolve(null),
+    requests.length ? previewWithinCostCap() : Promise.resolve(null),
     Promise.all(
       asks.map(async ({ ask, j, input }): Promise<{ call: AnalyticsCall; ok: AnalyticsOkResult | null }> => {
         const call: AnalyticsCall = {

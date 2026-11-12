@@ -77,9 +77,9 @@ const call = (cap: (typeof IDS)[number], input: unknown, run = liveRun) =>
   k.gateway.invoke(asRun(run), execReq(s, ws, cap, input, { deadlineMs: 60_000 }));
 
 describe("near-thesis manifest and artifact hash", () => {
-  it("is 1.4.0, declares the three analytics capabilities with their own grants, and hashes the entry module bytes", () => {
+  it("is 1.5.0, declares the three analytics capabilities with their own grants, and hashes the entry module bytes", () => {
     const m = buildManifest({ publisher: TEST_PUBLISHER });
-    expect(m.version).toBe("1.4.0");
+    expect(m.version).toBe("1.5.0");
     expect(NEAR_THESIS_DESCRIPTOR.version).toBe(m.version);
     expect(m.artifactSha256).toBe(createHash("sha256").update(readFileSync(ENTRY_FILE)).digest("hex"));
     for (const id of IDS) {

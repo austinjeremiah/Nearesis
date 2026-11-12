@@ -33,6 +33,12 @@ export interface InferenceCtx {
  * activity continues; the charge is keyed too, so exactly one result per key is charged. Provider deliveries are
  * counted in `agent_side_effects.provider_calls` (at-least-once delivery disclosure).
  */
+/** The priced actual a provider reports in its evidence (`estimatedCostUsd`), or null when it reports none (mock, local). */
+export function actualCostUsd(evidence: unknown): number | null {
+  const v = (evidence as { estimatedCostUsd?: unknown } | null | undefined)?.estimatedCostUsd;
+  return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null;
+}
+
 export class LedgerInference {
   private readonly provider: InferenceProvider;
   constructor(
@@ -85,6 +91,9 @@ export class LedgerInference {
           return {
             output: scrubSecretShapes(r.output) as unknown,
             usage: r.usage,
+            // The provider's own priced actual (e.g. OpenRouter `total_cost`), null when it reports none. The run budget must
+            // charge this, not the dev token price, or it reads ~10x the provider's ledger.
+            costUsd: actualCostUsd(r.evidence),
             provider: r.provider,
             model: r.model,
             secretsRedacted,
@@ -101,7 +110,7 @@ export class LedgerInference {
       budgetId: c.budgetId,
       taskId: c.taskId,
       entryKey: `charge:${a.key}`,
-      usage: { tokens, toolCalls: 0, usd: usdForTokens(tokens) },
+      usage: { tokens, toolCalls: 0, usd: out.result.costUsd ?? usdForTokens(tokens) },
     });
     return a.schema.parse(out.result.output);
   }
@@ -111,7 +120,9 @@ export class LedgerInference {
    * the provider), run the call, then settle with the actual tokens. A failed call returns its reservation, except an
    * aborted call, which may already have reached the provider and keeps the worst-case reservation.
    */
-  private async guarded<R extends { result: { usage: { inputTokens: number; outputTokens: number } } }>(
+  private async guarded<
+    R extends { result: { usage: { inputTokens: number; outputTokens: number }; costUsd?: number | null } },
+  >(
     a: { key: string; system: string; prompt: string; maxTokens?: number },
     run: () => Promise<R>,
   ): Promise<R> {
@@ -153,7 +164,10 @@ export class LedgerInference {
       throw e;
     }
     const tokens = out.result.usage.inputTokens + out.result.usage.outputTokens;
-    await cost.settle(c.tenantId, tokenKey, { quantity: tokens, usd: usdForTokens(tokens) });
+    await cost.settle(c.tenantId, tokenKey, {
+      quantity: tokens,
+      usd: out.result.costUsd ?? usdForTokens(tokens),
+    });
     await cost.settle(c.tenantId, reqKey, { quantity: 1, usd: 0 });
     return out;
   }

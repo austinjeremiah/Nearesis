@@ -199,8 +199,15 @@ describe.skipIf(!existsSync(NEAR_THESIS))("plugin:install CLI with plugins/near-
     const all = await rows("near-thesis");
     expect(all).toHaveLength(1);
     expect(all[0]).toMatchObject({ trust: "production", state: "enabled", active: true });
+    // The governed capability set of near-thesis. Every entry is declared read_only with its own required grant in
+    // plugins/near-thesis/src/capabilities.ts: the three analytics capabilities (intents, entities, accounts) and
+    // metric.propose@1 (stores a DRAFT definition only) were added after the original three.
     expect(all[0].manifest.capabilities.map((c: { id: string }) => c.id).sort()).toEqual([
+      "accounts.analyze@1",
       "canvas.preview@1",
+      "entities.analyze@1",
+      "intents.analyze@1",
+      "metric.propose@1",
       "semantic.discover@1",
       "semantic.query@1",
     ]);

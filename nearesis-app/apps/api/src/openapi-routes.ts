@@ -965,6 +965,11 @@ export const ROUTES: RouteSpec[] = [
     capability: "global approvals",
     ok: typed(GlobalApprovalList),
   }),
+  R("get", "/v1/findings", "frontend", "Newest interpreted findings (analyst + skeptic) across the caller's workspaces", {
+    query: z.object({ limit: z.number().int().min(1).max(50).optional() }),
+    capability: "global findings",
+    ok: "{ findings: { runId, workspaceId, workspaceObjective, question, createdAt, finding: InterpretedFinding }[], truncated, workspaceCount }",
+  }),
   R(
     "get",
     "/v1/publications",

@@ -264,6 +264,58 @@ export const globalRoutes: FastifyPluginAsync<GlobalRoutesOptions> = async (app,
     return body;
   });
 
+  /**
+   * GET /v1/findings: the newest interpreted findings (analyst + skeptic, grounded in result cells) across the caller's
+   * non-archived workspaces, one or more per run, newest run first. Each finding is returned exactly as stored, with the
+   * run's question and workspace so a reader can open the evidence. Read-only; no model call is made here.
+   */
+  app.get("/v1/findings", async (req) => {
+    const s = await authenticate(req);
+    const limit = Math.min(parseQ(req.query).limit ?? 6, 50);
+    const { list, truncated } = await workspacesOf(s);
+    const byId = new Map(list.map((w) => [w.id, w]));
+    const wanted = list.map((w) => w.id);
+    const rows = wanted.length
+      ? await kernel.db
+          .tx({ orgId: s.principal.orgId, userId: s.userId }, async (tx) => {
+            const r = await tx.query<{
+              run_id: string;
+              workspace_id: string;
+              finding: Record<string, unknown>;
+              created_at: Date;
+              question: string | null;
+              scenario: string | null;
+            }>(
+              `SELECT f.run_id, f.workspace_id, f.finding, f.created_at, r.scenario,
+                      (SELECT t.objective FROM runtime.tasks t WHERE t.run_id = r.id AND t.objective IS NOT NULL
+                        ORDER BY t.depth, t.created_at, t.id LIMIT 1) AS question
+                 FROM runtime.run_findings f JOIN runtime.runs r ON r.id = f.run_id
+                WHERE f.workspace_id = ANY($1::uuid[])
+                ORDER BY f.created_at DESC, f.position ASC LIMIT $2`,
+              [wanted, limit],
+            );
+            return r.rows;
+          })
+          .catch((e: unknown) => {
+            const c = (e as { code?: string } | null)?.code;
+            if (c === "42P01" || c === "3F000" || c === "42501") return [];
+            throw e;
+          })
+      : [];
+    return {
+      findings: rows.map((r) => ({
+        runId: r.run_id,
+        workspaceId: r.workspace_id,
+        workspaceObjective: byId.get(r.workspace_id)?.objective ?? "",
+        question: (r.question ?? r.scenario ?? "").replace(/^\[scenario=[^\]]*\]\s*/, "").slice(0, 300),
+        createdAt: new Date(r.created_at).toISOString(),
+        finding: r.finding,
+      })),
+      truncated,
+      workspaceCount: list.length,
+    };
+  });
+
   app.get("/v1/publications", async (req) => {
     const s = await authenticate(req);
     const dir = capsuleRoot();

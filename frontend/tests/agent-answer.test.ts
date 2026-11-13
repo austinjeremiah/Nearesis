@@ -100,3 +100,19 @@ describe('conversation storage', () => {
     expect(s.m.has(STORAGE_KEY)).toBe(false);
   });
 });
+
+import { CTX_KEY, loadContext, saveContext } from '@/lib/agent/storage';
+describe('context storage', () => {
+  it('remembers the selected workspace, defaults to quick answers, and keeps run turns', () => {
+    const m = new Map<string, string>();
+    const s = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) };
+    expect(loadContext(s)).toBe('quick');
+    saveContext(s, '17cd0234-3625-49b9-9daa-97293bb3ecd7');
+    expect(m.get(CTX_KEY)).toBe('17cd0234-3625-49b9-9daa-97293bb3ecd7');
+    expect(loadContext(s)).toBe('17cd0234-3625-49b9-9daa-97293bb3ecd7');
+    expect(loadContext(null)).toBe('quick');
+    const run: Turn = { id: 'r', kind: 'run', workspaceId: 'w', runId: 'x', question: 'q', at: 1 };
+    saveTurns(s, [run]);
+    expect(loadTurns(s)).toEqual([run]);
+  });
+});

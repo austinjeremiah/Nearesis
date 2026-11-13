@@ -5,7 +5,9 @@ import { markInterrupted } from './pipeline';
 export type Turn =
   | { id: string; kind: 'user'; text: string; at: number }
   | { id: string; kind: 'answer'; question: string; answer: AgentAnswer; at: number }
-  | { id: string; kind: 'pipeline'; pipeline: PipelineState; at: number };
+  | { id: string; kind: 'pipeline'; pipeline: PipelineState; at: number }
+  /** A question asked against an existing workspace: the run card follows it live. */
+  | { id: string; kind: 'run'; workspaceId: string; runId: string; question: string; at: number };
 
 export const STORAGE_KEY = 'nearesis.agent.conversation.v1';
 export const MAX_TURNS = 30;
@@ -25,7 +27,7 @@ export function loadTurns(storage: Pick<Storage, 'getItem'> | null): Turn[] {
     const v = JSON.parse(raw) as unknown;
     if (!Array.isArray(v)) return [];
     return (v as Turn[])
-      .filter((t) => t && typeof t === 'object' && ['user', 'answer', 'pipeline'].includes(t.kind) && typeof t.id === 'string')
+      .filter((t) => t && typeof t === 'object' && ['user', 'answer', 'pipeline', 'run'].includes(t.kind) && typeof t.id === 'string')
       .map((t) => (t.kind === 'pipeline' ? { ...t, pipeline: markInterrupted(t.pipeline) } : t));
   } catch {
     return [];
@@ -47,5 +49,24 @@ export function browserStorage(): Storage | null {
     return typeof window === 'undefined' ? null : window.localStorage;
   } catch {
     return null;
+  }
+}
+
+/** Which context the chat works in: quick answers (no workspace), a new workspace, or an existing workspace id. */
+export type AgentContext = 'quick' | 'new' | string;
+export const CTX_KEY = 'nearesis.agent.context.v1';
+export function loadContext(storage: Pick<Storage, 'getItem'> | null): AgentContext {
+  try {
+    const v = storage?.getItem(CTX_KEY);
+    return typeof v === 'string' && v.length > 0 && v.length < 80 ? v : 'quick';
+  } catch {
+    return 'quick';
+  }
+}
+export function saveContext(storage: Pick<Storage, 'setItem'> | null, ctx: AgentContext): void {
+  try {
+    storage?.setItem(CTX_KEY, ctx);
+  } catch {
+    /* not remembered */
   }
 }

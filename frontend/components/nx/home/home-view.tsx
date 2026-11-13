@@ -36,7 +36,7 @@ function AskBox() {
   // The question is answered in the Agent tab (a quick answer, no workspace is created here).
   const submit = (text: string) => {
     const t = text.trim().slice(0, 2000);
-    if (t) router.push(`/home?tab=agent&q=${encodeURIComponent(t)}`);
+    if (t) router.push(`/agent?q=${encodeURIComponent(t)}`);
   };
   return (
     <form
@@ -77,7 +77,7 @@ function AskBox() {
         ))}
       </div>
       <p className="tiny dim">
-        This opens the Agent tab and answers your question with charts. Nothing is created until you choose &quot;Create workspace&quot; there and confirm.
+        This opens the Agent page and answers your question with charts. Nothing is created until you choose &quot;Create workspace&quot; there and confirm.
       </p>
     </form>
   );

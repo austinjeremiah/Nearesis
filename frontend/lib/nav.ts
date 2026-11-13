@@ -3,6 +3,7 @@ import {
   Activity,
   Bell,
   BookOpen,
+  Bot,
   Boxes,
   Braces,
   Clock,
@@ -54,6 +55,7 @@ export type NavGroup = {
 /** Global area. Visible with or without an active workspace. */
 export const GLOBAL_NAV: NavItem[] = [
   { href: '/home', label: 'Home', icon: Home, hint: 'What needs your attention' },
+  { href: '/agent', label: 'Agent', icon: Bot, hint: 'Ask, chart and investigate' },
   { href: '/workspaces', label: 'Workspaces', icon: Boxes, hint: 'Portfolio of investigations' },
   { href: '/data', label: 'Explore data', icon: Database, hint: 'Certified metric catalog' },
   { href: '/publications', label: 'Publications', icon: BookOpen, hint: 'Published theses' },

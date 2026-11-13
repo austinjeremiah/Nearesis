@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Content, PageHeader } from '@/components/nx/shell';
 import { SectionBar } from '@/components/nx/section';
 import { Card, EmptyState, LinkButton } from '@/components/nx/ui';
@@ -10,7 +11,6 @@ import { shellServer } from '@/lib/api/shell-server';
 import { settle } from '@/lib/api/guard';
 import { formatAge, formatUsd } from '@/lib/format';
 import HomeView from '@/components/nx/home/home-view';
-import HomeTabs from '@/components/nx/home/home-tabs';
 
 export const metadata: Metadata = { title: 'Home · Nearesis' };
 
@@ -20,7 +20,10 @@ export const metadata: Metadata = { title: 'Home · Nearesis' };
  * monitor notifications, sources that are not fresh, and the global spend
  * ceiling. An empty queue says so; nothing is invented.
  */
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ tab?: string; q?: string }> }) {
+  // The Agent used to be a tab here; it is its own page now.
+  const sp = await searchParams;
+  if (sp.tab === 'agent') redirect(sp.q ? `/agent?q=${encodeURIComponent(sp.q)}` : '/agent');
   const [ws, pins, approvals, notes, sources, spend] = await Promise.all([
     settle(api.workspaces()),
     settle(shellServer.pins()),
@@ -52,9 +55,6 @@ export default async function HomePage() {
         }
       />
       <Content>
-        <HomeTabs
-          overview={
-            <div className="home-overview">
         <HomeView />
         <section>
           <SectionBar title="Continue researching" number="004" />
@@ -171,9 +171,6 @@ export default async function HomePage() {
             )}
           </div>
         </section>
-            </div>
-          }
-        />
       </Content>
     </>
   );

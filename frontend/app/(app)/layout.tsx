@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
 import '../app.css';
 import Providers from '@/components/providers';
+import { cookies } from 'next/headers';
+import { ThemeSync } from '@/components/nx/theme';
+import { DEFAULT_THEME, THEME_COOKIE, type Theme } from '@/lib/theme';
 
 /**
  * App route group. Deliberately does not load the marketing site's Webflow
@@ -18,9 +21,12 @@ const FONTS =
   '&family=IBM+Plex+Mono:wght@400;500;600' +
   '&display=swap';
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  const saved = (await cookies()).get(THEME_COOKIE)?.value;
+  const theme: Theme = saved === 'light' || saved === 'dark' ? saved : DEFAULT_THEME;
   return (
-    <div className="nx">
+    <div className="nx" data-theme={theme}>
+      <ThemeSync theme={theme} />
       <link href="https://fonts.googleapis.com" rel="preconnect" />
       <link href="https://fonts.gstatic.com" rel="preconnect" crossOrigin="anonymous" />
       <link href={FONTS} rel="stylesheet" precedence="default" />

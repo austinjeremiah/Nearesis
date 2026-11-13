@@ -89,7 +89,8 @@ export function AppShell({
               far bottom of the rail where it reads as a stray button. */}
           <div className="nav-brand">
             <Link href="/home" aria-label="Nearesis home">
-              <Wordmark tone="black" size={24} />
+              <span className="wm-on-light"><Wordmark tone="black" size={24} /></span>
+              <span className="wm-on-dark"><Wordmark tone="white" size={24} /></span>
             </Link>
             <button
               type="button"

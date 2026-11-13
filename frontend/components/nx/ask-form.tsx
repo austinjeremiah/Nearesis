@@ -21,10 +21,10 @@ const MIN_BUDGET: Budget = { tokens: 32000, toolCalls: 12, usd: 3 };
 const MAX_TOOL_CALLS = 24;
 const QUESTION_MAX = 4000;
 
-export default function AskForm({ wid }: { wid: string }) {
+export default function AskForm({ wid, initialQuestion = '' }: { wid: string; initialQuestion?: string }) {
   const router = useRouter();
   const qc = useQueryClient();
-  const [question, setQuestion] = useState('');
+  const [question, setQuestion] = useState(initialQuestion);
   const [source, setSource] = useState<'fixture' | 'live'>('live');
   const [snapshotPolicy, setSnapshotPolicy] = useState<'live' | 'pinned'>('live');
   const [priority, setPriority] = useState<'normal' | 'low'>('normal');

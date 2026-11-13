@@ -1,0 +1,234 @@
+/* Home: hero + ask, live strip, numbers, agent findings, how it works. Tokens only, so both themes follow. */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.home-hero {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 36px 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.home-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  background: var(--accent);
+  padding: 4px 8px;
+}
+.home-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3.6vw, 44px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  max-width: 22ch;
+}
+.home-sub {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--text-2);
+}
+
+.home-ask {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.home-ask-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+.home-ask-row textarea {
+  flex: 1;
+  resize: vertical;
+  min-height: 56px;
+  padding: 14px 16px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  outline: none;
+}
+.home-ask-row textarea:focus {
+  box-shadow: var(--focus-ring);
+}
+.home-ask-row .btn {
+  align-self: stretch;
+  padding-inline: 20px;
+}
+.home-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.nx .home-chip {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  padding: 6px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+.nx .home-chip:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.home-live {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.home-live:hover {
+  border-color: var(--line-strong);
+}
+.home-live-k {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.home-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--line-strong);
+}
+.home-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.home-dot.on {
+  background: var(--ok);
+  box-shadow: 0 0 0 0 var(--ok);
+  animation: home-pulse 1.8s ease-out infinite;
+}
+.home-dot.warn {
+  background: var(--warn);
+}
+@keyframes home-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-dot.on {
+    animation: none;
+  }
+}
+
+.home-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.home-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.home-kpi:hover {
+  border-color: var(--accent);
+}
+.home-kpi-v {
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.home-findings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.home-finding {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+}
+.home-finding-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.home-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.home-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.home-step-n {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.home-step-i {
+  color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .home-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .home-findings,
+  .home-steps {
+    grid-template-columns: 1fr;
+  }
+  .home-ask-row {
+    flex-direction: column;
+  }
+  .home-hero {
+    padding: 24px 16px;
+  }
+}

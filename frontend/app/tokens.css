@@ -154,7 +154,8 @@
    becomes a warm near-black, and the accent is held back slightly because full
    #00ec97 vibrates against dark backgrounds.
    -------------------------------------------------------------------------- */
-:root[data-theme='dark'] {
+:root[data-theme='dark'],
+.nx[data-theme='dark'] {
   --page: #17170f;
   --surface: #1e1e16;
   --raised: #26261c;
@@ -196,3 +197,8 @@
   --focus-ring: 0 0 0 2px var(--page), 0 0 0 4px var(--accent);
   --shadow-overlay: 0 1px 0 var(--line-hard), 0 18px 40px rgba(0, 0, 0, 0.5);
 }
+
+/* The wordmark is drawn in fixed ink; show the variant that reads on the current surface. */
+.wm-on-dark { display: none; }
+.nx[data-theme='dark'] .wm-on-dark { display: contents; }
+.nx[data-theme='dark'] .wm-on-light { display: none; }

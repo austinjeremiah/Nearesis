@@ -10,6 +10,7 @@ import { ApiRequestError } from '@/lib/api/errors';
 import { useStreamStatus } from '@/lib/sse/hub';
 import { formatUsd } from '@/lib/format';
 import { Button } from './ui';
+import { ThemeToggle } from './theme';
 
 /**
  * Topbar: live-stream indicator, spend status (global USD ceiling, and this
@@ -126,6 +127,7 @@ export function UserMenu({ workspaceId }: { workspaceId?: string | null }) {
       )}
       {workspaceId && <WorkspaceBudgetChip workspaceId={workspaceId} />}
       <GlobalSpendChip />
+      <ThemeToggle />
       {pending.data && (
         <Link
           href="/home#attention"

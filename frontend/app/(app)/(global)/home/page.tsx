@@ -9,6 +9,7 @@ import { api } from '@/lib/api/server';
 import { shellServer } from '@/lib/api/shell-server';
 import { settle } from '@/lib/api/guard';
 import { formatAge, formatUsd } from '@/lib/format';
+import HomeView from '@/components/nx/home/home-view';
 
 export const metadata: Metadata = { title: 'Home · Nearesis' };
 
@@ -42,7 +43,7 @@ export default async function HomePage() {
     <>
       <PageHeader
         title="Home"
-        description="What needs your attention across every workspace you can see."
+        description="Live NEAR data, what the agents found, and your research."
         actions={
           <LinkButton href="/workspaces/new" variant="primary">
             New workspace
@@ -50,8 +51,9 @@ export default async function HomePage() {
         }
       />
       <Content>
+        <HomeView />
         <section>
-          <SectionBar title="Continue researching" number="001" />
+          <SectionBar title="Continue researching" number="004" />
           {!ws.ok ? (
             <ApiErrorState error={ws.error} />
           ) : recent.length === 0 ? (
@@ -73,7 +75,6 @@ export default async function HomePage() {
                   actions={
                     <span className="row gap1">
                       {pinned.has(w.id) && <Badge tone="accent">Pinned</Badge>}
-                      <Badge outline>{w.networkScope}</Badge>
                     </span>
                   }
                   footer={
@@ -92,7 +93,7 @@ export default async function HomePage() {
         </section>
 
         <section id="attention" data-testid="attention">
-          <SectionBar title="Needs attention" number="002" />
+          <SectionBar title="Needs attention" number="005" />
           <div className="col gap3">
             {nothing && (
               <EmptyState title="Nothing needs you" body="No approvals are waiting, no unread notifications, every source is fresh and spend is under its ceiling." />

@@ -16,12 +16,15 @@ export function SeriesChart({
   ariaLabel,
   unit,
   kind = 'line',
+  stack = false,
 }: {
   series: { name: string; points: Pt[] }[];
   height?: number;
   ariaLabel: string;
   unit?: string;
   kind?: 'line' | 'bar';
+  /** Stack the series (bars of parts that add up to a whole). */
+  stack?: boolean;
 }) {
   const option = useMemo(
     () => (t: ChartTheme) => {
@@ -35,6 +38,7 @@ export function SeriesChart({
         series: series.map((s, i) => ({
           name: s.name,
           type: kind,
+          ...(stack ? { stack: 'total' } : {}),
           showSymbol: false,
           connectNulls: false,
           itemStyle: { color: pal[i % pal.length] },
@@ -43,7 +47,7 @@ export function SeriesChart({
         })),
       };
     },
-    [series, unit, kind],
+    [series, unit, kind, stack],
   );
   return <Chart option={option} height={height} ariaLabel={ariaLabel} />;
 }

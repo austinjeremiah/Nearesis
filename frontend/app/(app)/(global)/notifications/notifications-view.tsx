@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DataTable, type Column } from '@/components/nx/table';
 import { Badge } from '@/components/nx/evidence';
-import { Segmented } from '@/components/nx/ui';
+import { Button, Segmented } from '@/components/nx/ui';
 import { ApiErrorState } from '@/components/nx/states';
 import { Notice } from '@/components/nx/ui';
 import { shellBrowser } from '@/lib/api/shell-browser';
@@ -14,10 +14,16 @@ import { formatAge, formatUtc } from '@/lib/format';
 
 export default function NotificationsView() {
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const qc = useQueryClient();
+  const mark = useMutation({
+    mutationFn: (which: { ids: string[] } | { all: true }) => shellBrowser.markNotificationsRead(which),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['global'] }),
+  });
   const q = useQuery({
     queryKey: ['global', 'notifications', filter],
     queryFn: () => shellBrowser.notifications({ unread: filter === 'unread' }),
   });
+  const markErr = mark.error ? <ApiErrorState error={mark.error} /> : null;
   if (q.isError) return <ApiErrorState error={q.error} onRetry={() => q.refetch()} />;
   const rows = q.data?.notifications ?? [];
   const columns: Column<GlobalNotification>[] = [
@@ -51,7 +57,21 @@ export default function NotificationsView() {
         </span>
       ),
     },
-    { key: 'read', header: '', render: (n) => (n.readAt ? <span className="tiny dim">read</span> : <Badge tone="accent">unread</Badge>) },
+    {
+      key: 'read',
+      header: '',
+      render: (n) =>
+        n.readAt ? (
+          <span className="tiny dim" data-testid="notification-read">read</span>
+        ) : (
+          <span className="row gap2">
+            <Badge tone="accent">unread</Badge>
+            <Button variant="ghost" data-testid="mark-read" aria-label={`Mark read: ${n.title}`} pending={mark.isPending && mark.variables && 'ids' in mark.variables && mark.variables.ids.includes(n.notificationId)} onClick={() => mark.mutate({ ids: [n.notificationId] })}>
+              Mark read
+            </Button>
+          </span>
+        ),
+    },
   ];
   return (
     <div className="col gap3">
@@ -65,7 +85,17 @@ export default function NotificationsView() {
           ]}
           ariaLabel="Filter notifications"
         />
+        <Button
+          data-testid="mark-all-read"
+          disabled={!q.data || q.data.unread === 0}
+          disabledReason="Nothing is unread."
+          pending={mark.isPending && !!mark.variables && 'all' in mark.variables}
+          onClick={() => mark.mutate({ all: true })}
+        >
+          Mark all read
+        </Button>
       </div>
+      {markErr}
       {q.data?.truncated && (
         <Notice tone="warn" title="List truncated">
           More notifications exist than this page loads. Open a workspace's monitors to see the rest.

@@ -37,6 +37,9 @@ export type GlobalNotificationList = {
   workspaceCount: number;
 };
 
+/** Marks read for the calling user only. `unread` is the caller's count after the change. */
+export type MarkReadResult = { marked: string[]; alreadyRead: number; notFound: string[]; unread: number };
+
 export type GlobalApproval = {
   approvalId: string;
   runId: string;
@@ -197,6 +200,10 @@ export function createShellApi(transport: Transport) {
     pins: (o?: RequestOptions) => get<{ pins: { workspaceId: string; pinnedAt: string }[] }>('/v1/me/pins', o),
     notifications: (q?: { unread?: boolean; limit?: number }, o?: RequestOptions) =>
       get<GlobalNotificationList>('/v1/notifications', { ...o, query: { unread: q?.unread ? 1 : undefined, limit: q?.limit } }),
+    markNotificationsRead: (which: { ids: string[] } | { all: true }, o?: RequestOptions) =>
+      send<MarkReadResult>('POST', '/v1/notifications/read', which, o),
+    markWorkspaceNotificationsRead: (wid: string, which: { ids: string[] } | { all: true }, o?: RequestOptions) =>
+      send<MarkReadResult>('POST', `${ws(wid)}/notifications/read`, which, o),
     approvals: (status: 'pending' | 'all' = 'pending', o?: RequestOptions) =>
       get<GlobalApprovalList>('/v1/approvals', { ...o, query: { status } }),
     sources: (o?: RequestOptions) => get<GlobalSourceList>('/v1/sources', o),

@@ -9,12 +9,13 @@ import { ApiCard, WindowControl } from './kit';
 import { fInt, fPct, fSeconds } from '@/lib/data/num';
 import { formatAge, formatUtc } from '@/lib/format';
 
+export type RateLimit = { status: string; detail: string; attempts: number; limited: number; windowDays: number; lastAttemptAt: string | null };
 export type SourceRow = {
   sourceId: string; state: string; watermark: string | null; lagSeconds: number | null; gapCount: number; coveragePct: number | null;
   coverageWindow: { from: string; to: string; days: number } | null;
   datasets: { dataset: string; completeDays: number; partialDays: number; unavailableDays: number; missingDays: number; coveragePct: number }[];
   recentErrors: { dataset: string; reasonCode: string; state: string; from: string; to: string }[];
-  rateLimit: unknown | null; schemaVersion: string | null;
+  rateLimit: RateLimit | null; rateLimitRecorded?: boolean; schemaVersion: string | null;
 };
 
 export const stateTone = (s: string) => (s === 'fresh' || s === 'live' ? 'ok' : s === 'late' || s === 'catching_up' ? 'warn' : 'bad');
@@ -37,7 +38,20 @@ export function SourcesList() {
               { key: 'g', header: 'Gaps', numeric: true, render: (s) => fInt(s.gapCount) },
               { key: 'c', header: '90-day coverage', numeric: true, render: (s) => (s.coveragePct === null ? 'not tracked' : fPct(s.coveragePct / 100)) },
               { key: 'e', header: 'Recent errors', numeric: true, render: (s) => s.recentErrors.length },
-              { key: 'rl', header: 'Rate limit', render: (s) => (s.rateLimit ? 'recorded' : <span className="dim">not recorded</span>) },
+              {
+                key: 'rl',
+                header: 'Rate limit',
+                render: (s) =>
+                  s.rateLimit ? (
+                    <span className="col gap1" data-testid="source-rate-limit" data-recorded="true" title={s.rateLimit.detail}>
+                      <span><Badge tone={s.rateLimit.limited > 0 ? 'warn' : 'ok'}>{s.rateLimit.status.replace(/_/g, ' ')}</Badge></span>
+                      <span className="small mono">{fInt(s.rateLimit.limited)} of {fInt(s.rateLimit.attempts)} attempts in {s.rateLimit.windowDays}d</span>
+                      <span className="tiny dim">last attempt {formatUtc(s.rateLimit.lastAttemptAt)}</span>
+                    </span>
+                  ) : (
+                    <span className="dim" data-testid="source-rate-limit" data-recorded="false">{s.rateLimitRecorded === false ? 'not recorded by this source' : 'not recorded'}</span>
+                  ),
+              },
             ]}
           />
           <p className="small dim">Lag is the age of the newest event. Daily-batch sources show a lag of up to a day by design. "Not tracked" means the source keeps no per-dataset coverage ledger.</p>

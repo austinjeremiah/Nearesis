@@ -158,28 +158,22 @@ test('24 monitor rule: create, trigger by replay, suppression, live versus repla
   await page.getByTestId('toggle-rule').click();
   await expect(detail).toHaveAttribute('data-enabled', 'true');
 
-  // replay: two events above the threshold inside the cooldown, one below
+  // replay over recorded history: no values are typed in, the API supplies recorded daily values
   const replay = page.getByTestId('replay-form');
-  const fill = async (i: number, at: string, v: string) => {
-    await replay.getByLabel(`Replay watermark ${i}`).fill(at);
-    await replay.getByLabel(`Replay value live.near_tx_count ${i}`).fill(v);
-  };
-  await fill(1, '2026-11-01T10:00', '500');
-  await replay.getByRole('button', { name: 'Add event' }).click();
-  await fill(2, '2026-11-01T10:05', '600');
-  await replay.getByRole('button', { name: 'Add event' }).click();
-  await fill(3, '2026-11-01T10:10', '5');
+  await expect(replay.getByLabel(/Replay value/)).toHaveCount(0);
+  await replay.getByLabel('Replay from').fill('2026-11-05');
+  await replay.getByLabel('Replay to').fill('2026-11-09');
   await page.getByTestId('run-replay').click();
-  await expect(page.getByText('Replayed 3 event(s)')).toBeVisible();
+  await expect(page.getByTestId('replay-result')).toBeVisible();
+  await expect(page.getByTestId('replay-result')).toContainText('Replayed 5 day(s)');
 
   const rc = page.getByTestId('replay-counts');
-  await expect(rc.locator('[data-k=fired]')).toHaveText('1');
-  await expect(rc.locator('[data-k=suppressed]')).toHaveText('1');
-  await expect(rc.locator('[data-k=false]')).toHaveText('1');
+  await expect(rc.locator('[data-k=total]')).toHaveText('5');
+  await expect(rc.locator('[data-k=fired]')).toHaveText('5');
   // nothing replayed is counted as live
   await expect(page.getByTestId('live-counts').locator('[data-k=total]')).toHaveText('0');
   await expect(page.getByTestId('triggers').locator('tr[data-mode=live]')).toHaveCount(0);
-  await expect(page.getByTestId('triggers').locator('tr[data-outcome=fired][data-mode=replay]')).toHaveCount(1);
+  await expect(page.getByTestId('triggers').locator('tr[data-outcome=fired][data-mode=replay]')).toHaveCount(5);
 
   // the notification reaches the page (SSE invalidation refreshes the list)
   await expect(page.getByTestId('rule-notifications')).toContainText('replay');

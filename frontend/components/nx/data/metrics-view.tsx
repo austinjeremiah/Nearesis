@@ -227,7 +227,7 @@ export function MetricDetail({ metricKey, wid }: { metricKey: string; wid: strin
         ]} />
       </Card>
       {row.source === 'registry' ? (
-        <Notice tone="info" title="Platform registry metric">Registry metrics are certified with the platform. They have no authoring lifecycle here; revisions are made by authoring a new metric.</Notice>
+        <RegistryDetail metricKey={metricKey} />
       ) : wsId ? (
         <Lifecycle metricKey={metricKey} wid={wsId} />
       ) : (
@@ -378,6 +378,74 @@ function Lifecycle({ metricKey, wid }: { metricKey: string; wid: string }) {
           ]} />
         )}
       </ApiCard>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ registry metric */
+
+type RegistryMetric = {
+  metricKey: string; source: 'registry'; status: string; version: string; displayName: string; unit: string; exploratory: boolean;
+  definition: Record<string, unknown> & { kind?: string; grain?: string; aggregationLaw?: string; denominator?: string; zeroPolicy?: string; transformations?: string[]; expectedUpdateLag?: string; botProxyDefinition?: string; uncertainty?: string; cubeMember?: string | null };
+  sources: string[]; visibility: string; owner: string; docUri: string | null;
+  certification: { certified: boolean; certifiedVersion: string | null; registrySemanticVersion: string };
+  semanticHash: string; registryContentHash: string;
+};
+type RegistryVersions = {
+  metricKey: string;
+  versions: { version: string; status: string; current: boolean; semanticHash: string; registrySemanticVersion: string; registryContentHash: string }[];
+  note?: string;
+};
+
+/** Certified registry metric: definition, sources, hashes and certification from GET /v1/metrics/:key and /versions. */
+function RegistryDetail({ metricKey }: { metricKey: string }) {
+  const key = encodeURIComponent(metricKey);
+  const m = useApiGet<RegistryMetric>(`/v1/metrics/${key}`);
+  const v = useApiGet<RegistryVersions>(`/v1/metrics/${key}/versions`);
+  if (m.isPending) return <Skeleton rows={4} />;
+  if (m.isError) return <ApiErrorState error={m.error} onRetry={() => m.refetch()} />;
+  const d = m.data;
+  const def = d.definition;
+  return (
+    <div className="col gap3" data-testid="registry-metric">
+      <Card title="Registry definition" subtitle="Certified with the platform. Revisions are made by authoring a new metric.">
+        <KeyValues rows={[
+          { k: 'Certification', v: <span data-testid="registry-certification"><Badge tone={d.certification.certified ? 'ok' : 'warn'}>{d.certification.certified ? 'certified' : 'not certified'}</Badge> <span className="mono small">version {d.certification.certifiedVersion ?? 'none'}, registry {d.certification.registrySemanticVersion}</span></span> },
+          { k: 'Kind', v: <span className="mono">{def.kind ?? '—'}</span> },
+          { k: 'Grain', v: <span className="mono">{def.grain ?? '—'}</span> },
+          { k: 'Aggregation law', v: <span className="mono">{def.aggregationLaw ?? '—'}</span> },
+          { k: 'Denominator', v: def.denominator ?? '—' },
+          { k: 'Zero policy', v: <span className="mono">{def.zeroPolicy ?? '—'}</span> },
+          { k: 'Expected update lag', v: <span className="mono">{def.expectedUpdateLag ?? '—'}</span> },
+          { k: 'Bot and system traffic', v: def.botProxyDefinition ?? '—' },
+          { k: 'Uncertainty', v: <span data-testid="registry-uncertainty">{def.uncertainty ?? '—'}</span> },
+          { k: 'Sources', v: <span className="mono small" data-testid="registry-sources">{d.sources.join(', ')}</span> },
+          { k: 'Transformations', v: <ul style={{ margin: 0, paddingLeft: 16 }}>{def.transformations?.map((t, i) => <li key={i}>{t}</li>)}</ul> },
+          { k: 'Owner', v: <span className="mono small">{d.owner}</span> },
+          { k: 'Visibility', v: d.visibility },
+          ...(d.docUri ? [{ k: 'Documentation', v: <span className="mono small">{d.docUri}</span> }] : []),
+          { k: 'Semantic hash', v: <span className="mono small" data-testid="registry-semantic-hash" title={d.semanticHash}>{d.semanticHash}</span> },
+          { k: 'Registry content hash', v: <span className="mono small" data-testid="registry-content-hash" title={d.registryContentHash}>{d.registryContentHash}</span> },
+        ]} />
+      </Card>
+      <Card title="Versions">
+        {v.isPending ? <Skeleton rows={2} /> : v.isError ? <ApiErrorState error={v.error} onRetry={() => v.refetch()} /> : (
+          <div className="col gap2" data-testid="registry-versions">
+            <DataTable<RegistryVersions['versions'][number]>
+              caption="Registry versions"
+              rows={v.data.versions}
+              rowKey={(x) => x.version}
+              columns={[
+                { key: 'v', header: 'Version', render: (x) => <span className="mono">{x.version}{x.current ? ' (current)' : ''}</span> },
+                { key: 's', header: 'Status', render: (x) => <StatusBadge status={x.status} /> },
+                { key: 'h', header: 'Semantic hash', render: (x) => <span className="mono small">{x.semanticHash.slice(0, 16)}</span> },
+                { key: 'c', header: 'Content hash', render: (x) => <span className="mono small">{x.registryContentHash.slice(0, 16)}</span> },
+              ]}
+            />
+            {v.data.note && <p className="small dim">{v.data.note}</p>}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

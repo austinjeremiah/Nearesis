@@ -347,8 +347,8 @@ export const research = {
   createRule: (wid: string, payload: Record<string, unknown>) => runCommand(wid, 'monitor.rule_create', payload),
   updateRule: (wid: string, payload: Record<string, unknown>) => runCommand(wid, 'monitor.rule_update', payload),
   setRuleEnabled: (wid: string, ruleId: string, enabled: boolean) => runCommand(wid, enabled ? 'monitor.rule_enable' : 'monitor.rule_disable', { ruleId }),
-  replay: (wid: string, sourceId: string, events: { watermark: string; values: Record<string, number> }[]) =>
-    send<{ mode: 'replay'; processed: number; results: unknown[] }>('POST', `${ws(wid)}/monitors/replay`, { sourceId, events }),
+  replayRule: (wid: string, ruleId: string, window: { from: string; to: string }) =>
+    send<RuleReplay>('POST', `${ws(wid)}/monitors/${encodeURIComponent(ruleId)}/replay`, window),
   // hypotheses
   hypotheses: (wid: string) => get<{ workspaceId: string; hypotheses: Hypothesis[] }>(`${ws(wid)}/hypotheses`),
   hypothesis: (wid: string, hid: string) => get<HypothesisDetail>(`${ws(wid)}/hypotheses/${encodeURIComponent(hid)}`),
@@ -376,3 +376,15 @@ export const research = {
 
 export const exportThesisHref = (wid: string, did: string, format: 'markdown' | 'pdf', version?: number) =>
   `/api/k/workspaces/${wid}/thesis/documents/${did}/export?format=${format}${version ? `&version=${version}` : ''}`;
+
+/** POST /v1/workspaces/:id/monitors/:ruleId/replay: one rule replayed over recorded daily metric values. */
+export type RuleReplay = {
+  mode: 'replay';
+  label: string;
+  ruleId: string;
+  sourceId: string;
+  window: { from: string; to: string; days: number };
+  valueSource: string;
+  fired: number;
+  results: { day: string; watermark: string; values: Record<string, number>; missing: string[]; outcome: string }[];
+};

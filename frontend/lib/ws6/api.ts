@@ -147,6 +147,8 @@ export type VerifyReport = {
   checkedAt: string;
   hashChain: Record<string, string | null>;
   attestation: { present: boolean; [k: string]: unknown };
+  /** One entry per signed publication version: signing key, trust status and anchor. Empty when never published. */
+  publications?: import('@/components/ws8/publication-trust').PublicationVersion[];
 };
 export type PublicationRecord = {
   capsuleId: string;
@@ -165,7 +167,16 @@ export type BundleResult = {
   signature: string | null;
   signingSource: string;
   hardened: boolean;
-  anchor: { log: string; chain: string; seq?: number; anchoredAt?: string; network?: string; txHash?: string };
+  /** Signing key fingerprint and its trusted-key registry status (active or revoked). */
+  signingKey: { fingerprint: string; keyId: string; keyStatus: string; revokedAt: string | null; trusted: boolean; trustReason: string } | null;
+  anchor: {
+    log: string;
+    chain: string;
+    entryHash?: string;
+    anchoredAt?: string;
+    testnet?: { network: string; contract: string; txHash: string; viewTimestampNs: string; logSeq: number; readback: string } | null;
+  };
+  created?: boolean;
   manifestFile: string;
 };
 
@@ -283,6 +294,7 @@ export const caps = {
   verify: (id: string) => g<VerifyReport>(`${cap(id)}/verify`),
   publication: (id: string) => g<PublicationRecord>(`${cap(id)}/publication`),
   publish: (id: string, acknowledge: string[]) => s<PublishResult>('POST', `${cap(id)}/publish`, { acknowledge }),
+  anchor: (id: string) => g<import('@/components/ws8/publication-trust').AnchorReadback>(`${cap(id)}/anchor`),
   unpublish: (id: string) => s<{ capsuleId: string; state: 'unpublished' }>('POST', `${cap(id)}/unpublish`, {}),
   bundle: (capsuleId: string, acknowledge: string[]) => s<BundleResult>('POST', '/v1/publish', { capsuleId, acknowledge }),
   publishCheck: (wid: string, metrics: { metricKey: string; version?: number }[]) =>

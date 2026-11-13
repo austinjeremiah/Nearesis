@@ -164,7 +164,7 @@ test('ask, approve with the exact hash, panels land, findings carry labels and n
 
   // The workspace pages reflect the run.
   await page.goto(`/w/${wid}/agents`);
-  await expect(page.getByTestId('run-table')).toContainText('complete');
+  await expect(page.getByTestId('run-table')).toContainText(/complete/i);
   await expect(page.getByTestId('agent-table')).toContainText('composer');
   await page.goto(`/w/${wid}/approvals`);
   await page.getByRole('button', { name: 'All' }).click();
@@ -213,8 +213,15 @@ test('a tiny workspace cap: the question is accepted or refused with the budget 
   await ask(page, wid);
   // The cap is enforced where paid work happens: the run names the budget if it was the cause, otherwise it ended for
   // another real reason (for example a source that is not fresh). Either way the page shows a typed outcome.
-  const end = await waitState(page, TERMINAL, 120_000);
-  if (await page.getByTestId('run-budget-stop').count()) await expect(page.locator('[data-state="budget_exhausted"]')).toBeVisible();
+  // The plugin is enabled by default now, so the run can reach the (free) approval step before any paid work; then it
+  // is cancelled so no approval is left pending.
+  test.setTimeout(180_000);
+  const end = await waitState(page, ['APPROVAL_NEEDED', ...TERMINAL], 120_000);
+  if (end === 'APPROVAL_NEEDED') {
+    await page.getByTestId('cancel-run').click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel run' }).click();
+    await waitState(page, TERMINAL, 60_000);
+  } else if (await page.getByTestId('run-budget-stop').count()) await expect(page.locator('[data-state="budget_exhausted"]')).toBeVisible();
   else expect(TERMINAL).toContain(end);
   // Historical reads still work.
   await open(page, `/w/${wid}/timeline`);

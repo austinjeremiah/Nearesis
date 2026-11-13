@@ -8,9 +8,10 @@ import { Badge } from '@/components/nx/evidence';
 import { Button, Card, EmptyState, Field, Input, KeyValues, Notice } from '@/components/nx/ui';
 import { MutationError, ModeBadge, Slot } from '@/components/nx/research-kit';
 import { RuleForm } from '@/components/nx/rule-form';
-import { describe, metricsIn } from '@/components/nx/condition-editor';
+import { describe } from '@/components/nx/condition-editor';
 import { browserApi } from '@/lib/api/browser';
 import { qk } from '@/lib/api/keys';
+import { shellBrowser } from '@/lib/api/shell-browser';
 import { research, rk, type MonitorRule } from '@/lib/research/api';
 import { formatUtc } from '@/lib/format';
 
@@ -46,7 +47,14 @@ function Body({ wid, r }: { wid: string; r: MonitorRule }) {
   const notifs = useQuery({ queryKey: qk.notifications(wid), queryFn: () => browserApi.notifications(wid) });
   const toggle = useMutation({ mutationFn: () => research.setRuleEnabled(wid, r.ruleId, !r.enabled), onSuccess: () => qc.invalidateQueries({ queryKey: qk.monitors(wid) }) });
 
-  const ruleNotifs = ((notifs.data as unknown as { notifications?: { notificationId: string; ruleId: string; title: string; body: string; mode: 'live' | 'replay'; createdAt: string }[] })?.notifications ?? []).filter((n) => n.ruleId === r.ruleId);
+  const markRead = useMutation({
+    mutationFn: (which: { ids: string[] } | { all: true }) => shellBrowser.markWorkspaceNotificationsRead(wid, which),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.notifications(wid) });
+      void qc.invalidateQueries({ queryKey: ['global'] });
+    },
+  });
+  const ruleNotifs = ((notifs.data as unknown as { notifications?: { notificationId: string; ruleId: string; title: string; body: string; mode: 'live' | 'replay'; createdAt: string; readAt: string | null }[] })?.notifications ?? []).filter((n) => n.ruleId === r.ruleId);
   const trig = triggers.data?.triggers ?? [];
   const live = trig.filter((t) => t.mode === 'live');
   const replay = trig.filter((t) => t.mode === 'replay');
@@ -118,12 +126,15 @@ function Body({ wid, r }: { wid: string; r: MonitorRule }) {
       </Card>
 
       <Card title="Notifications from this rule" subtitle="New notifications arrive over the live event stream.">
+        <MutationError error={markRead.error} />
         {ruleNotifs.length === 0 ? (
           <div className="small dim">No notification yet.</div>
         ) : (
           <ul className="small" data-testid="rule-notifications">
             {ruleNotifs.map((n) => (
-              <li key={n.notificationId}><ModeBadge mode={n.mode} /> <span className="strong">{n.title}</span> {n.body} <span className="tiny dim">{formatUtc(n.createdAt)}</span></li>
+              <li key={n.notificationId}><ModeBadge mode={n.mode} /> <span className="strong">{n.title}</span> {n.body} <span className="tiny dim">{formatUtc(n.createdAt)}</span>{' '}
+                {n.readAt ? <span className="tiny dim" data-testid="rule-notification-read">read</span> : <Button variant="ghost" data-testid="rule-mark-read" pending={markRead.isPending} onClick={() => markRead.mutate({ ids: [n.notificationId] })}>Mark read</Button>}
+              </li>
             ))}
           </ul>
         )}
@@ -176,47 +187,56 @@ function Outcomes({ list, testid }: { list: { outcome: string }[]; testid: strin
   );
 }
 
+function isoDay(offsetFromToday: number) {
+  return new Date(Math.floor(Date.now() / 86_400_000) * 86_400_000 + offsetFromToday * 86_400_000).toISOString().slice(0, 10);
+}
+
 /**
- * Replay: evaluate this rule against events you provide, flagged replay end to end. It never touches the live
- * counters or other rules. The values are entered by the person, so the result says what the rule WOULD do.
+ * Replay: evaluate this rule over RECORDED daily metric values of the live layer for a window of complete UTC days.
+ * Nothing is typed in: the values come from the API's recorded history. Everything it writes is flagged replay, never
+ * live, and a day without a recorded observation evaluates as no data.
  */
 function ReplayCard({ wid, r }: { wid: string; r: MonitorRule }) {
   const qc = useQueryClient();
-  const metrics = metricsIn(r.condition);
-  const [rows, setRows] = useState<{ at: string; values: Record<string, string> }[]>([{ at: '', values: {} }]);
+  const [from, setFrom] = useState(isoDay(-7));
+  const [to, setTo] = useState(isoDay(-1));
   const run = useMutation({
-    mutationFn: () =>
-      research.replay(
-        wid,
-        r.sourceId,
-        rows.map((x) => ({ watermark: new Date(x.at).toISOString(), values: Object.fromEntries(metrics.map((m) => [m, Number(x.values[m] ?? 0)])) })),
-      ),
+    mutationFn: () => research.replayRule(wid, r.ruleId, { from, to }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.monitors(wid) }),
   });
-  const valid = rows.every((x) => x.at && metrics.every((m) => x.values[m] !== undefined && x.values[m] !== '' && !Number.isNaN(Number(x.values[m]))));
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to) && from <= to;
   return (
-    <Card title="Replay events" subtitle="Test the rule against recorded or hypothetical watermarks. Replay results are labelled replay everywhere.">
+    <Card title="Replay over recorded history" subtitle="Evaluate this rule over the recorded daily metric values. Replay results are labelled replay everywhere.">
       <div className="col gap2" data-testid="replay-form">
-        <Notice tone="info" title="Replay, not live">Values you enter here are evaluated as replay events. They do not change live counters or evidence.</Notice>
-        {rows.map((row, i) => (
-          <div key={i} className="row gap2" style={{ flexWrap: 'wrap', alignItems: 'end' }}>
-            <Field label="Watermark (UTC)">
-              <Input type="datetime-local" aria-label={`Replay watermark ${i + 1}`} value={row.at} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, at: e.target.value } : x)))} />
-            </Field>
-            {metrics.map((m) => (
-              <Field key={m} label={m}>
-                <Input type="number" aria-label={`Replay value ${m} ${i + 1}`} value={row.values[m] ?? ''} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, values: { ...x.values, [m]: e.target.value } } : x)))} />
-              </Field>
-            ))}
-            {rows.length > 1 && <Button variant="ghost" onClick={() => setRows(rows.filter((_, j) => j !== i))}>Remove</Button>}
-          </div>
-        ))}
-        <div className="row gap2">
-          <Button onClick={() => setRows([...rows, { at: '', values: {} }])} disabled={rows.length >= 50} disabledReason="At most 50 events here.">Add event</Button>
-          <Button variant="primary" disabled={!valid} disabledReason="Every event needs a time and a value per metric." pending={run.isPending} onClick={() => run.mutate()} data-testid="run-replay">Run replay</Button>
+        <Notice tone="info" title="Replay, not live">Values come from recorded history (complete UTC days, at most 90). They do not change live counters or evidence.</Notice>
+        <div className="row gap2" style={{ flexWrap: 'wrap', alignItems: 'end' }}>
+          <Field label="From (UTC day)"><Input type="date" aria-label="Replay from" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+          <Field label="To (UTC day)"><Input type="date" aria-label="Replay to" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+          <Button variant="primary" disabled={!valid || !r.enabled} disabledReason={!r.enabled ? 'Enable the rule before replaying it.' : 'From must be on or before To.'} pending={run.isPending} onClick={() => run.mutate()} data-testid="run-replay">Run replay</Button>
         </div>
         <MutationError error={run.error} />
-        {run.data && <Notice tone="ok" title={`Replayed ${run.data.processed} event(s)`}>See the replay column above and the trigger history.</Notice>}
+        {run.data && (
+          <div className="col gap2" data-testid="replay-result" data-fired={run.data.fired}>
+            <Notice tone="ok" title={`Replayed ${run.data.window.days} day(s): ${run.data.fired} fired`}>
+              <Badge tone="warn">replay</Badge> {run.data.label}. Value source: {run.data.valueSource}.
+            </Notice>
+            <div className="rs-scroll">
+              <table className="table">
+                <thead><tr><th>Day</th><th>Mode</th><th>Recorded value</th><th>Outcome</th></tr></thead>
+                <tbody>
+                  {run.data.results.map((x) => (
+                    <tr key={x.day} data-outcome={x.outcome}>
+                      <td className="mono small">{x.day}</td>
+                      <td><ModeBadge mode="replay" /></td>
+                      <td className="small mono">{Object.entries(x.values).map(([k, v]) => `${k}=${v}`).join(', ')}{x.missing.length ? ` (no observation: ${x.missing.join(', ')})` : ''}</td>
+                      <td><Badge tone={OUTCOME_TONE[x.outcome] ?? ''}>{x.outcome.replace(/_/g, ' ')}</Badge></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   );

@@ -9,7 +9,7 @@ import { formatUtc } from '@/lib/format';
 
 type Row = {
   routeId: string; slots: number; attempts: number; notAttempted: number; availabilityRate: string | null;
-  available: number; noRoute: number; errors: number; errorCategories: Record<string, number>; rateLimited: number;
+  available: number; noRoute: number; errors: number; errorCategories: Record<string, number>; unavailableReasons?: Record<string, number>; rateLimited: number;
   latencyMsP50: string | number | null; latencyMsP95: string | number | null;
   usdImpliedCostBpsP50: string | null; usdImpliedCostBpsP95: string | null;
   latestQuotedEffectiveRate: string | null; latestQuoteAt: string | null;
@@ -40,6 +40,20 @@ export default function QuotesView() {
                 { key: 'n', header: 'Attempts', numeric: true, render: (r) => `${fInt(r.attempts)} / ${fInt(r.slots)} slots` },
                 { key: 'nr', header: 'No route', numeric: true, render: (r) => fInt(r.noRoute) },
                 { key: 'e', header: 'Errors', numeric: true, render: (r) => (Object.keys(r.errorCategories).length ? Object.entries(r.errorCategories).map(([k, v]) => `${k}: ${v}`).join(', ') : fInt(r.errors)) },
+                {
+                  key: 'ur',
+                  header: 'Unavailable reasons',
+                  render: (r) =>
+                    r.unavailableReasons && Object.keys(r.unavailableReasons).length ? (
+                      <span className="col gap1" data-testid="quote-unavailable-reasons">
+                        {Object.entries(r.unavailableReasons).map(([k, v]) => (
+                          <span key={k} className="mono small">{k} ({fInt(v)} slots)</span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="dim">—</span>
+                    ),
+                },
                 { key: 'rl', header: 'Rate limited', numeric: true, render: (r) => fInt(r.rateLimited) },
                 { key: 'l', header: 'Latency p50 / p95', numeric: true, render: (r) => `${fMs(r.latencyMsP50)} / ${fMs(r.latencyMsP95)}` },
                 { key: 'c', header: 'Cost bps p50 / p95', numeric: true, render: (r) => `${fDec(r.usdImpliedCostBpsP50)} / ${fDec(r.usdImpliedCostBpsP95)}` },

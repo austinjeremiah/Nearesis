@@ -200,11 +200,11 @@ test.describe('capsules and publications', () => {
     await expect(page.getByTestId('public-publication')).toBeVisible();
     await expect(page.getByTestId('public-limitations')).toContainText('SYNTHETIC');
 
-    // signed out, the public page says it cannot read anonymously (no fabricated content)
+    // signed out, the public page reads the publication anonymously (no cookie)
     const out = await page.context().browser()!.newContext();
     const anon = await out.newPage();
     await anon.goto(`http://127.0.0.1:${process.env.E2E_PORT ?? 3400}/public/${CAPSULE_ID}`);
-    await expect(anon.getByTestId('public-needs-reader')).toBeVisible();
+    await expect(anon.getByTestId('public-publication')).toBeVisible();
     await out.close();
 
     // unpublish removes it from the public reader

@@ -6,9 +6,11 @@ import { SectionBar } from '@/components/nx/section';
 import { Badge } from '@/components/nx/evidence';
 import { Button, Card, EmptyState, KeyValues, Notice, Select } from '@/components/nx/ui';
 import { ApiRequestError } from '@/lib/api/errors';
+import { ApiErrorState } from '@/components/nx/states';
 import { formatUtc } from '@/lib/format';
 import { caps, metricsApi, type BundleResult, type CapsuleView, type VerifyReport } from '@/lib/ws6/api';
 import { ActionError, Hash, Json, Slot, useAction } from '@/components/ws6/common';
+import { AnchorReadbackBlock, KeyBadge, PublicationVersionCard } from '@/components/ws8/publication-trust';
 import { LocalBadge, OutlayerBadge, PublicationBadge } from '@/components/ws6/capsule-bits';
 
 const bff = (href: string) => href.replace(/^\/v1\//, '/api/k/');
@@ -64,19 +66,62 @@ function BundleBlock({ b }: { b: BundleResult }) {
             k: 'Manifest signature',
             v: <Badge tone={b.signature === 'valid' ? 'ok' : 'bad'} title="Re-verified by the API after signing">{b.signature ?? 'unsigned'}</Badge>,
           },
-          { k: 'Trusted-key check', v: <span className="dim" data-testid="key-fingerprint">The API does not return the signing key fingerprint or its trust status, so neither is shown.</span> },
-          { k: 'Append-only log', v: <span className="mono">{b.anchor.log}{b.anchor.seq !== undefined ? ` #${b.anchor.seq}` : ''}</span> },
           {
-            k: 'Chain commitment',
-            v:
-              b.anchor.chain === 'committed' ? (
-                <span className="mono">{b.anchor.network} {b.anchor.txHash}</span>
-              ) : (
-                <Badge outline>{b.anchor.chain.replace(/_/g, ' ')}</Badge>
-              ),
+            k: 'Signing key',
+            v: b.signingKey ? (
+              <span className="row gap2" data-testid="bundle-key">
+                <span className="mono small" data-testid="key-fingerprint" title={b.signingKey.fingerprint}>{b.signingKey.fingerprint}</span>
+                <KeyBadge k={b.signingKey} />
+                <Badge tone={b.signingKey.trusted ? 'ok' : 'warn'}>{b.signingKey.trusted ? 'trusted' : 'not trusted'}</Badge>
+              </span>
+            ) : <span className="dim" data-testid="key-fingerprint">not recorded</span>,
+          },
+          { k: 'Append-only log', v: <span className="mono small">{b.anchor.log.replace(/_/g, ' ')}{b.anchor.entryHash ? ` ${b.anchor.entryHash.slice(0, 16)}…` : ''}</span> },
+          {
+            k: 'Testnet commitment',
+            v: b.anchor.testnet ? (
+              <span className="mono small">{b.anchor.testnet.network} {b.anchor.testnet.txHash} ({b.anchor.testnet.readback.replace(/_/g, ' ')})</span>
+            ) : (
+              <Badge outline>{b.anchor.chain.replace(/_/g, ' ')}</Badge>
+            ),
           },
         ]}
       />
+    </div>
+  );
+}
+
+function PublicationTrust({ capsuleId, hardened }: { capsuleId: string; hardened: boolean | null }) {
+  const ver = useQuery({ queryKey: ['capsule', capsuleId, 'trust'], queryFn: () => caps.verify(capsuleId), staleTime: 30_000 });
+  const anchor = useQuery({ queryKey: ['capsule', capsuleId, 'anchor'], queryFn: () => caps.anchor(capsuleId), staleTime: 30_000, retry: false });
+  const pubs = ver.data?.publications ?? [];
+  const prereg = ver.data?.hashChain?.preregistrationHash ?? null;
+  const latest = pubs[pubs.length - 1] ?? null;
+  return (
+    <div className="col gap3" style={{ marginTop: 12 }} data-testid="publication-trust">
+      <div className="label">Signing key and anchor</div>
+      {ver.isPending ? (
+        <p className="small dim">Reading signing and anchor records.</p>
+      ) : ver.isError ? (
+        <ApiErrorState error={ver.error} onRetry={() => ver.refetch()} />
+      ) : latest ? (
+        <PublicationVersionCard v={latest} hardened={hardened} />
+      ) : (
+        <p className="small dim" data-testid="no-publication-version">This capsule has no signed publication yet, so there is no signing key or anchor to show. Publish or export the signed bundle to create one.</p>
+      )}
+      {prereg ? (
+        <KeyValues rows={[{ k: 'Preregistration hash', v: <Hash value={prereg} /> }]} />
+      ) : (
+        <p className="small dim" data-testid="no-prereg">No preregistration commitment is recorded for this capsule.</p>
+      )}
+      <div className="label">Testnet commitment readback</div>
+      {anchor.isPending ? (
+        <p className="small dim">Reading the testnet commitment.</p>
+      ) : anchor.isError ? (
+        <ApiErrorState error={anchor.error} />
+      ) : (
+        <AnchorReadbackBlock r={anchor.data} />
+      )}
     </div>
   );
 }
@@ -187,15 +232,7 @@ export default function CapsuleDetail({ wid, capsuleId }: { wid: string; capsule
                   </div>
                 )}
               </div>
-              <div className="col gap2" style={{ marginTop: 12 }}>
-                <div className="label">Testnet commitment readback</div>
-                {c.hashes.preregistrationHash ? (
-                  <KeyValues rows={[{ k: 'Preregistration hash', v: <Hash value={c.hashes.preregistrationHash} /> }]} />
-                ) : (
-                  <p className="small dim" data-testid="no-prereg">No preregistration commitment is recorded for this capsule, so there is nothing to read back from the testnet.</p>
-                )}
-                <p className="tiny dim">The chain readback itself is not exposed through the API; only the committed hash is shown.</p>
-              </div>
+              <PublicationTrust capsuleId={capsuleId} hardened={bundle?.hardened ?? null} />
             </section>
 
             <section>

@@ -17,6 +17,7 @@ import { qk } from '@/lib/api/keys';
 import { formatAge, formatUtc } from '@/lib/format';
 import { ik, investigateApi } from '@/lib/investigate/api';
 import { useDecision } from '@/lib/investigate/hooks';
+import { replayRunPanels } from '@/lib/investigate/replay';
 import type { RunDetail } from '@/lib/investigate/types';
 
 type PanelStatus = 'QUERYING' | 'READY' | 'ERROR';
@@ -107,12 +108,29 @@ export default function RunView({ wid, runId }: { wid: string; runId: string }) 
   }, [runId]);
 
   const r = run.data;
+  // An approval request is created without an event of its own, so refetch the approvals and tasks whenever the run
+  // changes state (the run itself is polled), instead of only when a decision is made.
+  const runState = r?.state;
+  const refetchApprovals = approvals.refetch;
+  const refetchTasks = tasks.refetch;
+  useEffect(() => {
+    if (!runState) return;
+    void refetchApprovals();
+    void refetchTasks();
+  }, [runState, refetchApprovals, refetchTasks]);
+  const replayed = useQuery({
+    queryKey: ['ws', wid, 'run', runId, 'panel-events', runState ?? ''],
+    queryFn: ({ signal }) => replayRunPanels(wid, runId, signal),
+    enabled: !!r?.terminal,
+    staleTime: 60_000,
+    retry: false,
+  });
   const canvasTitles = useMemo(() => new Map((canvas.data?.panels ?? []).map((p) => [p.panelId, p])), [canvas.data]);
   const panelIds = useMemo(() => {
-    const ids = new Set<string>(Object.keys(panelEvt));
+    const ids = new Set<string>([...Object.keys(panelEvt), ...(replayed.data ?? []).map((p) => p.panelId)]);
     for (const f of r?.findings ?? []) for (const p of f.panelIds) ids.add(p);
     return [...ids];
-  }, [panelEvt, r?.findings]);
+  }, [panelEvt, replayed.data, r?.findings]);
 
   if (run.isPending) return <Skeleton rows={6} />;
   if (run.isError) return <ApiErrorState error={run.error} onRetry={() => run.refetch()} />;
@@ -252,7 +270,7 @@ export default function RunView({ wid, runId }: { wid: string; runId: string }) 
         ) : (
           <>
             {(() => {
-              const evts = Object.values(panelEvt);
+              const evts = Object.values({ ...Object.fromEntries((replayed.data ?? []).map((p) => [p.panelId, p])), ...panelEvt }) as PanelEvt[];
               const total = Math.max(0, ...evts.map((p) => p.total));
               const ready = evts.filter((p) => p.status === 'READY').length;
               return total > 0 ? (
@@ -263,7 +281,7 @@ export default function RunView({ wid, runId }: { wid: string; runId: string }) 
             })()}
             <div className="grid c3" data-testid="run-panels">
               {panelIds.map((pid) => {
-                const ev = panelEvt[pid];
+                const ev = panelEvt[pid] ?? ((replayed.data ?? []).find((x) => x.panelId === pid) as PanelEvt | undefined);
                 const meta = canvasTitles.get(pid);
                 const status = (ev?.status ?? (meta ? 'ON_CANVAS' : 'QUERYING')) as PanelStatus | 'ON_CANVAS';
                 return (

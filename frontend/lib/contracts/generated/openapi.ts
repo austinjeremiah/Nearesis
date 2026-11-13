@@ -264,6 +264,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/capsules/{id}/anchor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Testnet commitment readback of a published capsule manifest (latest, or ?manifestHash=): verified | mismatch | not_committed | unavailable; read-only */
+        get: operations["getCapsulesByIdAnchor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/capsules/{id}/exports/{path}": {
         parameters: {
             query?: never;
@@ -414,6 +431,91 @@ export interface paths {
         put?: never;
         /** Development login (route does not exist in production) */
         post: operations["postDevLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/economics/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** source_coverage, quality gaps (REFUND_SPLIT_IS_PROXY etc.) and loaded row counts. Execution fees are never labelled protocol revenue */
+        get: operations["getEconomicsCoverage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/economics/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daily gas burnt, tokens burnt (exact yocto strings), gas price, conversion vs receipt-only burn, execution intensity, USD only from timestamped CoinGecko candles (else null with NO_TIMESTAMPED_PRICE). Execution fees are never labelled protocol revenue */
+        get: operations["getEconomicsDaily"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/economics/percentiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-transaction fee percentiles where loaded (loaded:false and TX_DAILY_NOT_LOADED otherwise). Execution fees are never labelled protocol revenue */
+        get: operations["getEconomicsPercentiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/economics/receivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Gas and fee by executing account, top N (?top), folded remainder labelled. Execution fees are never labelled protocol revenue */
+        get: operations["getEconomicsReceivers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/economics/totals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Window sums of the daily economics. Execution fees are never labelled protocol revenue */
+        get: operations["getEconomicsTotals"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -998,6 +1100,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/metrics/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail of a certified registry metric: definition, certification, semantic hash, sources (authored metrics are read through the workspace routes) */
+        get: operations["getMetricsByKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/metrics/{key}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Certified versions of a registry metric with their semantic hashes */
+        get: operations["getMetricsByKeyVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/notifications": {
         parameters: {
             query?: never;
@@ -1009,6 +1145,23 @@ export interface paths {
         get: operations["getNotifications"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark notifications read for the caller only: { ids: uuid[] } or { all: true }; returns marked, alreadyRead, notFound and the caller's unread count */
+        post: operations["postNotificationsRead"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1117,6 +1270,40 @@ export interface paths {
         head?: never;
         /** Change a member's role (owner/admin; only an owner touches owners; the last owner stays) */
         patch: operations["patchOrgMembersByUserId"];
+        trace?: never;
+    };
+    "/v1/public/publications/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Unauthenticated, rate-limited public view of an explicitly published capsule: hashes, verification labels, signing-key trust, anchors, documents. Withdrawn: 404 PUBLICATION_WITHDRAWN; no tenant data */
+        get: operations["getPublicPublicationsById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/publications/{id}/exports/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A published document of a public capsule (manifest-listed files only, hash-checked) */
+        get: operations["getPublicPublicationsByIdExportsPath"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/publications": {
@@ -2691,6 +2878,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{id}/monitors/{ruleId}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replay one rule over recorded daily metric values of the live layer for { from, to } (complete UTC days, at most 90); results labelled REPLAY, duplicates answered idempotently */
+        post: operations["postWorkspacesByIdMonitorsByRuleIdReplay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{id}/monitors/counters": {
         parameters: {
             query?: never;
@@ -2804,6 +3008,23 @@ export interface paths {
         get: operations["getWorkspacesByIdNotifications"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{id}/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Per-workspace equivalent of POST /v1/notifications/read (per user) */
+        post: operations["postWorkspacesByIdNotificationsRead"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3946,6 +4167,36 @@ export interface components {
             /** @enum {string} */
             mode?: "redirect" | "json";
         };
+        GetEconomicsCoverageQuery: {
+            from?: string;
+            to?: string;
+            days?: number;
+            top?: number;
+        };
+        GetEconomicsDailyQuery: {
+            from?: string;
+            to?: string;
+            days?: number;
+            top?: number;
+        };
+        GetEconomicsPercentilesQuery: {
+            from?: string;
+            to?: string;
+            days?: number;
+            top?: number;
+        };
+        GetEconomicsReceiversQuery: {
+            from?: string;
+            to?: string;
+            days?: number;
+            top?: number;
+        };
+        GetEconomicsTotalsQuery: {
+            from?: string;
+            to?: string;
+            days?: number;
+            top?: number;
+        };
         GetEntitiesByIdMetricsQuery: {
             /** @description YYYY-MM-DD */
             from: string;
@@ -4237,7 +4488,12 @@ export interface components {
                 rateLimit: {
                     status: string;
                     detail: string | null;
+                    attempts?: number;
+                    limited?: number;
+                    windowDays?: number;
+                    lastAttemptAt?: string | null;
                 } | null;
+                rateLimitRecorded: boolean;
                 schemaVersion: string | null;
             }[];
             /** Format: date-time */
@@ -6294,6 +6550,62 @@ export interface operations {
             };
         };
     };
+    getCapsulesByIdAnchor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated: missing, invalid, expired or revoked session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden: role, origin or classification denies the action. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found. A workspace the caller cannot access is the same 404 as one that does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getCapsulesByIdExportsPath: {
         parameters: {
             query?: never;
@@ -6800,6 +7112,256 @@ export interface operations {
             };
             /** @description Validation failed or a domain invariant refused the change; `details` lists paths. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getEconomicsCoverage: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                days?: number;
+                top?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated: missing, invalid, expired or revoked session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden: role, origin or classification denies the action. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getEconomicsDaily: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                days?: number;
+                top?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated: missing, invalid, expired or revoked session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden: role, origin or classification denies the action. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getEconomicsPercentiles: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                days?: number;
+                top?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated: missing, invalid, expired or revoked session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden: role, origin or classification denies the action. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getEconomicsReceivers: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                days?: number;
+                top?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated: missing, invalid, expired or revoked session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden: role, origin or classification denies the action. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getEconomicsTotals: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                days?: number;
+                top?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated: missing, invalid, expired or revoked session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden: role, origin or classification denies the action. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8746,6 +9308,100 @@ export interface operations {
             };
         };
     };
+    getMetricsByKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated: missing, invalid, expired or revoked session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden: role, origin or classification denies the action. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMetricsByKeyVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated: missing, invalid, expired or revoked session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden: role, origin or classification denies the action. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getNotifications: {
         parameters: {
             query?: {
@@ -8778,6 +9434,69 @@ export interface operations {
             };
             /** @description Forbidden: role, origin or classification denies the action. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    postNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated: missing, invalid, expired or revoked session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden: role, origin or classification denies the action. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Stale version or revision; reload and retry (`lastStableRevision`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed or a domain invariant refused the change; `details` lists paths. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9224,6 +9943,83 @@ export interface operations {
             };
             /** @description Validation failed or a domain invariant refused the change; `details` lists paths. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getPublicPublicationsById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found. A workspace the caller cannot access is the same 404 as one that does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getPublicPublicationsByIdExportsPath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found. A workspace the caller cannot access is the same 404 as one that does not exist. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -15946,6 +16742,81 @@ export interface operations {
             };
         };
     };
+    postWorkspacesByIdMonitorsByRuleIdReplay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated: missing, invalid, expired or revoked session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden: role, origin or classification denies the action. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found. A workspace the caller cannot access is the same 404 as one that does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Stale version or revision; reload and retry (`lastStableRevision`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed or a domain invariant refused the change; `details` lists paths. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getWorkspacesByIdMonitorsCounters: {
         parameters: {
             query?: never;
@@ -16350,6 +17221,80 @@ export interface operations {
             };
             /** @description Not found. A workspace the caller cannot access is the same 404 as one that does not exist. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    postWorkspacesByIdNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated: missing, invalid, expired or revoked session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden: role, origin or classification denies the action. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found. A workspace the caller cannot access is the same 404 as one that does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Stale version or revision; reload and retry (`lastStableRevision`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed or a domain invariant refused the change; `details` lists paths. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

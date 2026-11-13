@@ -105,9 +105,12 @@ test.describe('data area on the real stack', () => {
   test('economics: units not mixed, no invented USD', async ({ page }) => {
     await page.goto('/data/economics');
     await expect(page.getByTestId('gas-last-hour')).toContainText('Tgas', { timeout: 60_000 });
-    await expect(page.getByTestId('economics-cannot-compute')).toContainText('CANNOT_COMPUTE');
-    await expect(page.getByTestId('card-eco-datasets')).toContainText('near_economics_gas_price_daily', { timeout: 60_000 });
-    await expect(page.getByTestId('economics-view')).not.toContainText('$');
+    await expect(page.getByTestId('economics-cannot-compute')).toHaveCount(0);
+    await expect(page.getByTestId('card-eco-totals')).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+    await expect(page.getByTestId('card-eco-coverage')).toContainText('near_economics_gas_price_daily', { timeout: 60_000 });
+    // USD only beside its dated price source
+    const usd = page.getByTestId('eco-row-usd');
+    for (let i = 0; i < (await usd.count()); i++) await expect(usd.nth(i)).toContainText('coingecko');
   });
 
   test('realtime: freshness, provisional kept apart from finalized', async ({ page }) => {

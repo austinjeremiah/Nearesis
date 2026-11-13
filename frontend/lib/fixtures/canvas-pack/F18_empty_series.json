@@ -1,0 +1,89 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F18_empty_series",
+  "kind": "line",
+  "title": "No observations in selected interval",
+  "chartSpec": {
+    "kind": "line",
+    "title": "No observations in selected interval",
+    "encodings": {
+      "x": "day",
+      "y": "value"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F18_empty_series",
+    "query": {
+      "canonicalQueryHash": "483d8d77d698cd2f1cb5029551c6409ec65c7391fd6383cf11b69d26a43413a0",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.empty"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F18_empty_series",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "975540f43630f57483ebadcc34a10e077efe8ae3374dffb69e2a662a135064fe",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 14,
+        "observed": 0,
+        "unknown": 14,
+        "gaps": [
+          "entire interval"
+        ]
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "day",
+        "role": "time",
+        "unit": "UTC day",
+        "nullable": false
+      },
+      {
+        "id": "value",
+        "role": "measure",
+        "unit": "transactions",
+        "nullable": true
+      }
+    ],
+    "rowsRef": "fixture://rows/F18_empty_series",
+    "rowCount": 0,
+    "resultHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "partialReasonCodes": [
+      "SOURCE_RANGE_UNAVAILABLE"
+    ],
+    "rows": []
+  },
+  "expected": {
+    "renderBlankAxes": true,
+    "showReason": "No source observations for this interval",
+    "neverFillWithSampleLine": true
+  },
+  "interactions": [],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

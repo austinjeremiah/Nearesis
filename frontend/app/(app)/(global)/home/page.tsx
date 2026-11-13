@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Content, PageHeader } from '@/components/nx/shell';
+import { Content } from '@/components/nx/shell';
+import { BracketButton, PageHero } from '@/components/nx/landing';
 import { SectionBar } from '@/components/nx/section';
-import { Card, EmptyState, KeyValues, LinkButton } from '@/components/nx/ui';
+import { Card, EmptyState, KeyValues } from '@/components/nx/ui';
 import {
   Badge,
   CoverageChip,
@@ -41,17 +42,12 @@ export default function HomePage() {
 
   return (
     <>
-      <PageHeader
+      <PageHero
+        kicker="Portfolio"
         title="Home"
-        description="What needs your attention across every workspace you can see."
+        lede="What needs your attention across every workspace you can see."
         context={<DataModeIndicator mode="frozen" origin="fixture" watermark={db.SNAPSHOT_AS_OF} />}
-        actions={
-          <>
-            <LinkButton href="/workspaces/new" variant="primary">
-              New workspace
-            </LinkButton>
-          </>
-        }
+        actions={<BracketButton href="/workspaces/new">New workspace</BracketButton>}
       />
       <Content>
         <section>

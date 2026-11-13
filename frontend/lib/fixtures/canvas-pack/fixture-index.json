@@ -1,0 +1,208 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "generatedBy": "node scripts/generate-chart-fixtures.mjs",
+  "index": [
+    {
+      "id": "F01_daily_activity_line",
+      "kind": "line",
+      "rowCount": 14,
+      "filename": "fixtures/F01_daily_activity_line.json",
+      "queryHash": "b46f207b79b2f9e25780ae9c96b4b0fdad242639d885587ebb07d918e3ce402a",
+      "resultHash": "74fda3b0f581e9f1e52d431e67435de72085b5184246e67d683c3394b4807645"
+    },
+    {
+      "id": "F02_indexed_comparison",
+      "kind": "line",
+      "rowCount": 7,
+      "filename": "fixtures/F02_indexed_comparison.json",
+      "queryHash": "fca5eee1afa0678a5a937170b4c42c980783596fa2da216dbeab90bce7a2e2f3",
+      "resultHash": "847b85024228d4315c44e8d5f4143711f822c748936cf95b0611871c021e38e2"
+    },
+    {
+      "id": "F03_contract_ranked_bar",
+      "kind": "bar",
+      "rowCount": 6,
+      "filename": "fixtures/F03_contract_ranked_bar.json",
+      "queryHash": "245144be989104007a4fed8d6ca51133e7a7029675fbc6569c7bf377ccf5def6",
+      "resultHash": "1a43a9c0aadce3d1d575857c5c5257fb4cf1b890b8cc83c19cf03c621cd6893e"
+    },
+    {
+      "id": "F04_stacked_area_disjoint",
+      "kind": "area",
+      "rowCount": 6,
+      "filename": "fixtures/F04_stacked_area_disjoint.json",
+      "queryHash": "bd06401c3845317ef710ab844de64dbc8dd4e2528b1ad5f63d56ffbf7e8f9977",
+      "resultHash": "a8b1d34cbf87bf5ac1dfbe68a46819c17bd837b678ff0e4a101061f1da390572"
+    },
+    {
+      "id": "F05_synthetic_ohlc_candlestick",
+      "kind": "candlestick",
+      "rowCount": 12,
+      "filename": "fixtures/F05_synthetic_ohlc_candlestick.json",
+      "queryHash": "dcdd5830cc5bfdcdb6d812cc71c10ae226bb7bb42c26f8642abdcb051e8fcc54",
+      "resultHash": "e3db0308c3b9dc2424c306431016b419637168458f680fdf8c0af5faa6ee63fe"
+    },
+    {
+      "id": "F06_lag_correlation_heatmap",
+      "kind": "heatmap",
+      "rowCount": 21,
+      "filename": "fixtures/F06_lag_correlation_heatmap.json",
+      "queryHash": "9eb1d21685eee94b103aa0300e6650a6bc1f4968676a0835c1a670cfd35d6b46",
+      "resultHash": "5fd0b01592094b25d9b30a446f82ad9ba7f1becf371deaa0c95bfdaf5f848700"
+    },
+    {
+      "id": "F07_forecast_band_uncalibrated",
+      "kind": "forecast",
+      "rowCount": 12,
+      "filename": "fixtures/F07_forecast_band_uncalibrated.json",
+      "queryHash": "229f4c67aa1c11bf1f0ea8a45fe1c3d18f2f371171beff5b8e07101fdc301107",
+      "resultHash": "a849d5d5e2ab546af55c6455ab9beb3f9a28dd7d8db3c2b260eb85dbf6ddc794"
+    },
+    {
+      "id": "F08_model_error_comparison",
+      "kind": "bar",
+      "rowCount": 4,
+      "filename": "fixtures/F08_model_error_comparison.json",
+      "queryHash": "c10adfdd27d3308596be8b8cb3f276de78259bcbb5be4469b0fdc3aeb14a5b5e",
+      "resultHash": "32b61795d70d7ee368e377a25e65ee40726d13bb534833c7272ce9c1c695be88"
+    },
+    {
+      "id": "F09_scatter_paired",
+      "kind": "scatter",
+      "rowCount": 15,
+      "filename": "fixtures/F09_scatter_paired.json",
+      "queryHash": "64fca729d28af63cd7381fcf7414bf5925db839fe0fb46373e63fb1371f6747b",
+      "resultHash": "b1cd0e78542e2ef9977068b374c302b86d49681d021d338ab401892ccab9e0dd"
+    },
+    {
+      "id": "F10_retention_cohort",
+      "kind": "cohort",
+      "rowCount": 20,
+      "filename": "fixtures/F10_retention_cohort.json",
+      "queryHash": "51488d04fd96dae446c19f62e41bb714a8cf27e0c454a10811830e607bd98bbb",
+      "resultHash": "e74fa5d7d8ea5ee838f10ef79e7dc38f939e30c7608b50e93295b04fa2affdfd"
+    },
+    {
+      "id": "F11_quote_availability_matrix",
+      "kind": "heatmap",
+      "rowCount": 21,
+      "filename": "fixtures/F11_quote_availability_matrix.json",
+      "queryHash": "755cdb0461422ae2a13df1da63ee1a9d2e096c1afc88f06de6570fa4bed75d78",
+      "resultHash": "dfefe75cd5fb1e21e6e790a45b7ade225a5508967305cb7f79629416fdcd259e"
+    },
+    {
+      "id": "F12_quote_latency_distribution",
+      "kind": "distribution",
+      "rowCount": 6,
+      "filename": "fixtures/F12_quote_latency_distribution.json",
+      "queryHash": "c3e0c30e9120d4a226a930d6b9cea6cd9d2fa82350624ba2765a7adc48631515",
+      "resultHash": "e47270c464eb4d193e2f71b95a2e1ec2c92fa237f3dbe8944fe60093e8a1beee"
+    },
+    {
+      "id": "F13_economics_waterfall",
+      "kind": "waterfall",
+      "rowCount": 5,
+      "filename": "fixtures/F13_economics_waterfall.json",
+      "queryHash": "19be7abb85969f17341cfbc27750405c681fc3c7cec41b36ac0f3eacacb3b0f8",
+      "resultHash": "83f341e4245875b7fafb85de824871f48f3133d6c5f77c6d2c1e3dbd1deb6bf4"
+    },
+    {
+      "id": "F14_source_coverage_calendar",
+      "kind": "heatmap",
+      "rowCount": 14,
+      "filename": "fixtures/F14_source_coverage_calendar.json",
+      "queryHash": "1c384d0c06820a95a58eb4530ba773e61c7a843bbf81eb46193107671720ea99",
+      "resultHash": "548177c6c3987813a89d1c63ba7e7030e559826c0e744ccd6118d7be6301b2c8"
+    },
+    {
+      "id": "F15_precision_and_unknown_table",
+      "kind": "table",
+      "rowCount": 4,
+      "filename": "fixtures/F15_precision_and_unknown_table.json",
+      "queryHash": "0fe137d1feff723adcbe7ad23217bb235074fa2a60a789962eec939bc79ae6e5",
+      "resultHash": "48e81ac68a444040a1615dd62059aa67af1a98da38641f0860a4749a3401f8ca"
+    },
+    {
+      "id": "F16_evidence_graph",
+      "kind": "evidence_graph",
+      "rowCount": 1,
+      "filename": "fixtures/F16_evidence_graph.json",
+      "queryHash": "b1f73303ef6d4c07e8a1a8d12126e84f116952ecb4551193cec8819ef53cafc0",
+      "resultHash": "e809176397e44072160e71cc80b14a493e234890c79680c33aa697214ddff236"
+    },
+    {
+      "id": "F17_agent_timeline",
+      "kind": "agent_timeline",
+      "rowCount": 4,
+      "filename": "fixtures/F17_agent_timeline.json",
+      "queryHash": "9b868cd3739ca636ccaecd67068aaac41391f79201db6acccdd9c24847a2dd9b",
+      "resultHash": "f2277e9861bac1c542a0b25125331a11e54bd67aa6c735db6da8db925b29ec0d"
+    },
+    {
+      "id": "F18_empty_series",
+      "kind": "line",
+      "rowCount": 0,
+      "filename": "fixtures/F18_empty_series.json",
+      "queryHash": "483d8d77d698cd2f1cb5029551c6409ec65c7391fd6383cf11b69d26a43413a0",
+      "resultHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "id": "F19_partial_coverage",
+      "kind": "line",
+      "rowCount": 4,
+      "filename": "fixtures/F19_partial_coverage.json",
+      "queryHash": "48884469d4e15bee995e7284b2a61c709f94927592ac2ea31b176f666891df08",
+      "resultHash": "2875214a451f142b5646cda3efc342f391d16bff09e21cc1a643766241e12d6a"
+    },
+    {
+      "id": "F20_log_scale_invalid",
+      "kind": "line",
+      "rowCount": 3,
+      "filename": "fixtures/F20_log_scale_invalid.json",
+      "queryHash": "0521baac769f8819f7f96c3d934174ab9833e53726990fb38792858353615b68",
+      "resultHash": "a21711aed311d5c2284b664d6c83ce12bedbfd706842f7abe88bc1203f24a63b"
+    },
+    {
+      "id": "F23_synthetic_swap_statuses",
+      "kind": "bar",
+      "rowCount": 6,
+      "filename": "fixtures/F23_synthetic_swap_statuses.json",
+      "queryHash": "57d2da9552b59872cc6a4f5444e59bac19b6c64151367f52e45634190aca2d93",
+      "resultHash": "127e5b8a1a7dc87cc37fcdaa44ee2e2b8325f26a9fdaba528e1d4701274bdb3d"
+    },
+    {
+      "id": "F24_daily_gas_and_fees",
+      "kind": "line",
+      "rowCount": 14,
+      "filename": "fixtures/F24_daily_gas_and_fees.json",
+      "queryHash": "e1bf614ebd44902220e4b14f801710d70568631d8222696a353856a08e220b7a",
+      "resultHash": "808d0193f9e093239d5ea7acdaedd71034706bf717003c2095fa8adf6ba11d73"
+    },
+    {
+      "id": "F25_settlement_duration",
+      "kind": "distribution",
+      "rowCount": 4,
+      "filename": "fixtures/F25_settlement_duration.json",
+      "queryHash": "490d3c2e57a0d26ec6605e313e7d25b63ca49efd5e015b4114b1cfb206df1afd",
+      "resultHash": "fe861e65e5e1a2cbc9f7947a95eb378aa979ec9ec18069f7931afc40caeb9da0"
+    },
+    {
+      "id": "F26_dry_quote_samples",
+      "kind": "table",
+      "rowCount": 3,
+      "filename": "fixtures/F26_dry_quote_samples.json",
+      "queryHash": "bac9879a6b9f6d64d38a1863ff635c63c064784378a872fe88af987507c71080",
+      "resultHash": "2f6b886b291af5d7a87e0593d8336724360c0a01061e9da5f7246fbdcab07a41"
+    },
+    {
+      "id": "F21_large_365_day_daily",
+      "kind": "line",
+      "rowCount": 365,
+      "filename": "fixtures/F21_large_365_day_daily.json",
+      "queryHash": "62caa7c278debf051ef0a8f0ea23197ac29e4aac462c787c1352ab83f27c370e",
+      "resultHash": "f03dba406c4d161e50a538f9f5815b895aeba73083b05dd6ee5a6a8d80bf0904"
+    }
+  ]
+}

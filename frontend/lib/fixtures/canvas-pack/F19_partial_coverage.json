@@ -1,0 +1,106 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F19_partial_coverage",
+  "kind": "line",
+  "title": "Partial coverage with observed zero",
+  "chartSpec": {
+    "kind": "line",
+    "title": "Partial coverage with observed zero",
+    "encodings": {
+      "x": "day",
+      "y": "value"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F19_partial_coverage",
+    "query": {
+      "canonicalQueryHash": "48884469d4e15bee995e7284b2a61c709f94927592ac2ea31b176f666891df08",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.partial"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F19_partial_coverage",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "36c2fea46fd52f8407dd09d302db72b73c2961f26a6085a11444bb84b334b566",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "partial",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 4,
+        "observed": 3,
+        "unknown": 1,
+        "gaps": [
+          "2026-10-02"
+        ]
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "day",
+        "role": "time",
+        "unit": "UTC day",
+        "nullable": false
+      },
+      {
+        "id": "value",
+        "role": "measure",
+        "unit": "transactions",
+        "nullable": true
+      }
+    ],
+    "rowsRef": "fixture://rows/F19_partial_coverage",
+    "rowCount": 4,
+    "resultHash": "2875214a451f142b5646cda3efc342f391d16bff09e21cc1a643766241e12d6a",
+    "partialReasonCodes": [
+      "PARTIAL_PROVIDER_COVERAGE"
+    ],
+    "rows": [
+      {
+        "day": "2026-10-01",
+        "value": 34
+      },
+      {
+        "day": "2026-10-02",
+        "value": null
+      },
+      {
+        "day": "2026-10-03",
+        "value": 0
+      },
+      {
+        "day": "2026-10-04",
+        "value": 44
+      }
+    ]
+  },
+  "expected": {
+    "status": "PARTIAL",
+    "noInterpolation": true,
+    "tooltipNull": "Unavailable, not zero"
+  },
+  "interactions": [],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F26_dry_quote_samples",
+  "kind": "table",
+  "title": "Non-executable synthetic dry quote samples",
+  "chartSpec": {
+    "kind": "table",
+    "title": "Non-executable synthetic dry quote samples",
+    "encodings": {
+      "columns": [
+        "fetchedAt",
+        "route",
+        "outcome",
+        "latencyMs"
+      ]
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F26_dry_quote_samples",
+    "query": {
+      "canonicalQueryHash": "bac9879a6b9f6d64d38a1863ff635c63c064784378a872fe88af987507c71080",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.quote_samples"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F26_dry_quote_samples",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "828115c2c78cbc283f1b7143c1a5495aa0a68a1349741d7eedbfa651811cb35b",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 3,
+        "observed": 3,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "quoteId",
+        "role": "dimension",
+        "unit": "quote sample id",
+        "nullable": false
+      },
+      {
+        "id": "fetchedAt",
+        "role": "time",
+        "unit": "UTC",
+        "nullable": false
+      },
+      {
+        "id": "route",
+        "role": "dimension",
+        "unit": "route",
+        "nullable": false
+      },
+      {
+        "id": "outputAmountAtomic",
+        "role": "measure",
+        "unit": "atomic output units",
+        "nullable": true
+      },
+      {
+        "id": "latencyMs",
+        "role": "measure",
+        "unit": "milliseconds",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F26_dry_quote_samples",
+    "rowCount": 3,
+    "resultHash": "2f6b886b291af5d7a87e0593d8336724360c0a01061e9da5f7246fbdcab07a41",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "quoteId": "fixture-quote-1",
+        "fetchedAt": "2026-10-01T09:00:00.000Z",
+        "route": "NEAR→ETH",
+        "dry": true,
+        "inputAmountAtomic": "1000000000000000000000000",
+        "outputAmountAtomic": "220000000000000000",
+        "latencyMs": 184,
+        "outcome": "OK"
+      },
+      {
+        "quoteId": "fixture-quote-2",
+        "fetchedAt": "2026-10-01T10:00:00.000Z",
+        "route": "NEAR→ETH",
+        "dry": true,
+        "inputAmountAtomic": "1000000000000000000000000",
+        "outputAmountAtomic": null,
+        "latencyMs": 400,
+        "outcome": "RATE_LIMITED"
+      },
+      {
+        "quoteId": "fixture-quote-3",
+        "fetchedAt": "2026-10-01T11:00:00.000Z",
+        "route": "BASE→NEAR",
+        "dry": true,
+        "inputAmountAtomic": "100000000000000000",
+        "outputAmountAtomic": "345000000000000000000000",
+        "latencyMs": 245,
+        "outcome": "OK"
+      }
+    ]
+  },
+  "expected": {
+    "allDryTrue": true,
+    "notRealisedExecution": true,
+    "errorOutputNullNotZero": true
+  },
+  "interactions": [
+    "route_filter",
+    "inspect_quote",
+    "compare_samples"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

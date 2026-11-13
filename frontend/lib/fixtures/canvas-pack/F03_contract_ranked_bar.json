@@ -1,0 +1,116 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F03_contract_ranked_bar",
+  "kind": "bar",
+  "title": "Contract interaction counts — synthetic identities",
+  "chartSpec": {
+    "kind": "bar",
+    "title": "Contract interaction counts — synthetic identities",
+    "encodings": {
+      "x": "entity",
+      "y": "tx_count",
+      "sort": "descending"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F03_contract_ranked_bar",
+    "query": {
+      "canonicalQueryHash": "245144be989104007a4fed8d6ca51133e7a7029675fbc6569c7bf377ccf5def6",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.contract_tx_count"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F03_contract_ranked_bar",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "f8abf4b89948dfea6b6808079ec779f1cdcf5886a987c1a16deacb6d790abace",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 6,
+        "observed": 6,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "entity",
+        "role": "dimension",
+        "unit": "contract identifier",
+        "nullable": false
+      },
+      {
+        "id": "tx_count",
+        "role": "measure",
+        "unit": "transactions",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F03_contract_ranked_bar",
+    "rowCount": 6,
+    "resultHash": "1a43a9c0aadce3d1d575857c5c5257fb4cf1b890b8cc83c19cf03c621cd6893e",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "entity": "fixture.app.alpha",
+        "tx_count": 1734
+      },
+      {
+        "entity": "fixture.app.beta",
+        "tx_count": 1350
+      },
+      {
+        "entity": "fixture.app.gamma",
+        "tx_count": 1080
+      },
+      {
+        "entity": "unattributed",
+        "tx_count": 850
+      },
+      {
+        "entity": "fixture.app.delta",
+        "tx_count": 730
+      },
+      {
+        "entity": "fixture.app.epsilon",
+        "tx_count": 410
+      }
+    ]
+  },
+  "expected": {
+    "highest": "fixture.app.alpha",
+    "mustKeepUnattributed": true,
+    "zeroNotSameAsUnknown": true
+  },
+  "interactions": [
+    "sort",
+    "inspect_entity",
+    "selection_lens",
+    "export"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

@@ -1,0 +1,252 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F10_retention_cohort",
+  "kind": "cohort",
+  "title": "Synthetic account identifier retention (not humans)",
+  "chartSpec": {
+    "kind": "cohort",
+    "title": "Synthetic account identifier retention (not humans)",
+    "encodings": {
+      "x": "age_month",
+      "y": "cohort",
+      "color": "retention_percent",
+      "tooltip": [
+        "numerator",
+        "denominator"
+      ]
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F10_retention_cohort",
+    "query": {
+      "canonicalQueryHash": "51488d04fd96dae446c19f62e41bb714a8cf27e0c454a10811830e607bd98bbb",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.account_retention"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F10_retention_cohort",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "bf39ce2aad70025941f76e208d4fb9a8ba3fde65b80483e44f446d3816dadd46",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 20,
+        "observed": 20,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "cohort",
+        "role": "dimension",
+        "unit": "cohort month",
+        "nullable": false
+      },
+      {
+        "id": "age_month",
+        "role": "dimension",
+        "unit": "months",
+        "nullable": false
+      },
+      {
+        "id": "numerator",
+        "role": "measure",
+        "unit": "account identifiers",
+        "nullable": true
+      },
+      {
+        "id": "denominator",
+        "role": "measure",
+        "unit": "account identifiers",
+        "nullable": false
+      },
+      {
+        "id": "retention_percent",
+        "role": "measure",
+        "unit": "percent",
+        "nullable": true
+      }
+    ],
+    "rowsRef": "fixture://rows/F10_retention_cohort",
+    "rowCount": 20,
+    "resultHash": "e74fa5d7d8ea5ee838f10ef79e7dc38f939e30c7608b50e93295b04fa2affdfd",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "cohort": "2026-06",
+        "age_month": 0,
+        "numerator": 120,
+        "denominator": 120,
+        "retention_percent": 100
+      },
+      {
+        "cohort": "2026-06",
+        "age_month": 1,
+        "numerator": 81,
+        "denominator": 120,
+        "retention_percent": 67.5
+      },
+      {
+        "cohort": "2026-06",
+        "age_month": 2,
+        "numerator": 65,
+        "denominator": 120,
+        "retention_percent": 54.17
+      },
+      {
+        "cohort": "2026-06",
+        "age_month": 3,
+        "numerator": 52,
+        "denominator": 120,
+        "retention_percent": 43.33
+      },
+      {
+        "cohort": "2026-06",
+        "age_month": 4,
+        "numerator": 40,
+        "denominator": 120,
+        "retention_percent": 33.33
+      },
+      {
+        "cohort": "2026-07",
+        "age_month": 0,
+        "numerator": 95,
+        "denominator": 95,
+        "retention_percent": 100
+      },
+      {
+        "cohort": "2026-07",
+        "age_month": 1,
+        "numerator": 66,
+        "denominator": 95,
+        "retention_percent": 69.47
+      },
+      {
+        "cohort": "2026-07",
+        "age_month": 2,
+        "numerator": 48,
+        "denominator": 95,
+        "retention_percent": 50.53
+      },
+      {
+        "cohort": "2026-07",
+        "age_month": 3,
+        "numerator": 38,
+        "denominator": 95,
+        "retention_percent": 40
+      },
+      {
+        "cohort": "2026-07",
+        "age_month": 4,
+        "numerator": null,
+        "denominator": 95,
+        "retention_percent": null
+      },
+      {
+        "cohort": "2026-08",
+        "age_month": 0,
+        "numerator": 110,
+        "denominator": 110,
+        "retention_percent": 100
+      },
+      {
+        "cohort": "2026-08",
+        "age_month": 1,
+        "numerator": 76,
+        "denominator": 110,
+        "retention_percent": 69.09
+      },
+      {
+        "cohort": "2026-08",
+        "age_month": 2,
+        "numerator": 54,
+        "denominator": 110,
+        "retention_percent": 49.09
+      },
+      {
+        "cohort": "2026-08",
+        "age_month": 3,
+        "numerator": null,
+        "denominator": 110,
+        "retention_percent": null
+      },
+      {
+        "cohort": "2026-08",
+        "age_month": 4,
+        "numerator": null,
+        "denominator": 110,
+        "retention_percent": null
+      },
+      {
+        "cohort": "2026-09",
+        "age_month": 0,
+        "numerator": 102,
+        "denominator": 102,
+        "retention_percent": 100
+      },
+      {
+        "cohort": "2026-09",
+        "age_month": 1,
+        "numerator": 71,
+        "denominator": 102,
+        "retention_percent": 69.61
+      },
+      {
+        "cohort": "2026-09",
+        "age_month": 2,
+        "numerator": null,
+        "denominator": 102,
+        "retention_percent": null
+      },
+      {
+        "cohort": "2026-09",
+        "age_month": 3,
+        "numerator": null,
+        "denominator": 102,
+        "retention_percent": null
+      },
+      {
+        "cohort": "2026-09",
+        "age_month": 4,
+        "numerator": null,
+        "denominator": 102,
+        "retention_percent": null
+      }
+    ]
+  },
+  "expected": {
+    "missingFutureAgesRemainNull": true,
+    "cohort0All100": true,
+    "accountProxyNotHumans": true
+  },
+  "interactions": [
+    "cell_drilldown",
+    "denominator_inspector"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

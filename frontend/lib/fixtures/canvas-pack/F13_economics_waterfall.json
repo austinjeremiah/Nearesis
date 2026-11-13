@@ -1,0 +1,121 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F13_economics_waterfall",
+  "kind": "waterfall",
+  "title": "Additive illustrative fee components (NOT protocol revenue)",
+  "chartSpec": {
+    "kind": "waterfall",
+    "title": "Additive illustrative fee components (NOT protocol revenue)",
+    "encodings": {
+      "x": "component",
+      "y": "delta",
+      "running": "running"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F13_economics_waterfall",
+    "query": {
+      "canonicalQueryHash": "19be7abb85969f17341cfbc27750405c681fc3c7cec41b36ac0f3eacacb3b0f8",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.fee_bridge"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F13_economics_waterfall",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "afefdfce724cf2dc87442ff18abbfda8163189385eac14b58a8f6f466e1f6981",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 5,
+        "observed": 5,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "component",
+        "role": "dimension",
+        "unit": "component",
+        "nullable": false
+      },
+      {
+        "id": "delta",
+        "role": "measure",
+        "unit": "NEAR",
+        "nullable": false
+      },
+      {
+        "id": "running",
+        "role": "measure",
+        "unit": "NEAR",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F13_economics_waterfall",
+    "rowCount": 5,
+    "resultHash": "83f341e4245875b7fafb85de824871f48f3133d6c5f77c6d2c1e3dbd1deb6bf4",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "component": "Opening total",
+        "delta": 1000,
+        "running": 1000
+      },
+      {
+        "component": "Application A",
+        "delta": 280,
+        "running": 1280
+      },
+      {
+        "component": "Application B",
+        "delta": 150,
+        "running": 1430
+      },
+      {
+        "component": "Reversals",
+        "delta": -40,
+        "running": 1390
+      },
+      {
+        "component": "Closing total",
+        "delta": 0,
+        "running": 1390
+      }
+    ]
+  },
+  "expected": {
+    "closing": 1390,
+    "sameUnits": "NEAR",
+    "noRevenueClaim": true
+  },
+  "interactions": [
+    "bar_drilldown",
+    "inspect_definition"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

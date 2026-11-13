@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Content, PageHeader, RunStrip } from '@/components/nx/shell';
+import { Content, Crumbs, RunStrip } from '@/components/nx/shell';
+import { BracketButton, PageHero } from '@/components/nx/landing';
 import { SectionBar } from '@/components/nx/section';
 import { PanelFrame } from '@/components/nx/panel';
 import {
@@ -50,10 +51,13 @@ export default async function OverviewPage({ params }: { params: Promise<{ wid: 
 
   return (
     <>
-      <PageHeader
+      <Crumbs
+        items={[{ label: 'Workspaces', href: '/workspaces' }, { label: ws.name }]}
+      />
+      <PageHero
+        kicker={ws.template}
         title={ws.name}
-        description={ws.objective}
-        crumbs={[{ label: 'Workspaces', href: '/workspaces' }, { label: ws.name }]}
+        lede={ws.objective}
         context={
           <>
             <Badge outline>branch {ws.branch}</Badge>
@@ -62,14 +66,11 @@ export default async function OverviewPage({ params }: { params: Promise<{ wid: 
         }
         actions={
           <>
-            <LinkButton href={`/w/${wid}/investigate`} variant="primary">
-              Ask a question
-            </LinkButton>
+            <BracketButton href={`/w/${wid}/investigate`}>Ask a question</BracketButton>
             <LinkButton href={`/w/${wid}/canvas`}>Open canvas</LinkButton>
           </>
         }
       />
-
       <Content>
         <div className="grid c3">
           <Card title="Thesis status" actions={<Badge tone={ws.thesisStatus === 'published' ? 'ok' : 'warn'}>{ws.thesisStatus.replace(/_/g, ' ')}</Badge>}>

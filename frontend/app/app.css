@@ -267,7 +267,7 @@ body {
   flex-direction: column;
   gap: var(--s2);
 }
-.nav-group-head {
+.nx .nav-group-head {
   display: flex;
   align-items: center;
   gap: var(--s2);
@@ -287,7 +287,7 @@ body {
 .nav-group-head[aria-expanded='false'] .chev {
   transform: rotate(-90deg);
 }
-.nav-item {
+.nx .nav-item {
   display: flex;
   align-items: center;
   gap: var(--s3);
@@ -559,7 +559,7 @@ body {
 /* -----------------------------------------------------------------------------
    controls
    -------------------------------------------------------------------------- */
-.btn {
+.nx .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -648,9 +648,9 @@ body {
   flex-direction: column;
   gap: var(--s1);
 }
-.input,
-.select,
-.textarea {
+.nx .input,
+.nx .select,
+.nx .textarea {
   width: 100%;
   height: var(--control-h-lg);
   padding: 0 var(--s3);
@@ -659,7 +659,7 @@ body {
   color: var(--text);
   font-size: var(--fs-body);
 }
-.textarea {
+.nx .textarea {
   height: auto;
   min-height: 84px;
   padding: var(--s3);
@@ -1247,12 +1247,13 @@ table.table {
   }
 }
 
-/* The mobile nav toggle is only meaningful once the sidebar is off-canvas. */
-.nav-toggle {
+/* The mobile nav toggle is only meaningful once the sidebar is off-canvas.
+   Scoped like the button rules it has to outrank. */
+.nx .nav-toggle {
   display: none;
 }
 @media (max-width: 900px) {
-  .nav-toggle {
+  .nx .nav-toggle {
     display: inline-flex;
   }
 }
@@ -1415,10 +1416,10 @@ table.table {
 .skel {
   border-radius: var(--radius);
 }
-.btn,
-.input,
-.select,
-.textarea,
+.nx .btn,
+.nx .input,
+.nx .select,
+.nx .textarea,
 .seg,
 .meter,
 .tooltip {
@@ -1434,12 +1435,12 @@ table.table {
 .mode {
   border-radius: 3px;
 }
-.nav-item {
+.nx .nav-item {
   border-radius: var(--radius-sm);
   margin: 0 var(--s2) 1px;
 }
 /* The active rule reads better as an inset bar than a border on a rounded box. */
-.nav-item {
+.nx .nav-item {
   border-left: 0;
   position: relative;
 }
@@ -1611,7 +1612,7 @@ table.table {
   padding: var(--s3) 0 var(--s4);
   gap: 0;
 }
-.nav-group-head {
+.nx .nav-group-head {
   margin: var(--s4) var(--s2) var(--s1);
   padding: var(--s1) var(--s3);
   width: calc(100% - var(--s4));
@@ -1639,7 +1640,7 @@ table.table {
   margin-left: 0;
   margin-right: 0;
 }
-.nav-collapse {
+.nx .nav-collapse {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2300,9 +2301,660 @@ table.table {
   gap: var(--s4);
   /* Equal rows sized to the tallest card's own content, not stretched to fill
      the column: every card matches, without opening a well of empty space. */
-  grid-auto-rows: 1fr;
+  grid-auto-rows: minmax(var(--stack-row), 1fr);
   align-content: start;
 }
 .stack-even > .card {
   height: 100%;
+}
+
+/* Two lines of supporting text in a dense row, with the full string on hover. */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* A two-word header may wrap onto a second line. Holding every header on one
+   line made the widest of them set the column width, which starved the columns
+   that actually carry the content. */
+.table thead th {
+  white-space: normal;
+}
+
+/* =============================================================================
+   Pass 6: the Canvas layout surface, synthetic fixture marks, timeline.
+   ========================================================================== */
+
+.cgrid {
+  position: relative;
+  width: 100%;
+}
+/* The track only shows while the reader is arranging panels. */
+.cgrid[data-grid='true'] {
+  background-image:
+    linear-gradient(to right, var(--line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+  background-size: var(--cgrid-col) var(--cgrid-row);
+  background-position: 0 0;
+}
+.cgrid-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+  transition: box-shadow var(--t-fast) var(--ease);
+}
+.cgrid-item > .card {
+  height: 100%;
+  overflow: hidden;
+}
+.cgrid-item > .card > .card-body {
+  overflow: auto;
+}
+.cgrid[data-locked='false'] .cgrid-item > .card > .card-head {
+  cursor: grab;
+}
+.cgrid-item[data-dragging='true'] {
+  z-index: 5;
+}
+.cgrid-item[data-dragging='true'] > .card {
+  box-shadow: var(--shadow-overlay);
+  border-color: var(--line-hard);
+}
+.cgrid-item[data-selected='true'] > .card {
+  border-color: var(--line-hard);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.cgrid-item:focus-visible {
+  outline: none;
+}
+.cgrid-item:focus-visible > .card {
+  box-shadow: var(--focus-ring);
+}
+.cgrid-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.cgrid-resize::after {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--line-strong);
+  border-bottom: 2px solid var(--line-strong);
+}
+
+/* The synthetic label travels with the panel, including into a screenshot. */
+.synthetic-stamp {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.04em;
+  color: var(--bad);
+  background: var(--bad-bg);
+  border: 1px solid var(--bad);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+
+/* Agent timeline bars. An unfinished task is hatched, never filled solid. */
+.timeline-track {
+  position: relative;
+  height: 10px;
+  background: var(--sunken);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.timeline-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--ink);
+  border-radius: 2px;
+  min-width: 3px;
+}
+.timeline-bar[data-open='true'] {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--text-3),
+    var(--text-3) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+/* The canvas toolbar: one row, wrapping, with the view controls grouped. */
+.canvas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--line);
+}
+.canvas-toolbar .tool-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--line);
+}
+
+/* Toolbar controls size to their content. A select defaults to filling its
+   container, which turned the toolbar into a column of full-width dropdowns. */
+.canvas-toolbar .select,
+.canvas-toolbar .input {
+  width: auto;
+  min-width: 150px;
+  /* Wide enough that a branch and snapshot pair reads in full. */
+  max-width: 340px;
+}
+
+/* =============================================================================
+   Agent panel: a docked third column, not a floating chat window.
+   ========================================================================== */
+:root {
+  --ask-w: 400px;
+}
+.shell[data-ask='open'] {
+  grid-template-columns: var(--nav-w) minmax(0, 1fr) var(--ask-w);
+}
+.shell[data-nav='collapsed'][data-ask='open'] {
+  grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) var(--ask-w);
+}
+.askpanel {
+  grid-row: 1;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--line-strong);
+  overflow: hidden;
+}
+.ask-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  height: var(--topbar-h);
+  padding: 0 var(--s3) 0 var(--s4);
+  border-bottom: 1px solid var(--line-strong);
+}
+.ask-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+.ask-foot {
+  flex: none;
+  border-top: 1px solid var(--line-strong);
+  padding: var(--s3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  background: var(--page);
+}
+.ask-foot .textarea {
+  width: 100%;
+  resize: none;
+}
+/* The question, set apart from the machine's answer the way a quote is. */
+.ask-bubble {
+  background: var(--sunken);
+  border-left: 2px solid var(--line-hard);
+  border-radius: var(--radius-sm);
+  padding: var(--s3);
+  font-size: var(--fs-small);
+}
+/* The run progression. A dot per step, filled once the step has a result. */
+.ask-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ask-steps > li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  position: relative;
+  padding-left: 2px;
+}
+.ask-steps > li > .col {
+  flex: 1;
+}
+.ask-steps .dotmark {
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  flex: none;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-3);
+}
+.ask-steps > li[data-state='succeeded'] .dotmark {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+.ask-steps > li[data-state='running'] .dotmark {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.ask-steps > li[data-state='failed'] .dotmark,
+.ask-steps > li[data-state='blocked'] .dotmark {
+  background: var(--bad);
+  border-color: var(--bad);
+}
+/* The connector between steps, so the list reads as one progression. */
+.ask-steps > li:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 18px;
+  bottom: -14px;
+  width: 1px;
+  background: var(--line);
+}
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Below the inspector breakpoint the agent panel floats instead of docking, so
+   it never squeezes the content it is being used to discuss. */
+@media (max-width: 1240px) {
+  .shell[data-ask='open'] {
+    grid-template-columns: var(--nav-w) minmax(0, 1fr);
+  }
+  .shell[data-nav='collapsed'][data-ask='open'] {
+    grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr);
+  }
+  .askpanel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: var(--z-overlay);
+    width: min(var(--ask-w), 100vw);
+    height: 100dvh;
+    box-shadow: var(--shadow-overlay);
+  }
+}
+
+/* Grid auto-placement puts row-locked items first, in DOM order, so the agent
+   panel was claiming column two and pushing the content to column three. The
+   main column is locked to the same row, which restores nav, content, panel. */
+.main {
+  grid-row: 1;
+}
+
+/* =============================================================================
+   Pass 7: control breathing room. Labels were sitting against the edge of
+   their buttons, and the toolbar packed its controls tight enough that a
+   select's chevron ran into the control beside it.
+   ========================================================================== */
+/*
+ * These carry the .nx prefix on purpose. The base reset sets `.nx button {
+ * padding: 0 }`, which at specificity (0,1,1) outranks a bare `.btn`, so every
+ * rule below has to clear that bar or it silently does nothing. That reset is
+ * why the labels were sitting against the border.
+ */
+.nx .btn {
+  padding: 0 18px;
+  gap: 9px;
+}
+.nx .btn.lg {
+  padding: 0 26px;
+}
+.nx .btn.icon,
+.nx .btn.icon.ghost {
+  padding: 0;
+}
+.nx .seg > button {
+  padding: 0 16px;
+}
+.nx .select {
+  /* The native chevron needs its own room or the value runs under it. */
+  padding-right: 34px;
+}
+.canvas-toolbar {
+  gap: var(--s3);
+  row-gap: var(--s2);
+}
+.pagehead .actions {
+  gap: var(--s3);
+}
+.card-head .actions {
+  gap: var(--s2);
+}
+.card-foot {
+  gap: var(--s3);
+}
+.ask-head {
+  gap: var(--s3);
+}
+
+/* Empty chart: the kept coordinate space, drawn with borders so it can never
+   extend past the panel the way an SVG line with calc() did. */
+.chart-axes {
+  position: absolute;
+  inset: 8px 16px 28px 44px;
+  border-left: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+  pointer-events: none;
+}
+
+/* A control never shrinks below its own content. These sit in flex rows, so a
+   crowded row was squeezing the button narrower than its label while the label
+   stayed nowrap, which is what pushed the text against the edge. The row wraps
+   instead. */
+.nx .btn,
+.seg,
+.badge,
+.mode,
+.canvas-toolbar .select,
+.canvas-toolbar .input {
+  flex: 0 0 auto;
+}
+.btn.block {
+  flex: 1 1 auto;
+}
+.pagehead .actions,
+.card-head .actions,
+.canvas-toolbar {
+  flex-wrap: wrap;
+}
+
+/* Select: the browser's own arrow is pinned a few pixels from the border and
+   cannot be moved, so it is suppressed and replaced with a chevron that has
+   room around it and follows the text colour. */
+.select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+.nx .select-wrap > .select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  text-overflow: ellipsis;
+}
+.select-chevron {
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-2);
+}
+/* The flex sizing now belongs to the wrapper, which is the actual flex child. */
+.canvas-toolbar .select-wrap {
+  width: auto;
+  min-width: 150px;
+  max-width: 340px;
+  flex: 0 0 auto;
+}
+
+/* =============================================================================
+   Pass 8: the marketing site's devices, inside the product.
+   ========================================================================== */
+
+/* --- the notched kicker, from the landing's PROVE IT tag ------------------ */
+.nx .kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 11px;
+  background: var(--accent);
+  color: #000;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  /* The cut corner is the landing's shape, not a rounded pill. */
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  border-radius: var(--radius-sm) var(--radius-sm) var(--radius-sm) 0;
+}
+.nx .kicker[data-tone='ink'] {
+  background: var(--ink);
+  color: var(--invert);
+}
+.nx .kicker .sq {
+  width: 7px;
+  height: 7px;
+  background: currentColor;
+  flex: none;
+}
+.nx .kicker .chev {
+  letter-spacing: -1px;
+  opacity: 0.65;
+}
+
+/* --- the oversized title with one word marked ----------------------------- */
+.nx .display-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 4.4vw, 62px);
+  line-height: 0.96;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.3em;
+}
+.nx .display-title .mark {
+  background: var(--accent);
+  color: #000;
+  padding: 0 0.12em 0.04em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* --- the numbered tab strip ----------------------------------------------- */
+.nx .tabstrip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border-bottom: 1px solid var(--line-hard);
+}
+.nx .tabstrip-tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: 14px 16px;
+  min-width: 0;
+  border-top: 1px solid var(--line-hard);
+  border-right: 1px solid var(--line-hard);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-small);
+  font-weight: 500;
+  text-align: left;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.nx .tabstrip-tab:last-child {
+  border-right: 0;
+}
+.nx .tabstrip-tab .t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nx .tabstrip-tab .n {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tiny);
+  color: var(--text-3);
+  flex: none;
+}
+.nx .tabstrip-tab:hover[aria-selected='false'] {
+  background: var(--raised);
+}
+.nx .tabstrip-tab[aria-selected='true'] {
+  background: var(--ink);
+  color: var(--invert);
+  border-top: 3px solid var(--accent);
+  padding-top: 12px;
+}
+.nx .tabstrip-tab[aria-selected='true'] .n {
+  color: var(--accent);
+}
+
+/* --- the bracketed call to action ----------------------------------------- */
+.nx .bracket-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-h-lg);
+  padding: 0 30px;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  font-size: var(--fs-small);
+  font-weight: 700;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background var(--t) var(--ease), color var(--t) var(--ease);
+}
+.nx .bracket-btn .corner {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--line-hard);
+  transition: opacity var(--t-fast) var(--ease);
+}
+.nx .bracket-btn .corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.nx .bracket-btn .corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.nx .bracket-btn .corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+.nx .bracket-btn .corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+/* The label rolls up to its duplicate, so the hover reads as a mechanism. */
+.nx .bracket-btn .roll {
+  display: block;
+  height: 1.1em;
+  overflow: hidden;
+}
+.nx .bracket-btn .roll > span {
+  display: block;
+  height: 1.1em;
+  transition: transform var(--t) var(--ease);
+}
+.nx .bracket-btn:hover:not(:disabled),
+.nx .bracket-btn:focus-visible:not(:disabled) {
+  background: var(--ink);
+  color: var(--invert);
+}
+.nx .bracket-btn:hover:not(:disabled) .corner,
+.nx .bracket-btn:focus-visible:not(:disabled) .corner {
+  opacity: 0;
+}
+.nx .bracket-btn:hover:not(:disabled) .roll > span,
+.nx .bracket-btn:focus-visible:not(:disabled) .roll > span {
+  transform: translateY(-1.1em);
+}
+.nx .bracket-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nx .bracket-btn .roll > span {
+    transition: none;
+  }
+}
+
+/* --- the page header, when it carries a display title --------------------- */
+.pagehead.display {
+  display: block;
+  padding: var(--s6) var(--s5) var(--s5);
+}
+.pagehead.display .titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  max-width: 24ch;
+}
+.pagehead.display .head-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s5);
+  flex-wrap: wrap;
+}
+.pagehead.display .lede {
+  max-width: 62ch;
+  color: var(--text-2);
+}
+
+/* Hero header: the lede sits under the title with air, and the page actions
+   hold the top right rather than sinking to the baseline of a tall title. */
+.pagehead.display .head-row {
+  align-items: flex-start;
+}
+.pagehead.display .lede {
+  margin: var(--s4) 0 0;
+}
+.pagehead.display .titles {
+  max-width: 26ch;
+}
+.nx .display-title {
+  font-size: clamp(32px, 3.8vw, 54px);
+}
+
+/* The kicker is a single line: the cut corner only reads as a notch when the
+   tag is one row tall. */
+.nx .kicker {
+  white-space: nowrap;
+}
+.pagehead.display .titles {
+  max-width: 32ch;
+}
+
+/* -----------------------------------------------------------------------------
+   The hero header is a page header, not a landing section. It keeps the
+   devices (kicker, display face, bracketed action) at page-header scale: the
+   screen below it is the subject, not the title.
+   -------------------------------------------------------------------------- */
+.pagehead.display {
+  padding: var(--s4) var(--s5);
+}
+.pagehead.display .titles {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--s3);
+  max-width: none;
+}
+.nx .display-title {
+  font-size: clamp(22px, 2.1vw, 32px);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+}
+.pagehead.display .lede {
+  margin: 6px 0 0;
+  font-size: var(--fs-small);
+  max-width: 78ch;
+}
+.nx .kicker {
+  padding: 5px 11px 5px 9px;
+  gap: 6px;
 }

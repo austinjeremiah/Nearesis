@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, Menu as MenuIcon, PanelLeftClose, Search } from 'lucide-react';
+import { ChevronDown, Menu as MenuIcon, PanelLeftClose, Search, Sparkles } from 'lucide-react';
 import Wordmark from '@/components/Wordmark';
 import {
   GLOBAL_NAV,
@@ -65,11 +65,18 @@ export function AppShell({
   workspaceName,
   children,
   onOpenPalette,
+  aside,
+  asideOpen = false,
+  onToggleAside,
 }: {
   workspaceId?: string | null;
   workspaceName?: string;
   children: ReactNode;
   onOpenPalette?: () => void;
+  /** The agent panel. Docked beside the content, not floated over it. */
+  aside?: ReactNode;
+  asideOpen?: boolean;
+  onToggleAside?: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -81,7 +88,7 @@ export function AppShell({
   const navState = mobileOpen ? 'open' : collapsed ? 'collapsed' : 'expanded';
 
   return (
-    <div className="shell" data-nav={navState}>
+    <div className="shell" data-nav={navState} data-ask={asideOpen ? 'open' : 'closed'}>
       <nav className="nav" aria-label="Primary">
         <div className="nav-top">
           {/* The collapse control belongs with the mark it collapses, not at the
@@ -190,10 +197,40 @@ export function AppShell({
               ⌘K
             </kbd>
           </button>
+          {onToggleAside && (
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={onToggleAside}
+              aria-pressed={asideOpen}
+              title="Agent panel"
+            >
+              <Sparkles size={14} />
+              Ask
+              <kbd className="mono tiny dim" style={{ marginLeft: 6 }}>
+                ⌘J
+              </kbd>
+            </button>
+          )}
         </header>
         {children}
       </div>
+      {asideOpen && aside}
     </div>
+  );
+}
+
+/** Breadcrumb trail. Separated so a hero header can carry one too. */
+export function Crumbs({ items }: { items: { label: string; href?: string }[] }) {
+  return (
+    <nav className="crumbs" aria-label="Breadcrumb" style={{ padding: '10px 20px 0' }}>
+      {items.map((c, i) => (
+        <span key={`${c.label}-${i}`} className="row gap2">
+          {i > 0 && <span className="sep">/</span>}
+          {c.href ? <Link href={c.href}>{c.label}</Link> : <span className="here">{c.label}</span>}
+        </span>
+      ))}
+    </nav>
   );
 }
 
@@ -217,20 +254,7 @@ export function PageHeader({
 }) {
   return (
     <>
-      {crumbs && crumbs.length > 0 && (
-        <nav className="crumbs" aria-label="Breadcrumb" style={{ padding: '10px 20px 0' }}>
-          {crumbs.map((c, i) => (
-            <span key={`${c.label}-${i}`} className="row gap2">
-              {i > 0 && <span className="sep">/</span>}
-              {c.href ? (
-                <Link href={c.href}>{c.label}</Link>
-              ) : (
-                <span className="here">{c.label}</span>
-              )}
-            </span>
-          ))}
-        </nav>
-      )}
+      {crumbs && crumbs.length > 0 && <Crumbs items={crumbs} />}
       <header className="pagehead">
         <div className="titles grow">
           <h1 className="h2">{title}</h1>

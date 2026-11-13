@@ -1,0 +1,141 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F17_agent_timeline",
+  "kind": "agent_timeline",
+  "title": "Synthetic durable workflow timeline",
+  "chartSpec": {
+    "kind": "agent_timeline",
+    "title": "Synthetic durable workflow timeline",
+    "encodings": {
+      "start": "startedAt",
+      "end": "endedAt",
+      "group": "role",
+      "status": "status"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F17_agent_timeline",
+    "query": {
+      "canonicalQueryHash": "9b868cd3739ca636ccaecd67068aaac41391f79201db6acccdd9c24847a2dd9b",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.agent_timeline"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F17_agent_timeline",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "6a77f32b23e6e404d1a193aea558f8e832efb4944d755ced56765a4fdbba1a95",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 4,
+        "observed": 4,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "taskId",
+        "role": "dimension",
+        "unit": "task id",
+        "nullable": false
+      },
+      {
+        "id": "role",
+        "role": "dimension",
+        "unit": "role",
+        "nullable": false
+      },
+      {
+        "id": "startedAt",
+        "role": "time",
+        "unit": "UTC",
+        "nullable": false
+      },
+      {
+        "id": "endedAt",
+        "role": "time",
+        "unit": "UTC",
+        "nullable": true
+      },
+      {
+        "id": "status",
+        "role": "dimension",
+        "unit": "status",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F17_agent_timeline",
+    "rowCount": 4,
+    "resultHash": "f2277e9861bac1c542a0b25125331a11e54bd67aa6c735db6da8db925b29ec0d",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "taskId": "fixture-task-director",
+        "role": "director",
+        "startedAt": "2026-10-01T10:00:00.000Z",
+        "endedAt": "2026-10-01T10:00:01.000Z",
+        "status": "complete",
+        "resultId": "fixture-plan"
+      },
+      {
+        "taskId": "fixture-task-scout",
+        "role": "data_scout",
+        "startedAt": "2026-10-01T10:00:01.000Z",
+        "endedAt": "2026-10-01T10:00:03.000Z",
+        "status": "complete",
+        "resultId": "fixture-catalog"
+      },
+      {
+        "taskId": "fixture-task-quant",
+        "role": "quant",
+        "startedAt": "2026-10-01T10:00:02.000Z",
+        "endedAt": null,
+        "status": "blocked",
+        "resultId": null
+      },
+      {
+        "taskId": "fixture-task-auditor",
+        "role": "auditor",
+        "startedAt": "2026-10-01T10:00:03.000Z",
+        "endedAt": "2026-10-01T10:00:04.000Z",
+        "status": "complete",
+        "resultId": "fixture-review"
+      }
+    ]
+  },
+  "expected": {
+    "missingEndMeansNotFinished": true,
+    "noHiddenChainOfThought": true
+  },
+  "interactions": [
+    "expand_step",
+    "inspect_tool",
+    "open_run"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

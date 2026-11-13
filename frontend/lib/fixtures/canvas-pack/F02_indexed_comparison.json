@@ -1,0 +1,149 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F02_indexed_comparison",
+  "kind": "line",
+  "title": "Indexed activity and price (base = 100)",
+  "chartSpec": {
+    "kind": "line",
+    "title": "Indexed activity and price (base = 100)",
+    "encodings": {
+      "x": "day",
+      "y": [
+        "activity_index",
+        "price_index"
+      ],
+      "baseline": {
+        "date": "2026-10-01",
+        "value": 100
+      }
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F02_indexed_comparison",
+    "query": {
+      "canonicalQueryHash": "fca5eee1afa0678a5a937170b4c42c980783596fa2da216dbeab90bce7a2e2f3",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.activity_index",
+        "fixture.price_index"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F02_indexed_comparison",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "e3bb803f56a790a2db6aeb12124b7cf6f6ac44a4c5da168cb7d3d49a97f9e0b0",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 7,
+        "observed": 7,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "day",
+        "role": "time",
+        "unit": "UTC day",
+        "nullable": false
+      },
+      {
+        "id": "activity_index",
+        "role": "measure",
+        "unit": "index points",
+        "nullable": false
+      },
+      {
+        "id": "price_index",
+        "role": "measure",
+        "unit": "index points",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F02_indexed_comparison",
+    "rowCount": 7,
+    "resultHash": "847b85024228d4315c44e8d5f4143711f822c748936cf95b0611871c021e38e2",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "day": "2026-10-01",
+        "activity_index": 100,
+        "price_index": 100,
+        "base": 100
+      },
+      {
+        "day": "2026-10-02",
+        "activity_index": 104,
+        "price_index": 102,
+        "base": 100
+      },
+      {
+        "day": "2026-10-03",
+        "activity_index": 103,
+        "price_index": 107,
+        "base": 100
+      },
+      {
+        "day": "2026-10-04",
+        "activity_index": 110,
+        "price_index": 106,
+        "base": 100
+      },
+      {
+        "day": "2026-10-05",
+        "activity_index": 108,
+        "price_index": 112,
+        "base": 100
+      },
+      {
+        "day": "2026-10-06",
+        "activity_index": 116,
+        "price_index": 109,
+        "base": 100
+      },
+      {
+        "day": "2026-10-07",
+        "activity_index": 119,
+        "price_index": 114,
+        "base": 100
+      }
+    ]
+  },
+  "expected": {
+    "baseDate": "2026-10-01",
+    "firstValues": [
+      100,
+      100
+    ],
+    "discloseTransform": true
+  },
+  "interactions": [
+    "series_toggle",
+    "base_date_change_preview",
+    "zoom"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

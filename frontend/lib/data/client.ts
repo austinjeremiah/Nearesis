@@ -115,13 +115,18 @@ export function workspace(id: string): F.Workspace | undefined {
   return F.WORKSPACES.find((w) => w.id === id);
 }
 
+/** Measure-backed panels plus the synthetic chart pack's panels. */
+const ALL_PANELS = (): F.FixturePanel[] => [...F.PANELS, ...F.PACK_PANELS];
+
 export function panels(workspaceId: string): F.FixturePanel[] {
-  return F.PANELS.filter((p) => p.workspaceId === workspaceId);
+  return ALL_PANELS().filter((p) => p.workspaceId === workspaceId);
 }
 
 export function panel(workspaceId: string, panelId: string): F.FixturePanel | undefined {
-  return F.PANELS.find((p) => p.workspaceId === workspaceId && p.id === panelId);
+  return ALL_PANELS().find((p) => p.workspaceId === workspaceId && p.id === panelId);
 }
+
+export const FIXTURE_WORKSPACE_ID = F.FIXTURE_WORKSPACE_ID;
 
 export function hypotheses(workspaceId: string): F.Hypothesis[] {
   return F.HYPOTHESES.filter((x) => x.workspaceId === workspaceId);

@@ -1,0 +1,187 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F23_synthetic_swap_statuses",
+  "kind": "bar",
+  "title": "Synthetic swaps by status — Explorer-scope example",
+  "chartSpec": {
+    "kind": "bar",
+    "title": "Synthetic swaps by status — Explorer-scope example",
+    "encodings": {
+      "x": "status",
+      "y": "count_by_status",
+      "deriveFromRows": true
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F23_synthetic_swap_statuses",
+    "query": {
+      "canonicalQueryHash": "57d2da9552b59872cc6a4f5444e59bac19b6c64151367f52e45634190aca2d93",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.swap_status"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F23_synthetic_swap_statuses",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "f5c7373683ab5e44bf59e3b9b6e0864af87d1d0d809d30c4317ba9824cea116d",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 6,
+        "observed": 6,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "id",
+        "role": "dimension",
+        "unit": "swap id",
+        "nullable": false
+      },
+      {
+        "id": "day",
+        "role": "time",
+        "unit": "UTC day",
+        "nullable": false
+      },
+      {
+        "id": "src",
+        "role": "dimension",
+        "unit": "source chain",
+        "nullable": false
+      },
+      {
+        "id": "dst",
+        "role": "dimension",
+        "unit": "destination chain",
+        "nullable": false
+      },
+      {
+        "id": "status",
+        "role": "dimension",
+        "unit": "synthetic status",
+        "nullable": false
+      },
+      {
+        "id": "amount_out_atomic",
+        "role": "measure",
+        "unit": "atomic units",
+        "nullable": true
+      }
+    ],
+    "rowsRef": "fixture://rows/F23_synthetic_swap_statuses",
+    "rowCount": 6,
+    "resultHash": "127e5b8a1a7dc87cc37fcdaa44ee2e2b8325f26a9fdaba528e1d4701274bdb3d",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "id": "fixture-swap-001",
+        "day": "2026-10-01",
+        "src": "NEAR",
+        "dst": "ETH",
+        "status": "SUCCESS",
+        "amount_in_atomic": "1000000000000000000000000",
+        "amount_out_atomic": "230000000000000000",
+        "amount_out_source": "0.23",
+        "amount_out_known": true
+      },
+      {
+        "id": "fixture-swap-002",
+        "day": "2026-10-01",
+        "src": "BASE",
+        "dst": "NEAR",
+        "status": "SUCCESS",
+        "amount_in_atomic": "120000000000000000",
+        "amount_out_atomic": "390000000000000000000000",
+        "amount_out_source": "0.39",
+        "amount_out_known": true
+      },
+      {
+        "id": "fixture-swap-003",
+        "day": "2026-10-02",
+        "src": "NEAR",
+        "dst": "SOL",
+        "status": "FAILED",
+        "amount_in_atomic": "2000000000000000000000000",
+        "amount_out_atomic": null,
+        "amount_out_source": null,
+        "amount_out_known": false
+      },
+      {
+        "id": "fixture-swap-004",
+        "day": "2026-10-02",
+        "src": "ETH",
+        "dst": "NEAR",
+        "status": "REFUNDED",
+        "amount_in_atomic": "50000000000000000",
+        "amount_out_atomic": null,
+        "amount_out_source": "99.862321",
+        "amount_out_known": false
+      },
+      {
+        "id": "fixture-swap-005",
+        "day": "2026-10-03",
+        "src": "NEAR",
+        "dst": "ETH",
+        "status": "PENDING",
+        "amount_in_atomic": "100000000000000000000000",
+        "amount_out_atomic": null,
+        "amount_out_source": null,
+        "amount_out_known": false
+      },
+      {
+        "id": "fixture-swap-006",
+        "day": "2026-10-03",
+        "src": "NEAR",
+        "dst": "ETH",
+        "status": "SUCCESS",
+        "amount_in_atomic": "400000000000000000000000",
+        "amount_out_atomic": "150000000000000000",
+        "amount_out_source": "0.15",
+        "amount_out_known": true
+      }
+    ]
+  },
+  "expected": {
+    "statuses": {
+      "SUCCESS": 3,
+      "FAILED": 1,
+      "REFUNDED": 1,
+      "PENDING": 1
+    },
+    "amountOutUnknownCount": 3,
+    "neverCallAllIntentsVolume": true,
+    "neverTreatQuoteAsSwap": true
+  },
+  "interactions": [
+    "status_filter",
+    "drill_to_rows",
+    "inspect_provider_scope"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

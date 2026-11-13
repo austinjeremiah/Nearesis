@@ -31,7 +31,7 @@ export default function ExperimentDetailPage({
       const models = x?.models.filter((m) => m.smape !== null) ?? [];
       return {
         ...base,
-        grid: { left: 56, right: 16, top: 16, bottom: 40 },
+        grid: { left: 6, right: 16, top: 16, bottom: 20, containLabel: true },
         xAxis: {
           type: 'category',
           data: models.map((m) => m.label.split(' · ')[0]),

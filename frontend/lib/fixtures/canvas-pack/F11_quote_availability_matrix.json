@@ -1,0 +1,278 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F11_quote_availability_matrix",
+  "kind": "heatmap",
+  "title": "Dry-quote sampling availability — NOT executions",
+  "chartSpec": {
+    "kind": "heatmap",
+    "title": "Dry-quote sampling availability — NOT executions",
+    "encodings": {
+      "x": "day",
+      "y": "route",
+      "color": "availability_percent",
+      "status": "status"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F11_quote_availability_matrix",
+    "query": {
+      "canonicalQueryHash": "755cdb0461422ae2a13df1da63ee1a9d2e096c1afc88f06de6570fa4bed75d78",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.quote_availability"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F11_quote_availability_matrix",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "7d08d0b0b6f6e5e7d718feab5d6a76ea7365aa0ac8e4e891208d19dcca0ba177",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 21,
+        "observed": 21,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "route",
+        "role": "dimension",
+        "unit": "route",
+        "nullable": false
+      },
+      {
+        "id": "day",
+        "role": "time",
+        "unit": "UTC day",
+        "nullable": false
+      },
+      {
+        "id": "status",
+        "role": "dimension",
+        "unit": "status",
+        "nullable": false
+      },
+      {
+        "id": "availability_percent",
+        "role": "measure",
+        "unit": "percent",
+        "nullable": true
+      },
+      {
+        "id": "sample_count",
+        "role": "measure",
+        "unit": "samples",
+        "nullable": true
+      }
+    ],
+    "rowsRef": "fixture://rows/F11_quote_availability_matrix",
+    "rowCount": 21,
+    "resultHash": "dfefe75cd5fb1e21e6e790a45b7ade225a5508967305cb7f79629416fdcd259e",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "route": "NEAR→ETH",
+        "day": "2026-10-01",
+        "status": "observed",
+        "success_count": 0,
+        "sample_count": 1,
+        "availability_percent": 0
+      },
+      {
+        "route": "NEAR→ETH",
+        "day": "2026-10-02",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "NEAR→ETH",
+        "day": "2026-10-03",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "NEAR→ETH",
+        "day": "2026-10-04",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "NEAR→ETH",
+        "day": "2026-10-05",
+        "status": "observed",
+        "success_count": 0,
+        "sample_count": 1,
+        "availability_percent": 0
+      },
+      {
+        "route": "NEAR→ETH",
+        "day": "2026-10-06",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "NEAR→ETH",
+        "day": "2026-10-07",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "BASE→NEAR",
+        "day": "2026-10-01",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "BASE→NEAR",
+        "day": "2026-10-02",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "BASE→NEAR",
+        "day": "2026-10-03",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "BASE→NEAR",
+        "day": "2026-10-04",
+        "status": "observed",
+        "success_count": 0,
+        "sample_count": 1,
+        "availability_percent": 0
+      },
+      {
+        "route": "BASE→NEAR",
+        "day": "2026-10-05",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "BASE→NEAR",
+        "day": "2026-10-06",
+        "status": "provider_error",
+        "success_count": null,
+        "sample_count": null,
+        "availability_percent": null
+      },
+      {
+        "route": "BASE→NEAR",
+        "day": "2026-10-07",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "SOL→NEAR",
+        "day": "2026-10-01",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "SOL→NEAR",
+        "day": "2026-10-02",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "SOL→NEAR",
+        "day": "2026-10-03",
+        "status": "observed",
+        "success_count": 0,
+        "sample_count": 1,
+        "availability_percent": 0
+      },
+      {
+        "route": "SOL→NEAR",
+        "day": "2026-10-04",
+        "status": "not_sampled",
+        "success_count": null,
+        "sample_count": null,
+        "availability_percent": null
+      },
+      {
+        "route": "SOL→NEAR",
+        "day": "2026-10-05",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "SOL→NEAR",
+        "day": "2026-10-06",
+        "status": "observed",
+        "success_count": 1,
+        "sample_count": 1,
+        "availability_percent": 100
+      },
+      {
+        "route": "SOL→NEAR",
+        "day": "2026-10-07",
+        "status": "observed",
+        "success_count": 0,
+        "sample_count": 1,
+        "availability_percent": 0
+      }
+    ]
+  },
+  "expected": {
+    "notSampledNotZero": true,
+    "providerErrorNotZero": true,
+    "quotesNotExecutedSwaps": true
+  },
+  "interactions": [
+    "route_filter",
+    "cell_inspect",
+    "inspect_sample"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

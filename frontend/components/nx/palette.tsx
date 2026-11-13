@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { allRoutes } from '@/lib/nav';
+import * as db from '@/lib/data/client';
 
 /**
  * Command palette, spec 2.3: Cmd/Ctrl+K for navigation, search and permitted
@@ -50,16 +51,51 @@ export function CommandPalette({
 
   if (!open) return null;
   const routes = allRoutes(workspaceId);
+  const panels = workspaceId ? db.panels(workspaceId) : [];
+
+  // Agent first, then view, then whatever a screen contributed.
+  const grouped = actions.reduce<Record<string, PaletteAction[]>>((acc, a) => {
+    (acc[a.group] ??= []).push(a);
+    return acc;
+  }, {});
+  const preferred = ['Agent', 'View'];
+  const groupOrder = [
+    ...preferred.filter((g) => grouped[g]),
+    ...Object.keys(grouped).filter((g) => !preferred.includes(g)),
+  ];
 
   return (
     <>
       <div className="scrim" onClick={() => onOpenChange(false)} />
       <Command className="palette" label="Command palette" loop>
-        <Command.Input autoFocus placeholder="Search screens, metrics and actions" />
+        <Command.Input autoFocus placeholder="Search panels, runs, sources or type a command" />
         <Command.List>
           <Command.Empty>No matches.</Command.Empty>
 
-          <Command.Group heading="Go to">
+          {/*
+            Actions come first and keep their own grouping, so the agent is the
+            first thing the palette offers rather than the last.
+          */}
+          {groupOrder.map((group) => (
+            <Command.Group key={group} heading={group}>
+              {grouped[group].map((a) => (
+                <Command.Item
+                  key={a.id}
+                  value={`${a.label} ${a.hint ?? ''}`}
+                  className="menu-item"
+                  onSelect={() => {
+                    onOpenChange(false);
+                    a.run();
+                  }}
+                >
+                  <span className="grow">{a.label}</span>
+                  {a.hint && <kbd className="tiny dim mono">{a.hint}</kbd>}
+                </Command.Item>
+              ))}
+            </Command.Group>
+          ))}
+
+          <Command.Group heading="Navigate">
             {routes.map((r) => (
               <Command.Item
                 key={r.href}
@@ -77,20 +113,20 @@ export function CommandPalette({
             ))}
           </Command.Group>
 
-          {actions.length > 0 && (
-            <Command.Group heading="Actions">
-              {actions.map((a) => (
+          {panels.length > 0 && (
+            <Command.Group heading="Panels">
+              {panels.map((p) => (
                 <Command.Item
-                  key={a.id}
-                  value={`${a.label} ${a.hint ?? ''}`}
+                  key={p.id}
+                  value={`${p.title} ${p.kind} ${p.id}`}
                   className="menu-item"
                   onSelect={() => {
                     onOpenChange(false);
-                    a.run();
+                    router.push(`/w/${workspaceId}/panels/${p.id}`);
                   }}
                 >
-                  <span className="grow">{a.label}</span>
-                  {a.hint && <span className="tiny dim">{a.hint}</span>}
+                  <span className="grow">{p.title}</span>
+                  <span className="tiny dim">{p.kind}</span>
                 </Command.Item>
               ))}
             </Command.Group>

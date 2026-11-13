@@ -1,0 +1,149 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F16_evidence_graph",
+  "kind": "evidence_graph",
+  "title": "Synthetic evidence graph",
+  "chartSpec": {
+    "kind": "evidence_graph",
+    "title": "Synthetic evidence graph",
+    "encodings": {
+      "nodes": "nodes",
+      "edges": "edges"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F16_evidence_graph",
+    "query": {
+      "canonicalQueryHash": "b1f73303ef6d4c07e8a1a8d12126e84f116952ecb4551193cec8819ef53cafc0",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.evidence_graph"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F16_evidence_graph",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "22c707f30a2b3dff985c2514a5d13dafc1227fba4dad0d372917d5c315660f82",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 1,
+        "observed": 1,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "nodes",
+        "role": "dimension",
+        "unit": "nodes",
+        "nullable": false
+      },
+      {
+        "id": "edges",
+        "role": "dimension",
+        "unit": "edges",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F16_evidence_graph",
+    "rowCount": 1,
+    "resultHash": "e809176397e44072160e71cc80b14a493e234890c79680c33aa697214ddff236",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "nodes": [
+          {
+            "id": "hyp-1",
+            "type": "hypothesis",
+            "label": "Synthetic activity claim"
+          },
+          {
+            "id": "obs-1",
+            "type": "observation",
+            "label": "Synthetic daily observations"
+          },
+          {
+            "id": "query-1",
+            "type": "query",
+            "label": "Fixture query"
+          },
+          {
+            "id": "source-1",
+            "type": "source",
+            "label": "Fixture archive"
+          },
+          {
+            "id": "counter-1",
+            "type": "claim",
+            "label": "Concentration alternative"
+          }
+        ],
+        "edges": [
+          {
+            "from": "obs-1",
+            "to": "hyp-1",
+            "relation": "supports"
+          },
+          {
+            "from": "obs-1",
+            "to": "query-1",
+            "relation": "derived_from"
+          },
+          {
+            "from": "query-1",
+            "to": "source-1",
+            "relation": "references"
+          },
+          {
+            "from": "counter-1",
+            "to": "hyp-1",
+            "relation": "contradicts"
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "edgeCount": 4,
+    "allowedRelations": [
+      "supports",
+      "contradicts",
+      "derived_from",
+      "monitors",
+      "references",
+      "reproduces",
+      "supersedes"
+    ],
+    "noInventedSources": true
+  },
+  "interactions": [
+    "node_inspect",
+    "edge_inspect",
+    "navigate_claim"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

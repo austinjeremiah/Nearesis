@@ -1,0 +1,155 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F04_stacked_area_disjoint",
+  "kind": "area",
+  "title": "Disjoint interaction categories",
+  "chartSpec": {
+    "kind": "area",
+    "title": "Disjoint interaction categories",
+    "encodings": {
+      "x": "day",
+      "stack": [
+        "defi",
+        "gaming",
+        "infra"
+      ],
+      "total": "total"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F04_stacked_area_disjoint",
+    "query": {
+      "canonicalQueryHash": "bd06401c3845317ef710ab844de64dbc8dd4e2528b1ad5f63d56ffbf7e8f9977",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.disjoint_category_counts"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F04_stacked_area_disjoint",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "c766917fe496202cfaf82efd111be743ffbd2632f99bf2fa520674f68c16228e",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 6,
+        "observed": 6,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "day",
+        "role": "time",
+        "unit": "UTC day",
+        "nullable": false
+      },
+      {
+        "id": "defi",
+        "role": "measure",
+        "unit": "transactions",
+        "nullable": false
+      },
+      {
+        "id": "gaming",
+        "role": "measure",
+        "unit": "transactions",
+        "nullable": false
+      },
+      {
+        "id": "infra",
+        "role": "measure",
+        "unit": "transactions",
+        "nullable": false
+      },
+      {
+        "id": "total",
+        "role": "measure",
+        "unit": "transactions",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F04_stacked_area_disjoint",
+    "rowCount": 6,
+    "resultHash": "a8b1d34cbf87bf5ac1dfbe68a46819c17bd837b678ff0e4a101061f1da390572",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "day": "2026-10-01",
+        "defi": 110,
+        "gaming": 45,
+        "infra": 20,
+        "total": 175
+      },
+      {
+        "day": "2026-10-02",
+        "defi": 120,
+        "gaming": 50,
+        "infra": 16,
+        "total": 186
+      },
+      {
+        "day": "2026-10-03",
+        "defi": 95,
+        "gaming": 40,
+        "infra": 28,
+        "total": 163
+      },
+      {
+        "day": "2026-10-04",
+        "defi": 140,
+        "gaming": 55,
+        "infra": 21,
+        "total": 216
+      },
+      {
+        "day": "2026-10-05",
+        "defi": 145,
+        "gaming": 52,
+        "infra": 24,
+        "total": 221
+      },
+      {
+        "day": "2026-10-06",
+        "defi": 153,
+        "gaming": 60,
+        "infra": 26,
+        "total": 239
+      }
+    ]
+  },
+  "expected": {
+    "lastTotal": 239,
+    "requireDisjointnessMetadata": true,
+    "stackMatchesTotal": true
+  },
+  "interactions": [
+    "legend_toggle",
+    "hover",
+    "brush"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

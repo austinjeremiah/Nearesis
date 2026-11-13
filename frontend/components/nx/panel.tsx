@@ -164,7 +164,7 @@ export function usePanelOption(p: FixturePanel) {
       return {
         ...base,
         legend: { ...(base.legend as object), show: p.metricIds.length > 1, top: 0, right: 0 },
-        grid: { left: 52, right: p.metricIds.length > 1 ? 52 : 16, top: p.metricIds.length > 1 ? 26 : 14, bottom: 24 },
+        grid: { left: 6, right: p.metricIds.length > 1 ? 8 : 16, top: p.metricIds.length > 1 ? 26 : 14, bottom: 6, containLabel: true },
         yAxis: yAxes,
         series,
       };

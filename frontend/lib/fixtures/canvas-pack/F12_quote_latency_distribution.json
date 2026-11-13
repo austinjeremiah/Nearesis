@@ -1,0 +1,124 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F12_quote_latency_distribution",
+  "kind": "distribution",
+  "title": "Synthetic API response latency distribution",
+  "chartSpec": {
+    "kind": "distribution",
+    "title": "Synthetic API response latency distribution",
+    "encodings": {
+      "x": "bucket_ms",
+      "y": "count"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F12_quote_latency_distribution",
+    "query": {
+      "canonicalQueryHash": "c3e0c30e9120d4a226a930d6b9cea6cd9d2fa82350624ba2765a7adc48631515",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.quote_latency_histogram"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F12_quote_latency_distribution",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "1159f1e01fef264834e3099b45eed6275b8a59a58a8da35668c343051d16f57f",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 6,
+        "observed": 6,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "bucket_ms",
+        "role": "dimension",
+        "unit": "milliseconds",
+        "nullable": false
+      },
+      {
+        "id": "count",
+        "role": "measure",
+        "unit": "samples",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F12_quote_latency_distribution",
+    "rowCount": 6,
+    "resultHash": "e47270c464eb4d193e2f71b95a2e1ec2c92fa237f3dbe8944fe60093e8a1beee",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "bucket_ms": "0–100",
+        "count": 5,
+        "from": 0,
+        "to": 100
+      },
+      {
+        "bucket_ms": "100–200",
+        "count": 14,
+        "from": 100,
+        "to": 200
+      },
+      {
+        "bucket_ms": "200–400",
+        "count": 19,
+        "from": 200,
+        "to": 400
+      },
+      {
+        "bucket_ms": "400–800",
+        "count": 10,
+        "from": 400,
+        "to": 800
+      },
+      {
+        "bucket_ms": "800–1600",
+        "count": 3,
+        "from": 800,
+        "to": 1600
+      },
+      {
+        "bucket_ms": "1600+",
+        "count": 1,
+        "from": 1600,
+        "to": null
+      }
+    ]
+  },
+  "expected": {
+    "samples": 52,
+    "requiresCompleteBinEdges": true
+  },
+  "interactions": [
+    "bucket_select",
+    "percentile_inspect"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

@@ -2,6 +2,7 @@
 
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
 
 /**
  * Shared interface primitives. Spec 3.3 names these; spec 3.4 sets the rules
@@ -168,14 +169,19 @@ export function Select({
 }: React.SelectHTMLAttributes<HTMLSelectElement> & {
   options: { value: string; label: string }[];
 }) {
+  // The native arrow sits hard against the border and cannot be moved, so it is
+  // suppressed and drawn as our own chevron with room around it.
   return (
-    <select className="select" {...rest}>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <span className="select-wrap">
+      <select className="select" {...rest}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="select-chevron" size={14} strokeWidth={2} aria-hidden="true" />
+    </span>
   );
 }
 

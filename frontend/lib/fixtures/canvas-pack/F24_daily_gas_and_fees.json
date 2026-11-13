@@ -1,0 +1,208 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F24_daily_gas_and_fees",
+  "kind": "line",
+  "title": "Synthetic daily gas and fee quantities (different units)",
+  "chartSpec": {
+    "kind": "line",
+    "title": "Synthetic daily gas and fee quantities (different units)",
+    "encodings": {
+      "x": "day",
+      "separateAxes": [
+        "gas_burnt_atomic",
+        "fee_atomic"
+      ],
+      "displayUnitPolicy": "explicit_conversion"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F24_daily_gas_and_fees",
+    "query": {
+      "canonicalQueryHash": "e1bf614ebd44902220e4b14f801710d70568631d8222696a353856a08e220b7a",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.gas_burnt",
+        "fixture.fee_paid"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F24_daily_gas_and_fees",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "eb726d8f8dec5db365286c86f27a6bae5ac37183e212c518c6f1befcf5c518e4",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 14,
+        "observed": 13,
+        "unknown": 1,
+        "gaps": [
+          "2026-10-07"
+        ]
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "day",
+        "role": "time",
+        "unit": "UTC day",
+        "nullable": false
+      },
+      {
+        "id": "gas_burnt_atomic",
+        "role": "measure",
+        "unit": "gas units",
+        "nullable": false
+      },
+      {
+        "id": "fee_atomic",
+        "role": "measure",
+        "unit": "atomic NEAR units",
+        "nullable": true
+      },
+      {
+        "id": "executions",
+        "role": "measure",
+        "unit": "executions",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F24_daily_gas_and_fees",
+    "rowCount": 14,
+    "resultHash": "808d0193f9e093239d5ea7acdaedd71034706bf717003c2095fa8adf6ba11d73",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "day": "2026-10-01",
+        "gas_burnt_atomic": "1000000000000",
+        "fee_atomic": "800000000000000000",
+        "executions": 1200,
+        "fee_known": true
+      },
+      {
+        "day": "2026-10-02",
+        "gas_burnt_atomic": "1010000000000",
+        "fee_atomic": "815000000000000000",
+        "executions": 1217,
+        "fee_known": true
+      },
+      {
+        "day": "2026-10-03",
+        "gas_burnt_atomic": "1020000000000",
+        "fee_atomic": "830000000000000000",
+        "executions": 1234,
+        "fee_known": true
+      },
+      {
+        "day": "2026-10-04",
+        "gas_burnt_atomic": "1030000000000",
+        "fee_atomic": "845000000000000000",
+        "executions": 1251,
+        "fee_known": true
+      },
+      {
+        "day": "2026-10-05",
+        "gas_burnt_atomic": "1040000000000",
+        "fee_atomic": "860000000000000000",
+        "executions": 1268,
+        "fee_known": true
+      },
+      {
+        "day": "2026-10-06",
+        "gas_burnt_atomic": "1050000000000",
+        "fee_atomic": "875000000000000000",
+        "executions": 1285,
+        "fee_known": true
+      },
+      {
+        "day": "2026-10-07",
+        "gas_burnt_atomic": "1060000000000",
+        "fee_atomic": null,
+        "executions": 1302,
+        "fee_known": false
+      },
+      {
+        "day": "2026-10-08",
+        "gas_burnt_atomic": "1070000000000",
+        "fee_atomic": "905000000000000000",
+        "executions": 1319,
+        "fee_known": true
+      },
+      {
+        "day": "2026-10-09",
+        "gas_burnt_atomic": "1080000000000",
+        "fee_atomic": "920000000000000000",
+        "executions": 1336,
+        "fee_known": true
+      },
+      {
+        "day": "2026-10-10",
+        "gas_burnt_atomic": "1090000000000",
+        "fee_atomic": "935000000000000000",
+        "executions": 1353,
+        "fee_known": true
+      },
+      {
+        "day": "2026-10-11",
+        "gas_burnt_atomic": "1100000000000",
+        "fee_atomic": "950000000000000000",
+        "executions": 1370,
+        "fee_known": true
+      },
+      {
+        "day": "2026-10-12",
+        "gas_burnt_atomic": "1110000000000",
+        "fee_atomic": "965000000000000000",
+        "executions": 1387,
+        "fee_known": true
+      },
+      {
+        "day": "2026-10-13",
+        "gas_burnt_atomic": "1120000000000",
+        "fee_atomic": "980000000000000000",
+        "executions": 1404,
+        "fee_known": true
+      },
+      {
+        "day": "2026-10-14",
+        "gas_burnt_atomic": "1130000000000",
+        "fee_atomic": "995000000000000000",
+        "executions": 1421,
+        "fee_known": true
+      }
+    ]
+  },
+  "expected": {
+    "noSingleUndifferentiatedAxis": true,
+    "missingFeeNotZero": true,
+    "noAutomaticProtocolRevenue": true,
+    "largeIntegersPreserved": true
+  },
+  "interactions": [
+    "metric_toggle",
+    "brush",
+    "inspect_conversion"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

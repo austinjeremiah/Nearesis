@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import '../../app.css';
 import Wordmark from '@/components/Wordmark';
 import { Badge, EvidenceVerdict } from '@/components/nx/evidence';
-import { Card, KeyValues, Notice } from '@/components/nx/ui';
+import { Card, EmptyState, KeyValues, Notice } from '@/components/nx/ui';
 import * as db from '@/lib/data/client';
 import { formatUtc, shortHash } from '@/lib/format';
 
@@ -44,7 +44,10 @@ export default async function PublicReaderPage({
       <link href="https://fonts.gstatic.com" rel="preconnect" crossOrigin="anonymous" />
       <link href={FONTS} rel="stylesheet" precedence="default" />
 
-      <div style={{ maxWidth: 940, margin: '0 auto', padding: '40px 24px 80px' }}>
+      <div
+        className="col"
+        style={{ maxWidth: 940, margin: '0 auto', padding: '40px 24px 80px', gap: 'var(--s6)' }}
+      >
         <header className="row between" style={{ borderBottom: '1px solid var(--line-strong)', paddingBottom: 16 }}>
           <Link href="/">
             <Wordmark tone="black" size={24} />
@@ -52,7 +55,7 @@ export default async function PublicReaderPage({
           <span className="label">Published research</span>
         </header>
 
-        <div className="col gap4" style={{ marginTop: 32 }}>
+        <div className="col gap4">
           <span className="label">
             Version {p.version} · {formatUtc(p.publishedAt, false)}
           </span>
@@ -74,35 +77,42 @@ export default async function PublicReaderPage({
           <span className="mono">{p.snapshotId}</span> and has not been recomputed since.
         </Notice>
 
-        <section className="col gap3" style={{ marginTop: 32 }}>
+        <section className="col gap3">
           <h2 className="h2">Claims</h2>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th style={{ minWidth: 260 }}>Claim</th>
-                  <th>Verdict</th>
-                  <th>Estimate</th>
-                  <th>What would change it</th>
-                </tr>
-              </thead>
-              <tbody>
-                {claims.map((c) => (
-                  <tr key={c.id}>
-                    <td className="small">{c.statement}</td>
-                    <td>
-                      <EvidenceVerdict verdict={c.verdict} strength={c.strength} />
-                    </td>
-                    <td className="small">{c.estimate}</td>
-                    <td className="small">{c.falsification}</td>
+          {claims.length === 0 ? (
+            <EmptyState
+              title="No claim table in this publication"
+              body="This version was published without a claim table. The limitations and reproducibility records below still apply."
+            />
+          ) : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: 260 }}>Claim</th>
+                    <th>Verdict</th>
+                    <th>Estimate</th>
+                    <th>What would change it</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {claims.map((c) => (
+                    <tr key={c.id}>
+                      <td className="small">{c.statement}</td>
+                      <td>
+                        <EvidenceVerdict verdict={c.verdict} strength={c.strength} />
+                      </td>
+                      <td className="small">{c.estimate}</td>
+                      <td className="small">{c.falsification}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
-        <section className="col gap3" style={{ marginTop: 32 }}>
+        <section className="col gap3">
           <h2 className="h2">Limitations</h2>
           <Card>
             <ul style={{ paddingLeft: 16, listStyle: 'disc' }}>
@@ -125,7 +135,7 @@ export default async function PublicReaderPage({
           </Card>
         </section>
 
-        <section className="col gap3" style={{ marginTop: 32 }}>
+        <section className="col gap3">
           <h2 className="h2">Reproducibility</h2>
           <Card>
             <KeyValues
@@ -158,7 +168,7 @@ export default async function PublicReaderPage({
           </Card>
         </section>
 
-        <section className="col gap3" style={{ marginTop: 32 }}>
+        <section className="col gap3">
           <h2 className="h2">Source index</h2>
           <Card>
             <KeyValues
@@ -177,7 +187,7 @@ export default async function PublicReaderPage({
 
         <footer
           className="row between"
-          style={{ marginTop: 48, paddingTop: 16, borderTop: '1px solid var(--line-strong)' }}
+          style={{ paddingTop: 16, borderTop: '1px solid var(--line-strong)' }}
         >
           <span className="tiny dim">
             Capsule {shortHash(p.capsuleHash)} · published {formatUtc(p.publishedAt)}

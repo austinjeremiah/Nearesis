@@ -50,14 +50,18 @@ export default function WorkspacesPage() {
       header: 'Workspace',
       // The widest column in the table, named so the name and its pinned mark
       // are not the first thing the browser squeezes when the rail is open.
-      width: '24%',
+      // A hard minimum on the cell, because `width` alone is only a hint to the
+      // auto table layout and the nowrap columns were taking this column's room.
+      width: '22%',
       render: (w) => (
-        <div className="col gap1" style={{ minWidth: 0 }}>
+        // A hard minimum, because `width` alone is only a hint to the auto table
+        // layout and the nowrap columns were taking the name column's room.
+        <div className="col gap1" style={{ minWidth: 200 }}>
           <span className="strong row gap2 wrap">
             {w.name}
             {w.pinned && <Badge outline>Pinned</Badge>}
           </span>
-          <span className="tiny dim" style={{ maxWidth: '58ch' }}>
+          <span className="tiny dim clamp-2" title={w.objective}>
             {w.objective}
           </span>
         </div>
@@ -82,7 +86,7 @@ export default function WorkspacesPage() {
         return r ? <Badge tone="info">Running</Badge> : <span className="unavailable" />;
       },
     },
-    { key: 'owner', header: 'Owner', render: (w) => <span className="small">{w.owner}</span> },
+    { key: 'owner', header: 'Owner', render: (w) => <Badge outline>{w.owner}</Badge> },
     {
       key: 'collab',
       header: 'Collaborators',

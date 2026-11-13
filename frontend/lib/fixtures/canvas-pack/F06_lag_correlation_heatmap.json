@@ -1,0 +1,280 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F06_lag_correlation_heatmap",
+  "kind": "heatmap",
+  "title": "Lag correlation — descriptive only",
+  "chartSpec": {
+    "kind": "heatmap",
+    "title": "Lag correlation — descriptive only",
+    "encodings": {
+      "x": "lag",
+      "y": "pair",
+      "color": "correlation",
+      "tooltip": [
+        "n",
+        "method"
+      ]
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F06_lag_correlation_heatmap",
+    "query": {
+      "canonicalQueryHash": "9eb1d21685eee94b103aa0300e6650a6bc1f4968676a0835c1a670cfd35d6b46",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.lag_corr"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F06_lag_correlation_heatmap",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "2566761e78ffd540139422ccc554aa08255ceea300ade7392399b0282b0612f0",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 21,
+        "observed": 21,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "pair",
+        "role": "dimension",
+        "unit": "pair",
+        "nullable": false
+      },
+      {
+        "id": "lag",
+        "role": "dimension",
+        "unit": "days",
+        "nullable": false
+      },
+      {
+        "id": "correlation",
+        "role": "measure",
+        "unit": "Pearson r",
+        "nullable": false
+      },
+      {
+        "id": "n",
+        "role": "measure",
+        "unit": "paired observations",
+        "nullable": false
+      },
+      {
+        "id": "p_value",
+        "role": "measure",
+        "unit": "p-value",
+        "nullable": true
+      }
+    ],
+    "rowsRef": "fixture://rows/F06_lag_correlation_heatmap",
+    "rowCount": 21,
+    "resultHash": "5fd0b01592094b25d9b30a446f82ad9ba7f1becf371deaa0c95bfdaf5f848700",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "pair": "price_vs_activity",
+        "lag": -3,
+        "correlation": 0.32,
+        "n": 75,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "price_vs_activity",
+        "lag": -2,
+        "correlation": 0.48,
+        "n": 73,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "price_vs_activity",
+        "lag": -1,
+        "correlation": 0.493,
+        "n": 71,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "price_vs_activity",
+        "lag": 0,
+        "correlation": 0.347,
+        "n": 69,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "price_vs_activity",
+        "lag": 1,
+        "correlation": 0.176,
+        "n": 67,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "price_vs_activity",
+        "lag": 2,
+        "correlation": 0.138,
+        "n": 65,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "price_vs_activity",
+        "lag": 3,
+        "correlation": 0.267,
+        "n": 63,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "quotes_vs_swaps",
+        "lag": -3,
+        "correlation": 0.02,
+        "n": 75,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "quotes_vs_swaps",
+        "lag": -2,
+        "correlation": 0.033,
+        "n": 73,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "quotes_vs_swaps",
+        "lag": -1,
+        "correlation": -0.113,
+        "n": 71,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "quotes_vs_swaps",
+        "lag": 0,
+        "correlation": -0.284,
+        "n": 69,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "quotes_vs_swaps",
+        "lag": 1,
+        "correlation": -0.322,
+        "n": 67,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "quotes_vs_swaps",
+        "lag": 2,
+        "correlation": -0.193,
+        "n": 65,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "quotes_vs_swaps",
+        "lag": 3,
+        "correlation": -0.015,
+        "n": 63,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "fees_vs_activity",
+        "lag": -3,
+        "correlation": 0.373,
+        "n": 75,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "fees_vs_activity",
+        "lag": -2,
+        "correlation": 0.227,
+        "n": 73,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "fees_vs_activity",
+        "lag": -1,
+        "correlation": 0.056,
+        "n": 71,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "fees_vs_activity",
+        "lag": 0,
+        "correlation": 0.018,
+        "n": 69,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "fees_vs_activity",
+        "lag": 1,
+        "correlation": 0.147,
+        "n": 67,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "fees_vs_activity",
+        "lag": 2,
+        "correlation": 0.325,
+        "n": 65,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      },
+      {
+        "pair": "fees_vs_activity",
+        "lag": 3,
+        "correlation": 0.388,
+        "n": 63,
+        "method": "pearson_paired_dates",
+        "p_value": null
+      }
+    ]
+  },
+  "expected": {
+    "noCausalClaim": true,
+    "noSignificanceBadge": true,
+    "lagSignExplanationRequired": true
+  },
+  "interactions": [
+    "cell_inspect",
+    "launch_quant_study"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

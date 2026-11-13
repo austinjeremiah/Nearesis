@@ -1,0 +1,176 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F09_scatter_paired",
+  "kind": "scatter",
+  "title": "Paired observations — correlation is not causation",
+  "chartSpec": {
+    "kind": "scatter",
+    "title": "Paired observations — correlation is not causation",
+    "encodings": {
+      "x": "signer_proxy",
+      "y": "volume_usd",
+      "color": "day"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F09_scatter_paired",
+    "query": {
+      "canonicalQueryHash": "64fca729d28af63cd7381fcf7414bf5925db839fe0fb46373e63fb1371f6747b",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.volume_usd",
+        "fixture.distinct_signer_proxy"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F09_scatter_paired",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "eaff0d4e1f44baa86165e0d9e34d77d24e9232cd13c809a79fae8b288ebe50b6",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 15,
+        "observed": 13,
+        "unknown": 2,
+        "gaps": [
+          "2026-10-04",
+          "2026-10-10"
+        ]
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "day",
+        "role": "time",
+        "unit": "UTC day",
+        "nullable": false
+      },
+      {
+        "id": "volume_usd",
+        "role": "measure",
+        "unit": "USD",
+        "nullable": true
+      },
+      {
+        "id": "signer_proxy",
+        "role": "measure",
+        "unit": "account identifiers",
+        "nullable": true
+      }
+    ],
+    "rowsRef": "fixture://rows/F09_scatter_paired",
+    "rowCount": 15,
+    "resultHash": "b1cd0e78542e2ef9977068b374c302b86d49681d021d338ab401892ccab9e0dd",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "day": "2026-10-01",
+        "volume_usd": 5044.16,
+        "signer_proxy": 259
+      },
+      {
+        "day": "2026-10-02",
+        "volume_usd": 5453.26,
+        "signer_proxy": 274
+      },
+      {
+        "day": "2026-10-03",
+        "volume_usd": 5686.82,
+        "signer_proxy": 281
+      },
+      {
+        "day": "2026-10-04",
+        "volume_usd": null,
+        "signer_proxy": 296
+      },
+      {
+        "day": "2026-10-05",
+        "volume_usd": 6347.95,
+        "signer_proxy": 322
+      },
+      {
+        "day": "2026-10-06",
+        "volume_usd": 6832.14,
+        "signer_proxy": 327
+      },
+      {
+        "day": "2026-10-07",
+        "volume_usd": 7000.9,
+        "signer_proxy": 324
+      },
+      {
+        "day": "2026-10-08",
+        "volume_usd": 7419.93,
+        "signer_proxy": 341
+      },
+      {
+        "day": "2026-10-09",
+        "volume_usd": 7838.71,
+        "signer_proxy": 379
+      },
+      {
+        "day": "2026-10-10",
+        "volume_usd": 7976.77,
+        "signer_proxy": null
+      },
+      {
+        "day": "2026-10-11",
+        "volume_usd": 8233.48,
+        "signer_proxy": 416
+      },
+      {
+        "day": "2026-10-12",
+        "volume_usd": 8660.89,
+        "signer_proxy": 411
+      },
+      {
+        "day": "2026-10-13",
+        "volume_usd": 9091.45,
+        "signer_proxy": 445
+      },
+      {
+        "day": "2026-10-14",
+        "volume_usd": 9404.64,
+        "signer_proxy": 451
+      },
+      {
+        "day": "2026-10-15",
+        "volume_usd": 9704.73,
+        "signer_proxy": 474
+      }
+    ]
+  },
+  "expected": {
+    "plottedPoints": 13,
+    "missingPairsExcluded": 2,
+    "noCausalStatement": true
+  },
+  "interactions": [
+    "lasso",
+    "point_inspect",
+    "selection_lens"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

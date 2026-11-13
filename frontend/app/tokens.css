@@ -14,14 +14,18 @@
    ========================================================================== */
 
 :root {
-  /* --- surface ----------------------------------------------------------- */
-  --page: #f1efe2; /* cream paper, the page itself */
-  --surface: #f7f6ef; /* cards and panels, one step up from the page */
-  --raised: #fbfaf5; /* inputs and hovered rows */
-  --sunken: #dbdac8; /* wells, table headers, inactive tabs */
+  /* --- surface -----------------------------------------------------------
+     Three papers, in the same order the marketing site stacks them: greige for
+     the page, cream for anything sitting on it, near-white for an input. The
+     app used to start at cream, which is why it read a step lighter than the
+     landing page even though the palette matched. */
+  --page: #dbdac8; /* greige paper, the page itself */
+  --surface: #f1efe2; /* cards and panels, one step up from the page */
+  --raised: #f7f6ef; /* inputs and hovered rows */
+  --sunken: #cecdba; /* wells, table headers, inactive tabs */
   --ink: #000000; /* primary text and hard rules */
   --ink-soft: #2a2a2a; /* dark panels, chart backgrounds */
-  --invert: #f1efe2; /* text on dark surfaces */
+  --invert: #f1efe2; /* text on dark surfaces, always the cream */
 
   /* --- text -------------------------------------------------------------- */
   --text: #000000;
@@ -119,6 +123,10 @@
      softening keeps the same discipline while letting surfaces separate. The
      scale stays tight on purpose: a mix of radii is what makes an interface
      read as a component-library default. */
+  /* Shared row height for stacked cards, so two columns of cards line up with
+     each other instead of each column agreeing only with itself. */
+  --stack-row: 240px;
+
   --radius-sm: 4px;
   --radius: 8px;
   --radius-lg: 12px;

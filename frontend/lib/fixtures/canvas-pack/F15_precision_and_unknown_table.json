@@ -1,0 +1,146 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F15_precision_and_unknown_table",
+  "kind": "table",
+  "title": "Exact decimals, source string and missingness",
+  "chartSpec": {
+    "kind": "table",
+    "title": "Exact decimals, source string and missingness",
+    "encodings": {
+      "columns": [
+        "id",
+        "amount_display",
+        "unit",
+        "usd_value",
+        "state"
+      ]
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F15_precision_and_unknown_table",
+    "query": {
+      "canonicalQueryHash": "0fe137d1feff723adcbe7ad23217bb235074fa2a60a789962eec939bc79ae6e5",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.swap_amount"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F15_precision_and_unknown_table",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "e47271ca21fa5eaca9c06f9f49e49186942e8a27eccde921af2b23ef02ddc452",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 4,
+        "observed": 4,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "id",
+        "role": "dimension",
+        "unit": "id",
+        "nullable": false
+      },
+      {
+        "id": "amount_atomic",
+        "role": "measure",
+        "unit": "atomic",
+        "nullable": true
+      },
+      {
+        "id": "amount_display",
+        "role": "measure",
+        "unit": "token quantity",
+        "nullable": false
+      },
+      {
+        "id": "unit",
+        "role": "dimension",
+        "unit": "token/unknown",
+        "nullable": false
+      },
+      {
+        "id": "usd_value",
+        "role": "measure",
+        "unit": "USD",
+        "nullable": true
+      }
+    ],
+    "rowsRef": "fixture://rows/F15_precision_and_unknown_table",
+    "rowCount": 4,
+    "resultHash": "48e81ac68a444040a1615dd62059aa67af1a98da38641f0860a4749a3401f8ca",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "id": "fixture.swap.a",
+        "amount_atomic": "1000000000000000000000000",
+        "amount_display": "1.000000000000000000000000",
+        "unit": "NEAR",
+        "usd_value": "4.9500",
+        "state": "known"
+      },
+      {
+        "id": "fixture.swap.b",
+        "amount_atomic": null,
+        "amount_display": "99.862321",
+        "unit": "unknown",
+        "usd_value": null,
+        "state": "invalid_atomic_units"
+      },
+      {
+        "id": "fixture.swap.c",
+        "amount_atomic": "0",
+        "amount_display": "0",
+        "unit": "NEAR",
+        "usd_value": "0",
+        "state": "known"
+      },
+      {
+        "id": "fixture.swap.d",
+        "amount_atomic": "200000000000000000000000000000",
+        "amount_display": "200000.000000000000000000000000",
+        "unit": "NEAR",
+        "usd_value": null,
+        "state": "no_timestamped_price"
+      }
+    ]
+  },
+  "expected": {
+    "noFloatPrecisionLoss": true,
+    "unknownNotZero": true,
+    "invalidAmountMustNotConvert": true
+  },
+  "interactions": [
+    "sort",
+    "row_inspect",
+    "page",
+    "export"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F20_log_scale_invalid",
+  "kind": "line",
+  "title": "Signed deltas — logarithmic scale should be rejected",
+  "chartSpec": {
+    "kind": "line",
+    "title": "Signed deltas — logarithmic scale should be rejected",
+    "encodings": {
+      "x": "day",
+      "y": "value",
+      "requestedScale": "log"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F20_log_scale_invalid",
+    "query": {
+      "canonicalQueryHash": "0521baac769f8819f7f96c3d934174ab9833e53726990fb38792858353615b68",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.signed_delta"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F20_log_scale_invalid",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "60243640603f3f3ffc8dd7dbeba5ad3c095e3a36988a89e231d69128f8a590a1",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 3,
+        "observed": 3,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "day",
+        "role": "time",
+        "unit": "UTC day",
+        "nullable": false
+      },
+      {
+        "id": "value",
+        "role": "measure",
+        "unit": "delta",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F20_log_scale_invalid",
+    "rowCount": 3,
+    "resultHash": "a21711aed311d5c2284b664d6c83ce12bedbfd706842f7abe88bc1203f24a63b",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "day": "2026-10-01",
+        "value": -2
+      },
+      {
+        "day": "2026-10-02",
+        "value": 0
+      },
+      {
+        "day": "2026-10-03",
+        "value": 5
+      }
+    ]
+  },
+  "expected": {
+    "mustRejectLogScale": true,
+    "offerLinearOrSignedTransform": true
+  },
+  "interactions": [],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

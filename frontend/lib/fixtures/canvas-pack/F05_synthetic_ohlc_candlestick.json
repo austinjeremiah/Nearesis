@@ -1,0 +1,214 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F05_synthetic_ohlc_candlestick",
+  "kind": "candlestick",
+  "title": "Synthetic OHLC candles (not derived from quote samples)",
+  "chartSpec": {
+    "kind": "candlestick",
+    "title": "Synthetic OHLC candles (not derived from quote samples)",
+    "encodings": {
+      "x": "day",
+      "open": "open",
+      "high": "high",
+      "low": "low",
+      "close": "close",
+      "volume": "volume"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F05_synthetic_ohlc_candlestick",
+    "query": {
+      "canonicalQueryHash": "dcdd5830cc5bfdcdb6d812cc71c10ae226bb7bb42c26f8642abdcb051e8fcc54",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.ohlc"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F05_synthetic_ohlc_candlestick",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "ab00367122038b1a84c0ef8c62acb039dcb4c70fbadc359d7d08d42e494c8d80",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 12,
+        "observed": 12,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "day",
+        "role": "time",
+        "unit": "UTC day",
+        "nullable": false
+      },
+      {
+        "id": "open",
+        "role": "measure",
+        "unit": "USD",
+        "nullable": false
+      },
+      {
+        "id": "high",
+        "role": "measure",
+        "unit": "USD",
+        "nullable": false
+      },
+      {
+        "id": "low",
+        "role": "measure",
+        "unit": "USD",
+        "nullable": false
+      },
+      {
+        "id": "close",
+        "role": "measure",
+        "unit": "USD",
+        "nullable": false
+      },
+      {
+        "id": "volume",
+        "role": "measure",
+        "unit": "synthetic units",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F05_synthetic_ohlc_candlestick",
+    "rowCount": 12,
+    "resultHash": "e3db0308c3b9dc2424c306431016b419637168458f680fdf8c0af5faa6ee63fe",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "day": "2026-10-01",
+        "open": 4.8,
+        "high": 4.8568,
+        "low": 4.7742,
+        "close": 4.7933,
+        "volume": 11041
+      },
+      {
+        "day": "2026-10-02",
+        "open": 4.7933,
+        "high": 4.8028,
+        "low": 4.7378,
+        "close": 4.7961,
+        "volume": 11216
+      },
+      {
+        "day": "2026-10-03",
+        "open": 4.7961,
+        "high": 4.8083,
+        "low": 4.7138,
+        "close": 4.7862,
+        "volume": 10437
+      },
+      {
+        "day": "2026-10-04",
+        "open": 4.7862,
+        "high": 4.9116,
+        "low": 4.686,
+        "close": 4.771,
+        "volume": 13446
+      },
+      {
+        "day": "2026-10-05",
+        "open": 4.771,
+        "high": 4.8959,
+        "low": 4.5626,
+        "close": 4.6355,
+        "volume": 13961
+      },
+      {
+        "day": "2026-10-06",
+        "open": 4.6355,
+        "high": 4.7829,
+        "low": 4.5194,
+        "close": 4.7696,
+        "volume": 11168
+      },
+      {
+        "day": "2026-10-07",
+        "open": 4.7696,
+        "high": 4.9021,
+        "low": 4.6986,
+        "close": 4.7458,
+        "volume": 12127
+      },
+      {
+        "day": "2026-10-08",
+        "open": 4.7458,
+        "high": 4.9106,
+        "low": 4.6583,
+        "close": 4.8642,
+        "volume": 11355
+      },
+      {
+        "day": "2026-10-09",
+        "open": 4.8642,
+        "high": 4.8976,
+        "low": 4.7326,
+        "close": 4.7612,
+        "volume": 11367
+      },
+      {
+        "day": "2026-10-10",
+        "open": 4.7612,
+        "high": 4.8717,
+        "low": 4.702,
+        "close": 4.732,
+        "volume": 13731
+      },
+      {
+        "day": "2026-10-11",
+        "open": 4.732,
+        "high": 4.8242,
+        "low": 4.6149,
+        "close": 4.6238,
+        "volume": 13983
+      },
+      {
+        "day": "2026-10-12",
+        "open": 4.6238,
+        "high": 4.7636,
+        "low": 4.5619,
+        "close": 4.6963,
+        "volume": 11611
+      }
+    ]
+  },
+  "expected": {
+    "allOHLCConsistent": true,
+    "quoteSamplesCannotBecomeCandles": true
+  },
+  "interactions": [
+    "crosshair",
+    "timeframe",
+    "zoom",
+    "volume_toggle"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

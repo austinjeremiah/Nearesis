@@ -1,0 +1,208 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F07_forecast_band_uncalibrated",
+  "kind": "forecast",
+  "title": "Forecast with illustrative interval (NOT validated CI)",
+  "chartSpec": {
+    "kind": "forecast",
+    "title": "Forecast with illustrative interval (NOT validated CI)",
+    "encodings": {
+      "x": "day",
+      "observed": "observed",
+      "forecast": "forecast",
+      "lower": "lower",
+      "upper": "upper"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F07_forecast_band_uncalibrated",
+    "query": {
+      "canonicalQueryHash": "229f4c67aa1c11bf1f0ea8a45fe1c3d18f2f371171beff5b8e07101fdc301107",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.forecast_mean"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F07_forecast_band_uncalibrated",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "75fbb97c92d6e47690829878d8bb5b2c50f9a65f3d26ce6ad3f36816ee9b7dd9",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 12,
+        "observed": 12,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "day",
+        "role": "time",
+        "unit": "UTC day",
+        "nullable": false
+      },
+      {
+        "id": "observed",
+        "role": "measure",
+        "unit": "transactions",
+        "nullable": true
+      },
+      {
+        "id": "forecast",
+        "role": "measure",
+        "unit": "transactions",
+        "nullable": false
+      },
+      {
+        "id": "lower",
+        "role": "lower",
+        "unit": "transactions",
+        "nullable": false
+      },
+      {
+        "id": "upper",
+        "role": "upper",
+        "unit": "transactions",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F07_forecast_band_uncalibrated",
+    "rowCount": 12,
+    "resultHash": "a849d5d5e2ab546af55c6455ab9beb3f9a28dd7d8db3c2b260eb85dbf6ddc794",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "day": "2026-10-13",
+        "observed": 24000,
+        "forecast": 24400,
+        "lower": 23000,
+        "upper": 25800,
+        "in_holdout": true
+      },
+      {
+        "day": "2026-10-14",
+        "observed": 24383.54,
+        "forecast": 24535,
+        "lower": 23055,
+        "upper": 26050,
+        "in_holdout": true
+      },
+      {
+        "day": "2026-10-15",
+        "observed": 24673.18,
+        "forecast": 24670,
+        "lower": 23110,
+        "upper": 26300,
+        "in_holdout": true
+      },
+      {
+        "day": "2026-10-16",
+        "observed": 24798,
+        "forecast": 24805,
+        "lower": 23165,
+        "upper": 26550,
+        "in_holdout": true
+      },
+      {
+        "day": "2026-10-17",
+        "observed": 24727.44,
+        "forecast": 24940,
+        "lower": 23220,
+        "upper": 26800,
+        "in_holdout": true
+      },
+      {
+        "day": "2026-10-18",
+        "observed": 24478.78,
+        "forecast": 25075,
+        "lower": 23275,
+        "upper": 27050,
+        "in_holdout": true
+      },
+      {
+        "day": "2026-10-19",
+        "observed": 24112.9,
+        "forecast": 25210,
+        "lower": 23330,
+        "upper": 27300,
+        "in_holdout": true
+      },
+      {
+        "day": "2026-10-20",
+        "observed": 23719.37,
+        "forecast": 25345,
+        "lower": 23385,
+        "upper": 27550,
+        "in_holdout": true
+      },
+      {
+        "day": "2026-10-21",
+        "observed": null,
+        "forecast": 25480,
+        "lower": 23440,
+        "upper": 27800,
+        "in_holdout": false
+      },
+      {
+        "day": "2026-10-22",
+        "observed": null,
+        "forecast": 25615,
+        "lower": 23495,
+        "upper": 28050,
+        "in_holdout": false
+      },
+      {
+        "day": "2026-10-23",
+        "observed": null,
+        "forecast": 25750,
+        "lower": 23550,
+        "upper": 28300,
+        "in_holdout": false
+      },
+      {
+        "day": "2026-10-24",
+        "observed": null,
+        "forecast": 25885,
+        "lower": 23605,
+        "upper": 28550,
+        "in_holdout": false
+      }
+    ]
+  },
+  "expected": {
+    "trainCutoff": "2026-10-12T23:59:59.000Z",
+    "inferenceStatus": "METHOD_NOT_VALIDATED",
+    "neverShowStatisticalWinner": true,
+    "doNotCallBand95PercentConfidence": true
+  },
+  "interactions": [
+    "model_compare",
+    "inspect_cutoff",
+    "zoom"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

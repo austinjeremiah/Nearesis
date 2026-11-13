@@ -1,0 +1,117 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F08_model_error_comparison",
+  "kind": "bar",
+  "title": "Forecast error — descriptive model comparison",
+  "chartSpec": {
+    "kind": "bar",
+    "title": "Forecast error — descriptive model comparison",
+    "encodings": {
+      "x": "model",
+      "y": "mae",
+      "otherMeasureSeparate": "smape"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F08_model_error_comparison",
+    "query": {
+      "canonicalQueryHash": "c10adfdd27d3308596be8b8cb3f276de78259bcbb5be4469b0fdc3aeb14a5b5e",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.model_error"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F08_model_error_comparison",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "95c502cc2cade4887a7e4ebebd03397450fcbc535455315b86298dff0c4f6fb9",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 4,
+        "observed": 4,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "model",
+        "role": "dimension",
+        "unit": "model",
+        "nullable": false
+      },
+      {
+        "id": "mae",
+        "role": "measure",
+        "unit": "count units",
+        "nullable": false
+      },
+      {
+        "id": "smape",
+        "role": "measure",
+        "unit": "percent",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F08_model_error_comparison",
+    "rowCount": 4,
+    "resultHash": "32b61795d70d7ee368e377a25e65ee40726d13bb534833c7272ce9c1c695be88",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "model": "M0_price",
+        "mae": 3.8,
+        "smape": 12.3
+      },
+      {
+        "model": "M1_intents",
+        "mae": 3.6,
+        "smape": 12.8
+      },
+      {
+        "model": "M2_joint",
+        "mae": 3.5,
+        "smape": 11.9
+      },
+      {
+        "model": "M3_nonlin",
+        "mae": 3.7,
+        "smape": 12.1
+      }
+    ]
+  },
+  "expected": {
+    "significance": "unavailable",
+    "maeSmapeCannotUseSameYAxis": true,
+    "lowerMAENotProofOfSignificance": true
+  },
+  "interactions": [
+    "switch_score",
+    "inspect_model",
+    "open_experiment"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

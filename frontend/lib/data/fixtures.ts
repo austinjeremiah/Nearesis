@@ -13,6 +13,7 @@ import type {
   ThesisStatus,
 } from '@/lib/contracts';
 import { dailySeries, type Point } from './series';
+import { PACK } from '@/lib/fixtures/pack';
 
 /**
  * The frozen fixture snapshot.
@@ -424,6 +425,21 @@ export const WORKSPACES: Workspace[] = [
     budgetUsd: 20,
     spentUsd: 18.2,
     archived: true,
+  },
+  {
+    id: 'chart-fixtures',
+    name: 'Chart fixture pack',
+    objective:
+      'Every supported chart kind, drawn from the synthetic fixture pack. Nothing here is an observation.',
+    template: 'Synthetic fixture',
+    thesisStatus: 'draft',
+    updatedAt: '2026-11-13T09:00:00.000Z',
+    owner: 'you',
+    collaborators: 1,
+    branch: 'main',
+    snapshotId: 'fixture-snapshot-2026-10',
+    budgetUsd: 0,
+    spentUsd: 0,
   },
 ];
 
@@ -939,13 +955,32 @@ export type FixturePanel = {
   workspaceId: string;
   title: string;
   metricIds: string[];
-  kind: 'line' | 'bar' | 'scatter' | 'heatmap' | 'forecast' | 'distribution' | 'table';
+  kind:
+    | 'line'
+    | 'area'
+    | 'bar'
+    | 'scatter'
+    | 'heatmap'
+    | 'candlestick'
+    | 'forecast'
+    | 'distribution'
+    | 'waterfall'
+    | 'cohort'
+    | 'table'
+    | 'evidence_graph'
+    | 'agent_timeline';
   status: PanelStatus;
   layout: { x: number; y: number; w: number; h: number };
   description: string;
   pinned?: boolean;
   reasonCodes: ReasonCode[];
   error?: string;
+  /**
+   * Set when the panel is drawn from the backend team's synthetic chart
+   * fixture pack rather than from a certified measure. Everything about such a
+   * panel comes from that record, including its provenance.
+   */
+  packFixtureId?: string;
 };
 
 export const PANELS: FixturePanel[] = [
@@ -1227,3 +1262,43 @@ export const BRANCHES: Branch[] = [
   { id: 'b_no_top5', workspaceId: 'intents-adoption', name: 'exclude-top-5pct', basedOn: 'main', createdAt: '2026-11-09T08:00:00.000Z', author: 'you', description: 'Removes the top 5% volume cohort to test concentration.', changedPanels: 3, verdictDelta: 'mixed → unsupported on c1' },
   { id: 'b_stable_only', workspaceId: 'intents-adoption', name: 'stablecoin-routes-only', basedOn: 'main', createdAt: '2026-11-09T16:20:00.000Z', author: 'r.mehta', description: 'Restricts routes to stablecoin pairs.', changedPanels: 2, verdictDelta: 'no change' },
 ];
+
+
+/* -----------------------------------------------------------------------------
+   The synthetic chart fixture workspace.
+
+   One workspace holding every supported chart kind, built from the fixture
+   pack the backend team supplied. It exists so the renderer can be exercised
+   against the exact envelope shape the API will return, and so the Canvas has
+   real panels of every type to lay out. Nothing in it is an observation.
+   -------------------------------------------------------------------------- */
+
+export const FIXTURE_WORKSPACE_ID = 'chart-fixtures';
+
+/** The pack's reason codes mapped onto the vocabulary spec 4.4 defines. */
+function packReasonCodes(codes: string[]): ReasonCode[] {
+  const map: Record<string, ReasonCode> = {
+    PARTIAL_PROVIDER_COVERAGE: 'PARTIAL',
+    SOURCE_RANGE_UNAVAILABLE: 'INSUFFICIENT_DATA',
+    METHOD_NOT_VALIDATED: 'METHOD_NOT_VALIDATED',
+    REPLAY: 'REPLAY',
+  };
+  return codes.map((c) => map[c]).filter(Boolean) as ReasonCode[];
+}
+
+/**
+ * Default layout: two panels per row on a twelve column grid. The Canvas lets
+ * the reader rearrange this, and their layout is what persists afterwards.
+ */
+export const PACK_PANELS: FixturePanel[] = PACK.map((f, i) => ({
+  id: `pk_${f.id.slice(0, 3).toLowerCase()}`,
+  workspaceId: FIXTURE_WORKSPACE_ID,
+  title: f.title,
+  metricIds: f.result.query.metricIds,
+  kind: f.kind as FixturePanel['kind'],
+  status: 'ready',
+  layout: { x: (i % 2) * 6, y: Math.floor(i / 2) * 6, w: 6, h: 6 },
+  description: f.chartSpec.description ?? '',
+  reasonCodes: packReasonCodes(f.result.partialReasonCodes),
+  packFixtureId: f.id,
+}));

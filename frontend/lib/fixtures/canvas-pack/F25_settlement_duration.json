@@ -1,0 +1,137 @@
+{
+  "schema": "nearesis.canvas.fixture@1",
+  "disclaimer": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA",
+  "fixtureMode": true,
+  "mode": "frozen",
+  "origin": "synthetic",
+  "sourceVersion": "fixture-source-v1",
+  "snapshotId": "fixture-snapshot-2026-10",
+  "generatedBy": "generate-chart-fixtures.mjs",
+  "rng": "xorshift32:0x4e454152",
+  "id": "F25_settlement_duration",
+  "kind": "distribution",
+  "title": "Linked synthetic settlement times",
+  "chartSpec": {
+    "kind": "distribution",
+    "title": "Linked synthetic settlement times",
+    "encodings": {
+      "x": "seconds",
+      "group": "src"
+    },
+    "annotations": {
+      "markerIds": []
+    },
+    "missingnessPolicy": "show_gap",
+    "description": "Synthetic chart test fixture. Not a NEAR observation."
+  },
+  "result": {
+    "resultId": "fixture-result-F25_settlement_duration",
+    "query": {
+      "canonicalQueryHash": "490d3c2e57a0d26ec6605e313e7d25b63ca49efd5e015b4114b1cfb206df1afd",
+      "semanticVersion": "fixture-semantic-v1",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "metricIds": [
+        "fixture.settlement_seconds"
+      ]
+    },
+    "source": {
+      "sourceId": "fixture-source-F25_settlement_duration",
+      "snapshotId": "fixture-snapshot-2026-10",
+      "rawManifestHash": "a5e595a6ad36ea0b93be75ae20966235acb21a8132ad1a3e5bd471dc78ee14d1",
+      "sourceWatermark": "2026-10-31T23:59:59.000Z",
+      "retrievedAt": "2026-11-01T00:05:00.000Z",
+      "maturity": "finalized",
+      "datasetOrigin": "synthetic",
+      "dataMode": "frozen",
+      "coverage": {
+        "expected": 4,
+        "observed": 4,
+        "unknown": 0,
+        "gaps": []
+      },
+      "visibilityNotes": [
+        "This is intentionally generated test data and never a real chain measurement."
+      ]
+    },
+    "columns": [
+      {
+        "id": "src",
+        "role": "dimension",
+        "unit": "source chain",
+        "nullable": false
+      },
+      {
+        "id": "dst",
+        "role": "dimension",
+        "unit": "destination chain",
+        "nullable": false
+      },
+      {
+        "id": "seconds",
+        "role": "measure",
+        "unit": "seconds",
+        "nullable": true
+      },
+      {
+        "id": "status",
+        "role": "dimension",
+        "unit": "status",
+        "nullable": false
+      }
+    ],
+    "rowsRef": "fixture://rows/F25_settlement_duration",
+    "rowCount": 4,
+    "resultHash": "fe861e65e5e1a2cbc9f7947a95eb378aa979ec9ec18069f7931afc40caeb9da0",
+    "partialReasonCodes": [],
+    "rows": [
+      {
+        "id": "fixture-settle-1",
+        "src": "NEAR",
+        "dst": "ETH",
+        "startedAt": "2026-10-01T12:00:00.000Z",
+        "settledAt": "2026-10-01T12:00:18.000Z",
+        "seconds": 18,
+        "status": "SUCCESS"
+      },
+      {
+        "id": "fixture-settle-2",
+        "src": "NEAR",
+        "dst": "ETH",
+        "startedAt": "2026-10-01T12:02:00.000Z",
+        "settledAt": "2026-10-01T12:02:28.000Z",
+        "seconds": 28,
+        "status": "SUCCESS"
+      },
+      {
+        "id": "fixture-settle-3",
+        "src": "BASE",
+        "dst": "NEAR",
+        "startedAt": "2026-10-01T13:00:00.000Z",
+        "settledAt": "2026-10-01T13:00:44.000Z",
+        "seconds": 44,
+        "status": "SUCCESS"
+      },
+      {
+        "id": "fixture-settle-4",
+        "src": "ETH",
+        "dst": "NEAR",
+        "startedAt": "2026-10-01T13:02:00.000Z",
+        "settledAt": null,
+        "seconds": null,
+        "status": "PENDING"
+      }
+    ]
+  },
+  "expected": {
+    "validDurationCount": 3,
+    "pendingExcludedFromCompletedLatency": 1,
+    "noUnlinkedQuoteJoin": true
+  },
+  "interactions": [
+    "filter_chain",
+    "inspect_latency_definition"
+  ],
+  "ui": {
+    "alwaysShow": "SYNTHETIC FIXTURE — NOT LIVE NEAR DATA"
+  }
+}

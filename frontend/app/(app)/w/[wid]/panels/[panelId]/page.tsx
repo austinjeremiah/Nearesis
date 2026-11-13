@@ -4,6 +4,7 @@ import { use, useState } from 'react';
 import Link from 'next/link';
 import { Content, PageHeader } from '@/components/nx/shell';
 import { PanelFrame, PanelProvenance } from '@/components/nx/panel';
+import { PackPanelDetail } from '@/components/nx/charts/pack-detail';
 import {
   Badge,
   CoverageChip,
@@ -11,7 +12,8 @@ import {
   MaturityChip,
   ReasonCodeList,
 } from '@/components/nx/evidence';
-import { Button, Card, EmptyState, KeyValues, LinkButton, Notice, Select, Tabs } from '@/components/nx/ui';
+import { Button, Card, EmptyState, KeyValues, LinkButton, Notice, Select } from '@/components/nx/ui';
+import { TabStrip } from '@/components/nx/landing';
 import { DataTable, type Column } from '@/components/nx/table';
 import * as db from '@/lib/data/client';
 import type { Point } from '@/lib/data/series';
@@ -47,6 +49,19 @@ export default function PanelDetailPage({
           action={<LinkButton href={`/w/${wid}/canvas`}>Back to canvas</LinkButton>}
         />
       </Content>
+    );
+  }
+
+  // A panel from the synthetic pack reads its own record rather than the
+  // measure catalog, so it has its own detail view with the same tab set.
+  if (panel.packFixtureId) {
+    return (
+      <PackPanelDetail
+        wid={wid}
+        workspaceName={ws.name}
+        panelId={panel.id}
+        fixtureId={panel.packFixtureId}
+      />
     );
   }
 
@@ -112,7 +127,7 @@ export default function PanelDetailPage({
       <Content>
         <PanelFrame panel={panel} workspaceId={wid} height={340} />
 
-        <Tabs<Tab>
+        <TabStrip<Tab>
           ariaLabel="Panel detail"
           value={tab}
           onChange={setTab}

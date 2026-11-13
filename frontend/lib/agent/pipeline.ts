@@ -49,6 +49,8 @@ export type RunSnapshot = {
   findings?: { statement: string; basis: string; status: string; facts?: unknown[]; skepticNotes?: unknown[] }[];
   interpretation?: { state: string; reason: string | null } | null;
 };
+/** How long a freshly started run may answer 404 before that counts as a failure. */
+const RUN_VISIBLE_GRACE_MS = 30_000;
 export type ApprovalSnapshot = { runId: string; approvals: { approvalId: string; actionHash: string; status: string; kind: string; costLimit: number | null }[] };
 
 export type PipelineDeps = {
@@ -147,7 +149,17 @@ export async function runPipeline(start: PipelineState, deps: PipelineDeps, onSt
         if (signal?.aborted) return st;
         current = done('approval_wait') ? (done('approve') ? 'run' : 'approve') : 'approval_wait';
         if (st.steps[current].status === 'pending') set({}, current, 'active');
-        const run = await deps.getRun(runId);
+        let run: RunSnapshot;
+        try {
+          run = await deps.getRun(runId);
+        } catch (e) {
+          // The run row is written by the workflow a moment after the question is accepted: a 404 in the first
+          // seconds means "not visible yet", not "gone".
+          const notYet = (e as { status?: number } | null)?.status === 404 && deps.now() - began < RUN_VISIBLE_GRACE_MS;
+          if (!notYet) throw e;
+          await deps.sleep(1000, signal);
+          continue;
+        }
         const findings: PipelineFinding[] = (run.findings ?? []).map((f) => ({
           statement: f.statement,
           basis: f.basis,

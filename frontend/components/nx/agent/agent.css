@@ -51,7 +51,8 @@
 .ag-mark[data-s='failed'], .ag-mark[data-s='stopped'], .ag-mark[data-s='timeout'] { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
 .ag-links { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 
-.ag-composer-wrap { position: sticky; bottom: 0; z-index: 5; background: var(--page); padding: 10px 0 12px; border-top: 1px solid var(--line); }
+/* The scroll container has bottom padding; the shadow paints over it so earlier answers never show under the composer. */
+.ag-composer-wrap { position: sticky; bottom: 0; z-index: 5; background: var(--page); padding: 10px 0 12px; border-top: 1px solid var(--line); box-shadow: 0 64px 0 var(--page); }
 .ag-composer { display: flex; flex-direction: column; gap: 8px; }
 .ag-composer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ag-composer-actions .btn { flex: none; }

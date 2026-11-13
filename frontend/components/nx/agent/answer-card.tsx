@@ -1,5 +1,6 @@
 'use client';
 
+import { tidyNumbers } from '@/lib/prose';
 import { Badge } from '@/components/nx/evidence';
 import { DataTable } from '@/components/nx/table';
 import { SeriesChart } from '@/components/nx/data/charts';
@@ -76,7 +77,7 @@ export function FindingCard({ f }: { f: AgentFinding }) {
           </Badge>
         ))}
       </div>
-      <p>{f.statement}</p>
+      <p>{tidyNumbers(f.statement)}</p>
       <div className="tiny dim">{f.facts.length} number(s) tied to result cells</div>
       {f.limitations.length > 0 && (
         <details>
@@ -124,7 +125,7 @@ export function AnswerBody({ a }: { a: AgentAnswer }) {
         )}
         {a.summary ? (
           <p className="ag-lead" data-testid="agent-summary">
-            {a.summary}
+            {tidyNumbers(a.summary)}
           </p>
         ) : (
           <p className="small dim" data-testid="agent-no-summary">

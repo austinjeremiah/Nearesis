@@ -17,6 +17,7 @@ import type { LastHour } from '@/components/nx/data/realtime-view';
 import { browserApi } from '@/lib/api/browser';
 import { fInt, fPct, fUsd, fSeconds } from '@/lib/data/num';
 import { formatAge } from '@/lib/format';
+import { tidyNumbers } from '@/lib/prose';
 
 /** Questions the live pipeline answers end to end today (Intents Explorer, BigQuery daily chain data, accounts). */
 const EXAMPLES = [
@@ -296,16 +297,6 @@ type Finding = {
 
 const STATUS_TONE = { supported: 'ok', mixed: 'warn', insufficient_data: '', cannot_compute: 'bad' } as const;
 
-/** Long decimals from the result cells read badly in prose; shorten them for display only (the run page keeps the exact value). */
-function tidy(text: string) {
-  // Only cell values carried at full decimal scale (7+ fraction digits) are shortened; anything shorter is shown as written.
-  return text.replace(/\d+\.\d{7,}/g, (m) => {
-    const n = Number(m);
-    if (!Number.isFinite(n)) return m;
-    return Math.abs(n) >= 100 ? Math.round(n).toLocaleString('en-US') : String(Number(n.toPrecision(4)));
-  });
-}
-
 function Findings() {
   const q = useQuery({
     queryKey: ['home', 'findings'],
@@ -340,7 +331,7 @@ function Findings() {
                 skeptic: {verdict}
               </Badge>
             </div>
-            <p className="home-finding-text">{tidy(f.finding.statement)}</p>
+            <p className="home-finding-text">{tidyNumbers(f.finding.statement)}</p>
             <div className="tiny dim">
               {(f.finding.facts ?? []).length} number(s) tied to result cells · {(f.finding.skepticNotes ?? []).length} skeptic note(s) · {formatAge(f.createdAt)}
             </div>

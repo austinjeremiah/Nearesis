@@ -635,6 +635,9 @@ importers:
       '@nearesis/agent-runtime':
         specifier: workspace:*
         version: link:../agent-runtime
+      '@nearesis/analytics':
+        specifier: workspace:*
+        version: link:../../services/analytics
       '@nearesis/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -644,6 +647,9 @@ importers:
       '@nearesis/kernel':
         specifier: workspace:*
         version: link:../kernel
+      '@nearesis/near-thesis':
+        specifier: workspace:*
+        version: link:../../plugins/near-thesis
       '@temporalio/activity':
         specifier: 1.25.0
         version: 1.25.0(long@5.3.2)(protobufjs@8.8.1)
@@ -669,15 +675,9 @@ importers:
       '@nearesis/acceptance':
         specifier: workspace:*
         version: link:../acceptance
-      '@nearesis/analytics':
-        specifier: workspace:*
-        version: link:../../services/analytics
       '@nearesis/canvas-schema':
         specifier: workspace:*
         version: link:../canvas-schema
-      '@nearesis/near-thesis':
-        specifier: workspace:*
-        version: link:../../plugins/near-thesis
       '@nearesis/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk

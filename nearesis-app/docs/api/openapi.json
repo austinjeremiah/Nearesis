@@ -24,6 +24,9 @@
       "name": "analytics"
     },
     {
+      "name": "assistant"
+    },
+    {
       "name": "branches"
     },
     {
@@ -863,6 +866,97 @@
           }
         },
         "x-capability": "global approvals"
+      }
+    },
+    "/v1/assistant/answer": {
+      "post": {
+        "operationId": "postAssistantAnswer",
+        "tags": [
+          "assistant"
+        ],
+        "summary": "Quick answer with charts and detailed analysis from typed read-only analytics (no workspace); spends model USD against the global ceiling",
+        "description": "A planner call picks up to 4 calls from the typed analytics catalogue (intents, entities, accounts), they run in parallel, charts are built from the result tables, and the interpretation stage (analyst and skeptic) writes findings whose every number is tied to a result cell. `summary` is returned only when every number in it grounds against the returned facts, else null. `cannot_answer` carries a reason and what data exists instead. Unknown values are null, never zero. 402 BUDGET_EXCEEDED when the one global model-spend ceiling is reached; 429 RATE_LIMITED per user.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostAssistantAnswerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The answer, its charts, findings, steps, cost and elapsed time",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostAssistantAnswerResponse200"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-states": [
+          "complete",
+          "partial",
+          "insufficient_data",
+          "budget_exhausted",
+          "rate_limited",
+          "source_unavailable"
+        ],
+        "x-capability": "agent quick answer"
       }
     },
     "/v1/auth/oidc/callback": {
@@ -9266,6 +9360,124 @@
         },
         "x-min-role": "admin",
         "x-capability": "workspace settings"
+      }
+    },
+    "/v1/workspaces/{id}/assistant/setup": {
+      "post": {
+        "operationId": "postWorkspacesByIdAssistantSetup",
+        "tags": [
+          "assistant"
+        ],
+        "summary": "Create markers, monitor rules and one DRAFT hypothesis from a completed run's findings (deterministic, no model spend)",
+        "description": "Reads the COMPLETE run's ready interpretation and creates, as the calling user and through the same kernel commands and hypothesis service as the manual routes: up to 3 DRAFT markers on dated cells a finding cites, up to 3 compare rules on certified daily live metrics with thresholds equal to the cited values, and 1 DRAFT hypothesis. Never freezes, publishes or approves. Idempotent per run (a repeat finds what exists). Whatever cannot be created honestly is listed in `skipped` with the reason. 404 RUN_NOT_IN_WORKSPACE for a run of another workspace; 422 VALIDATION_FAILED (RUN_NOT_COMPLETE, INTERPRETATION_NOT_READY) when the run is not COMPLETE or has no ready interpretation.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "8-200 chars; a repeated key replays the first result.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostWorkspacesByIdAssistantSetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created markers, monitors and hypothesis, and what was skipped with reasons",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostWorkspacesByIdAssistantSetupResponse200"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-min-role": "writer",
+        "x-states": [
+          "complete",
+          "partial",
+          "permission_denied"
+        ],
+        "x-capability": "agent setup after investigation"
       }
     },
     "/v1/workspaces/{id}/branches": {
@@ -27208,6 +27420,374 @@
         },
         "additionalProperties": false
       },
+      "PostAssistantAnswerRequest": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "history": {
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "assistant"
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "role",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "additionalProperties": false
+      },
+      "PostAssistantAnswerResponse200": {
+        "type": "object",
+        "properties": {
+          "answerId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "partial",
+              "cannot_answer"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "charts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "line",
+                    "bar",
+                    "table"
+                  ]
+                },
+                "unit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "x": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "series": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "values": {
+                        "type": "array",
+                        "items": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "values"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "columns": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "rows": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                },
+                "source": {
+                  "type": "string"
+                },
+                "window": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string"
+                        },
+                        "to": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "metricVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "caveats": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "kind",
+                "unit",
+                "x",
+                "series",
+                "source",
+                "window",
+                "coverage",
+                "metricVersion",
+                "caveats"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "statement": {
+                  "type": "string"
+                },
+                "basis": {
+                  "type": "string",
+                  "enum": [
+                    "observation",
+                    "inference"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "supported",
+                    "mixed",
+                    "insufficient_data",
+                    "cannot_compute"
+                  ]
+                },
+                "chartIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "facts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "value": {
+                        "type": "string"
+                      },
+                      "unit": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "unit"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "limitations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "skepticNotes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "skepticVerdict": {
+                  "type": "string",
+                  "enum": [
+                    "holds",
+                    "weakened",
+                    "unsupported",
+                    "unavailable"
+                  ]
+                }
+              },
+              "required": [
+                "statement",
+                "basis",
+                "status",
+                "chartIds",
+                "facts",
+                "limitations",
+                "skepticNotes",
+                "skepticVerdict"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tool": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "ok",
+                    "cannot_compute",
+                    "refused",
+                    "error"
+                  ]
+                },
+                "ms": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "tool",
+                "label",
+                "outcome",
+                "ms"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cannotAnswerReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "suggestedWorkspaceObjective": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "object",
+            "properties": {
+              "usd": {
+                "type": "number"
+              },
+              "modelCalls": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "usd",
+              "modelCalls"
+            ],
+            "additionalProperties": false
+          },
+          "elapsedMs": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "answerId",
+          "status",
+          "summary",
+          "charts",
+          "findings",
+          "limitations",
+          "steps",
+          "cannotAnswerReason",
+          "suggestedWorkspaceObjective",
+          "cost",
+          "elapsedMs"
+        ],
+        "additionalProperties": false
+      },
       "PostCapsulesByIdPublishRequest": {
         "type": "object",
         "properties": {
@@ -27381,6 +27961,144 @@
           "key",
           "name",
           "canvasConfig"
+        ],
+        "additionalProperties": false
+      },
+      "PostWorkspacesByIdAssistantSetupRequest": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "runId"
+        ],
+        "additionalProperties": false
+      },
+      "PostWorkspacesByIdAssistantSetupResponse200": {
+        "type": "object",
+        "properties": {
+          "markers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "monitors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "hypothesis": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "title"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "marker",
+                    "monitor",
+                    "hypothesis"
+                  ]
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cost": {
+            "type": "object",
+            "properties": {
+              "usd": {
+                "type": "number"
+              },
+              "modelCalls": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "usd",
+              "modelCalls"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "markers",
+          "monitors",
+          "hypothesis",
+          "skipped",
+          "cost"
         ],
         "additionalProperties": false
       },

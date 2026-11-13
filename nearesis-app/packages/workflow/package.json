@@ -14,9 +14,11 @@
   },
   "dependencies": {
     "@nearesis/agent-runtime": "workspace:*",
+    "@nearesis/analytics": "workspace:*",
     "@nearesis/contracts": "workspace:*",
     "@nearesis/inference": "workspace:*",
     "@nearesis/kernel": "workspace:*",
+    "@nearesis/near-thesis": "workspace:*",
     "@temporalio/activity": "1.25.0",
     "@temporalio/client": "1.25.0",
     "@temporalio/common": "1.25.0",
@@ -27,9 +29,7 @@
   },
   "devDependencies": {
     "@nearesis/acceptance": "workspace:*",
-    "@nearesis/analytics": "workspace:*",
     "@nearesis/canvas-schema": "workspace:*",
-    "@nearesis/near-thesis": "workspace:*",
     "@nearesis/plugin-sdk": "workspace:*",
     "@types/pg": "8.23.1"
   }

@@ -41,3 +41,4 @@ export * from "./cost-ops.ts";
 export { inferenceSpendUsd, externalModelSpend } from "./inference-spend.ts";
 export * from "./interpretation.ts";
 export * from "./finding-sink.ts";
+export * from "./assistant-answer.ts";

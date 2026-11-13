@@ -23,6 +23,7 @@ import { publicPublicationRoutes } from "./public-publication-routes.ts";
 import { metricRegistryRoutes } from "./metric-registry-routes.ts";
 import { accountRoutes } from "./account-routes.ts";
 import { analyticsPanelRoutes } from "./analytics-panel-routes.ts";
+import { assistantRoutes } from "./assistant-routes.ts";
 import { CollabTicketStore } from "./collab-ticket.ts";
 import { frontendRoutes } from "./frontend-routes.ts";
 import { globalRoutes } from "./global-routes.ts";
@@ -68,6 +69,8 @@ export interface AppOptions {
   /** Test seam: testnet commitment readback for GET /v1/capsules/:id/anchor (default: read-only NEAR RPC). */
   chainReadback?: import("./publication-trust.ts").ChainReadback;
   publishAnchorChain?: (manifestHash: string) => Promise<import("@nearesis/capsule").ChainCommitPayload>;
+  /** Test seams for the Agent tab routes (analytics sources, model, spend files, rate limit). */
+  assistant?: Partial<import("./assistant-routes.ts").AssistantRoutesOptions>;
   /** Starts/signals investigation workflows (production: `temporalEngine()`). Without one, question/cancel/approval writes are 503. */
   engine?: InvestigationEngine;
   nodeEnv?: string | undefined;
@@ -589,6 +592,13 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   await app.register(publicPublicationRoutes, { kernel });
   await app.register(accountRoutes, { authenticate });
   await app.register(analyticsPanelRoutes, { authenticate });
+  await app.register(assistantRoutes, {
+    kernel,
+    runs,
+    authenticate,
+    ...(opts.assistant ?? {}),
+    ...(opts.externalModelSpend ? { externalModelSpend: opts.externalModelSpend } : {}),
+  });
   if (opts.authoring)
     await app.register(metricRoutes, {
       kernel,

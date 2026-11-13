@@ -1,4 +1,5 @@
 import { PRODUCT_ROUTES } from "./product-openapi.ts";
+import { AnswerRequest, AnswerResponse, SetupRequest, SetupResponse } from "./assistant-routes.ts";
 import { RangeQ as AccountRangeQ, HfQ as AccountHfQ, GrowthQ as AccountGrowthQ } from "./account-routes.ts";
 import { z } from "zod";
 import {
@@ -873,6 +874,38 @@ export const ROUTES: RouteSpec[] = [
         AnalyticsPanelData,
         "Chart rows, shape, provenance (call, coverage, caveats) and cannotCompute when the source cannot answer",
       ),
+    },
+  ),
+
+  // ---- Agent tab: quick answers and post-investigation setup ----------------------------------------------------------
+  R(
+    "post",
+    "/v1/assistant/answer",
+    "assistant",
+    "Quick answer with charts and detailed analysis from typed read-only analytics (no workspace); spends model USD against the global ceiling",
+    {
+      description:
+        "A planner call picks up to 4 calls from the typed analytics catalogue (intents, entities, accounts), they run in parallel, charts are built from the result tables, and the interpretation stage (analyst and skeptic) writes findings whose every number is tied to a result cell. `summary` is returned only when every number in it grounds against the returned facts, else null. `cannot_answer` carries a reason and what data exists instead. Unknown values are null, never zero. 402 BUDGET_EXCEEDED when the one global model-spend ceiling is reached; 429 RATE_LIMITED per user.",
+      body: AnswerRequest,
+      capability: "agent quick answer",
+      states: S("complete", "partial", "insufficient_data", "budget_exhausted", "rate_limited", "source_unavailable"),
+      ok: typed(AnswerResponse, "The answer, its charts, findings, steps, cost and elapsed time"),
+    },
+  ),
+  R(
+    "post",
+    `${W}/assistant/setup`,
+    "assistant",
+    "Create markers, monitor rules and one DRAFT hypothesis from a completed run's findings (deterministic, no model spend)",
+    {
+      description:
+        "Reads the COMPLETE run's ready interpretation and creates, as the calling user and through the same kernel commands and hypothesis service as the manual routes: up to 3 DRAFT markers on dated cells a finding cites, up to 3 compare rules on certified daily live metrics with thresholds equal to the cited values, and 1 DRAFT hypothesis. Never freezes, publishes or approves. Idempotent per run (a repeat finds what exists). Whatever cannot be created honestly is listed in `skipped` with the reason. 404 RUN_NOT_IN_WORKSPACE for a run of another workspace; 422 VALIDATION_FAILED (RUN_NOT_COMPLETE, INTERPRETATION_NOT_READY) when the run is not COMPLETE or has no ready interpretation.",
+      body: SetupRequest,
+      headers: idem,
+      role: "writer",
+      capability: "agent setup after investigation",
+      states: S("complete", "partial", "permission_denied"),
+      ok: typed(SetupResponse, "Created markers, monitors and hypothesis, and what was skipped with reasons"),
     },
   ),
 

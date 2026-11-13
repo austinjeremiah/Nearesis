@@ -182,6 +182,18 @@ export function receiverRows(
   return { named, below };
 }
 
+/**
+ * Typed Decimal columns accept only a plain decimal whose integer part fits Decimal(76, 18) (extra fraction digits are truncated by ClickHouse as before). A provider value that is not one (seen
+ * 2026-11-13: a USD value with a thousands separator) is stored as unknown (NULL) in the typed column, never reinterpreted
+ * or zeroed, and kept verbatim in the *_raw column; without this the whole batch insert fails and the backfill stops.
+ */
+const PLAIN_DECIMAL = /^-?\d{1,58}(\.\d+)?$/;
+const PLAIN_INTEGER = /^-?\d{1,76}$/;
+export const typedDecimal = (v: string | null | undefined): string | null =>
+  v != null && PLAIN_DECIMAL.test(String(v)) ? String(v) : null;
+export const typedInteger = (v: string | null | undefined): string | null =>
+  v != null && PLAIN_INTEGER.test(String(v)) ? String(v) : null;
+
 export function swapRows(rows: IntentsSwapRow[], fetchedAtUTC: string): Row[] {
   return rows.map((s) => ({
     swap_key: s.swapKey,
@@ -196,13 +208,13 @@ export function swapRows(rows: IntentsSwapRow[], fetchedAtUTC: string): Row[] {
     canonical_destination_asset: s.canonicalDestinationAsset,
     amount_in_raw: s.amountIn,
     amount_out_raw: s.amountOut,
-    amount_in: s.amountIn,
-    amount_out: s.amountOut,
+    amount_in: typedInteger(s.amountIn),
+    amount_out: typedInteger(s.amountOut),
     amount_final: s.amountFinal ? 1 : 0,
     amount_in_usd_raw: s.amountInUsd,
     amount_out_usd_raw: s.amountOutUsd,
-    amount_in_usd: s.amountInUsd,
-    amount_out_usd: s.amountOutUsd,
+    amount_in_usd: typedDecimal(s.amountInUsd),
+    amount_out_usd: typedDecimal(s.amountOutUsd),
     deposit_type: s.depositType,
     recipient_type: s.recipientType,
     referral: s.referral,

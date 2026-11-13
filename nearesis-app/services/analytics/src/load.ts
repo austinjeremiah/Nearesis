@@ -9,7 +9,7 @@ const dec = (s: string | null | undefined) => (s === null || s === undefined ? n
  * (for example with a thousands separator) or that overflows Decimal(76, s); such a value is stored as unknown (NULL)
  * in the typed column, never reinterpreted, and kept verbatim in the *_raw column.
  */
-const PLAIN_DECIMAL = /^-?\d{1,58}(\.\d{1,18})?$/;
+const PLAIN_DECIMAL = /^-?\d{1,58}(\.\d+)?$/;
 const PLAIN_INTEGER = /^-?\d{1,76}$/;
 const typedDec = (s: string | null | undefined) => (s != null && PLAIN_DECIMAL.test(String(s)) ? String(s) : null);
 const typedInt = (s: string | null | undefined) => (s != null && PLAIN_INTEGER.test(String(s)) ? String(s) : null);

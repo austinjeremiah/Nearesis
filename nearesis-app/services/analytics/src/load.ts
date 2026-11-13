@@ -4,6 +4,15 @@ import type { NormalizedOutput } from "../../ingestion/src/normalized/types.ts";
 type Row = Record<string, unknown>;
 const day = (iso: string) => iso.slice(0, 10);
 const dec = (s: string | null | undefined) => (s === null || s === undefined ? null : s);
+/**
+ * A value for a typed Decimal column. The provider occasionally sends a USD or amount value that is not a plain decimal
+ * (for example with a thousands separator) or that overflows Decimal(76, s); such a value is stored as unknown (NULL)
+ * in the typed column, never reinterpreted, and kept verbatim in the *_raw column.
+ */
+const PLAIN_DECIMAL = /^-?\d{1,58}(\.\d{1,18})?$/;
+const PLAIN_INTEGER = /^-?\d{1,76}$/;
+const typedDec = (s: string | null | undefined) => (s != null && PLAIN_DECIMAL.test(String(s)) ? String(s) : null);
+const typedInt = (s: string | null | undefined) => (s != null && PLAIN_INTEGER.test(String(s)) ? String(s) : null);
 const t = (s: string | null | undefined) => (s === null || s === undefined ? null : s);
 
 export const FACT_TABLES = [
@@ -41,13 +50,13 @@ export function toRows(output: NormalizedOutput): Record<string, Row[]> {
       canonical_destination_asset: r.canonicalDestinationAsset,
       amount_in_raw: r.amountIn,
       amount_out_raw: r.amountOut,
-      amount_in: r.amountIn,
-      amount_out: r.amountOut,
+      amount_in: typedInt(r.amountIn),
+      amount_out: typedInt(r.amountOut),
       amount_final: r.amountFinal ? 1 : 0,
       amount_in_usd_raw: dec(r.amountInUsd),
       amount_out_usd_raw: dec(r.amountOutUsd),
-      amount_in_usd: dec(r.amountInUsd),
-      amount_out_usd: dec(r.amountOutUsd),
+      amount_in_usd: typedDec(r.amountInUsd),
+      amount_out_usd: typedDec(r.amountOutUsd),
       deposit_type: r.depositType,
       recipient_type: r.recipientType,
       referral: r.referral,

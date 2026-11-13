@@ -1,4 +1,5 @@
 import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { devSignIn } from './auth';
 
 /**
  * Investigate flow against the REAL stack (API on 4110, real model). No mocking.
@@ -13,17 +14,7 @@ const TERMINAL = ['COMPLETE', 'PARTIAL', 'BLOCKED', 'BLOCKED_SOURCE', 'CANCELLED
 
 /** Sign in through the dev login. The API rate-limits sign-ins per client, so wait out a 429 instead of failing. */
 async function signIn(page: Page) {
-  for (let i = 0; i < 6; i++) {
-    await page.goto('/login');
-    await page.getByTestId('dev-login-button').click();
-    try {
-      await expect(page).toHaveURL(/\/home$/, { timeout: 8000 });
-      return;
-    } catch {
-      await page.waitForTimeout(10_000);
-    }
-  }
-  throw new Error('could not sign in');
+  await devSignIn(page);
 }
 
 async function globalCommitted(page: Page): Promise<number> {

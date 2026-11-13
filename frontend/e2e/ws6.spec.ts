@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
+import { devSignIn } from './auth';
 
 /**
  * History, branches, merges, capsules, publications, cost and presence, against the real stack.
@@ -15,9 +16,7 @@ const CAPSULE_DIR = join(process.env.NEARESIS_CAPSULE_DIR ?? join(APP, '.data/ca
 const uuid = () => crypto.randomUUID();
 
 async function login(page: Page) {
-  await page.goto('/login');
-  await page.getByTestId('dev-login-button').click();
-  await expect(page).toHaveURL(/\/home$/);
+  await devSignIn(page);
 }
 async function api<T = any>(page: Page, method: 'get' | 'post' | 'put', path: string, data?: unknown): Promise<T> {
   const res = await page.request.fetch(`/api/k/${path}`, { method, data, headers: { 'idempotency-key': uuid() } });
@@ -143,21 +142,27 @@ test.describe('branches and merges', () => {
 test.describe('capsules and publications', () => {
   test.describe.configure({ mode: 'serial' });
   let wid = '';
-  const build = (page: Page) => {
+  let orgId = '';
+  /** Rebuild the synthetic capsule with the backend's own CLI from its frozen snapshot, owned by the given workspace. */
+  const rebuild = (org: string, workspaceId: string) => {
     rmSync(CAPSULE_DIR, { recursive: true, force: true });
-    return page;
+    execFileSync('corepack', ['pnpm', 'exec', 'tsx', 'src/cli.ts', 'rebuild', '--snapshot', 'fixtures/snapshot-synthetic', '--out', CAPSULE_DIR, '--org', org, '--workspace', workspaceId, '--no-wasm'], {
+      cwd: join(APP, 'packages/capsule'),
+      stdio: 'pipe',
+      timeout: 120_000,
+    });
   };
+  // The cautionary test tampers with an export; leave the shared capsule pristine for whoever runs next.
+  test.afterAll(() => {
+    if (orgId && wid) rebuild(orgId, wid);
+  });
 
   test('list, detail with separate reproduced and attested claims, verify, publish, public page, unpublish', async ({ page }) => {
     await login(page);
     wid = await newWorkspace(page, `WS6 capsules ${Date.now()}`);
     const w = await api(page, 'get', `workspaces/${wid}`);
-    build(page);
-    execFileSync('corepack', ['pnpm', 'exec', 'tsx', 'src/cli.ts', 'rebuild', '--snapshot', 'fixtures/snapshot-synthetic', '--out', CAPSULE_DIR, '--org', w.orgId, '--workspace', wid, '--no-wasm'], {
-      cwd: join(APP, 'packages/capsule'),
-      stdio: 'pipe',
-      timeout: 120_000,
-    });
+    orgId = w.orgId;
+    rebuild(orgId, wid);
     await page.goto(`/w/${wid}/capsules`);
     await page.getByTestId('capsule-link').first().click();
     await expect(page).toHaveURL(new RegExp(`/capsules/${CAPSULE_ID}$`));

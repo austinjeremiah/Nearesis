@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import { devSignIn } from './auth';
 
 /**
  * Helpers for the research specs. Everything goes through the real stack: the dev sign-in route, the same-origin
@@ -7,9 +8,7 @@ import { randomUUID } from 'node:crypto';
  * No request is mocked or intercepted.
  */
 export async function signIn(page: Page) {
-  await page.goto('/login');
-  await page.getByTestId('dev-login-button').click();
-  await expect(page).toHaveURL(/\/home$/);
+  await devSignIn(page);
 }
 
 const origin = (page: Page) => new URL(page.url() === 'about:blank' ? 'http://127.0.0.1:3400' : page.url()).origin;

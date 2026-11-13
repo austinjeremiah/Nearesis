@@ -1,10 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
+import { devSignIn } from './auth';
 
 /** WS5: data area against the real API. No mocks, no page.route. */
 async function login(page: Page) {
-  await page.goto('/login');
-  await page.getByTestId('dev-login-button').click();
-  await expect(page).toHaveURL(/\/home$/);
+  await devSignIn(page);
 }
 
 test.describe('data area on the real stack', () => {

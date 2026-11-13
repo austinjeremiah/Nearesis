@@ -1,5 +1,6 @@
 import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import { devSignIn } from './auth';
 
 /**
  * WS8: economics, notification read state, registry metric detail, quotes, source rate limits, the anonymous public
@@ -9,9 +10,7 @@ const API = process.env.NEARESIS_API_URL ?? 'http://127.0.0.1:4110';
 const CAPSULE_ID = 'cap-synthetic-2026-11-10';
 
 async function signIn(page: Page) {
-  await page.goto('/login');
-  await page.getByTestId('dev-login-button').click();
-  await expect(page).toHaveURL(/\/home$/);
+  await devSignIn(page);
 }
 async function bearer(page: Page): Promise<string> {
   const c = (await page.context().cookies()).find((x) => x.name === 'nearesis_session');
@@ -150,8 +149,9 @@ test('replay over recorded history, replay notifications, mark read (single, per
   const unreadIds = before.notifications.filter((n: { readAt: string | null }) => !n.readAt).map((n: { notificationId: string }) => n.notificationId);
   expect(unreadIds.length).toBeGreaterThan(1);
   const markButtons = page.getByTestId('rule-mark-read');
-  const nBtn = await markButtons.count();
-  expect(nBtn).toBe(unreadIds.length);
+  // the list refreshes after the replay (query invalidation / live stream), so wait for it to show every unread one
+  const nBtn = unreadIds.length;
+  await expect(markButtons).toHaveCount(nBtn);
   await markButtons.first().click();
   await expect(markButtons).toHaveCount(nBtn - 1);
   const after1 = await apiGet(page, `/v1/workspaces/${wid}/notifications`);

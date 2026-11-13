@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { devSignIn } from './auth';
 
 test.describe('real stack smoke: dev login, workspaces, overview', () => {
   test('signed-out visitors are sent to /login', async ({ page }) => {
@@ -8,9 +9,7 @@ test.describe('real stack smoke: dev login, workspaces, overview', () => {
   });
 
   test('dev login, workspaces list, workspace overview, sign out', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByTestId('dev-login-button').click();
-    await expect(page).toHaveURL(/\/home$/);
+    await devSignIn(page);
     await expect(page.getByTestId('me-label')).toBeVisible();
 
     // The session cookie is HttpOnly: script cannot read it.
@@ -34,7 +33,9 @@ test.describe('real stack smoke: dev login, workspaces, overview', () => {
     // The canvas is connected: it renders real panels or the honest empty state.
     const wid = page.url().match(/\/w\/([0-9a-f-]{36})\//)![1];
     await page.goto(`/w/${wid}/canvas`);
-    await expect(page.getByTestId('canvas-revision').or(page.getByText('No panels yet'))).toBeVisible();
+    // the revision badge is always shown; the body is either the panel grid or the empty state, never both
+    await expect(page.getByTestId('canvas-revision')).toBeVisible();
+    await expect(page.getByTestId('canvas-grid').or(page.getByText('No panels yet'))).toBeVisible();
 
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/login/);
@@ -43,9 +44,7 @@ test.describe('real stack smoke: dev login, workspaces, overview', () => {
   });
 
   test('an unknown workspace is the protected not-found', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByTestId('dev-login-button').click();
-    await expect(page).toHaveURL(/\/home$/);
+    await devSignIn(page);
     const res = await page.goto('/w/00000000-0000-4000-8000-000000000000/overview');
     expect(res?.status()).toBe(404);
     await expect(page.getByText('does not exist, or you do not have access')).toBeVisible();
@@ -53,9 +52,7 @@ test.describe('real stack smoke: dev login, workspaces, overview', () => {
 
   test('BFF proxy: authenticated read works, path traversal and owned routes are refused', async ({ page, request }) => {
     expect((await request.get('/api/k/workspaces')).status()).toBe(401);
-    await page.goto('/login');
-    await page.getByTestId('dev-login-button').click();
-    await expect(page).toHaveURL(/\/home$/);
+    await devSignIn(page);
     const ok = await page.request.get('/api/k/workspaces');
     expect(ok.status()).toBe(200);
     expect(ok.headers()['x-trace-id']).toBeTruthy();

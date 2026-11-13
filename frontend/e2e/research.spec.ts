@@ -305,7 +305,11 @@ test('thesis: blocked document is shown as blocked, versioned and exportable', a
   const digest1 = await page.getByTestId('thesis-digest').getAttribute('title');
   await page.getByTestId('new-version').click();
   await expect(page.getByText('Saved version 2')).toBeVisible();
-  await expect(doc).toHaveAttribute('data-version', '1'); // viewing v1 until selected
+  // saving returns the view to the latest version (v2); v1 stays reachable and is immutable
+  await expect(doc).toHaveAttribute('data-version', '2');
+  await page.getByRole('button', { name: 'v1' }).click();
+  await expect(doc).toHaveAttribute('data-version', '1');
+  expect(await page.getByTestId('thesis-digest').getAttribute('title')).toBe(digest1);
   await page.getByRole('button', { name: 'v2' }).click();
   await expect(doc).toHaveAttribute('data-version', '2');
   expect(await page.getByTestId('thesis-digest').getAttribute('title')).toBe(digest1);

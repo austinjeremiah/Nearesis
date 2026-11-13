@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { devSignIn } from './auth';
 
 /**
  * WS1: shell, home, notifications, settings, system, workspace create/edit,
@@ -7,9 +8,7 @@ import { test, expect, type Page } from '@playwright/test';
 const API = process.env.NEARESIS_API_URL ?? 'http://127.0.0.1:4110';
 
 async function signIn(page: Page) {
-  await page.goto('/login');
-  await page.getByTestId('dev-login-button').click();
-  await expect(page).toHaveURL(/\/home$/);
+  await devSignIn(page);
 }
 async function token(page: Page): Promise<string> {
   const c = (await page.context().cookies()).find((x) => x.name === 'nearesis_session');
@@ -138,7 +137,6 @@ test('accept-invite with a bad token says so', async ({ page }) => {
 
 test('5 create a workspace from a template; double submit gives one workspace; edit, pin, archive', async ({ page }) => {
   await signIn(page);
-  const before = (await apiGet(page, '/v1/workspaces')).body.workspaces.length as number;
   await page.goto('/workspaces/new');
   await page.getByTestId('template').selectOption('near-investment-thesis');
   const name = `E2E workspace ${Date.now()}`;
@@ -147,8 +145,9 @@ test('5 create a workspace from a template; double submit gives one workspace; e
   await page.getByTestId('create-workspace').dblclick();
   await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}\/overview$/);
   const wid = page.url().match(/\/w\/([0-9a-f-]{36})\//)![1];
-  const after = (await apiGet(page, '/v1/workspaces')).body.workspaces.length as number;
-  expect(after).toBe(before + 1);
+  // the list is the newest 100, so count by this run's unique name instead of by total length
+  const mine = ((await apiGet(page, '/v1/workspaces')).body.workspaces as { id: string; objective?: string }[]).filter((x) => x.objective === name || x.id === wid);
+  expect(mine, 'one workspace for a double submit').toHaveLength(1);
   await expect(page.locator('.nav-label').filter({ hasText: name })).toBeVisible();
   // workspace budget chip: no cap set is stated, not shown as $0 of nothing
   await expect(page.getByTestId('workspace-budget')).toContainText('no cap set');
@@ -191,10 +190,10 @@ test('login surfaces a not-configured single sign-on honestly', async ({ page })
 });
 
 test('37/38 route crawl of shell pages: no console errors, no fixture strings', async ({ page }) => {
+  await signIn(page); // may wait out the API's sign-in rate limit; that 429 is not a page error, so listen after it
   const errors: string[] = [];
   page.on('console', (m) => m.type() === 'error' && !/favicon|fonts\.g|net::ERR_/.test(m.text()) && errors.push(m.text()));
   page.on('pageerror', (e) => errors.push(String(e)));
-  await signIn(page);
   const first = (await apiGet(page, '/v1/workspaces')).body.workspaces[0].id as string;
   for (const p of ['/home', '/workspaces', '/workspaces/new', '/notifications', '/system', '/settings', `/w/${first}/settings`]) {
     await page.goto(p);

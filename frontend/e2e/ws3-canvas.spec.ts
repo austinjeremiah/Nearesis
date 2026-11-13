@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { devSignIn } from './auth';
 
 /**
  * Canvas and panels against the REAL stack: API on 4110, no mocking of data. Each run builds
@@ -23,9 +24,7 @@ async function signIn(page: Page) {
     await page.goto('/home');
     return;
   }
-  await page.goto('/login');
-  await page.getByTestId('dev-login-button').click();
-  await expect(page).toHaveURL(/\/home$/);
+  await devSignIn(page);
   cookies = await page.context().cookies();
 }
 const api = (page: Page, path: string) => page.request.get(`/api/k${path}`);

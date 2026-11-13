@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { KernelError } from "@nearesis/kernel";
-import type { Tx } from "@nearesis/kernel";
+import type { Session, Tx } from "@nearesis/kernel";
 import { canonicalJson, sha256Hex } from "@nearesis/plugin-sdk";
 import { APP_ROOT } from "@nearesis/capsule";
 import { Uuid, assertWorkspace, audit, ctxOf, iso, parseBody, requireWrite } from "./product-common.ts";
@@ -176,6 +176,26 @@ function researchOutcome(ls: Array<{ kind: string; ref: string }>) {
 }
 
 /**
+ * Creates a draft hypothesis (version 1) and its audit record inside the caller's transaction. Shared by the route above and the
+ * assistant setup, so both validate and audit identically. `id` is for idempotent callers; the default is a fresh id.
+ */
+export async function insertDraftHypothesis(
+  tx: Tx,
+  s: Session,
+  ws: { id: string; orgId: string },
+  b: z.infer<typeof CreateBody>,
+  id: string = randomUUID(),
+) {
+  const r = await tx.query<Row>(
+    `INSERT INTO hypotheses(id, org_id, workspace_id, root_id, version, proposition, target, predictor, benchmark, falsification, created_by)
+     VALUES ($1,$2,$3,$1,1,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [id, ws.orgId, ws.id, b.proposition, b.target, b.predictor, b.benchmark, b.falsification, s.userId],
+  );
+  await audit(tx, s, "hypothesis.created", `hypothesis:${id}`, { version: 1 }, ws.id);
+  return view(r.rows[0]!);
+}
+
+/**
  * Hypotheses (ch.02 preregistration protocol, ch.10 claims). Versions are rows: a frozen row is immutable in the database (trigger),
  * an amendment is a new row chained to the frozen hash, a fork starts a new line. Routes:
  *   GET  /v1/workspaces/:id/hypotheses                         latest version per hypothesis
@@ -229,14 +249,7 @@ export const hypothesisRoutes: FastifyPluginAsync<ProductDeps> = async (app, { k
     const b = parseBody(CreateBody, req.body);
     const out = await kernel.db.tx(ctxOf(s), async (tx) => {
       const ws = await assertWorkspace(tx, req.params.id);
-      const id = randomUUID();
-      const r = await tx.query<Row>(
-        `INSERT INTO hypotheses(id, org_id, workspace_id, root_id, version, proposition, target, predictor, benchmark, falsification, created_by)
-         VALUES ($1,$2,$3,$1,1,$4,$5,$6,$7,$8,$9) RETURNING *`,
-        [id, ws.orgId, ws.id, b.proposition, b.target, b.predictor, b.benchmark, b.falsification, s.userId],
-      );
-      await audit(tx, s, "hypothesis.created", `hypothesis:${id}`, { version: 1 }, ws.id);
-      return view(r.rows[0]!);
+      return insertDraftHypothesis(tx, s, ws, b);
     });
     return reply.status(201).send(out);
   });

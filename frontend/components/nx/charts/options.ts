@@ -1,5 +1,5 @@
 import type { PackColumn, Row, VizSpec } from '@/lib/viz/spec';
-import { baseOption, compactNumber, seriesPalette, type ChartTheme } from '../chart';
+import { baseOption, compactNumber, heatRamp, seriesPalette, type ChartTheme } from '../chart';
 
 /**
  * ECharts option builders, one per visualization kind.
@@ -450,7 +450,7 @@ export function heatmapOption(spec: VizSpec, columns: PackColumn[], rows: Row[],
         itemWidth: 10,
         itemHeight: 70,
         textStyle: { color: t.text3, fontSize: 9, fontFamily: t.mono },
-        inRange: { color: [t.page, t.accent] },
+        inRange: { color: heatRamp(t) },
       };
 
   return {

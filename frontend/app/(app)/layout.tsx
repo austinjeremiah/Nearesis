@@ -19,7 +19,9 @@ const FONTS =
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="nx">
+    // data-skin is set here rather than from a client effect: the first paint
+    // has to be the dark paper, or every reload flashes the old background.
+    <div className="nx" data-skin="ink">
       <link href="https://fonts.googleapis.com" rel="preconnect" />
       <link href="https://fonts.gstatic.com" rel="preconnect" crossOrigin="anonymous" />
       <link href={FONTS} rel="stylesheet" precedence="default" />

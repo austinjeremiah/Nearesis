@@ -7,7 +7,7 @@ import type { FixturePanel } from '@/lib/data/fixtures';
 import * as db from '@/lib/data/client';
 import { compact } from '@/lib/data/series';
 import { formatUtc, shortHash } from '@/lib/format';
-import { BlankChart, Chart, baseOption, seriesPalette, type ChartTheme } from './chart';
+import { BlankChart, Chart, baseOption, heatRamp, seriesPalette, type ChartTheme } from './chart';
 import {
   CoverageChip,
   DataModeIndicator,
@@ -102,7 +102,7 @@ export function usePanelOption(p: FixturePanel) {
             itemWidth: 10,
             itemHeight: 90,
             textStyle: { color: t.text3, fontSize: 10, fontFamily: t.mono },
-            inRange: { color: [t.page, t.accent] },
+            inRange: { color: heatRamp(t) },
           },
           series: [{ type: 'heatmap', data: cells, itemStyle: { borderColor: t.page, borderWidth: 1 } }],
         };

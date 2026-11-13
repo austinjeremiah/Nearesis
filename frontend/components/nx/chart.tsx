@@ -94,6 +94,18 @@ export function seriesPalette(t: ChartTheme): string[] {
   return [t.ink, t.accent, t.info, t.warn, t.bad, '#6b8f7a', '#8a6fae', '#a08b5e'];
 }
 
+/**
+ * Sequential ramp for heatmaps and coverage matrices.
+ *
+ * Blue rather than the accent green: the rail and the primary action already
+ * carry the green, and a matrix that fills the card with it reads as a wall of
+ * brand rather than a scale. Blue also keeps the accent meaningful, since here
+ * it only ever marks a state, never a quantity.
+ */
+export function heatRamp(t: ChartTheme): string[] {
+  return ['#eef4fc', '#c3daf2', '#86b3e2', '#4a86c9', t.info];
+}
+
 /** 4_532_826 -> "4.53M". Long tick labels were being clipped by the plot edge. */
 export function compactNumber(n: number): string {
   const abs = Math.abs(n);

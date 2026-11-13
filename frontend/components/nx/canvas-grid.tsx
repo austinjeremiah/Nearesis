@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -54,6 +55,7 @@ export function CanvasGrid({
   selectedId,
   onSelect,
   locked = false,
+  freeze = false,
 }: {
   /** Draw order. A panel without a rect is placed at the end of the stack. */
   ids: string[];
@@ -62,7 +64,10 @@ export function CanvasGrid({
   onLayoutChange: (next: LayoutMap) => void;
   /** Called once when a gesture ends, which is the point a revision is saved. */
   onCommit?: (next: LayoutMap) => void;
-  renderItem: (id: string) => ReactNode;
+  /** Receives the panel's rect so a cell can size its chart without reading
+      the whole layout, which keeps one panel's move from re-rendering all of
+      the others. */
+  renderItem: (id: string, rect: Rect) => ReactNode;
   columns?: number;
   rowHeight?: number;
   gap?: number;
@@ -71,6 +76,13 @@ export function CanvasGrid({
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   locked?: boolean;
+  /**
+   * Hold the measured width still. While the surrounding layout is animating,
+   * re-measuring on every frame would re-render every panel and resize every
+   * chart canvas sixty times a second, which is what makes a smooth CSS
+   * transition look like a stutter.
+   */
+  freeze?: boolean;
 }) {
   const host = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(1200);
@@ -79,16 +91,29 @@ export function CanvasGrid({
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
 
+  const frozen = useRef(freeze);
+  frozen.current = freeze;
+
   useLayoutEffect(() => {
     const el = host.current;
     if (!el) return;
     const measure = () => setWidth(el.clientWidth);
     measure();
     if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(measure);
+    const ro = new ResizeObserver(() => {
+      if (frozen.current) return;
+      measure();
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // One measurement when the surrounding animation finishes.
+  useEffect(() => {
+    if (freeze) return;
+    const el = host.current;
+    if (el) setWidth(el.clientWidth);
+  }, [freeze]);
 
   const colW = Math.max(40, (width - gap * (columns - 1)) / columns);
   const unitX = colW + gap;
@@ -238,7 +263,7 @@ export function CanvasGrid({
               begin(e, id, 'move', index);
             }}
           >
-            {renderItem(id)}
+            <GridCell id={id} rect={r} render={renderItem} />
             {!locked && (
               <span
                 className="cgrid-resize"
@@ -256,6 +281,35 @@ export function CanvasGrid({
     </div>
   );
 }
+
+/**
+ * The expensive half of a panel, held behind a memo.
+ *
+ * Without this, selecting a panel or opening the inspector re-rendered every
+ * panel on the canvas, charts included: 25 ECharts instances rebuilding inside
+ * a 240ms transition, which is exactly the stutter it looked like. The cell
+ * re-renders only when its own id or geometry changes.
+ */
+const GridCell = memo(
+  function GridCell({
+    id,
+    rect,
+    render,
+  }: {
+    id: string;
+    rect: Rect;
+    render: (id: string, rect: Rect) => ReactNode;
+  }) {
+    return <>{render(id, rect)}</>;
+  },
+  (a, b) =>
+    a.id === b.id &&
+    a.render === b.render &&
+    a.rect.x === b.rect.x &&
+    a.rect.y === b.rect.y &&
+    a.rect.w === b.rect.w &&
+    a.rect.h === b.rect.h,
+);
 
 /* ---------------------------------------------------------------------------
    layout history

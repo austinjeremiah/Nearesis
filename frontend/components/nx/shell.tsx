@@ -181,6 +181,9 @@ export function AppShell({
       </nav>
 
       <div className="main">
+        {/* One inner element, because a smooth scroller needs a single content
+            node to measure. The sticky top bar still sticks to the scrollport. */}
+        <div className="main-inner">
         <header className="topbar">
           <IconButton
             label="Open navigation"
@@ -214,8 +217,18 @@ export function AppShell({
           )}
         </header>
         {children}
+        </div>
       </div>
-      {asideOpen && aside}
+      {/*
+        The agent panel stays mounted and the grid column animates from zero
+        width, so opening it slides rather than jumps and an unsent draft
+        survives a close. `inert` keeps it out of the tab order while shut.
+      */}
+      {aside && (
+        <div className="ask-slot" inert={!asideOpen}>
+          {aside}
+        </div>
+      )}
     </div>
   );
 }

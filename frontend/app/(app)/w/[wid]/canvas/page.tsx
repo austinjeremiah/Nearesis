@@ -1,17 +1,8 @@
 'use client';
 
-import { use, useCallback, useMemo, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  Crosshair,
-  Grid2x2,
-  Keyboard,
-  Plus,
-  Redo2,
-  Share2,
-  Sparkles,
-  Undo2,
-} from 'lucide-react';
+import { Grid2x2, Plus, Redo2, Share2, Sparkles, Undo2, X } from 'lucide-react';
 import { Content, PageHeader } from '@/components/nx/shell';
 import { PanelFrame, PanelProvenance } from '@/components/nx/panel';
 import { PackPanelFrame, PackProvenance } from '@/components/nx/charts/pack-panel';
@@ -104,6 +95,27 @@ export default function CanvasPage({ params }: { params: Promise<{ wid: string }
     () => panels.find((p) => p.id === (selected ?? selection?.panelId)),
     [panels, selected, selection],
   );
+
+  /*
+    The inspector animates with a transform, never with a layout.
+
+    Animating the grid track meant the browser re-laid out the canvas column on
+    every frame and every chart resized with it. Instead the track changes once,
+    in a single step, and the pane slides across it under its own transform.
+    The grid holds its measurement until the slide is over, so the panels take
+    their new width in one go rather than sixty times.
+  */
+  const inspectorOpen = Boolean(selectedPanel);
+  const [slotOpen, setSlotOpen] = useState(false);
+  useEffect(() => {
+    if (inspectorOpen) {
+      setSlotOpen(true);
+    } else {
+      const t = setTimeout(() => setSlotOpen(false), 250);
+      return () => clearTimeout(t);
+    }
+  }, [inspectorOpen]);
+
   const selectedFixture = selectedPanel?.packFixtureId
     ? packFixture(selectedPanel.packFixtureId)
     : undefined;
@@ -153,6 +165,64 @@ export default function CanvasPage({ params }: { params: Promise<{ wid: string }
     [lens, panels],
   );
 
+
+  /*
+    Stable across selection changes and inspector slides, so the memoised grid
+    cells only re-render when their own geometry moves.
+  */
+  /*
+    Stable across selection changes and inspector slides, so the memoised grid
+    cells only re-render when their own geometry moves.
+  */
+  const renderPanel = useCallback(
+    (id: string, rect: Rect) => {
+      const panel = panels.find((p) => p.id === id);
+      if (!panel) return null;
+      const h = chartHeight(rect);
+
+      if (!lensApplies(id)) {
+        return (
+          <section className="card" aria-label={`${panel.title}, lens not applicable`}>
+            <header className="card-head">
+              <div className="grow">
+                <div className="h3" style={{ fontSize: 14 }}>
+                  {panel.title}
+                </div>
+              </div>
+              <Badge tone="warn">Lens not applicable</Badge>
+            </header>
+            <div className="card-body">
+              <p className="small dim">
+                This panel does not carry the measure the lens filters on, so it is left exactly as
+                it was. It is not filtered to an empty result.
+              </p>
+            </div>
+          </section>
+        );
+      }
+
+      return panel.packFixtureId ? (
+        <PackPanelFrame
+          fixtureId={panel.packFixtureId}
+          panelId={panel.id}
+          workspaceId={wid}
+          height={h}
+          compactHeader
+          onSelectRange={(r) => onSelectRange(id, r)}
+        />
+      ) : (
+        <PanelFrame
+          panel={panel}
+          workspaceId={wid}
+          height={h}
+          compactHeader
+          onSelectRange={(r) => onSelectRange(id, r)}
+        />
+      );
+    },
+    [panels, wid, lensApplies, onSelectRange],
+  );
+
   if (!ws) return null;
 
   const ids = panels.map((p) => p.id);
@@ -184,7 +254,13 @@ export default function CanvasPage({ params }: { params: Promise<{ wid: string }
         }
       />
 
-      <div className="with-inspector">
+      {/* The inspector is summoned by a selection. With nothing selected the
+          canvas takes the whole width, which is the point of a canvas. */}
+      <div
+        className="with-inspector"
+        data-inspector={slotOpen ? 'open' : 'closed'}
+        data-pane={inspectorOpen ? 'in' : 'out'}
+      >
         <Content>
           {/* ---- toolbar, spec 5.7 order ---- */}
           <div className="canvas-toolbar">
@@ -344,48 +420,7 @@ export default function CanvasPage({ params }: { params: Promise<{ wid: string }
               gap={GAP}
               selectedId={selected}
               onSelect={setSelected}
-              renderItem={(id) => {
-                const panel = panels.find((p) => p.id === id);
-                if (!panel) return null;
-                const rect = history.layout[id] ?? panel.layout;
-                const h = chartHeight(rect);
-                if (!lensApplies(id)) {
-                  return (
-                    <section className="card" aria-label={`${panel.title}, lens not applicable`}>
-                      <header className="card-head">
-                        <div className="grow">
-                          <div className="h3" style={{ fontSize: 14 }}>{panel.title}</div>
-                        </div>
-                        <Badge tone="warn">Lens not applicable</Badge>
-                      </header>
-                      <div className="card-body">
-                        <p className="small dim">
-                          This panel does not carry the measure the lens filters on, so it is left
-                          exactly as it was. It is not filtered to an empty result.
-                        </p>
-                      </div>
-                    </section>
-                  );
-                }
-                return panel.packFixtureId ? (
-                  <PackPanelFrame
-                    fixtureId={panel.packFixtureId}
-                    panelId={panel.id}
-                    workspaceId={wid}
-                    height={h}
-                    compactHeader
-                    onSelectRange={(r) => onSelectRange(id, r)}
-                  />
-                ) : (
-                  <PanelFrame
-                    panel={panel}
-                    workspaceId={wid}
-                    height={h}
-                    compactHeader
-                    onSelectRange={(r) => onSelectRange(id, r)}
-                  />
-                );
-              }}
+              renderItem={renderPanel}
             />
           )}
 
@@ -397,9 +432,20 @@ export default function CanvasPage({ params }: { params: Promise<{ wid: string }
         </Content>
 
         {/* ---- right inspector, spec 5.7 tabs ---- */}
+        <div className="inspector-slot" inert={!selectedPanel}>
         <aside className="inspector" aria-label="Panel inspector">
           <div className="inspector-head">
             <span className="label">{selectedPanel ? 'Panel' : 'Inspector'}</span>
+            <div className="grow" />
+            <IconButton
+              label="Close the inspector"
+              onClick={() => {
+                setSelected(null);
+                setSelection(null);
+              }}
+            >
+              <X size={15} />
+            </IconButton>
           </div>
           <div className="inspector-body">
             {!selectedPanel ? (
@@ -482,6 +528,7 @@ export default function CanvasPage({ params }: { params: Promise<{ wid: string }
             )}
           </div>
         </aside>
+        </div>
       </div>
 
       {/* ---- AI edit modal, spec 5.7 ---- */}

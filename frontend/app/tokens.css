@@ -29,8 +29,8 @@
 
   /* --- text -------------------------------------------------------------- */
   --text: #000000;
-  --text-2: #4a4940; /* secondary copy */
-  --text-3: #76756a; /* metadata, timestamps, units */
+  --text-2: #2f2e28; /* secondary copy */
+  --text-3: #4a493f; /* metadata, timestamps, units */
   --text-on-dark: #f1efe2;
   --text-on-dark-2: rgba(241, 239, 226, 0.62);
 
@@ -78,9 +78,9 @@
   --font-display: 'Stack Sans Notch', 'Inter Tight', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --fs-micro: 10.5px; /* uppercase micro-labels */
-  --fs-tiny: 11.5px;
-  --fs-small: 12.5px; /* metadata, per spec 3.2's 12-13px */
+  --fs-micro: 11px; /* uppercase micro-labels */
+  --fs-tiny: 12px;
+  --fs-small: 13px; /* metadata, per spec 3.2's 12-13px */
   --fs-body: 14px; /* spec floor for body text */
   --fs-lg: 16px;
   --fs-h3: 18px;
@@ -94,7 +94,9 @@
 
   /* --- layout, from spec 2.3 --------------------------------------------- */
   --topbar-h: 60px;
-  --nav-w: 264px;
+  /* Rail and agent panel sized like an editor's: the content column is the
+     subject, the chrome around it is not. */
+  --nav-w: 228px;
   --nav-w-collapsed: 64px;
   --pageheader-h: 76px;
   --inspector-w: 344px;

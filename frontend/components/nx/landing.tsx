@@ -161,16 +161,18 @@ export function PageHero({
   return (
     <header className="pagehead display">
       <div className="head-row">
-        <div className="titles">
-          {kicker && <Kicker>{kicker}</Kicker>}
-          <DisplayTitle mark={mark}>{title}</DisplayTitle>
+        <div className="titles-col">
+          <div className="titles">
+            {kicker && <Kicker>{kicker}</Kicker>}
+            <DisplayTitle mark={mark}>{title}</DisplayTitle>
+          </div>
+          {lede && <p className="lede small">{lede}</p>}
         </div>
-        <div className="col gap3" style={{ alignItems: 'flex-end' }}>
+        <div className="head-actions">
           {context && <div className="row gap2 wrap">{context}</div>}
           {actions && <div className="row gap3 wrap">{actions}</div>}
         </div>
       </div>
-      {lede && <p className="lede small">{lede}</p>}
     </header>
   );
 }

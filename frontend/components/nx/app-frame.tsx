@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { AppShell } from './shell';
 import { AskPanel } from './ask-panel';
 import { CommandPalette, type PaletteAction } from './palette';
+import SmoothScroll from './smooth-scroll';
 import { TooltipProvider } from './overlays';
 
 /**
@@ -90,6 +91,7 @@ export default function AppFrame({
 
   return (
     <TooltipProvider>
+      <SmoothScroll />
       <AppShell
         workspaceId={workspaceId}
         workspaceName={workspaceName}

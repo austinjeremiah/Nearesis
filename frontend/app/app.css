@@ -1075,7 +1075,12 @@ table.table {
 .menu-item[data-highlighted] {
   background: var(--sunken);
 }
-.menu-item[data-disabled] {
+/*
+ * Radix marks a disabled item with a bare `data-disabled`, but cmdk writes
+ * `data-disabled="false"` on every enabled one. A bare attribute selector
+ * matched both, so every command in the palette was unclickable.
+ */
+.menu-item[data-disabled]:not([data-disabled='false']) {
   opacity: 0.45;
   pointer-events: none;
 }
@@ -1826,10 +1831,8 @@ table.table {
 .card .card-body {
   flex: 1;
 }
-/* A card that is a link target lifts its border rather than its shadow. */
-.card:has(a:hover) {
-  border-color: var(--line-strong);
-}
+/* Replaced in pass 14: this only fired while the pointer was over the link
+   itself, so the card lit up from its heading and nowhere else. */
 
 /* The evidence chain needs five columns plus arrows. Below roughly 1200px that
    no longer fits a two-up grid, so it stacks rather than scrolling sideways
@@ -2957,4 +2960,702 @@ table.table {
 .nx .kicker {
   padding: 5px 11px 5px 9px;
   gap: 6px;
+}
+
+/* =============================================================================
+   Pass 9: the page title scrolls with the page, headers get tighter, and the
+   agent panel slides instead of appearing.
+   ========================================================================== */
+
+/* -----------------------------------------------------------------------------
+   Scroll model. The whole main column scrolls, so a page title travels up with
+   its content instead of being pinned above it. The top bar stays, because it
+   is navigation rather than page content. A screen with an inspector keeps the
+   fixed frame it needs: there, the two panes scroll independently.
+   -------------------------------------------------------------------------- */
+.main {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.main:has(.with-inspector) {
+  overflow: hidden;
+}
+.content {
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+.main:has(.with-inspector) .content {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+/* The run strip belongs to the frame, not to the document being read. */
+.runstrip {
+  position: sticky;
+  bottom: 0;
+}
+
+/* -----------------------------------------------------------------------------
+   Page headers. The actions row sits beside the title rather than stacking, so
+   a header is one band of text and not a third of the screen.
+   -------------------------------------------------------------------------- */
+.pagehead {
+  min-height: 0;
+  padding: var(--s3) var(--s5);
+}
+.pagehead.display {
+  padding: var(--s4) var(--s5) var(--s3);
+}
+.pagehead.display .head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s5);
+  flex-wrap: wrap;
+}
+.pagehead.display .titles-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.pagehead.display .head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+.pagehead.display .lede {
+  margin: 0;
+}
+
+/* -----------------------------------------------------------------------------
+   The agent panel. The third grid track animates from zero, and the panel
+   itself holds its width inside a clipping slot so nothing reflows mid-slide.
+   -------------------------------------------------------------------------- */
+.shell {
+  grid-template-columns: var(--nav-w) minmax(0, 1fr) 0px;
+  transition: grid-template-columns 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.shell[data-nav='collapsed'] {
+  grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) 0px;
+}
+.shell[data-ask='open'] {
+  grid-template-columns: var(--nav-w) minmax(0, 1fr) var(--ask-w);
+}
+.shell[data-nav='collapsed'][data-ask='open'] {
+  grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) var(--ask-w);
+}
+.ask-slot {
+  grid-row: 1;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+.askpanel {
+  width: var(--ask-w);
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 180ms var(--ease);
+}
+.shell[data-ask='open'] .askpanel {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell,
+  .askpanel {
+    transition: none;
+  }
+}
+@media (max-width: 1240px) {
+  .shell[data-ask='open'],
+  .shell[data-nav='collapsed'][data-ask='open'] {
+    grid-template-columns: var(--nav-w) minmax(0, 1fr) 0px;
+  }
+  .shell[data-nav='collapsed'][data-ask='open'] {
+    grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) 0px;
+  }
+  .ask-slot {
+    overflow: visible;
+  }
+  .askpanel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: var(--z-overlay);
+    width: min(var(--ask-w), 100vw);
+    height: 100dvh;
+    box-shadow: var(--shadow-overlay);
+    transform: translateX(100%);
+    transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1), opacity 180ms var(--ease);
+  }
+  .shell[data-ask='open'] .askpanel {
+    transform: none;
+  }
+}
+
+/* The title row is as wide as it needs to be. An earlier character-width cap
+   was squeezing the title into a column and inflating the header to 377px. */
+.pagehead.display .titles {
+  max-width: none;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  /* The compact header gives .titles a 320px flex basis so it can wrap onto
+     its own row. In the hero the same element sits in a column, where a basis
+     is a height, which is what inflated the header to 377px. */
+  flex: 0 1 auto;
+}
+.pagehead.display .lede {
+  max-width: 80ch;
+}
+
+/* =============================================================================
+   Pass 10: chrome on a diet. The rail and the agent panel take an editor's
+   proportions so the content column keeps the room.
+   ========================================================================== */
+:root {
+  --ask-w: 330px;
+}
+/* Navigation reads as a list of destinations, not as body copy. */
+.nx .nav-item {
+  height: 34px;
+  font-size: var(--fs-small);
+  gap: 10px;
+}
+.nx .nav-item .ico {
+  width: 14px;
+  height: 14px;
+}
+.nav-top {
+  padding: var(--s3);
+}
+.nav-top .small.strong {
+  font-size: var(--fs-small);
+}
+.nx .nav-group-head {
+  padding: 2px var(--s3);
+  margin: var(--s3) var(--s2) 2px;
+}
+.nav-section.workspace {
+  margin-top: var(--s2);
+  padding-top: var(--s2);
+}
+.ask-head {
+  height: var(--topbar-h);
+  padding: 0 var(--s2) 0 var(--s3);
+}
+.ask-body {
+  padding: var(--s3);
+  gap: var(--s3);
+}
+.ask-foot {
+  padding: var(--s2) var(--s3) var(--s3);
+}
+
+/* The smooth scroller measures this element, so it must be the only child of
+   the scrollport and must not introduce a layout of its own. */
+.main-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  min-width: 0;
+}
+
+/* =============================================================================
+   Pass 11: the dark page skin, taken from the marketing site's approach
+   section. #1d1d1d under the same question-mark field at 40%, which is exactly
+   how `.approach-bg` is built on the landing page.
+
+   Only the paper changes. The cards keep their cream, the way the white card
+   sits on the black panel over there, and the pieces that are drawn directly
+   on the paper flip so they stay legible.
+   ========================================================================== */
+[data-skin='ink'] .main {
+  background-color: #1d1d1d;
+  color: var(--text-on-dark);
+  position: relative;
+}
+[data-skin='ink'] .main::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+  background-image: url('/assets/6a95735b50765dc3934a1495_slider_bg.avif');
+  background-position: 100%;
+  background-size: auto;
+  pointer-events: none;
+  z-index: 0;
+}
+[data-skin='ink'] .main-inner {
+  position: relative;
+  z-index: 1;
+}
+
+/* --- chrome drawn straight onto the paper --------------------------------- */
+[data-skin='ink'] .topbar {
+  background: transparent;
+  border-bottom-color: rgba(241, 239, 226, 0.18);
+  color: var(--text-on-dark);
+}
+[data-skin='ink'] .pagehead {
+  border-bottom-color: rgba(241, 239, 226, 0.18);
+}
+[data-skin='ink'] .display-title,
+[data-skin='ink'] .pagehead .h2,
+[data-skin='ink'] .nx .btn.ghost {
+  color: var(--text-on-dark);
+}
+[data-skin='ink'] .lede,
+[data-skin='ink'] .pagehead .small.dim,
+[data-skin='ink'] .crumbs,
+[data-skin='ink'] .crumbs a,
+[data-skin='ink'] .content > .tiny.dim,
+[data-skin='ink'] .content > p.small {
+  color: var(--text-on-dark-2);
+}
+[data-skin='ink'] .nx .btn.ghost:hover:not(:disabled) {
+  background: rgba(241, 239, 226, 0.12);
+  color: var(--text-on-dark);
+}
+/* The bracketed action inverts: pale marks, and a pale fill on hover. */
+[data-skin='ink'] .nx .bracket-btn {
+  color: var(--text-on-dark);
+}
+[data-skin='ink'] .nx .bracket-btn .corner {
+  border-color: rgba(241, 239, 226, 0.55);
+}
+[data-skin='ink'] .nx .bracket-btn:hover:not(:disabled),
+[data-skin='ink'] .nx .bracket-btn:focus-visible:not(:disabled) {
+  background: var(--invert);
+  color: #1d1d1d;
+}
+
+/* The section bar flips to pale on ink, exactly as BY THE NUMBERS does on the
+   landing page. A black bar on a black panel is not a section marker. */
+[data-skin='ink'] .section-bar {
+  background: var(--invert);
+  color: var(--ink);
+}
+[data-skin='ink'] .section-bar .n {
+  color: var(--ink);
+  opacity: 0.55;
+}
+[data-skin='ink'] .section-rule .sq,
+[data-skin='ink'] .dot-rule .sq {
+  background: rgba(241, 239, 226, 0.7);
+}
+[data-skin='ink'] .section-rule .ln,
+[data-skin='ink'] .dot-rule .ln {
+  background: rgba(241, 239, 226, 0.25);
+}
+[data-skin='ink'] .section-action a {
+  color: var(--text-on-dark);
+}
+
+/* A surface carries its own ink. The dark paper sets a pale text colour for
+   anything drawn straight onto it, and without this reset a cream card would
+   inherit that pale colour and print its title in cream on cream. */
+.nx .card,
+.nx .notice,
+.nx .empty,
+.nx .table-wrap,
+.nx .inspector,
+.nx .askpanel,
+.nx .nav,
+.nx .popover,
+.nx .dialog,
+.nx .drawer,
+.nx .palette {
+  color: var(--text);
+}
+
+
+
+/* Plain rich black, no texture. #0e0f11 rather than pure #000: a touch of blue
+   in the mix keeps it from going flat grey on an LCD and gives the cream cards
+   a cleaner edge against it. */
+[data-skin='ink'] .main {
+  background-color: #0e0f11;
+}
+[data-skin='ink'] .main::before {
+  display: none;
+}
+
+/* =============================================================================
+   Pass 12: the rail in NEAR green.
+   The template's accent carries the navigation, with ink text on top of it, so
+   the rail reads as the brand surface and the content column stays paper.
+   ========================================================================== */
+.nav {
+  background: var(--accent);
+  border-right: 1px solid var(--ink);
+  color: var(--ink);
+}
+.nav-top,
+.nav-foot,
+.nav-section.workspace {
+  border-color: rgba(0, 0, 0, 0.22);
+}
+.nx .nav-item {
+  color: rgba(0, 0, 0, 0.78);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  height: 38px;
+}
+.nx .nav-item .ico {
+  color: rgba(0, 0, 0, 0.6);
+  width: 16px;
+  height: 16px;
+}
+.nx .nav-item:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--ink);
+}
+.nx .nav-item:hover .ico {
+  color: var(--ink);
+}
+/* The active destination is ink on green, the inverse of everything else. */
+.nx .nav-item[aria-current='page'] {
+  background: var(--ink);
+  color: var(--accent);
+  font-weight: 700;
+}
+.nx .nav-item[aria-current='page'] .ico {
+  color: var(--accent);
+}
+.nx .nav-item[aria-current='page']::before {
+  background: var(--accent);
+}
+.nx .nav-group-head {
+  color: rgba(0, 0, 0, 0.62);
+  font-size: var(--fs-tiny);
+  font-weight: 700;
+}
+.nx .nav-group-head:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--ink);
+}
+.nav-top .label {
+  color: rgba(0, 0, 0, 0.6);
+}
+.nav-top .small.strong {
+  color: var(--ink);
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+.nav-collapse {
+  color: rgba(0, 0, 0, 0.7);
+}
+.nav-collapse:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: var(--ink);
+}
+.nav-item .count {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* =============================================================================
+   Pass 13: the dark paper, applied to the whole product.
+
+   Done with tokens rather than by patching components. The reading column
+   redefines text and line colours for the dark paper, and every light surface
+   sitting on it restores them. Anything built from the tokens, a button, a
+   label, a tab strip, an empty state, therefore flips on its own, and nothing
+   has to know which paper it happens to be standing on.
+   ========================================================================== */
+[data-skin='ink'] .main,
+[data-skin='ink'] .doc {
+  --text: #f1efe2;
+  --text-2: rgba(241, 239, 226, 0.74);
+  --text-3: rgba(241, 239, 226, 0.56);
+  --line: rgba(241, 239, 226, 0.16);
+  --line-strong: rgba(241, 239, 226, 0.34);
+  --line-hard: #f1efe2;
+  --sunken: rgba(241, 239, 226, 0.1);
+  --raised: rgba(241, 239, 226, 0.06);
+  /* Status hues lighten for the dark paper. Same meanings, legible ink. */
+  --ok: #6dcf9c;
+  --ok-bg: #16311f;
+  --warn: #e0b45d;
+  --warn-bg: #332715;
+  --bad: #e8877f;
+  --bad-bg: #351a18;
+  --info: #8fb4e8;
+  --info-bg: #15243b;
+  --neutral: #a3a295;
+  --neutral-bg: #26261c;
+  --mode-live: #6dcf9c;
+  --mode-frozen: #8fb4e8;
+  --mode-replay: #e0b45d;
+  color: var(--text);
+}
+/* A light surface is a light surface. It takes the paper tokens back. */
+[data-skin='ink']
+  :is(.card, .notice, .empty, .table-wrap, .popover, .dialog, .inspector, .gnode, .graph-detail,
+     .graph-controls, .graph-hint) {
+  --text: #000000;
+  --text-2: #2f2e28;
+  --text-3: #4a493f;
+  --line: rgba(0, 0, 0, 0.14);
+  --line-strong: rgba(0, 0, 0, 0.34);
+  --line-hard: #000000;
+  --sunken: #cecdba;
+  --raised: #f7f6ef;
+  --ok: #1d6b45;
+  --ok-bg: #d8ead9;
+  --warn: #7d5209;
+  --warn-bg: #f2e6c4;
+  --bad: #9c2b27;
+  --bad-bg: #f2dcd8;
+  --info: #22508f;
+  --info-bg: #dbe4f4;
+  --neutral: #55544b;
+  --neutral-bg: #e3e2d4;
+  --mode-live: #1d6b45;
+  --mode-frozen: #22508f;
+  --mode-replay: #7d5209;
+  color: var(--text);
+}
+/* Marks that are ink by definition invert, so they stay visible on black. */
+[data-skin='ink'] .main .tabstrip-tab[aria-selected='true'] {
+  background: var(--invert);
+  color: #0e0f11;
+}
+[data-skin='ink'] .main .tabstrip-tab[aria-selected='true'] .n {
+  color: #0e0f11;
+  opacity: 0.6;
+}
+[data-skin='ink'] .main .seg > button[aria-pressed='true'] {
+  background: var(--invert);
+  color: #0e0f11;
+}
+[data-skin='ink'] .main .runstrip {
+  border-top: 1px solid rgba(241, 239, 226, 0.22);
+}
+
+/* The rail green, pulled back a step. The full-strength accent is kept for
+   marks that have to shout (the primary action, an active state); the rail is
+   a surface you look at all day, so it sits slightly softer. One knob. */
+:root {
+  --rail: color-mix(in srgb, var(--accent) 72%, #dcdacb);
+}
+.nav {
+  background: var(--rail);
+}
+
+/* =============================================================================
+   Pass 14: cards answer the pointer.
+
+   A card that leads somewhere lifts slightly and firms its edge, over the
+   whole card rather than over its heading. A card that is only a container of
+   facts does not move, because nothing happens if you click it, and a surface
+   that invites a click it cannot honour is worse than a still one.
+   ========================================================================== */
+.nx .card {
+  transition:
+    transform 170ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 170ms var(--ease),
+    border-color 170ms var(--ease);
+}
+/* Navigable: it contains a real link. */
+.nx .content .card:has(a[href]):hover {
+  transform: translateY(-2px);
+  /* The accent marks the thing under the pointer, the way the active nav item
+     and the primary action use it. */
+  border-color: var(--accent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+}
+[data-skin='ink'] .content .card:has(a[href]):hover {
+  border-color: var(--accent);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
+}
+.nx .content .card:not(:has(a[href])):hover {
+  border-color: var(--line-strong);
+}
+/* Static cards still acknowledge the pointer, without pretending to be a link. */
+.nx .content .card:not(:has(a[href])):hover {
+  border-color: var(--line-strong);
+}
+/* A panel on the canvas is dragged, not clicked through, so it never lifts. */
+.nx .cgrid-item .card:hover,
+.nx .cgrid-item .card:has(a[href]):hover {
+  transform: none;
+  box-shadow: none;
+}
+.nx .cgrid-item[data-dragging='true'] > .card {
+  box-shadow: var(--shadow-overlay);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nx .card {
+    transition: border-color 170ms var(--ease);
+  }
+  .nx .content .card:has(a[href]):hover {
+    transform: none;
+  }
+}
+
+/* =============================================================================
+   Pass 15: the inspector is summoned, not parked.
+
+   With nothing selected the canvas has the full width, which is what a canvas
+   is for. Selecting a panel slides the inspector in from the edge; clearing the
+   selection slides it away. Same mechanism as the agent panel: the track
+   animates from zero and the pane holds its width inside a clipping slot, so
+   nothing reflows mid-slide.
+   ========================================================================== */
+.with-inspector {
+  grid-template-columns: minmax(0, 1fr) 0px;
+  transition: grid-template-columns 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.with-inspector[data-inspector='open'] {
+  grid-template-columns: minmax(0, 1fr) var(--inspector-w);
+}
+.inspector-slot {
+  min-width: 0;
+  overflow: hidden;
+  height: 100%;
+}
+.inspector {
+  width: var(--inspector-w);
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 160ms var(--ease);
+}
+.with-inspector[data-inspector='open'] .inspector {
+  opacity: 1;
+}
+.inspector-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .with-inspector,
+  .inspector {
+    transition: none;
+  }
+}
+@media (max-width: 1100px) {
+  .with-inspector,
+  .with-inspector[data-inspector='open'] {
+    grid-template-columns: minmax(0, 1fr) 0px;
+  }
+  .inspector-slot {
+    overflow: visible;
+  }
+  .with-inspector[data-inspector='open'] .inspector {
+    display: flex;
+    position: fixed;
+    z-index: var(--z-overlay);
+    top: 0;
+    right: 0;
+    height: 100dvh;
+    width: min(var(--inspector-w-max), 100vw);
+    box-shadow: var(--shadow-overlay);
+  }
+}
+
+/* The published reader is a document, so it has no shell: the dark paper is
+   painted on the page wrapper itself. */
+.nx[data-skin='ink'] {
+  background: #0e0f11;
+}
+
+/* The active destination takes the kicker's shape: same notched corner, same
+   radius, so the mark that says "you are here" in the rail and the mark that
+   labels the page are recognisably the same object. */
+.nx .nav-item[aria-current='page'] {
+  border-radius: var(--radius-sm) var(--radius-sm) var(--radius-sm) 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+/* The inset accent bar would be sliced by the notch, and the fill already
+   carries the state. */
+.nx .nav-item[aria-current='page']::before {
+  display: none;
+}
+
+/* =============================================================================
+   Pass 16: the inspector slides on a transform, and every container takes the
+   notched corner.
+   ========================================================================== */
+
+/* The track changes in one step; the pane does the moving. Animating the track
+   itself re-laid out the canvas column on every frame. */
+.with-inspector {
+  transition: none;
+}
+.inspector {
+  transform: translateX(100%);
+  opacity: 0;
+  transition:
+    transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 150ms var(--ease);
+  will-change: transform;
+}
+.with-inspector[data-pane='in'] .inspector {
+  transform: none;
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .inspector {
+    transition: none;
+  }
+}
+
+/* --- the notched corner, on every container ------------------------------- */
+.nx .card,
+.nx .empty,
+.nx .table-wrap {
+  border-radius: var(--radius) var(--radius) var(--radius) 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+}
+/* A clip path cuts the drop shadow off with everything else, so the hover
+   state is carried by the edge and the lift alone. That suits the house style
+   better anyway: hard edges, no glow. */
+.nx .content .card:has(a[href]):hover,
+[data-skin='ink'] .content .card:has(a[href]):hover {
+  box-shadow: none;
+}
+/* A panel being dragged keeps a square corner: the notch reads as a resting
+   state, and the drag already has its own treatment. */
+.nx .cgrid-item[data-dragging='true'] > .card {
+  clip-path: none;
+  border-radius: var(--radius);
+}
+
+/* -----------------------------------------------------------------------------
+   The inspector floats over the canvas rather than taking a column from it.
+
+   Opening it used to change the grid track, which re-laid out the canvas and
+   resized every chart in it: one 100ms hitch at the click, however the
+   animation was written. Floating it costs nothing. No track changes, no
+   panel moves, no chart redraws, and the pane is pure transform at 60fps.
+   The canvas also keeps its full width the whole time, which is the point.
+   -------------------------------------------------------------------------- */
+.with-inspector {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr) 0px;
+}
+.with-inspector[data-inspector='open'] {
+  grid-template-columns: minmax(0, 1fr) 0px;
+}
+.inspector-slot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--inspector-w);
+  overflow: hidden;
+  pointer-events: none;
+}
+.with-inspector[data-pane='in'] .inspector-slot {
+  pointer-events: auto;
+}
+.inspector {
+  height: 100%;
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.28);
 }

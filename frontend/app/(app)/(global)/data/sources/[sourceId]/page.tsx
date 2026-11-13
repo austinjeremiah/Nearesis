@@ -3,7 +3,7 @@
 import { use, useCallback } from 'react';
 import Link from 'next/link';
 import { Content, PageHeader } from '@/components/nx/shell';
-import { Chart, baseOption, type ChartTheme } from '@/components/nx/chart';
+import { Chart, baseOption, heatRamp, type ChartTheme } from '@/components/nx/chart';
 import { Badge, CoverageChip, DataModeIndicator, SourceHealthChip } from '@/components/nx/evidence';
 import { Button, Card, EmptyState, KeyValues, LinkButton, Notice } from '@/components/nx/ui';
 import * as db from '@/lib/data/client';
@@ -63,7 +63,7 @@ export default function SourceDetailPage({ params }: { params: Promise<{ sourceI
           itemWidth: 10,
           itemHeight: 90,
           textStyle: { color: t.text3, fontSize: 10, fontFamily: t.mono },
-          inRange: { color: [t.page, t.accent] },
+          inRange: { color: heatRamp(t) },
         },
         series: [{ type: 'heatmap', data: cells, itemStyle: { borderColor: t.page, borderWidth: 1 } }],
       };

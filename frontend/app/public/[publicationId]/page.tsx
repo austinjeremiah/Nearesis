@@ -39,18 +39,19 @@ export default async function PublicReaderPage({
   const claims = db.claims(p.workspaceId);
 
   return (
-    <div className="nx">
+    <div className="nx" data-skin="ink">
       <link href="https://fonts.googleapis.com" rel="preconnect" />
       <link href="https://fonts.gstatic.com" rel="preconnect" crossOrigin="anonymous" />
       <link href={FONTS} rel="stylesheet" precedence="default" />
 
       <div
-        className="col"
+        className="col doc"
         style={{ maxWidth: 940, margin: '0 auto', padding: '40px 24px 80px', gap: 'var(--s6)' }}
       >
         <header className="row between" style={{ borderBottom: '1px solid var(--line-strong)', paddingBottom: 16 }}>
           <Link href="/">
-            <Wordmark tone="black" size={24} />
+            {/* Pale wordmark: this page is printed on the dark paper. */}
+            <Wordmark tone="white" size={24} />
           </Link>
           <span className="label">Published research</span>
         </header>

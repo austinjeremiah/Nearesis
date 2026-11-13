@@ -36,7 +36,14 @@ const { db } = await openLivePg();
 const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: 2 });
 try {
   const collector = new ExplorerCollector({
-    http: new HttpClient({ allow: [ALLOW_EXPLORER], credentials: creds, clock: systemClock }),
+    http: new HttpClient({
+      allow: [ALLOW_EXPLORER],
+      credentials: creds,
+      clock: systemClock,
+      // The provider answers some historical windows slowly (observed 2026-11-13: ~30 s a page in April 2026); the wait is
+      // configurable for a refetch so a slow page is not mistaken for a failure. Request rate is unchanged.
+      defaultTimeoutMs: Math.max(30_000, Number(process.env.NEARESIS_EXPLORER_TIMEOUT_MS ?? 30_000) || 30_000),
+    }),
     archive: openArchive(db),
     db,
     redis,

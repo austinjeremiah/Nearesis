@@ -19,10 +19,10 @@
      the page, cream for anything sitting on it, near-white for an input. The
      app used to start at cream, which is why it read a step lighter than the
      landing page even though the palette matched. */
-  --page: #dbdac8; /* greige paper, the page itself */
-  --surface: #f1efe2; /* cards and panels, one step up from the page */
-  --raised: #f7f6ef; /* inputs and hovered rows */
-  --sunken: #cecdba; /* wells, table headers, inactive tabs */
+  --page: #e9e7d9; /* the lighter paper, for the screens that stay light */
+  --surface: #dbdac8; /* containers: the landing hero's greige */
+  --raised: #e4e2d4; /* inputs and hovered rows, one step up from a container */
+  --sunken: #cbcab6; /* wells, table headers, inactive tabs */
   --ink: #000000; /* primary text and hard rules */
   --ink-soft: #2a2a2a; /* dark panels, chart backgrounds */
   --invert: #f1efe2; /* text on dark surfaces, always the cream */

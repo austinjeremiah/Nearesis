@@ -3403,8 +3403,8 @@ table.table {
   --line: rgba(0, 0, 0, 0.14);
   --line-strong: rgba(0, 0, 0, 0.34);
   --line-hard: #000000;
-  --sunken: #cecdba;
-  --raised: #f7f6ef;
+  --sunken: #cbcab6;
+  --raised: #e4e2d4;
   --ok: #1d6b45;
   --ok-bg: #d8ead9;
   --warn: #7d5209;
@@ -3658,4 +3658,204 @@ table.table {
 .inspector {
   height: 100%;
   box-shadow: -12px 0 32px rgba(0, 0, 0, 0.28);
+}
+
+/* =============================================================================
+   Pass 17: alignment inside a container.
+   ========================================================================== */
+
+/* A wide status chip beside a long title squeezed the title into three lines.
+   The head wraps instead: the chip drops under the title when there is not
+   room for both, and the title gets the full width either way. */
+.card-head {
+  flex-wrap: wrap;
+  row-gap: var(--s2);
+}
+.card-head > .grow {
+  flex: 1 1 200px;
+}
+.card-head .actions {
+  margin-left: auto;
+}
+
+/* Compact metadata as rows, label left, value right, aligned down the card. */
+.meta-rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.meta-rows > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  min-width: 0;
+}
+.meta-rows dt {
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  font-size: var(--fs-micro);
+  flex: none;
+}
+.meta-rows dd {
+  margin: 0;
+  color: var(--text-2);
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The notch is a corner detail, not a bite: 16px, and the footer keeps its
+   text clear of it. */
+.nx .card,
+.nx .empty,
+.nx .table-wrap {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+}
+.card-foot {
+  padding-left: calc(var(--s4) + 4px);
+  padding-bottom: var(--s4);
+}
+
+/* The title block takes the free space, so the chip sits at the right edge on
+   a shared row and at the left edge when it wraps onto its own. An auto margin
+   kept it pinned right after a wrap, which left it floating mid-card. */
+.card-head .actions {
+  margin-left: 0;
+}
+
+/* Spend against a cap: the amount spent carries the weight, the cap recedes,
+   and the tone only appears once the ratio crosses a threshold. */
+.spend {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.spend .v {
+  font-weight: 600;
+  color: var(--text);
+}
+.spend .cap {
+  color: var(--text-3);
+}
+.spend .note {
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.spend.warn .v {
+  color: var(--warn);
+}
+.spend.warn .note {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.spend.bad .v {
+  color: var(--bad);
+}
+.spend.bad .note {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+/* =============================================================================
+   Pass 18: the whole card is the target, and the hover says so clearly.
+   ========================================================================== */
+
+/*
+ * Stretched link. The card's title link spreads an invisible layer over the
+ * whole card, so a click anywhere follows it, while the link itself stays the
+ * real focusable target for the keyboard and for a screen reader. Every other
+ * link inside sits above that layer and keeps its own destination.
+ */
+.nx .content .card:has(.card-head a[href]) {
+  position: relative;
+}
+.nx .content .card .card-head a[href]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.nx .content .card .card-body a[href],
+.nx .content .card .card-foot a[href],
+.nx .content .card .card-head .actions,
+.nx .content .card button {
+  position: relative;
+  z-index: 1;
+}
+.nx .content .card:has(.card-head a[href]) {
+  cursor: pointer;
+}
+
+/* The hover needs to be unmistakable. A clipped card cannot cast an outer
+   shadow, so the edge is doubled with an inset ring and the paper lifts a
+   shade, which reads at a glance instead of on inspection. */
+.nx .content .card:has(a[href]):hover {
+  border-color: var(--accent);
+  background: var(--raised);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    inset 0 -3px 0 0 var(--accent);
+}
+[data-skin='ink'] .content .card:has(a[href]):hover {
+  border-color: var(--accent);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    inset 0 -3px 0 0 var(--accent);
+}
+.nx .content .card:has(a[href]):hover .card-head .h3 {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
+/* Canvas panels keep their own behaviour. */
+.nx .cgrid-item .card:hover {
+  background: var(--surface);
+  box-shadow: none;
+}
+
+/* Source health as aligned columns. Subgrid means every row shares one set of
+   tracks, so the ages line up however wide the chip before them happens to be. */
+.source-rows {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 0;
+}
+.source-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  column-gap: var(--s3);
+  padding: var(--s2) 0;
+  border-bottom: 1px dashed var(--line);
+}
+.source-row:last-child {
+  border-bottom: 0;
+}
+.source-row .name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-small);
+}
+.source-row .age {
+  justify-self: end;
+  white-space: nowrap;
+}
+@container (max-width: 380px) {
+  .source-rows {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .source-row {
+    row-gap: 4px;
+  }
 }

@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { Content } from '@/components/nx/shell';
 import { BracketButton, PageHero } from '@/components/nx/landing';
 import { SectionBar } from '@/components/nx/section';
-import { Card, EmptyState, KeyValues } from '@/components/nx/ui';
+import { SourceRows } from '@/components/nx/source-rows';
+import { Card, EmptyState, KeyValues, SpendValue } from '@/components/nx/ui';
 import {
   Badge,
   CoverageChip,
@@ -70,15 +71,27 @@ export default function HomePage() {
                   </>
                 }
               >
-                <div className="row gap2 wrap tiny dim">
-                  <span>{w.template}</span>
-                  <span>·</span>
-                  <span>
-                    {formatUsd(w.spentUsd)} of {formatUsd(w.budgetUsd)} spent
-                  </span>
-                  <span>·</span>
-                  <span>branch {w.branch}</span>
-                </div>
+                {/*
+                  Stacked rather than dot separated: in a three-up card the
+                  separators wrapped onto their own line and left a dot hanging
+                  at the end of a row.
+                */}
+                <dl className="meta-rows tiny">
+                  <div>
+                    <dt>Template</dt>
+                    <dd>{w.template}</dd>
+                  </div>
+                  <div>
+                    <dt>Spend</dt>
+                    <dd>
+                      <SpendValue spentUsd={w.spentUsd} budgetUsd={w.budgetUsd} />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Branch</dt>
+                    <dd className="mono">{w.branch}</dd>
+                  </div>
+                </dl>
               </Card>
             ))}
           </div>
@@ -152,29 +165,7 @@ export default function HomePage() {
                 </Link>
               }
             >
-              <KeyValues
-                rows={sources.map((s) => ({
-                  k: s.name,
-                  v: (
-                    <span className="row gap2 wrap">
-                      <SourceHealthChip health={s.health} />
-                      {s.coveragePct !== null ? (
-                        <CoverageChip
-                          coverage={{
-                            expected: 180,
-                            observed: Math.round(180 * s.coveragePct),
-                            unknown: Math.round(180 * (1 - s.coveragePct)),
-                            gaps: [],
-                          }}
-                        />
-                      ) : (
-                        <Badge outline>Not sampled</Badge>
-                      )}
-                      <span className="tiny dim mono">{formatAge(s.watermark)}</span>
-                    </span>
-                  ),
-                }))}
-              />
+              <SourceRows rows={sources} />
             </Card>
           </section>
 

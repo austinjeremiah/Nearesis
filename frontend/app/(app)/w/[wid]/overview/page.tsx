@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Content, Crumbs, RunStrip } from '@/components/nx/shell';
 import { BracketButton, PageHero } from '@/components/nx/landing';
 import { SectionBar } from '@/components/nx/section';
+import { SourceRows } from '@/components/nx/source-rows';
 import { PanelFrame } from '@/components/nx/panel';
 import {
   Badge,
@@ -279,28 +280,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ wid: 
               </Link>
             }
           >
-            <KeyValues
-              rows={db.sources().map((s) => ({
-                k: s.name,
-                v: (
-                  <span className="row gap2 wrap">
-                    <SourceHealthChip health={s.health} />
-                    {s.coveragePct !== null ? (
-                      <CoverageChip
-                        coverage={{
-                          expected: 180,
-                          observed: Math.round(180 * s.coveragePct),
-                          unknown: Math.round(180 * (1 - s.coveragePct)),
-                          gaps: [],
-                        }}
-                      />
-                    ) : (
-                      <Badge outline>Not sampled</Badge>
-                    )}
-                  </span>
-                ),
-              }))}
-            />
+            <SourceRows rows={db.sources()} />
             <Notice tone="warn" title="Declared blind spot">
               After {db.SETTLEMENT_BOUNDARY} a growing share of 1Click settlement cannot be
               reconstructed from public NEAR transaction hashes. Totals after that date are a lower

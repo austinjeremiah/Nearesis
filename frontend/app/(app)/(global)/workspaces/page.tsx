@@ -7,7 +7,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { Content, PageHeader } from '@/components/nx/shell';
 import { DataTable, type Column } from '@/components/nx/table';
 import { Menu } from '@/components/nx/overlays';
-import { IconButton, Input, LinkButton, Segmented } from '@/components/nx/ui';
+import { IconButton, Input, LinkButton, Segmented, SpendValue } from '@/components/nx/ui';
 import { Badge, DataModeIndicator } from '@/components/nx/evidence';
 import * as db from '@/lib/data/client';
 import type { Workspace } from '@/lib/data/fixtures';
@@ -97,11 +97,7 @@ export default function WorkspacesPage() {
       key: 'spend',
       header: 'Spend',
       numeric: true,
-      render: (w) => (
-        <span className="small mono">
-          {formatUsd(w.spentUsd)} / {formatUsd(w.budgetUsd)}
-        </span>
-      ),
+      render: (w) => <SpendValue spentUsd={w.spentUsd} budgetUsd={w.budgetUsd} compact />,
     },
     {
       key: 'status',

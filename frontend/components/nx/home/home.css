@@ -232,3 +232,15 @@
     padding: 24px 16px;
   }
 }
+
+.home-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s6);
+  min-width: 0;
+}
+.home-overview > section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}

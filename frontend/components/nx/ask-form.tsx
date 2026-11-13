@@ -13,11 +13,9 @@ import { ApiRequestError } from '@/lib/api/errors';
 import { qk } from '@/lib/api/keys';
 import { formatAge } from '@/lib/format';
 import { investigateApi, newKey } from '@/lib/investigate/api';
+import { MIN_BUDGET } from '@/lib/investigate/budget';
 import type { Budget, QuestionPreview } from '@/lib/investigate/types';
 
-// The runtime reserves at least 32,000 tokens, 12 tool calls and USD 3 for one composer run; a lower cap is refused.
-// This is a reservation ceiling, not a price: the run is charged what it uses.
-const MIN_BUDGET: Budget = { tokens: 32000, toolCalls: 12, usd: 3 };
 const MAX_TOOL_CALLS = 24;
 const QUESTION_MAX = 4000;
 

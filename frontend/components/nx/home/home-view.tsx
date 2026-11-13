@@ -4,7 +4,7 @@ import './home.css';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Radio, ShieldCheck, Sparkles, Workflow } from 'lucide-react';
 import { Band } from '@/components/nx/band';
 import { Badge } from '@/components/nx/evidence';
@@ -15,8 +15,6 @@ import { SeriesChart } from '@/components/nx/data/charts';
 import { useApiGet, isCannot, type Envelope } from '@/components/nx/data/kit';
 import type { LastHour } from '@/components/nx/data/realtime-view';
 import { browserApi } from '@/lib/api/browser';
-import { newKey } from '@/lib/api/transport';
-import { qk } from '@/lib/api/keys';
 import { fInt, fPct, fUsd, fSeconds } from '@/lib/data/num';
 import { formatAge } from '@/lib/format';
 
@@ -33,25 +31,11 @@ const EXAMPLES = [
 
 function AskBox() {
   const router = useRouter();
-  const qc = useQueryClient();
   const [q, setQ] = useState('');
-  const [key] = useState(newKey);
-  const go = useMutation({
-    mutationFn: async (question: string) => {
-      const r = await browserApi.createWorkspace(
-        { objective: question.slice(0, 2000), networkScope: 'near-mainnet-read', idempotencyKey: `${key}-${question.length}` },
-        { idempotencyKey: `${key}-${question.length}` },
-      );
-      return { id: r.workspaceId, question };
-    },
-    onSuccess: async ({ id, question }) => {
-      await qc.invalidateQueries({ queryKey: qk.workspaces });
-      router.push(`/w/${id}/investigate?q=${encodeURIComponent(question)}`);
-    },
-  });
+  // The question is answered in the Agent tab (a quick answer, no workspace is created here).
   const submit = (text: string) => {
-    const t = text.trim();
-    if (t) go.mutate(t);
+    const t = text.trim().slice(0, 2000);
+    if (t) router.push(`/home?tab=agent&q=${encodeURIComponent(t)}`);
   };
   return (
     <form
@@ -80,21 +64,20 @@ function AskBox() {
             }
           }}
         />
-        <Button type="submit" variant="primary" pending={go.isPending} disabled={!q.trim()} disabledReason="Type a question first." data-testid="home-ask-submit">
-          Investigate <ArrowRight size={14} />
+        <Button type="submit" variant="primary" disabled={!q.trim()} disabledReason="Type a question first." data-testid="home-ask-submit">
+          Ask <ArrowRight size={14} />
         </Button>
       </div>
       <div className="home-chips" aria-label="Example questions">
         {EXAMPLES.map((e) => (
-          <button key={e} type="button" className="home-chip" onClick={() => setQ(e)} data-testid="home-example">
+          <button key={e} type="button" className="home-chip" onClick={() => submit(e)} data-testid="home-example">
             {e}
           </button>
         ))}
       </div>
       <p className="tiny dim">
-        This opens a new workspace with your question. You see the plan, the data it will query and its cost before anything runs.
+        This opens the Agent tab and answers your question with charts. Nothing is created until you choose &quot;Create workspace&quot; there and confirm.
       </p>
-      {go.isError && <ApiErrorState error={go.error} />}
     </form>
   );
 }

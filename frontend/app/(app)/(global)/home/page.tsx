@@ -10,6 +10,7 @@ import { shellServer } from '@/lib/api/shell-server';
 import { settle } from '@/lib/api/guard';
 import { formatAge, formatUsd } from '@/lib/format';
 import HomeView from '@/components/nx/home/home-view';
+import HomeTabs from '@/components/nx/home/home-tabs';
 
 export const metadata: Metadata = { title: 'Home · Nearesis' };
 
@@ -51,6 +52,9 @@ export default async function HomePage() {
         }
       />
       <Content>
+        <HomeTabs
+          overview={
+            <div className="home-overview">
         <HomeView />
         <section>
           <SectionBar title="Continue researching" number="004" />
@@ -167,6 +171,9 @@ export default async function HomePage() {
             )}
           </div>
         </section>
+            </div>
+          }
+        />
       </Content>
     </>
   );

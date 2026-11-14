@@ -647,6 +647,7 @@ async function capsulePublish(e: Env): Promise<Outcome> {
           e.ctx.workspaceId ? `/w/${e.ctx.workspaceId}/capsules/${capsuleId}` : null,
         ),
         ...(publicationId ? [item("Publication", publicationId, "/publications")] : []),
+        item("Public page", "Open the public page", `/public/${capsuleId}`),
       ],
     },
   };

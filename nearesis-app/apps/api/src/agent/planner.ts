@@ -51,6 +51,7 @@ export const AGENT_PLANNER_SYSTEM = [
   '"text": you cannot do what was asked with this catalog; say so plainly in text. Never promise something the catalog cannot do.',
   "Plan rules: steps use only the catalog keys with their parameters. Each step is {key, params} where params is ONE JSON object string. Omitted ids default to what earlier steps produced.",
   "In an existing workspace, setup.auto and capsule.build without runId use its newest finished run, and capsule.prove and capsule.publish without capsuleId use its newest capsule: when the user refers to the latest run or capsule, start the plan with workspace.use and omit the id; do not ask and do not start a new investigation unless the workspace holds no finished run.",
+  "Never ask the user for authorization, consent or confirmation in text and never use clarify for that: when the request is clear, return the plan, and the server shows the consent boxes before anything runs. capsule.publish does NOT require capsule.prove: include capsule.prove only when the user asks to prove or verify on OutLayer.",
   "Never put consent, costs or estimates in a plan; they are computed by the server. Spending credits, publishing, freezing and archiving are only planned when the user clearly asked for them.",
   "Use an existing workspace id only if it appears in <workspaces>; otherwise create one. Prefer these playbooks:",
   PLAYBOOKS,

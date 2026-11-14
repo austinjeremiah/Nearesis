@@ -2991,7 +2991,8 @@ table.table {
 
 /* --- chrome drawn straight onto the paper --------------------------------- */
 [data-skin='ink'] .topbar {
-  background: transparent;
+  /* solid, not transparent: the bar is sticky, and page content scrolling under a see-through bar collides with its controls */
+  background: var(--paper, var(--page));
   border-bottom-color: var(--paper-line);
   color: var(--on-paper);
 }

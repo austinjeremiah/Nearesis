@@ -9,13 +9,17 @@
 .nxp-cell { min-width: 0; grid-column: span var(--span, 6); }
 @media (max-width: 900px) { .nxp-cell { grid-column: 1 / -1; } }
 .nxp {
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 .nxp:focus-within { outline: 2px solid var(--ink); outline-offset: 1px; }
+/* The card chrome is the shared .card; the pieces below only set the panel's own rhythm. */
+.nxp .card-head { padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+.nxp .nxp-title { margin: 0; font-size: var(--fs-body); }
+.nxp .nxp-body { padding: 10px 16px 6px; }
+.nxp .nxp-banners { padding: 0 16px 6px; }
+.nxp .card-foot.nxp-foot { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding: 8px 16px 10px; font-size: var(--fs-tiny); color: var(--text-3); border-top: 1px solid var(--line); margin-top: auto; }
 .nxp[data-dim='true'] { opacity: 0.45; }
 .nxp[data-pending='true'] { border-style: dashed; border-color: var(--info); }
 .nxp-head { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px 4px; }

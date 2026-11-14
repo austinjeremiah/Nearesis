@@ -7,6 +7,8 @@ import { CommandPalette, type PaletteAction } from './palette';
 import { TooltipProvider } from './overlays';
 import SmoothScroll from './smooth-scroll';
 import CreditsPopup from './credits-popup';
+import { AskDock } from './ask-dock';
+import { AskDockContext } from './ask-context';
 import { useWorkspaceStream } from '@/lib/sse/hub';
 
 /**
@@ -26,34 +28,47 @@ export default function AppFrame({
   children: ReactNode;
 }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
+  // The panel mounts on first open (no agent calls on pages that never use it) and then stays mounted, so a draft survives a close.
+  const [askMounted, setAskMounted] = useState(false);
+  useEffect(() => {
+    if (askOpen) setAskMounted(true);
+  }, [askOpen]);
   const router = useRouter();
-  // Cmd or Ctrl + J opens the Agent, the same shortcut the palette advertises.
+  // On a workspace page the Ask panel docks beside the page, bound to that workspace. Elsewhere Ask opens the Agent page.
+  const available = !!workspaceId;
+  const ask = useMemo(() => ({ available, open: available && askOpen, setOpen: setAskOpen }), [available, askOpen]);
+  // Cmd or Ctrl + J toggles the Ask panel (or opens the Agent page outside a workspace).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'j' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        router.push('/agent');
+        if (available) setAskOpen((v) => !v);
+        else router.push('/agent');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [router]);
+  }, [router, available]);
   const paletteActions = useMemo<PaletteAction[]>(
-    () => [{ id: 'ask-agent', group: 'Agent', label: 'Ask the agent a research question', hint: '⌘J', run: () => router.push('/agent') }, ...(actions ?? [])],
-    [actions, router],
+    () => [{ id: 'ask-agent', group: 'Agent', label: 'Ask the agent a research question', hint: '⌘J', run: () => (available ? setAskOpen(true) : router.push('/agent')) }, ...(actions ?? [])],
+    [actions, router, available],
   );
   // One live event stream per open workspace; events invalidate the query cache.
   useWorkspaceStream(workspaceId);
   return (
     <TooltipProvider>
       <SmoothScroll />
-      <AppShell
-        workspaceId={workspaceId}
-        workspaceName={workspaceName}
-        onOpenPalette={() => setPaletteOpen(true)}
-      >
-        {children}
-      </AppShell>
+      <AskDockContext.Provider value={ask}>
+        <AppShell
+          workspaceId={workspaceId}
+          workspaceName={workspaceName}
+          onOpenPalette={() => setPaletteOpen(true)}
+          aside={workspaceId && askMounted ? <AskDock key={workspaceId} workspaceId={workspaceId} workspaceName={workspaceName} onClose={() => setAskOpen(false)} /> : undefined}
+        >
+          {children}
+        </AppShell>
+      </AskDockContext.Provider>
       <CreditsPopup />
       <CommandPalette
         open={paletteOpen}

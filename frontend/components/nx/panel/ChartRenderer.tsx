@@ -71,8 +71,8 @@ export function ChartRenderer({
   const alt = useMemo(() => describeChart(panel, data, viz), [panel, data, viz]);
   const timeBind = bind(panel, data).x ?? '';
   const option = useCallback(
-    (t: ChartTheme) => buildOption({ panel, data, viz, theme: t, markers, window: win, palette: seriesPalette(t), brush }).option,
-    [panel, data, viz, markers, win, brush],
+    (t: ChartTheme) => buildOption({ panel, data, viz, theme: t, markers, window: win, palette: seriesPalette(t), brush, slider: height > 300 }).option,
+    [panel, data, viz, markers, win, brush, height],
   );
   // Whether this viz can draw is decided once with a neutral theme.
   const probe = useMemo(

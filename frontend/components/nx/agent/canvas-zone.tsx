@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQueries } from '@tanstack/react-query';
 import { Badge } from '@/components/nx/evidence';
 import { ApiErrorState } from '@/components/nx/states';
@@ -81,6 +82,7 @@ function AnswerChartCard({ turnId, c, answer, sel, onSelect }: { turnId: string;
 }
 
 function WorkspaceCanvas({ wid, objective, runIds, sel, onSelect }: { wid: string; objective?: string; runIds: string[]; sel: Selection; onSelect: (s: Selection) => void }) {
+  const router = useRouter();
   const canvas = useCanvas(wid);
   const progress = usePanelProgress(wid);
   const idx = useRunFindingIndex(wid, runIds);
@@ -116,16 +118,13 @@ function WorkspaceCanvas({ wid, objective, runIds, sel, onSelect }: { wid: strin
                   wid={wid}
                   panel={p}
                   dim={!!sel && !hl}
+                  menuItems={[{ label: 'Open in canvas', onSelect: () => router.push(`/w/${wid}/canvas`) }]}
                   tools={
-                    <>
-                      <Link className="link tiny" href={`/w/${wid}/panels/${p.panelId}`}>Open panel</Link>
-                      <Link className="link tiny" href={`/w/${wid}/canvas`}>Open in canvas</Link>
-                      {cites.length > 0 && (
-                        <button type="button" className="ag-ref" aria-pressed={hl} onClick={() => onSelect(toggle(sel, { type: 'chart', id: key, findings: cites }))}>
-                          cited by {cites.length}
-                        </button>
-                      )}
-                    </>
+                    cites.length > 0 ? (
+                      <button type="button" className="ag-ref" aria-pressed={hl} onClick={() => onSelect(toggle(sel, { type: 'chart', id: key, findings: cites }))}>
+                        cited by {cites.length}
+                      </button>
+                    ) : undefined
                   }
                 >
                   <PanelBody wid={wid} panel={p} height={Math.min(layoutHeight(p), 260)} progress={progress[p.panelId]} markers={markers.filter((m) => m.panelId === p.panelId)} />

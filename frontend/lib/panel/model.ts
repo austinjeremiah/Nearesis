@@ -306,6 +306,16 @@ export type ThemeLike = { accent: string; ink: string; text2: string; text3: str
 
 type Opt = Record<string, unknown>;
 
+/** 4_532_826 -> "4.53M"; 21000 -> "21k". Short axis labels, as the upstream charts draw them. */
+function compact(v: number): string {
+  const a = Math.abs(v);
+  const f = (n: number, u: string) => `${Number(n.toFixed(n >= 100 ? 0 : n >= 10 ? 1 : 2))}${u}`;
+  if (a >= 1e9) return f(v / 1e9, 'B');
+  if (a >= 1e6) return f(v / 1e6, 'M');
+  if (a >= 1e4) return f(v / 1e3, 'k');
+  return Number.isInteger(v) ? String(v) : String(Number(v.toFixed(2)));
+}
+
 function timeOf(row: (string | number | null)[], xi: number): number | null {
   return xi >= 0 ? toTime(row[xi]) : null;
 }
@@ -342,6 +352,8 @@ export type OptionInput = {
   palette: string[];
   /** Dim the series, e.g. for a panel a lens does not apply to. */
   brush?: boolean;
+  /** Draws the range slider under the plot. Off in a canvas card, on in the full panel view. */
+  slider?: boolean;
 };
 
 export type BuiltChart = { option: Opt; gaps: number; supported: boolean; reason?: string };
@@ -367,7 +379,7 @@ export function buildOption(inp: OptionInput): BuiltChart {
     animation: false,
     backgroundColor: 'transparent',
     textStyle: { fontFamily: t.font, color: t.text2, fontSize: 11 },
-    grid: { left: 56, right: 18, top: 24, bottom: timeX ? 50 : 36, containLabel: true },
+    grid: { left: 6, right: 16, top: 24, bottom: timeX && inp.slider ? 50 : 8, containLabel: true },
     tooltip: {
       trigger: viz === 'scatter' || viz === 'heatmap' || viz === 'pie' ? 'item' : 'axis',
       backgroundColor: '#2a2a2a',
@@ -378,15 +390,16 @@ export function buildOption(inp: OptionInput): BuiltChart {
     },
     color: palette,
   };
-  const axisText = { color: t.text3, fontFamily: t.mono, fontSize: 10 };
+  const axisText = { color: t.text3, fontFamily: t.mono, fontSize: 10, hideOverlap: true };
   const yAxis = (name?: string | null) => ({
     type: panel.encoding?.scale === 'log' ? 'log' : 'value',
     name: name ?? undefined,
-    nameTextStyle: { color: t.text3, fontSize: 10, align: 'left' },
+    nameTextStyle: { color: t.text3, fontFamily: t.mono, fontSize: 9, align: 'left' },
+    nameGap: 8,
     axisLine: { show: false },
     axisTick: { show: false },
     splitLine: { lineStyle: { color: t.line } },
-    axisLabel: { ...axisText, formatter: (v: number) => fmtValue(v, yUnit === 'ratio' ? 'ratio' : null) },
+    axisLabel: { ...axisText, hideOverlap: true, formatter: (v: number) => (yUnit === 'ratio' ? fmtValue(v, 'ratio') : compact(v)) },
     scale: false,
   });
   const tipFormatter = (units: Record<string, string | null>) => (params: unknown) => {
@@ -444,11 +457,11 @@ export function buildOption(inp: OptionInput): BuiltChart {
             type: kindBar ? 'bar' : 'line',
             stack: stack ? 'total' : undefined,
             data: data_,
-            showSymbol: !kindBar && pts.length <= 120,
+            showSymbol: !kindBar && groups.size * b.ys.length === 1 && pts.length <= 40,
             symbolSize: 4,
             connectNulls: false,
-            areaStyle: viz === 'area' ? { opacity: 0.16 } : undefined,
-            lineStyle: kindBar ? undefined : { width: 1.6 },
+            areaStyle: viz === 'area' ? { opacity: 0.16 } : !kindBar && groups.size * b.ys.length === 1 ? { opacity: 0.08 } : undefined,
+            lineStyle: kindBar ? undefined : { width: 1.75 },
             barMaxWidth: 28,
             emphasis: { focus: 'series' },
           });
@@ -461,7 +474,7 @@ export function buildOption(inp: OptionInput): BuiltChart {
         for (const [a, z] of dateRuns(days).slice(0, 80)) {
           const s = toTime(a)!;
           const e = toTime(z)! + (grain === 'week' ? 7 * DAY : DAY);
-          if (inWindow(s) || inWindow(e)) gapAreas.push([{ xAxis: s, name: label, itemStyle: { color } }, { xAxis: e }]);
+          if (inWindow(s) || inWindow(e)) gapAreas.push([{ xAxis: s, name: label, itemStyle: { color, borderWidth: 0 } }, { xAxis: e }]);
         }
       };
       addRuns(cov.missing, 'rgba(120,120,110,0.18)', 'no coverage (unknown)');
@@ -473,7 +486,7 @@ export function buildOption(inp: OptionInput): BuiltChart {
       }
       if (series[0]) {
         const allAreas = [...gapAreas, ...areas];
-        series[0].markArea = allAreas.length ? { silent: true, label: { show: false }, emphasis: { disabled: true }, itemStyle: { color: 'rgba(0,236,151,0.12)' }, data: allAreas } : undefined;
+        series[0].markArea = allAreas.length ? { silent: true, label: { show: false }, emphasis: { disabled: true }, itemStyle: { color: 'rgba(0,236,151,0.12)', borderWidth: 0 }, data: allAreas } : undefined;
         series[0].markLine = lines.length ? { silent: true, symbol: 'none', lineStyle: { color: t.info, type: 'dashed' }, data: lines } : undefined;
       }
     } else {
@@ -507,11 +520,11 @@ export function buildOption(inp: OptionInput): BuiltChart {
         grid: { ...(base.grid as Opt), top: multi ? 32 : 24 },
         tooltip: { ...(base.tooltip as Opt), formatter: tipFormatter(units), axisPointer: { type: kindBar ? 'shadow' : 'line', lineStyle: { color: t.lineStrong, type: 'dashed' } } },
         xAxis: timeX
-          ? { type: 'time', axisLine: { lineStyle: { color: t.lineStrong } }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: axisText, min: winS ?? undefined, max: winE ?? undefined }
+          ? { type: 'time', splitNumber: 5, axisLine: { lineStyle: { color: t.lineStrong } }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { ...axisText, formatter: { day: '{d} {MMM}', month: '{MMM}', year: '{yyyy}' } }, min: winS ?? undefined, max: winE ?? undefined }
           : { type: 'category', data: categories, axisLine: { lineStyle: { color: t.lineStrong } }, axisTick: { show: false }, axisLabel: { ...axisText, interval: 'auto', hideOverlap: true, formatter: (v: string) => (v.length > 16 ? `${v.slice(0, 15)}…` : v) } },
         yAxis: yAxis(yUnit),
         series,
-        dataZoom: timeX ? [{ type: 'inside', filterMode: 'none', moveOnMouseMove: !inp.brush, zoomOnMouseWheel: 'ctrl' }, { type: 'slider', height: 14, bottom: 6, filterMode: 'none', borderColor: t.line, textStyle: { color: t.text3, fontSize: 9 } }] : undefined,
+        dataZoom: timeX ? [{ type: 'inside', filterMode: 'none', moveOnMouseMove: !inp.brush, zoomOnMouseWheel: 'ctrl' }, ...(inp.slider ? [{ type: 'slider', height: 14, bottom: 6, filterMode: 'none', borderColor: t.line, textStyle: { color: t.text3, fontSize: 9 } }] : [])] : undefined,
       },
     };
   }

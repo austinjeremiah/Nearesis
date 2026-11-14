@@ -40,8 +40,8 @@ export default function PanelDetail({ wid, panelId }: { wid: string; panelId: st
     <div className="col gap3">
       <MarkerSelectionAction />
       <SelectionBar wid={wid} titles={{ [panel.panelId]: panel.title }} />
-      <PanelFrame wid={wid} panel={panel} heading>
-        <PanelBody wid={wid} panel={panel} height={380} progress={progress[panel.panelId]} markers={canvas.data?.markers} brush={timeBased} viz={viz} onViz={setViz} />
+      <PanelFrame wid={wid} panel={panel} heading viz={viz} onViz={setViz}>
+        <PanelBody wid={wid} panel={panel} height={380} progress={progress[panel.panelId]} markers={canvas.data?.markers} brush={timeBased} />
       </PanelFrame>
       <SharedNotes wid={wid} panelId={panel.panelId} />
       {d && d.chart && timeBased && (

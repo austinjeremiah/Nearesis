@@ -2792,11 +2792,128 @@ table.table {
    itself holds its width inside a clipping slot so nothing reflows mid-slide.
    -------------------------------------------------------------------------- */
 .shell {
-  grid-template-columns: var(--nav-w) minmax(0, 1fr) 0px;
   transition: grid-template-columns 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
-.shell[data-nav='collapsed'] {
-  grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) 0px;
+/* Desktop only: below 900px the shell is one column and the rail is a drawer. */
+@media (min-width: 901px) {
+  .shell {
+    grid-template-columns: var(--nav-w) minmax(0, 1fr) 0px;
+  }
+  .shell[data-nav='collapsed'] {
+    grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) 0px;
+  }
+  .shell[data-ask='open'] {
+    grid-template-columns: var(--nav-w) minmax(0, 1fr) var(--ask-w);
+  }
+  .shell[data-nav='collapsed'][data-ask='open'] {
+    grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) var(--ask-w);
+  }
+}
+:root {
+  --ask-w: 330px;
+}
+.ask-slot {
+  grid-row: 1;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+.askpanel {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: var(--ask-w);
+  margin-left: auto;
+  background: var(--surface);
+  color: var(--text);
+  border-left: 1px solid var(--line-strong);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 180ms var(--ease);
+}
+.shell[data-ask='open'] .askpanel {
+  opacity: 1;
+}
+.ask-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  height: var(--topbar-h);
+  padding: 0 var(--s2) 0 var(--s3);
+  border-bottom: 1px solid var(--line-strong);
+}
+.ask-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--s3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+.ask-foot {
+  flex: none;
+  padding: var(--s2) var(--s3) var(--s3);
+  background: var(--surface);
+}
+/* The composer: a white card with the question box, the credits line and the green Ask button. */
+.ask-composer-card {
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ask-composer-card textarea {
+  width: 100%;
+  resize: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: #000;
+  outline: none;
+  box-shadow: none;
+}
+.ask-composer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ask-budget {
+  font-size: var(--fs-tiny);
+  color: var(--text-2);
+}
+@media (max-width: 900px) {
+  .ask-slot {
+    overflow: visible;
+  }
+  .askpanel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: var(--z-overlay);
+    width: min(var(--ask-w), 100vw);
+    height: 100dvh;
+    box-shadow: var(--shadow-overlay);
+    transform: translateX(100%);
+    transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1), opacity 180ms var(--ease);
+  }
+  .shell[data-ask='open'] .askpanel {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell,
+  .askpanel {
+    transition: none;
+  }
 }
 
 /* The title row is as wide as it needs to be. An earlier character-width cap
@@ -3055,7 +3172,10 @@ table.table {
 
    In the light theme the paper is near-black, so the reading column redefines
    text and line tokens for it and every light surface sitting on it takes them
-   back. Anything built from the tokens (a button, a label, a tab strip, an empty
+   back. A surface is caught three ways, so a new one is readable by default: the
+   shared `.surface` class or `data-surface` attribute, a class name containing
+   card, tile, panel, box, wrap or block, and the explicit names below.
+   Anything built from the tokens (a button, a label, a tab strip, an empty
    state) flips on its own. The dark theme needs none of this: its tokens are
    already pale-on-dark everywhere, so cards just lift off the darker paper.
    ========================================================================== */
@@ -3087,7 +3207,8 @@ table.table {
 }
 /* A light surface is a light surface. It takes the light tokens back. */
 .nx[data-skin='ink']:not([data-theme='dark'])
-  :is(.card, .notice, .empty, .table-wrap, .popover, .dialog, .inspector, .gnode, .graph-detail,
+  :is(.surface, [data-surface], [class*='card'], [class*='tile'], [class*='panel'], [class*='-box'], [class*='-wrap'], [class*='block'],
+     .askpanel, .card, .notice, .empty, .table-wrap, .popover, .dialog, .inspector, .gnode, .graph-detail,
      .graph-controls, .graph-hint, .meter, .chain-step,
      .ag-card, .ag-chartcard, .ag-composer-wrap, .ag-consent, .ag-empty, .ag-plan, .ag-timeline,
      .ag-switch, .ag-wait, .ag-zone-chat, .ag-zone-rail, .ag-finding, .ag-user, .ag-thread,
@@ -3477,3 +3598,35 @@ table.table {
 .cgrid[data-locked='false'] .cgrid-item {
   cursor: grab;
 }
+
+/* Ask panel composer wins over the Agent page's textarea defaults. */
+.nx .ask-composer-card textarea,
+.nx .askpanel .ag-composer .ask-composer-card textarea {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  resize: none;
+}
+.askpanel .sr-only,
+.ag-composer .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Quick-answer chart cards on the Agent page take the panel card's shape. */
+.ag-chartcard {
+  border: 1px solid var(--line);
+  border-radius: 8px 8px 8px 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+}
+.ag-chartcard-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+.ag-chartcard-body { padding: 10px 16px 6px; }
+.ag-chartcard-foot { padding: 8px 16px 10px; }
+.nx .ask-composer-card { color: #000; }
+.nx .ask-composer-card .ask-budget { color: #4a493f; }
+.nx .ask-composer-card textarea::placeholder { color: #6b6a5f; }

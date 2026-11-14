@@ -1,5 +1,8 @@
 import { Content, PageHeader } from '@/components/nx/shell';
-import { LinkButton } from '@/components/nx/ui';
+import { AskOpenButton } from '@/components/nx/ask-open-button';
+import { api } from '@/lib/api/server';
+import { settle } from '@/lib/api/guard';
+import { workspaceLabel } from '@/lib/workspace/label';
 import CanvasView from '@/components/nx/panel/CanvasView';
 
 /**
@@ -9,13 +12,15 @@ import CanvasView from '@/components/nx/panel/CanvasView';
  */
 export default async function Page({ params }: { params: Promise<{ wid: string }> }) {
   const { wid } = await params;
+  const r = await settle(api.workspace(wid));
+  const label = r.ok ? workspaceLabel(r.data.objective, 40) : 'Workspace';
   return (
     <>
       <PageHeader
         title="Canvas"
         description="Panels draw real query results with their provenance, coverage and freshness."
-        crumbs={[{ label: 'Workspace', href: `/w/${wid}/overview` }, { label: 'Canvas' }]}
-        actions={<LinkButton href={`/w/${wid}/investigate`}>Ask a question</LinkButton>}
+        crumbs={[{ label: 'Workspaces', href: '/workspaces' }, { label, href: `/w/${wid}/overview` }, { label: 'Canvas' }]}
+        actions={<AskOpenButton />}
       />
       <Content>
         <CanvasView wid={wid} />

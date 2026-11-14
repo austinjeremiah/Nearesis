@@ -21,6 +21,7 @@ import { focusTask, needsPolling, pollDelay, pollReducer, stepLine, taskLive, ty
 import type { Thread, ThreadDetail } from '@/lib/agent/thread';
 import { investigateApi } from '@/lib/investigate/api';
 import AskComposer from './ask-composer';
+import { ComposerCard } from './composer-card';
 import CanvasZone, { type AnswerGroup } from './canvas-zone';
 import CostsDrawer from './costs-drawer';
 import { MessageView } from './messages';
@@ -247,7 +248,6 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
     const t = text.trim().slice(0, 2000);
     if (t && !send.isPending) send.mutate(t);
   };
-  const hasText = draft.trim().length > 0;
   const line = liveTask ? stepLine(liveTask) : null;
   const empty = !!d && d.messages.length === 0 && localRuns.length === 0;
 
@@ -289,7 +289,7 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
 
       <aside className="ag-zone ag-zone-chat" aria-label="Agent chat" data-testid="agent-chat">
         <div className="ag-zone-head">
-          <h2 className="ag-title">{d?.thread.title && threadId ? d.thread.title : 'Agent chat'}</h2>
+          <h2 className="ag-title ask-title"><span className="label">Ask</span> <span className="tiny dim ellipsis">{d?.thread.title && threadId ? d.thread.title : 'Agent chat'}</span></h2>
           <span className="grow" />
           <Button variant="ghost" onClick={() => setCostsOpen(true)} data-testid="agent-costs-open"><Receipt size={14} /> Costs</Button>
           <button type="button" className="ag-iconbtn" onClick={() => setChatOpen(false)} aria-label="Collapse the chat" title="Collapse the chat">
@@ -350,39 +350,16 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
               <AskComposer key={wid} wid={wid} initialQuestion={draft} onStarted={(runId, q) => showRun(wid, runId, q)} />
             </div>
           ) : (
-            <form
-              className="ag-composer"
-              onSubmit={(e) => {
-                e.preventDefault();
-                submit(draft);
-              }}
-            >
-              {send.isError && <ApiErrorState error={send.error} onRetry={() => submit(draft)} />}
-              <label htmlFor="agent-q" className="sr-only">Message the agent</label>
-              <textarea
-                id="agent-q"
-                data-testid="agent-composer"
-                rows={2}
-                maxLength={2000}
-                placeholder={wid ? 'Ask, or tell the agent what to do in this workspace…' : 'Ask anything about NEAR, or tell the agent what to do…'}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                    e.preventDefault();
-                    submit(draft);
-                  }
-                }}
-              />
-              <div className="ag-composer-actions">
-                <Button type="submit" variant="primary" pending={send.isPending} disabled={!hasText} disabledReason="Type a message first." data-testid="agent-ask">
-                  Send
-                </Button>
-                <span className="ag-composer-hint">
-                  {wid ? 'Messages use the selected workspace. ' : 'No workspace selected: quick answers only, or ask for one to be created. '}Enter to send, Shift+Enter for a new line.
-                </span>
-              </div>
-            </form>
+            <ComposerCard
+              value={draft}
+              onChange={setDraft}
+              onSubmit={submit}
+              pending={send.isPending}
+              inputId="agent-q"
+              placeholder={wid ? 'Ask, or tell the agent what to do in this workspace…' : 'Ask anything about NEAR, or tell the agent what to do…'}
+              error={send.isError ? <ApiErrorState error={send.error} onRetry={() => submit(draft)} /> : undefined}
+              hint={<>{wid ? 'Messages use the selected workspace. ' : 'No workspace selected: quick answers only, or ask for one to be created. '}Enter to send, Shift+Enter for a new line.</>}
+            />
           )}
         </div>
       </aside>

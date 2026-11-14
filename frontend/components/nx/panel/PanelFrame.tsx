@@ -1,17 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
+import { MoreHorizontal } from 'lucide-react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Badge } from '@/components/nx/evidence';
+import { Menu, type MenuItem } from '@/components/nx/overlays';
 import { ApiErrorState, StateBanner, StatePanel } from '@/components/nx/states';
-import { Segmented, Skeleton } from '@/components/nx/ui';
-import { formatUtc } from '@/lib/format';
+import { IconButton, Skeleton } from '@/components/nx/ui';
+import { formatAge, formatUtc, shortHash } from '@/lib/format';
 import { ROW_PX } from '@/lib/panel/edit';
 import { usePanelData } from '@/lib/panel/hooks';
 import {
   availableViz,
+  bind,
   CERT_LABEL,
   certificationOf,
+  colLabel,
   coverageInfo,
   dateRuns,
   freshnessInfo,
@@ -22,8 +27,6 @@ import {
 import type { CanvasMarker, CanvasPanel, PanelData, PanelProgress } from '@/lib/panel/types';
 import { ChartRenderer, DataTable } from './ChartRenderer';
 import './panel.css';
-
-const VIZ_LABEL: Record<Viz, string> = { line: 'Line', area: 'Area', bar: 'Bar', stacked: 'Stacked', pie: 'Pie', scatter: 'Scatter', candlestick: 'Candles', heatmap: 'Heatmap', table: 'Table', note: 'Note', unsupported: 'Unsupported' };
 
 /** Fetch a panel's data only once it is near the viewport, so a canvas of 100 panels does not stampede the API. */
 export function useNearViewport(disabled = false) {
@@ -98,23 +101,27 @@ export function CertBadge({ panel, data }: { panel: CanvasPanel; data?: PanelDat
   );
 }
 
-export function PanelFooter({ panel, data }: { panel: CanvasPanel; data: PanelData }) {
-  const fr = freshnessInfo(data);
+/**
+ * The footer band: what the numbers are as of, which metric version drew them and the result hash. Mono, quiet, always
+ * present, so a screenshot of a panel carries its provenance with it.
+ */
+export function PanelFooter({ data }: { panel?: CanvasPanel; data: PanelData }) {
   const w = data.chart?.sourceWatermark ?? data.freshness.sourceWatermark;
   return (
     <>
-      <CertBadge panel={panel} data={data} />
-      {data.provenance && <Badge outline title="Source label">{data.provenance.sourceLabel}</Badge>}
-      <Badge tone={fr.tone} title={fr.detail ?? undefined}>{fr.label}</Badge>
-      <span className="tiny dim" title="Source watermark">{w ? `as of ${formatUtc(w)}` : 'watermark unknown'}</span>
+      <span className="mono" title="Source watermark">{w ? `as of ${formatUtc(w)}` : 'watermark unknown'}</span>
       {data.provenance && (
-        <span className="tiny dim mono" title={`Result hash ${data.provenance.resultHash}`}>
-          v{data.provenance.semanticVersion}
-        </span>
+        <>
+          <span className="mono" title="Semantic version of the metric">metric v{data.provenance.semanticVersion}</span>
+          <span className="mono" title={`Result hash ${data.provenance.resultHash}`}>result {shortHash(data.provenance.resultHash)}</span>
+        </>
       )}
     </>
   );
 }
+
+/** The viz choice lives on the frame (it is in the card menu); the body only reads it. */
+const VizCtx = createContext<{ value: Viz | null; set: (v: Viz) => void } | null>(null);
 
 /**
  * The data side of a panel: skeleton while querying, the typed state for
@@ -132,7 +139,6 @@ export function PanelBody({
   brush,
   viz: vizProp,
   onViz,
-  showViz = true,
 }: {
   wid: string;
   panel: CanvasPanel;
@@ -144,14 +150,17 @@ export function PanelBody({
   brush?: boolean;
   viz?: Viz;
   onViz?: (v: Viz) => void;
-  showViz?: boolean;
 }) {
+  const ctx = useContext(VizCtx);
   const hash = panel.queryRef?.hash;
   const q = usePanelData(wid, hash, enabled && panel.kind !== 'note' && panel.kind !== 'evidenceGraph');
   const data = q.data;
   const vizList = useMemo(() => availableViz(panel, data), [panel, data]);
   const [local, setLocal] = useState<Viz | null>(null);
-  const viz = vizProp && vizList.includes(vizProp) ? vizProp : local && vizList.includes(local) ? local : vizList[0];
+  const pick = vizProp ?? ctx?.value ?? local;
+  const viz = pick && vizList.includes(pick) ? pick : vizList[0];
+  void onViz;
+  void setLocal;
 
   if (panel.kind === 'note') return <div className="nxp-body"><div className="nxp-note">{panel.note ?? 'Empty note.'}</div></div>;
   if (panel.kind === 'evidenceGraph')
@@ -215,20 +224,10 @@ export function PanelBody({
 
   return (
     <>
-      <PanelNotices data={data} compact />
       <div className="nxp-body" data-testid="panel-data" data-state={data.state} data-kind={data.kind}>
-        {showViz && vizList.length > 1 && (
-          <div style={{ marginBottom: 4 }}>
-            <Segmented
-              ariaLabel={`View of ${panel.title}`}
-              value={viz}
-              options={vizList.map((v) => ({ value: v, label: VIZ_LABEL[v] }))}
-              onChange={(v) => (onViz ? onViz(v) : setLocal(v))}
-            />
-          </div>
-        )}
         {viz === 'table' ? <DataTable data={data} limit={height > 400 ? 1000 : 200} /> : <ChartRenderer wid={wid} panel={panel} data={data} viz={viz} height={height} markers={markers} window={win} brush={brush} />}
       </div>
+      <PanelNotices data={data} compact />
     </>
   );
 }
@@ -237,49 +236,107 @@ export function layoutHeight(panel: CanvasPanel) {
   return Math.max(200, Math.min(520, panel.layout.h * ROW_PX));
 }
 
+/** The measures line: the unit of every plotted column, or the column names when no unit is declared. Never invented. */
+function measuresLine(panel: CanvasPanel, data: PanelData): string {
+  const chart = data.chart;
+  if (!chart) return 'unit unknown';
+  const ys = bind(panel, data).ys;
+  const units = [...new Set(ys.map((y) => chart.columns.find((c) => c.name === y)?.unit).filter((u): u is string => !!u))];
+  if (units.length) return units.join(' · ');
+  return ys.length ? ys.map(colLabel).join(' · ') : 'unit unknown';
+}
+
+const VIZ_VERB: Partial<Record<Viz, string>> = { line: 'line', area: 'area', bar: 'bars', stacked: 'stacked bars', pie: 'pie', scatter: 'scatter', candlestick: 'candles', heatmap: 'heatmap', table: 'table' };
+
 /**
- * One panel on the canvas: title and certification, the data body, and the footer
- * with source, freshness and watermark. `tools` holds edit controls.
+ * One panel: a cream card in the upstream pack-panel design. Title and state badges, a mono measures line with source,
+ * freshness and as-of, a hairline, the chart with its legend above the plot, then the note band with the provenance.
+ * Everything shown is read from the panel's own data; nothing is filled in. `tools` holds inline edit controls,
+ * `menuItems` are extra entries for the "..." menu.
  */
 export function PanelFrame({
   wid,
   panel,
   enabled = true,
   tools,
+  menuItems,
   edit,
   dim,
   pending,
   children,
   heading,
+  viz: vizProp,
+  onViz,
 }: {
   wid: string;
   panel: CanvasPanel;
   enabled?: boolean;
   tools?: ReactNode;
+  menuItems?: MenuItem[];
   edit?: ReactNode;
   dim?: boolean;
   pending?: boolean;
   children: ReactNode;
   heading?: boolean;
+  viz?: Viz;
+  onViz?: (v: Viz) => void;
 }) {
   const H = heading ? 'h2' : 'h3';
+  const router = useRouter();
   const hasQuery = panel.kind !== 'note' && panel.kind !== 'evidenceGraph';
   const data = usePanelData(wid, panel.queryRef?.hash, enabled && hasQuery).data;
+  const [local, setLocal] = useState<Viz | null>(null);
+  const vizList = useMemo(() => availableViz(panel, data), [panel, data]);
+  const picked = vizProp ?? local;
+  const current = picked && vizList.includes(picked) ? picked : vizList[0];
+  const ctx = useMemo(() => ({ value: vizProp ?? local, set: (v: Viz) => (onViz ? onViz(v) : setLocal(v)) }), [vizProp, local, onViz]);
+  const w = data ? (data.chart?.sourceWatermark ?? data.freshness.sourceWatermark) : null;
+  const fr = data ? freshnessInfo(data) : null;
+  const blocked = !!data && (data.cannotCompute || !data.chart || data.state === 'insufficient_data');
+  const cov = data ? coverageInfo(data) : null;
+  const partial = !!data && !blocked && (data.state === 'partial' || cov?.state === 'partial');
+  const items: MenuItem[] = [
+    ...(menuItems ?? []),
+    ...(heading ? [] : [{ label: 'Open panel', onSelect: () => router.push(`/w/${wid}/panels/${panel.panelId}`) } as MenuItem]),
+    ...(vizList.length > 1
+      ? [{ kind: 'separator' } as MenuItem, ...vizList.map((v) => ({ label: `${v === current ? 'Showing' : 'Show as'} ${VIZ_VERB[v] ?? v}`, disabledReason: v === current ? 'Already drawn this way.' : undefined, onSelect: () => ctx.set(v) }) as MenuItem)]
+      : []),
+    ...(panel.queryRef?.hash ? [{ kind: 'separator' } as MenuItem, { label: 'Copy query hash', onSelect: () => void navigator.clipboard?.writeText(panel.queryRef!.hash) } as MenuItem] : []),
+  ];
   return (
-    <article className="nxp" aria-label={panel.title} data-testid="panel" data-panel-id={panel.panelId} data-kind={panel.kind} data-dim={dim ? 'true' : undefined} data-pending={pending ? 'true' : undefined}>
-      <header className="nxp-head">
-        <H className="nxp-title">
-          <Link href={`/w/${wid}/panels/${panel.panelId}`}>{panel.title}</Link>
-        </H>
-        <div className="nxp-tools">{tools}</div>
-      </header>
-      {edit}
-      {children}
-      {hasQuery && (
-        <footer className="nxp-foot">
-          {data ? <PanelFooter panel={panel} data={data} /> : <CertBadge panel={panel} />}
-        </footer>
-      )}
-    </article>
+    <VizCtx.Provider value={ctx}>
+      <article className="card panel nxp" aria-label={panel.title} data-testid="panel" data-panel-id={panel.panelId} data-kind={panel.kind} data-dim={dim ? 'true' : undefined} data-pending={pending ? 'true' : undefined}>
+        <header className="card-head">
+          <div className="grow col gap1" style={{ minWidth: 0 }}>
+            <div className="row gap2 wrap" style={{ minWidth: 0 }}>
+              <H className="h3 nxp-title">
+                <Link href={`/w/${wid}/panels/${panel.panelId}`}>{panel.title}</Link>
+              </H>
+              {hasQuery && data && <Badge tone={blocked ? 'bad' : partial ? 'warn' : 'ok'}>{blocked ? 'Cannot compute' : partial ? 'Partial' : 'Ready'}</Badge>}
+              {hasQuery && <CertBadge panel={panel} data={data} />}
+            </div>
+            {hasQuery && data && (
+              <div className="row gap2 wrap tiny dim">
+                <span className="mono">{measuresLine(panel, data)}</span>
+                {data.provenance && <Badge outline title="Source label">{data.provenance.sourceLabel}</Badge>}
+                {fr && <Badge outline tone={fr.tone} title={fr.detail ?? undefined}>{fr.label}</Badge>}
+                <span className="mono" title={w ? `as of ${formatUtc(w)}` : undefined}>{w ? `as of ${formatAge(w)}` : 'as of unknown'}</span>
+              </div>
+            )}
+          </div>
+          <div className="actions">
+            {tools}
+            <Menu align="end" trigger={<IconButton label={`Panel actions for ${panel.title}`}><MoreHorizontal size={15} /></IconButton>} items={items} />
+          </div>
+        </header>
+        {edit}
+        {children}
+        {hasQuery && data && (
+          <footer className="card-foot nxp-foot">
+            <PanelFooter panel={panel} data={data} />
+          </footer>
+        )}
+      </article>
+    </VizCtx.Provider>
   );
 }

@@ -112,7 +112,8 @@ test.describe('canvas', () => {
     await expect(c.locator('.chart')).toContainText(/\d/);
     await expect(c.locator('.chart')).toContainText(picks.semantic.dataBinding?.units?.[picks.semantic.encoding.y[0]] ?? 'tx');
     // The table view renders a missing value as a dash, never 0.
-    await c.getByRole('button', { name: 'Table' }).click();
+    await c.getByRole('button', { name: /Panel actions for/ }).click();
+    await page.getByRole('menuitem', { name: /Show as table/ }).click();
     await expect(c.locator('.nxp-table')).toBeVisible();
     const rows = await (await api(page, `/workspaces/${wid}/panels/${picks.semantic.queryRef.hash}/data`)).json();
     expect(rows.chart.rows.length).toBeGreaterThan(0);

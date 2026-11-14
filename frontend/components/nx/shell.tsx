@@ -14,6 +14,7 @@ import {
 } from '@/lib/nav';
 import { IconButton } from './ui';
 import { UserMenu } from './user-menu';
+import { useAskDock } from './ask-context';
 
 /**
  * Application shell: sidebar, topbar, page header, inspector and run strip.
@@ -66,12 +67,16 @@ export function AppShell({
   workspaceName,
   children,
   onOpenPalette,
+  aside,
 }: {
   workspaceId?: string | null;
   workspaceName?: string;
   children: ReactNode;
   onOpenPalette?: () => void;
+  /** The docked Ask panel. Stays mounted so an unsent draft survives a close; `inert` while shut. */
+  aside?: ReactNode;
 }) {
+  const ask = useAskDock();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [open, toggleGroup] = usePersistentSet(
@@ -82,7 +87,7 @@ export function AppShell({
   const navState = mobileOpen ? 'open' : collapsed ? 'collapsed' : 'expanded';
 
   return (
-    <div className="shell" data-nav={navState}>
+    <div className="shell" data-nav={navState} data-ask={ask.available && ask.open ? 'open' : 'closed'}>
       <nav className="nav" aria-label="Primary">
         <div className="nav-top">
           {/* The collapse control belongs with the mark it collapses, not at the
@@ -195,15 +200,33 @@ export function AppShell({
               ⌘K
             </kbd>
           </button>
-          <Link href="/agent" className="btn ghost" title="Ask the agent (⌘J)">
-            <Sparkles size={14} />
-            Ask
-          </Link>
+          {ask.available ? (
+            <button type="button" className="btn ghost" onClick={() => ask.setOpen(!ask.open)} aria-pressed={ask.open} title="Ask the agent about this workspace (⌘J)" data-testid="ask-toggle">
+              <Sparkles size={14} />
+              Ask
+              <kbd className="mono tiny dim" style={{ marginLeft: 6 }}>
+                ⌘J
+              </kbd>
+            </button>
+          ) : (
+            <Link href="/agent" className="btn ghost" title="Ask the agent (⌘J)">
+              <Sparkles size={14} />
+              Ask
+              <kbd className="mono tiny dim" style={{ marginLeft: 6 }}>
+                ⌘J
+              </kbd>
+            </Link>
+          )}
           <UserMenu workspaceId={workspaceId} />
         </header>
         {children}
         </div>
       </div>
+      {aside && (
+        <div className="ask-slot" inert={!(ask.available && ask.open)}>
+          {aside}
+        </div>
+      )}
     </div>
   );
 }

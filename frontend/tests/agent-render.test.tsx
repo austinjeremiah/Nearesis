@@ -2,9 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement, Fragment } from 'react';
 import { AnswerBody, AnswerMeta, ChartBody, ChartMeta } from '@/components/nx/agent/answer-card';
-import { PipelineCard } from '@/components/nx/agent/pipeline-card';
 import { normalizeAnswer } from '@/lib/agent/types';
-import { newPipeline } from '@/lib/agent/pipeline';
 
 const answer = normalizeAnswer({
   answerId: 'a',
@@ -59,12 +57,75 @@ describe('answer rendering', () => {
   });
 });
 
-describe('pipeline card', () => {
-  it('shows a retry with the API reason on failure', () => {
-    const p = newPipeline('obj', () => 'k', 0);
-    const failed = { ...p, phase: 'failed' as const, workspaceId: 'w', error: { step: 'setup' as const, message: 'budget ceiling reached' } };
-    const h = renderToStaticMarkup(createElement(PipelineCard, { p: failed, onResume: () => {}, onRetry: () => {} }));
-    expect(h).toContain('budget ceiling reached');
-    expect(h).toContain('agent-retry');
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { PlanCard, TaskTimeline } from '@/components/nx/agent/task-cards';
+import { normalizeTask } from '@/lib/agent/thread';
+
+const wrap = (el: React.ReactElement) => renderToStaticMarkup(createElement(QueryClientProvider, { client: new QueryClient() }, el));
+const mk = (over: Record<string, unknown>) =>
+  normalizeTask({
+    id: 't1',
+    threadId: 'th',
+    workspaceId: 'w1',
+    title: 'Prove a capsule',
+    state: 'proposed',
+    steps: [
+      { idx: 0, key: 'capsule.build', title: 'Build the capsule', detail: 'from run r1', state: 'pending' },
+      { idx: 1, key: 'capsule.prove', title: 'Prove it', detail: 'OutLayer', state: 'pending' },
+    ],
+    consent: { required: [{ key: 'spend_credits', label: 'Spend NEAR credits', detail: 'For the proof job.', maxYocto: '2500000000000000000000000' }], given: [] },
+    estimate: { creditsMaxYocto: '2500000000000000000000000', modelUsdMax: '0.100000' },
+    ...over,
+  });
+
+describe('plan card', () => {
+  it('lists numbered steps, estimates in NEAR and USD, and a consent checkbox with the max amount; Start is disabled', () => {
+    const h = wrap(createElement(PlanCard, { task: mk({}) }));
+    expect(h).toContain('Build the capsule');
+    expect(h).toContain('2.5 NEAR');
+    expect(h).toContain('$0.10');
+    expect(h).toContain('Spend NEAR credits');
+    expect(h).toContain('type="checkbox"');
+    expect(h).toMatch(/<button[^>]*disabled[^>]*data-testid="plan-start"|data-testid="plan-start"[^>]*disabled/);
+  });
+  it('shows unknown estimates as unknown', () => {
+    const h = wrap(createElement(PlanCard, { task: mk({ estimate: {} }) }));
+    expect(h).toContain('unknown');
+  });
+});
+
+describe('task timeline', () => {
+  const running = mk({
+    state: 'running',
+    startedAt: '2026-11-14T10:00:00.000Z',
+    steps: [
+      { idx: 0, key: 'capsule.build', title: 'Build the capsule', state: 'done', startedAt: '2026-11-14T10:00:00.000Z', finishedAt: '2026-11-14T10:00:05.000Z', result: { summary: 'Built', items: [{ label: 'Capsule', value: 'c1', href: '/w/w1/capsules/c1' }] }, cost: { modelUsd: '0.002000', modelCalls: 1, creditsYocto: '1000000000000000000000', entries: [{ label: 'gas', unit: 'yoctoNEAR', amount: '1000000000000000000000', txHash: 'HASH123456' }] } },
+      { idx: 1, key: 'capsule.prove', title: 'Prove it', state: 'running', startedAt: '2026-11-14T10:00:05.000Z', progress: 'Waiting for the proof job' },
+    ],
+  });
+  it('marks the running step, its progress line, result links, cost and tx link', () => {
+    const h = wrap(createElement(TaskTimeline, { task: running }));
+    expect(h).toContain('aria-current="step"');
+    expect(h).toContain('Waiting for the proof job');
+    expect(h).toContain('Step 2 of 2 · Waiting for the proof job');
+    expect(h).toContain('href="/w/w1/capsules/c1"');
+    expect(h).toContain('0.001 NEAR');
+    expect(h).toContain('https://testnet.nearblocks.io/txns/HASH123456');
+    expect(h).toContain('Cancel task');
+    expect(h).toContain('/api/report/w1/pdf');
+  });
+  it('shows a waiting approval with Approve and Reject, and a failed step with reason and Retry', () => {
+    const w = mk({ state: 'waiting_user', steps: [{ idx: 0, key: 'run.await', title: 'Wait', state: 'waiting_user', waiting: { kind: 'approval', runId: 'r', approvalId: 'a', approvalKind: 'canvas.apply_patch', summary: 'Apply panels', costLimit: '1.5' } }] });
+    const h = wrap(createElement(TaskTimeline, { task: w }));
+    expect(h).toContain('Approve');
+    expect(h).toContain('Reject');
+    expect(h).toContain('canvas.apply_patch');
+    expect(h).toContain('$1.50');
+    const f = mk({ state: 'failed', steps: [{ idx: 0, key: 'capsule.prove', title: 'Prove', state: 'failed', error: { reasonCode: 'INSUFFICIENT_CREDITS', message: 'Not enough credits', retryable: true } }] });
+    const hf = wrap(createElement(TaskTimeline, { task: f }));
+    expect(hf).toContain('INSUFFICIENT_CREDITS');
+    expect(hf).toContain('Not enough credits');
+    expect(hf).toContain('step-retry');
+    expect(hf).not.toContain('Cancel task');
   });
 });

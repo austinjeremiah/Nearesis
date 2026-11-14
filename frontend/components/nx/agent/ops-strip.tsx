@@ -34,7 +34,7 @@ function InlineApproval({ a }: { a: GlobalApproval }) {
  * Header strip: runs that are not finished across the user's workspaces (the newest few, bounded), approvals waiting with
  * in-place decisions, and the global model spend. Polling is slow and react-query pauses it while the tab is hidden.
  */
-export default function OpsStrip() {
+export default function OpsStrip({ taskLine = null, taskWaiting = false }: { taskLine?: string | null; taskWaiting?: boolean }) {
   const ws = useQuery({ queryKey: qk.workspaces, queryFn: () => browserApi.workspaces(), refetchInterval: 60_000 });
   const newest = [...(ws.data?.workspaces ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, MAX_WORKSPACES);
   const runs = useQueries({
@@ -48,6 +48,12 @@ export default function OpsStrip() {
   const pend = approvals.data?.approvals ?? [];
   return (
     <div className="ag-ops" data-testid="agent-ops">
+      {taskLine && (
+        <p className="ag-ops-task" data-testid="agent-ops-step" data-waiting={taskWaiting ? 'true' : undefined} title={taskLine}>
+          <span className="ag-pulse" aria-hidden="true" />
+          <span>{taskLine}</span>
+        </p>
+      )}
       <div className="ag-ops-row">
         <span data-testid="agent-ops-runs" title="Runs that are not finished, in your newest workspaces">
           <span className="label">Running</span> <span className="mono">{ws.isPending || !runsKnown ? '—' : active.length}</span>

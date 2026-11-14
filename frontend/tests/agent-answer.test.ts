@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { buildHistory, chartPoints, normalizeAnswer, normalizeSetup } from '@/lib/agent/types';
-import { capTurns, loadTurns, saveTurns, MAX_TURNS, STORAGE_KEY, type Turn } from '@/lib/agent/storage';
-import { newPipeline } from '@/lib/agent/pipeline';
 
 // Fixtures live only in tests: the shapes follow AGENT_TAB_CONTRACT.md section 1.
 const ANSWER = {
@@ -67,52 +65,5 @@ describe('buildHistory', () => {
   it('uses the cannot-answer reason when there is no summary and skips pipelines', () => {
     const h = buildHistory([{ kind: 'pipeline' }, { kind: 'answer', answer: normalizeAnswer({ status: 'cannot_answer', cannotAnswerReason: 'why' }) }]);
     expect(h).toEqual([{ role: 'assistant', text: 'why' }]);
-  });
-});
-
-describe('conversation storage', () => {
-  const mem = () => {
-    const m = new Map<string, string>();
-    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k), m };
-  };
-  const user = (i: number): Turn => ({ id: `u${i}`, kind: 'user', text: `q${i}`, at: i });
-  it('caps the number of turns, keeping the newest', () => {
-    const t = capTurns(Array.from({ length: MAX_TURNS + 10 }, (_, i) => user(i)));
-    expect(t).toHaveLength(MAX_TURNS);
-    expect(t[t.length - 1].id).toBe(`u${MAX_TURNS + 9}`);
-  });
-  it('round-trips, marks a running pipeline interrupted, and survives broken storage', () => {
-    const s = mem();
-    const p = newPipeline('obj', () => 'k', 1);
-    saveTurns(s, [user(1), { id: 'p', kind: 'pipeline', pipeline: p, at: 2 }]);
-    const back = loadTurns(s);
-    expect(back).toHaveLength(2);
-    expect(back[1].kind === 'pipeline' && back[1].pipeline.phase).toBe('interrupted');
-    s.m.set(STORAGE_KEY, '{not json');
-    expect(loadTurns(s)).toEqual([]);
-    expect(() => saveTurns({ setItem: () => { throw new Error('quota'); }, removeItem: () => {} }, [user(1)])).not.toThrow();
-    expect(loadTurns(null)).toEqual([]);
-  });
-  it('clears the key when the conversation is empty', () => {
-    const s = mem();
-    saveTurns(s, [user(1)]);
-    saveTurns(s, []);
-    expect(s.m.has(STORAGE_KEY)).toBe(false);
-  });
-});
-
-import { CTX_KEY, loadContext, saveContext } from '@/lib/agent/storage';
-describe('context storage', () => {
-  it('remembers the selected workspace, defaults to quick answers, and keeps run turns', () => {
-    const m = new Map<string, string>();
-    const s = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) };
-    expect(loadContext(s)).toBe('quick');
-    saveContext(s, '17cd0234-3625-49b9-9daa-97293bb3ecd7');
-    expect(m.get(CTX_KEY)).toBe('17cd0234-3625-49b9-9daa-97293bb3ecd7');
-    expect(loadContext(s)).toBe('17cd0234-3625-49b9-9daa-97293bb3ecd7');
-    expect(loadContext(null)).toBe('quick');
-    const run: Turn = { id: 'r', kind: 'run', workspaceId: 'w', runId: 'x', question: 'q', at: 1 };
-    saveTurns(s, [run]);
-    expect(loadTurns(s)).toEqual([run]);
   });
 });

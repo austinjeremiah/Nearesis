@@ -166,7 +166,7 @@ function AskError({ error }: { error: unknown }) {
   return <ApiErrorState error={error} />;
 }
 
-function PlanPreview({ preview, pending }: { preview: QuestionPreview | null; pending: boolean }) {
+export function PlanPreview({ preview, pending }: { preview: QuestionPreview | null; pending: boolean }) {
   if (pending) return <Skeleton rows={5} />;
   if (!preview)
     return <EmptyState title="Plan preview" body="Preview shows the exact plan, budget and approval step. It makes no model call and costs nothing." />;

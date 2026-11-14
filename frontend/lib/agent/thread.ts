@@ -1,0 +1,196 @@
+import { normalizeAnswer, type AgentAnswer } from './types';
+
+/**
+ * Wire shapes of the server-side agent (threads, messages, tasks, costs) and tolerant normalisers. A missing value stays
+ * unknown (null or empty); a missing amount is never turned into zero. Amounts are decimal strings (yoctoNEAR integers,
+ * USD with up to 6 places).
+ */
+
+export type ConsentKey = 'spend_credits' | 'publish_public' | 'freeze_hypothesis' | 'archive_workspace';
+export type TaskState = 'proposed' | 'running' | 'waiting_user' | 'completed' | 'failed' | 'cancelled';
+export type StepState = 'pending' | 'running' | 'waiting_user' | 'done' | 'failed' | 'skipped';
+export type MessageKind = 'text' | 'answer' | 'plan' | 'result' | 'notice';
+
+export type Thread = { id: string; title: string; workspaceId: string | null; updatedAt: string | null; preview: string; activeTaskId: string | null };
+
+export type ResultItem = { label: string; value: string; href: string | null };
+export type CostEntry = { label: string; unit: 'usd' | 'yoctoNEAR'; amount: string; txHash: string | null };
+
+export type TaskStep = {
+  idx: number;
+  key: string;
+  title: string;
+  detail: string;
+  state: StepState;
+  startedAt: string | null;
+  finishedAt: string | null;
+  progress: string | null;
+  result: { summary: string; items: ResultItem[] } | null;
+  waiting: { kind: string; runId: string; approvalId: string; approvalKind: string; summary: string; costLimit: string | null } | null;
+  cost: { modelUsd: string | null; modelCalls: number | null; creditsYocto: string | null; entries: CostEntry[] };
+  error: { reasonCode: string; message: string; retryable: boolean } | null;
+};
+
+export type ConsentRequirement = { key: ConsentKey; label: string; detail: string; maxYocto: string | null };
+
+export type Task = {
+  id: string;
+  threadId: string;
+  workspaceId: string | null;
+  title: string;
+  state: TaskState;
+  currentStep: number;
+  steps: TaskStep[];
+  consent: { required: ConsentRequirement[]; given: string[] };
+  estimate: { creditsMaxYocto: string | null; modelUsdMax: string | null };
+  cost: { modelUsd: string | null; modelCalls: number | null; creditsChargedYocto: string | null; creditsHeldYocto: string | null };
+  links: { workspaceId: string | null; runId: string | null; capsuleId: string | null; proofId: string | null; publicationId: string | null; reportUrl: string | null };
+  createdAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+};
+
+export type ThreadMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  state: 'pending' | 'ready' | 'failed';
+  createdAt: string | null;
+  kind: MessageKind;
+  text: string | null;
+  answer: AgentAnswer | null;
+  taskId: string | null;
+  /** Result rows of a `result` message; null when the server sent none. */
+  rows: ResultItem[] | null;
+  cost: { modelUsd: string | null; modelCalls: number | null };
+  error: { reasonCode: string; message: string } | null;
+};
+
+export type ThreadDetail = { thread: Thread; messages: ThreadMessage[]; tasks: Task[] };
+
+export type CostRow = { id: string; at: string | null; threadId: string | null; taskId: string | null; stepIdx: number | null; stepKey: string | null; label: string; unit: 'usd' | 'yoctoNEAR'; amount: string | null; txHash: string | null };
+export type Costs = { totals: { modelUsd: string | null; modelCalls: number | null; creditsChargedYocto: string | null }; items: CostRow[] };
+
+type R = Record<string, unknown>;
+const obj = (v: unknown): R => (v && typeof v === 'object' && !Array.isArray(v) ? (v as R) : {});
+const arr = (v: unknown): R[] => (Array.isArray(v) ? v.map(obj) : []);
+const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+const oneOf = <T extends string>(v: unknown, all: readonly T[], d: T): T => (all.find((x) => x === v) ?? d);
+/** An amount: a decimal string (a bare number is accepted and stringified), else unknown. */
+const amount = (v: unknown): string | null => (typeof v === 'string' && /^\d+(\.\d+)?$/.test(v) ? v : typeof v === 'number' && Number.isFinite(v) && v >= 0 ? String(v) : null);
+
+export function normalizeThread(raw: unknown): Thread {
+  const r = obj(raw);
+  return { id: str(r.id) ?? '', title: str(r.title) ?? 'Untitled', workspaceId: str(r.workspaceId), updatedAt: str(r.updatedAt), preview: str(r.preview) ?? '', activeTaskId: str(r.activeTaskId) };
+}
+
+const STEP_STATES = ['pending', 'running', 'waiting_user', 'done', 'failed', 'skipped'] as const;
+const TASK_STATES = ['proposed', 'running', 'waiting_user', 'completed', 'failed', 'cancelled'] as const;
+const CONSENT_KEYS = ['spend_credits', 'publish_public', 'freeze_hypothesis', 'archive_workspace'] as const;
+
+function normalizeItems(v: unknown): ResultItem[] {
+  return arr(v).map((i) => ({ label: str(i.label) ?? '', value: str(i.value) ?? (num(i.value) !== null ? String(i.value) : ''), href: str(i.href) }));
+}
+
+function normalizeStep(raw: unknown, i: number): TaskStep {
+  const r = obj(raw);
+  const res = r.result && typeof r.result === 'object' ? obj(r.result) : null;
+  const w = r.waiting && typeof r.waiting === 'object' ? obj(r.waiting) : null;
+  const c = obj(r.cost);
+  const e = r.error && typeof r.error === 'object' ? obj(r.error) : null;
+  return {
+    idx: num(r.idx) ?? i,
+    key: str(r.key) ?? '',
+    title: str(r.title) ?? str(r.key) ?? `Step ${i + 1}`,
+    detail: str(r.detail) ?? '',
+    state: oneOf(r.state, STEP_STATES, 'pending'),
+    startedAt: str(r.startedAt),
+    finishedAt: str(r.finishedAt),
+    progress: str(r.progress),
+    result: res ? { summary: str(res.summary) ?? '', items: normalizeItems(res.items) } : null,
+    waiting: w ? { kind: str(w.kind) ?? 'approval', runId: str(w.runId) ?? '', approvalId: str(w.approvalId) ?? '', approvalKind: str(w.approvalKind) ?? 'approval', summary: str(w.summary) ?? '', costLimit: str(w.costLimit) } : null,
+    cost: {
+      modelUsd: amount(c.modelUsd),
+      modelCalls: num(c.modelCalls),
+      creditsYocto: amount(c.creditsYocto),
+      entries: arr(c.entries).map((x) => ({ label: str(x.label) ?? '', unit: x.unit === 'yoctoNEAR' ? 'yoctoNEAR' : 'usd', amount: amount(x.amount) ?? '', txHash: str(x.txHash) })),
+    },
+    error: e ? { reasonCode: str(e.reasonCode) ?? 'UNKNOWN', message: str(e.message) ?? 'The step failed.', retryable: e.retryable !== false } : null,
+  };
+}
+
+export function normalizeTask(raw: unknown): Task {
+  const r = obj(raw);
+  const consent = obj(r.consent);
+  const est = obj(r.estimate);
+  const cost = obj(r.cost);
+  const links = obj(r.links);
+  return {
+    id: str(r.id) ?? '',
+    threadId: str(r.threadId) ?? '',
+    workspaceId: str(r.workspaceId),
+    title: str(r.title) ?? 'Task',
+    state: oneOf(r.state, TASK_STATES, 'proposed'),
+    currentStep: num(r.currentStep) ?? 0,
+    steps: (Array.isArray(r.steps) ? r.steps : []).map(normalizeStep),
+    consent: {
+      required: arr(consent.required).flatMap((c) => {
+        const key = CONSENT_KEYS.find((k) => k === c.key);
+        return key ? [{ key, label: str(c.label) ?? key, detail: str(c.detail) ?? '', maxYocto: str(c.maxYocto) }] : [];
+      }),
+      given: (Array.isArray(consent.given) ? consent.given : []).filter((x): x is string => typeof x === 'string'),
+    },
+    estimate: { creditsMaxYocto: str(est.creditsMaxYocto), modelUsdMax: amount(est.modelUsdMax) },
+    cost: { modelUsd: amount(cost.modelUsd), modelCalls: num(cost.modelCalls), creditsChargedYocto: str(cost.creditsChargedYocto), creditsHeldYocto: str(cost.creditsHeldYocto) },
+    links: { workspaceId: str(links.workspaceId), runId: str(links.runId), capsuleId: str(links.capsuleId), proofId: str(links.proofId), publicationId: str(links.publicationId), reportUrl: str(links.reportUrl) },
+    createdAt: str(r.createdAt),
+    startedAt: str(r.startedAt),
+    finishedAt: str(r.finishedAt),
+  };
+}
+
+export function normalizeMessage(raw: unknown): ThreadMessage {
+  const r = obj(raw);
+  const c = obj(r.cost);
+  const e = r.error && typeof r.error === 'object' ? obj(r.error) : null;
+  const kind = oneOf(r.kind, ['text', 'answer', 'plan', 'result', 'notice'] as const, 'text');
+  const rowsRaw = r.rows ?? (r.result && typeof r.result === 'object' ? obj(r.result).items : undefined) ?? r.items;
+  return {
+    id: str(r.id) ?? '',
+    role: r.role === 'user' ? 'user' : 'assistant',
+    state: oneOf(r.state, ['pending', 'ready', 'failed'] as const, 'ready'),
+    createdAt: str(r.createdAt),
+    kind,
+    text: str(r.text),
+    answer: r.answer && typeof r.answer === 'object' ? normalizeAnswer(r.answer) : null,
+    taskId: str(r.taskId),
+    rows: Array.isArray(rowsRaw) ? normalizeItems(rowsRaw) : null,
+    cost: { modelUsd: amount(c.modelUsd), modelCalls: num(c.modelCalls) },
+    error: e ? { reasonCode: str(e.reasonCode) ?? 'UNKNOWN', message: str(e.message) ?? 'The agent could not answer.' } : null,
+  };
+}
+
+export function normalizeThreadDetail(raw: unknown): ThreadDetail {
+  const r = obj(raw);
+  return { thread: normalizeThread(r.thread), messages: arr(r.messages).map(normalizeMessage), tasks: arr(r.tasks).map(normalizeTask) };
+}
+
+export function normalizeCosts(raw: unknown): Costs {
+  const r = obj(raw);
+  const t = obj(r.totals);
+  return {
+    totals: { modelUsd: amount(t.modelUsd), modelCalls: num(t.modelCalls), creditsChargedYocto: str(t.creditsChargedYocto) },
+    items: arr(r.items).map((x, i) => ({
+      id: str(x.id) ?? `c${i}`,
+      at: str(x.at),
+      threadId: str(x.threadId),
+      taskId: str(x.taskId),
+      stepIdx: num(x.stepIdx),
+      stepKey: str(x.stepKey),
+      label: str(x.label) ?? 'cost',
+      unit: x.unit === 'yoctoNEAR' ? 'yoctoNEAR' : 'usd',
+      amount: amount(x.amount) ?? (typeof x.amount === 'string' && /^\d+$/.test(x.amount) ? x.amount : null),
+      txHash: str(x.txHash),
+    })),
+  };
+}

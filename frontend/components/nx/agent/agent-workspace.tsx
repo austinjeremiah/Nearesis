@@ -2,257 +2,267 @@
 
 import './agent.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { PanelRightClose, PanelRightOpen } from 'lucide-react';
-import { Badge } from '@/components/nx/evidence';
-import { Button, Notice, Spinner } from '@/components/nx/ui';
+import { PanelRightClose, PanelRightOpen, Receipt } from 'lucide-react';
+import { Button, Notice, Segmented } from '@/components/nx/ui';
 import { ApiErrorState } from '@/components/nx/states';
+import { Skeleton } from '@/components/nx/ui';
 import { browserApi } from '@/lib/api/browser';
 import { qk } from '@/lib/api/keys';
-import { newKey } from '@/lib/api/transport';
 import { useWorkspaceStream } from '@/lib/sse/hub';
-import { agentApi, isUnavailable } from '@/lib/agent/api';
-import { newPipeline, runPipeline, type PipelineDeps, type PipelineState, type RunSnapshot, type ApprovalSnapshot } from '@/lib/agent/pipeline';
-import { browserStorage, loadContext, loadTurns, saveContext, saveTurns, type AgentContext, type Turn } from '@/lib/agent/storage';
+import { agentApi, agentKeys, isUnavailable } from '@/lib/agent/api';
+import { loadPrefs, savePrefs } from '@/lib/agent/prefs';
 import type { Selection } from '@/lib/agent/selection';
-import { buildHistory } from '@/lib/agent/types';
+import { focusTask, needsPolling, pollDelay, pollReducer, stepLine, taskLive, type PollState } from '@/lib/agent/tasks';
+import type { Thread, ThreadDetail } from '@/lib/agent/thread';
 import { investigateApi } from '@/lib/investigate/api';
-import { MIN_BUDGET } from '@/lib/investigate/budget';
-import { usd } from '@/lib/investigate/format';
-import { AnswerBody, AnswerMeta } from './answer-card';
+import AskComposer from './ask-composer';
 import CanvasZone, { type AnswerGroup } from './canvas-zone';
+import CostsDrawer from './costs-drawer';
+import { MessageView } from './messages';
 import OpsStrip from './ops-strip';
-import { ConsentCard, PipelineCard } from './pipeline-card';
 import RunCard from './run-card';
+import ThreadsRail from './threads-rail';
+import WsManage from './ws-manage';
 
 export const EXAMPLES = [
   'How has NEAR Intents swap volume changed over the last 90 days?',
   'Which chain pairs carry the most NEAR Intents volume, and how concentrated is it?',
-  'How many new versus returning accounts were active on NEAR in the last 30 days?',
-  'Which routes have the highest Intents refund rates?',
-  'Compare daily NEAR transactions with NEAR Intents swaps since August.',
+  'Create a workspace on NEAR Intents refunds, investigate it and build a PDF report.',
+  'List my workspaces and their pending approvals.',
 ];
 
-const realDeps: PipelineDeps = {
-  createWorkspace: async (objective, key) => {
-    const r = await browserApi.createWorkspace({ objective: objective.slice(0, 2000), networkScope: 'near-mainnet-read', idempotencyKey: key }, { idempotencyKey: key });
-    return { workspaceId: r.workspaceId };
-  },
-  ask: (wid, question, key) => investigateApi.ask(wid, { question: question.slice(0, 4000), snapshotPolicy: 'live', source: 'live', budget: MIN_BUDGET }, key),
-  getRun: async (runId) => (await investigateApi.run(runId)) as unknown as RunSnapshot,
-  getApprovals: async (runId) => (await investigateApi.approvals(runId)) as unknown as ApprovalSnapshot,
-  decide: (runId, approvalId, actionHash) => investigateApi.decide(runId, approvalId, 'approve', actionHash),
-  setup: (wid, runId, key) => agentApi.setup(wid, runId, key),
-  sleep: (ms, signal) =>
-    new Promise((resolve) => {
-      const t = setTimeout(resolve, ms);
-      signal?.addEventListener('abort', () => (clearTimeout(t), resolve()), { once: true });
-    }),
-  now: () => Date.now(),
-};
-
-function Elapsed({ since }: { since: number }) {
-  const [now, setNow] = useState(since);
-  useEffect(() => {
-    setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [since]);
-  return <span className="mono">{Math.max(0, Math.floor((now - since) / 1000))} s</span>;
-}
-
-type Pending = { question: string; startedAt: number };
-type Failure = { question: string; error: unknown };
-/** What is waiting for the user's confirmation: a new pipeline, or an investigation in an existing workspace. */
-type Consent = { kind: 'pipeline'; objective: string } | { kind: 'ask'; wid: string; name: string; question: string };
+type LocalRun = { wid: string; runId: string; question: string };
 
 /**
- * The agentic workspace: the canvas of charts in the middle, the agent chat on the right. State lives here, above both
- * zones, so a running pipeline keeps going while the chat is collapsed or the narrow-screen switch shows the charts.
+ * The agentic workspace: threads and the workspace switcher on the left, the canvas of charts in the middle, the agent
+ * chat on the right. Conversations and tasks live on the server; the page only polls the open thread.
  */
 export default function AgentWorkspace({ initialQuestion }: { initialQuestion: string | null }) {
   const router = useRouter();
   const qc = useQueryClient();
-  const [turns, setTurns] = useState<Turn[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [ctx, setCtx] = useState<AgentContext>('quick');
+  const [ready, setReady] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [wid, setWid] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
-  const [pending, setPending] = useState<Pending | null>(null);
-  const [failure, setFailure] = useState<Failure | null>(null);
-  const [consent, setConsent] = useState<Consent | null>(null);
-  const [startErr, setStartErr] = useState<unknown>(null);
-  const [starting, setStarting] = useState(false);
+  const [mode, setMode] = useState<'chat' | 'ask'>('chat');
   const [sel, setSel] = useState<Selection>(null);
-  const [pane, setPane] = useState<'charts' | 'chat'>('chat');
+  const [pane, setPane] = useState<'rail' | 'charts' | 'chat'>('chat');
   const [chatOpen, setChatOpen] = useState(true);
-  const turnsRef = useRef<Turn[]>([]);
-  const running = useRef(new Map<string, AbortController>());
-  const askAbort = useRef<AbortController | null>(null);
+  const [costsOpen, setCostsOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [localRuns, setLocalRuns] = useState<LocalRun[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
   const consumed = useRef<string | null>(null);
+  const poll = useRef<PollState>({ failures: 0, lastOkAt: null });
 
   useEffect(() => {
-    const t = loadTurns(browserStorage());
-    turnsRef.current = t;
-    setTurns(t);
-    setCtx(loadContext(browserStorage()));
-    setLoaded(true);
-    const live = running.current;
-    return () => {
-      for (const c of live.values()) c.abort();
-      askAbort.current?.abort();
-    };
+    const p = loadPrefs();
+    setThreadId(p.threadId);
+    setWid(p.workspaceId);
+    setReady(true);
   }, []);
   useEffect(() => {
-    turnsRef.current = turns;
-    if (loaded) saveTurns(browserStorage(), turns);
-  }, [turns, loaded]);
+    if (ready) savePrefs({ threadId, workspaceId: wid });
+  }, [ready, threadId, wid]);
+
+  /* ----------------------------------------------------------------------------- the open thread, polled */
+  const detail = useQuery({
+    queryKey: agentKeys.thread(threadId ?? ''),
+    enabled: !!threadId,
+    queryFn: async ({ signal }): Promise<ThreadDetail> => {
+      try {
+        const d = await agentApi.thread(threadId!, signal);
+        poll.current = pollReducer(poll.current, { type: 'ok', at: Date.now() });
+        return d;
+      } catch (e) {
+        poll.current = pollReducer(poll.current, { type: 'error' });
+        throw e;
+      }
+    },
+    retry: false,
+    refetchInterval: (q) => pollDelay(q.state.data, poll.current.failures),
+  });
+  const d = detail.data;
+  const polling = needsPolling(d);
+  const failures = detail.isError && !!d ? poll.current.failures : 0;
+  // A thread that is gone (deleted elsewhere, or not this user's) is forgotten rather than shown as an error.
   useEffect(() => {
-    if (loaded) saveContext(browserStorage(), ctx);
-  }, [ctx, loaded]);
+    if (detail.isError && !d && isUnavailable(detail.error)) setThreadId(null);
+  }, [detail.isError, detail.error, d]);
+  // The list shows the newest preview and the active-task dot: refresh it when polling stops.
+  const wasPolling = useRef(false);
+  useEffect(() => {
+    if (wasPolling.current && !polling) void qc.invalidateQueries({ queryKey: agentKeys.threads });
+    wasPolling.current = polling;
+  }, [polling, qc]);
+
+  const tasks = useMemo(() => d?.tasks ?? [], [d]);
+  const task = useMemo(() => focusTask(tasks), [tasks]);
+  const liveTask = task && taskLive(task) ? task : null;
+
+  // A thread remembers its workspace; opening it selects that workspace.
+  const threadWs = d?.thread.workspaceId ?? null;
+  const seenThread = useRef<string | null>(null);
+  useEffect(() => {
+    if (threadId && d && seenThread.current !== threadId) {
+      seenThread.current = threadId;
+      if (threadWs) setWid(threadWs);
+    }
+  }, [threadId, d, threadWs]);
+  // A task that creates or binds a workspace moves the canvas to it.
+  const taskWs = task?.links.workspaceId ?? null;
+  const seenTaskWs = useRef<string | null>(null);
+  useEffect(() => {
+    if (taskWs && seenTaskWs.current !== `${task?.id}:${taskWs}`) {
+      seenTaskWs.current = `${task?.id}:${taskWs}`;
+      setWid(taskWs);
+      void qc.invalidateQueries({ queryKey: qk.workspaces });
+    }
+  }, [taskWs, task?.id, qc]);
 
   const workspaces = useQuery({ queryKey: qk.workspaces, queryFn: () => browserApi.workspaces() });
   const wsList = workspaces.data?.workspaces ?? [];
-  // A stored workspace that no longer exists falls back to quick answers rather than pointing at nothing.
-  const ctxWs = wsList.find((w) => w.id === ctx) ?? null;
+  const wsObjective = wsList.find((w) => w.id === wid)?.objective ?? null;
   useEffect(() => {
-    if (workspaces.isSuccess && ctx !== 'quick' && ctx !== 'new' && !ctxWs) setCtx('quick');
-  }, [workspaces.isSuccess, ctx, ctxWs]);
+    if (workspaces.isSuccess && wid && !wsList.some((w) => w.id === wid)) setWid(null);
+  }, [workspaces.isSuccess, wid, wsList]);
+  useWorkspaceStream(wid);
 
-  const anyRunning = turns.some((t) => t.kind === 'pipeline' && t.pipeline.phase === 'running');
-
-  // The workspace shown in the canvas: the selected one, else the one the newest run or pipeline works in.
-  const lastWs = [...turns].reverse().map((t) => (t.kind === 'pipeline' ? t.pipeline.workspaceId : t.kind === 'run' ? t.workspaceId : null)).find(Boolean) ?? null;
-  const canvasWid = ctxWs?.id ?? lastWs;
-  const canvasObjective = wsList.find((w) => w.id === canvasWid)?.objective ?? (turns.find((t) => t.kind === 'pipeline' && t.pipeline.workspaceId === canvasWid) as Extract<Turn, { kind: 'pipeline' }> | undefined)?.pipeline.objective;
-  const runIds = useMemo(
-    () =>
-      turns.flatMap((t) => {
-        if (t.kind === 'run' && t.workspaceId === canvasWid) return [t.runId];
-        if (t.kind === 'pipeline' && t.pipeline.workspaceId === canvasWid && t.pipeline.runId) return [t.pipeline.runId];
-        return [];
-      }),
-    [turns, canvasWid],
-  );
-  const groups: AnswerGroup[] = useMemo(() => turns.flatMap((t) => (t.kind === 'answer' ? [{ turnId: t.id, question: t.question, answer: t.answer }] : [])), [turns]);
-  // One live stream for the workspace the canvas shows, so run, task and panel events refresh the cards.
-  useWorkspaceStream(canvasWid);
-
-  const startPipeline = useCallback(
-    (p: PipelineState) => {
-      if (running.current.has(p.id)) return;
-      const ctl = new AbortController();
-      running.current.set(p.id, ctl);
-      const onState = (s: PipelineState) => setTurns((ts) => ts.map((t) => (t.kind === 'pipeline' && t.pipeline.id === s.id ? { ...t, pipeline: s } : t)));
-      void runPipeline(p, realDeps, onState, ctl.signal).then((final) => {
-        running.current.delete(p.id);
-        if (final.workspaceId) void qc.invalidateQueries({ queryKey: qk.workspaces });
-        if (final.workspaceId) void qc.invalidateQueries({ queryKey: ['ws', final.workspaceId] });
-      });
-    },
-    [qc],
-  );
-
-  const createPipeline = (objective: string) => {
-    const p = newPipeline(objective.trim(), newKey, Date.now());
-    setTurns((ts) => [...ts, { id: p.id, kind: 'pipeline', pipeline: p, at: Date.now() }]);
-    setConsent(null);
-    startPipeline(p);
-  };
-  const resume = (id: string) => {
-    const t = turnsRef.current.find((x) => x.kind === 'pipeline' && x.pipeline.id === id);
-    if (t && t.kind === 'pipeline') startPipeline(t.pipeline);
-  };
-
-  const startRunInWorkspace = async (c: Extract<Consent, { kind: 'ask' }>) => {
-    setStarting(true);
-    setStartErr(null);
-    try {
-      const r = await investigateApi.ask(c.wid, { question: c.question.slice(0, 4000), snapshotPolicy: 'live', source: 'live', budget: MIN_BUDGET }, newKey());
-      setTurns((ts) => [...ts, { id: newKey(), kind: 'run', workspaceId: c.wid, runId: r.runId, question: c.question, at: Date.now() }]);
-      setConsent(null);
-      void qc.invalidateQueries({ queryKey: qk.runs(c.wid) });
-    } catch (e) {
-      setStartErr(e);
-    } finally {
-      setStarting(false);
+  /* ----------------------------------------------------------------------------- canvas inputs */
+  const runsQ = useQuery({
+    queryKey: wid ? qk.runs(wid) : ['agent', 'noruns'],
+    queryFn: () => investigateApi.runs(wid!),
+    enabled: !!wid,
+    refetchInterval: liveTask ? 8000 : false,
+    retry: false,
+  });
+  const latestRun = [...(runsQ.data?.runs ?? [])].sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0]?.runId ?? null;
+  const runIds = useMemo(() => {
+    const ids = localRuns.filter((r) => r.wid === wid).map((r) => r.runId);
+    if (latestRun) ids.push(latestRun);
+    return [...new Set(ids)];
+  }, [localRuns, wid, latestRun]);
+  const groups: AnswerGroup[] = useMemo(() => {
+    const out: AnswerGroup[] = [];
+    let q = '';
+    for (const m of d?.messages ?? []) {
+      if (m.role === 'user') q = m.text ?? '';
+      else if (m.kind === 'answer' && m.answer && m.state === 'ready') out.push({ turnId: m.id, question: q, answer: m.answer });
     }
-  };
+    return out;
+  }, [d]);
 
-  const ask = useCallback(
-    async (text: string) => {
-      const question = text.trim().slice(0, 2000);
-      if (!question || pending) return;
-      const history = buildHistory(turnsRef.current);
-      setTurns((ts) => [...ts, { id: newKey(), kind: 'user', text: question, at: Date.now() }]);
-      setFailure(null);
-      setDraft('');
-      setPending({ question, startedAt: Date.now() });
-      const ctl = new AbortController();
-      askAbort.current = ctl;
-      try {
-        const answer = await agentApi.answer(question, history, ctl.signal);
-        setTurns((ts) => [...ts, { id: newKey(), kind: 'answer', question, answer, at: Date.now() }]);
-      } catch (e) {
-        if (!(e instanceof DOMException && e.name === 'AbortError')) setFailure({ question, error: e });
-      } finally {
-        setPending(null);
+  /* ----------------------------------------------------------------------------- actions */
+  const send = useMutation({
+    mutationFn: async (text: string) => {
+      let id = threadId;
+      let created: Thread | null = null;
+      if (!id) {
+        created = await agentApi.createThread({ workspaceId: wid });
+        id = created.id;
       }
+      const r = await agentApi.send(id, { text, workspaceId: wid });
+      return { id, created, ...r };
     },
-    [pending],
+    onSuccess: ({ id, created, userMessage, reply }) => {
+      qc.setQueryData<ThreadDetail>(agentKeys.thread(id), (old) => ({
+        thread: old?.thread ?? created ?? { id, title: 'New conversation', workspaceId: wid, updatedAt: null, preview: '', activeTaskId: null },
+        messages: [...(old?.messages ?? []), userMessage, reply],
+        tasks: old?.tasks ?? [],
+      }));
+      poll.current = { failures: 0, lastOkAt: poll.current.lastOkAt };
+      setThreadId(id);
+      setDraft('');
+      void qc.invalidateQueries({ queryKey: agentKeys.threads });
+      // A first poll right away, then the interval takes over.
+      setTimeout(() => void qc.invalidateQueries({ queryKey: agentKeys.thread(id) }), 600);
+    },
+  });
+  const newThread = useMutation({
+    mutationFn: () => agentApi.createThread({ workspaceId: wid }),
+    onSuccess: (t) => {
+      setThreadId(t.id);
+      setSel(null);
+      setPane('chat');
+      void qc.invalidateQueries({ queryKey: agentKeys.threads });
+    },
+  });
+  const selectWorkspace = useCallback(
+    (id: string | null) => {
+      setWid(id);
+      setSel(null);
+      if (!id) setMode('chat');
+      if (threadId) void agentApi.patchThread(threadId, { workspaceId: id }).then(() => qc.invalidateQueries({ queryKey: agentKeys.threads })).catch(() => undefined);
+    },
+    [threadId, qc],
   );
-
-  // What "Ask" does depends on the context: a quick answer, or (after confirmation) an investigation or a new workspace.
-  const submit = (text: string) => {
-    const t = text.trim();
-    if (!t) return;
-    if (ctx === 'quick') return void ask(t);
-    setStartErr(null);
-    if (ctx === 'new') return setConsent({ kind: 'pipeline', objective: t });
-    setConsent({ kind: 'ask', wid: ctx, name: ctxWs?.objective ?? ctx, question: t });
+  const openThread = (id: string) => {
+    setThreadId(id);
+    setSel(null);
+    setLocalRuns([]);
+    setPane('chat');
   };
+  const showRun = useCallback((workspaceId: string, runId: string, question: string) => {
+    setLocalRuns((rs) => (rs.some((r) => r.runId === runId) ? rs : [...rs, { wid: workspaceId, runId, question }]));
+    setMode('chat');
+    setPane('chat');
+  }, []);
 
-  // The hero box on Home sends `q`: answer it once, then drop it from the URL so a reload does not ask again.
+  // The hero box on Home sends `q`: open a fresh thread and put the question in the composer, then drop it from the URL.
   useEffect(() => {
-    if (!loaded || !initialQuestion || consumed.current === initialQuestion) return;
+    if (!ready || !initialQuestion || consumed.current === initialQuestion) return;
     consumed.current = initialQuestion;
     router.replace('/agent', { scroll: false });
-    void ask(initialQuestion);
-  }, [loaded, initialQuestion, ask, router]);
+    setDraft(initialQuestion);
+    setMode('chat');
+    newThread.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, initialQuestion, router]);
 
+  const stepKey = liveTask ? `${liveTask.id}:${liveTask.steps.find((s) => s.state === 'running' || s.state === 'waiting_user')?.idx}` : '';
   useEffect(() => {
-    endRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
-  }, [turns.length, pending, failure, consent]);
-  // Selecting something in the chat brings its chart into view in the canvas.
+    endRef.current?.scrollIntoView?.({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [d?.messages.length, localRuns.length, stepKey]);
   useEffect(() => {
     const k = sel?.type === 'chart' ? sel.id : sel?.type === 'finding' ? sel.charts[0] : null;
     if (k) document.getElementById(`chart-${k}`)?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
   }, [sel]);
 
-  const clear = () => {
-    for (const c of running.current.values()) c.abort();
-    running.current.clear();
-    setTurns([]);
-    setFailure(null);
-    setConsent(null);
-    setSel(null);
+  const submit = (text: string) => {
+    const t = text.trim().slice(0, 2000);
+    if (t && !send.isPending) send.mutate(t);
   };
-
-  const lastAnswer = turns.some((t) => t.kind === 'answer');
   const hasText = draft.trim().length > 0;
+  const line = liveTask ? stepLine(liveTask) : null;
+  const empty = !!d && d.messages.length === 0 && localRuns.length === 0;
 
   return (
     <div className="ag-page" data-testid="agent-page" data-chat={chatOpen ? 'open' : 'closed'} data-pane={pane}>
       <div className="ag-switch" role="tablist" aria-label="Agent view">
+        <button type="button" role="tab" aria-selected={pane === 'rail'} onClick={() => setPane('rail')}>Threads</button>
         <button type="button" role="tab" aria-selected={pane === 'charts'} onClick={() => setPane('charts')}>Charts</button>
         <button type="button" role="tab" aria-selected={pane === 'chat'} onClick={() => setPane('chat')}>Chat</button>
+      </div>
+
+      <div className="ag-zone ag-zone-rail">
+        <ThreadsRail
+          threadId={threadId}
+          onSelectThread={openThread}
+          onNewThread={() => newThread.mutate()}
+          onThreadDeleted={(id) => id === threadId && (setThreadId(null), setLocalRuns([]))}
+          creatingThread={newThread.isPending}
+          wid={wid}
+          onSelectWorkspace={selectWorkspace}
+          onManage={() => setManageOpen(true)}
+        />
       </div>
 
       <div className="ag-zone ag-zone-canvas">
         <div className="ag-zone-head">
           <h1 className="ag-title">Agent</h1>
-          <span className="small dim grow">Charts from every answer and investigation</span>
+          <span className="small dim grow">Charts from the selected workspace and every answer</span>
           {!chatOpen && (
             <button type="button" className="btn" onClick={() => setChatOpen(true)} data-testid="agent-chat-open" style={{ padding: '0 var(--s3)', border: '1px solid var(--line-hard)' }}>
               <PanelRightOpen size={14} /> Open chat
@@ -260,192 +270,109 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
           )}
         </div>
         <div className="ag-zone-scroll">
-          <CanvasZone groups={groups} wid={canvasWid} objective={canvasObjective} runIds={runIds} sel={sel} onSelect={setSel} />
+          <CanvasZone groups={groups} wid={wid} objective={wsObjective ?? undefined} runIds={runIds} sel={sel} onSelect={setSel} />
         </div>
       </div>
 
       <aside className="ag-zone ag-zone-chat" aria-label="Agent chat" data-testid="agent-chat">
         <div className="ag-zone-head">
-          <h2 className="ag-title">Agent chat</h2>
+          <h2 className="ag-title">{d?.thread.title && threadId ? d.thread.title : 'Agent chat'}</h2>
           <span className="grow" />
-          {turns.length > 0 && (
-            <Button variant="ghost" onClick={clear} data-testid="agent-clear">
-              Clear
-            </Button>
-          )}
+          <Button variant="ghost" onClick={() => setCostsOpen(true)} data-testid="agent-costs-open"><Receipt size={14} /> Costs</Button>
           <button type="button" className="ag-iconbtn" onClick={() => setChatOpen(false)} aria-label="Collapse the chat" title="Collapse the chat">
             <PanelRightClose size={16} />
           </button>
         </div>
-        <OpsStrip />
-        <div className="ag-ctx">
-          <label htmlFor="agent-ctx" className="label">Context</label>
-          <select id="agent-ctx" value={ctx === 'quick' || ctx === 'new' || ctxWs ? ctx : 'quick'} onChange={(e) => (setCtx(e.target.value), setConsent(null))} data-testid="agent-context">
-            <option value="quick">Quick answers (no workspace)</option>
-            <option value="new">New workspace</option>
-            {wsList.length > 0 && (
-              <optgroup label="Existing workspaces">
-                {wsList.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.objective.length > 70 ? `${w.objective.slice(0, 70)}…` : w.objective}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-        </div>
+        <OpsStrip taskLine={line} taskWaiting={liveTask?.state === 'waiting_user'} />
 
-        <div className="ag-log" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation with the agent" data-testid="agent-log">
-          {loaded && turns.length === 0 && !pending && !failure && !consent && (
+        <div className="ag-log" role="log" aria-live="off" aria-label="Conversation with the agent" data-testid="agent-log">
+          {threadId && detail.isPending && <Skeleton rows={4} />}
+          {detail.isError && !d && (isUnavailable(detail.error) ? null : <ApiErrorState error={detail.error} onRetry={() => detail.refetch()} />)}
+          {failures > 0 && (
+            <Notice tone="warn" title="Live updates are delayed">
+              The last refresh failed; retrying with back-off. The task keeps running on the server.
+            </Notice>
+          )}
+          {(!threadId || empty) && (
             <div className="ag-empty" data-testid="agent-empty">
-              <h3>What do you want to know about NEAR?</h3>
+              <h3>What do you want to do on NEAR?</h3>
               <p className="small dim" style={{ margin: 0 }}>
-                Quick answers read certified data and draw the charts in the canvas. Nothing is created unless you choose a workspace or &quot;Create workspace&quot; and confirm.
+                Ask for a quick grounded answer, or ask the agent to do the work: it proposes a plan with its cost, you tick what it may spend or publish, then you watch every step. Nothing runs until you press Start.
               </p>
-              <div className="ag-chips" aria-label="Example questions">
+              <div className="ag-chips" aria-label="Examples">
                 {EXAMPLES.map((e) => (
-                  <button key={e} type="button" className="ag-chip" onClick={() => void ask(e)} data-testid="agent-example">
+                  <button key={e} type="button" className="ag-chip" onClick={() => submit(e)} data-testid="agent-example">
                     {e}
                   </button>
                 ))}
               </div>
             </div>
           )}
-
-          {turns.map((t) => {
-            if (t.kind === 'user')
-              return (
-                <div key={t.id} className="ag-user" data-testid="agent-user-turn">
-                  <span className="ag-user-k">You</span>
-                  {t.text}
-                </div>
-              );
-            if (t.kind === 'run')
-              return (
-                <div key={t.id} className="col gap2">
-                  <div className="ag-user" data-testid="agent-user-turn">
-                    <span className="ag-user-k">You, in a workspace</span>
-                    {t.question}
-                  </div>
-                  <RunCard wid={t.workspaceId} runId={t.runId} sel={sel} onSelect={setSel} />
-                </div>
-              );
-            if (t.kind === 'pipeline')
-              return (
-                <div key={t.id} className="col gap2">
-                  <PipelineCard p={t.pipeline} onResume={() => resume(t.pipeline.id)} onRetry={() => resume(t.pipeline.id)} />
-                  {t.pipeline.workspaceId && t.pipeline.runId && <RunCard wid={t.pipeline.workspaceId} runId={t.pipeline.runId} sel={sel} onSelect={setSel} />}
-                </div>
-              );
-            const a = t.answer;
-            return (
-              <article key={t.id} className="ag-card" data-testid="agent-answer" data-status={a.status} aria-label="Answer">
-                <header>
-                  <div className="row gap2 wrap">
-                    <span className="strong">Agent</span>
-                    <Badge tone={a.status === 'ok' ? 'ok' : a.status === 'partial' ? 'warn' : ''}>{a.status.replace('_', ' ')}</Badge>
-                  </div>
-                </header>
-                <AnswerBody a={a} turnId={t.id} sel={sel} onSelect={setSel} />
-                <footer className="ag-foot">
-                  <AnswerMeta a={a} />
-                  <span className="grow" />
-                  <Button onClick={() => setConsent({ kind: 'pipeline', objective: a.suggestedWorkspaceObjective || t.question })} disabled={anyRunning} disabledReason="A workspace pipeline is still running." data-testid="agent-to-workspace">
-                    Turn this into a workspace
-                  </Button>
-                </footer>
-              </article>
-            );
-          })}
-
-          {pending && (
-            <div className="ag-wait" data-testid="agent-pending" role="status">
-              <Spinner size={14} />
-              <span className="small">
-                Reading the data and writing the answer… <Elapsed since={pending.startedAt} /> elapsed. Answers can take 30 to 40 s.
-              </span>
+          {d?.messages.map((m) => (
+            <MessageView key={m.id} m={m} tasks={tasks} sel={sel} onSelect={setSel} />
+          ))}
+          {localRuns.map((r) => (
+            <div key={r.runId} className="col gap2">
+              <div className="ag-user" data-testid="agent-user-turn">
+                <span className="ag-user-k">You, in a workspace</span>
+                {r.question}
+              </div>
+              <RunCard wid={r.wid} runId={r.runId} sel={sel} onSelect={setSel} />
             </div>
-          )}
-
-          {failure &&
-            (isUnavailable(failure.error) ? (
-              <Notice tone="warn" title="Quick answers are not available on this API yet">
-                The server replied that POST /v1/assistant/answer does not exist ({failure.error instanceof Error ? failure.error.message : 'not found'}). Nothing was asked and nothing was charged.
-              </Notice>
-            ) : (
-              <div data-testid="agent-error">
-                <ApiErrorState error={failure.error} onRetry={() => void ask(failure.question)} />
-              </div>
-            ))}
-
-          {consent?.kind === 'pipeline' && (
-            <ConsentCard objective={consent.objective} onChange={(v) => setConsent({ kind: 'pipeline', objective: v })} onConfirm={() => createPipeline(consent.objective)} onCancel={() => setConsent(null)} busy={anyRunning} />
-          )}
-          {consent?.kind === 'ask' && (
-            <section className="ag-consent" aria-labelledby="ag-ask-h" data-testid="agent-ask-consent">
-              <h3 id="ag-ask-h" className="h3" style={{ margin: 0 }}>Start an investigation in this workspace</h3>
-              <p className="small" style={{ margin: 0, overflowWrap: 'anywhere' }}>
-                <span className="label">Workspace </span>{consent.name}
-              </p>
-              <label className="col gap1">
-                <span className="label">Question (editable)</span>
-                <textarea rows={3} maxLength={2000} value={consent.question} onChange={(e) => setConsent({ ...consent, question: e.target.value })} />
-              </label>
-              <p className="small" style={{ margin: 0 }}>
-                It runs on live data and reserves up to {usd(MIN_BUDGET.usd)}, {MIN_BUDGET.tokens.toLocaleString('en-US')} tokens and {MIN_BUDGET.toolCalls} tool calls; you are charged for what it uses. It asks for your approval before any change to the canvas.
-              </p>
-              {startErr != null && <ApiErrorState error={startErr} />}
-              <div className="row gap2 wrap">
-                <Button variant="primary" pending={starting} disabled={!consent.question.trim()} disabledReason="Write a question first." onClick={() => void startRunInWorkspace(consent)} data-testid="agent-ask-confirm">
-                  Start investigation
-                </Button>
-                <Button variant="ghost" onClick={() => setConsent(null)}>Cancel</Button>
-              </div>
-            </section>
-          )}
+          ))}
           <div ref={endRef} />
         </div>
 
         <div className="ag-composer-wrap">
-          <form
-            className="ag-composer"
-            onSubmit={(e) => {
-              e.preventDefault();
-              submit(draft);
-            }}
-          >
-            <label htmlFor="agent-q" className="sr-only">
-              Message the agent
-            </label>
-            <textarea
-              id="agent-q"
-              data-testid="agent-composer"
-              rows={2}
-              maxLength={2000}
-              placeholder={lastAnswer ? 'Ask a follow-up, or describe a workspace to create…' : 'Ask anything about NEAR…'}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  submit(draft);
-                }
-              }}
-            />
-            <div className="ag-composer-actions">
-              <Button type="submit" variant="primary" pending={!!pending} disabled={!hasText} disabledReason="Type a question first." data-testid="agent-ask">
-                Ask
-              </Button>
-              <Button type="button" onClick={() => setConsent({ kind: 'pipeline', objective: draft.trim() })} disabled={!hasText} disabledReason="Type what to research first." data-testid="agent-create">
-                Create workspace
-              </Button>
-              <span className="ag-composer-hint">
-                {ctx === 'quick' ? 'Enter to ask, Shift+Enter for a new line.' : ctx === 'new' ? 'Ask opens the confirmation for a new workspace.' : 'Ask starts an investigation in the selected workspace after you confirm.'}
-              </span>
+          {wid && (
+            <div className="ag-modebar">
+              <Segmented ariaLabel="Composer mode" value={mode} onChange={setMode} options={[{ value: 'chat', label: 'Ask the agent' }, { value: 'ask', label: 'Ask in this workspace' }]} />
             </div>
-          </form>
+          )}
+          {mode === 'ask' && wid ? (
+            <div className="ag-askwrap">
+              <AskComposer key={wid} wid={wid} initialQuestion={draft} onStarted={(runId, q) => showRun(wid, runId, q)} />
+            </div>
+          ) : (
+            <form
+              className="ag-composer"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submit(draft);
+              }}
+            >
+              {send.isError && <ApiErrorState error={send.error} onRetry={() => submit(draft)} />}
+              <label htmlFor="agent-q" className="sr-only">Message the agent</label>
+              <textarea
+                id="agent-q"
+                data-testid="agent-composer"
+                rows={2}
+                maxLength={2000}
+                placeholder={wid ? 'Ask, or tell the agent what to do in this workspace…' : 'Ask anything about NEAR, or tell the agent what to do…'}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    submit(draft);
+                  }
+                }}
+              />
+              <div className="ag-composer-actions">
+                <Button type="submit" variant="primary" pending={send.isPending} disabled={!hasText} disabledReason="Type a message first." data-testid="agent-ask">
+                  Send
+                </Button>
+                <span className="ag-composer-hint">
+                  {wid ? 'Messages use the selected workspace. ' : 'No workspace selected: quick answers only, or ask for one to be created. '}Enter to send, Shift+Enter for a new line.
+                </span>
+              </div>
+            </form>
+          )}
         </div>
       </aside>
+
+      <CostsDrawer open={costsOpen} onOpenChange={setCostsOpen} threadId={threadId} />
+      {wid && <WsManage open={manageOpen} onOpenChange={setManageOpen} wid={wid} objective={wsObjective} onShowRun={(runId, q) => showRun(wid, runId, q)} />}
     </div>
   );
 }

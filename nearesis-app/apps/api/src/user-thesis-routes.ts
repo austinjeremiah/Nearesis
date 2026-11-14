@@ -272,11 +272,16 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
   async function pickRun(s: Session, workspaceId: string, runId: string | undefined): Promise<string> {
     if (runId) return runId;
     const list = await runs.listRuns(s, workspaceId);
+    // newest COMPLETE run with grounded findings; failing that, the newest COMPLETE run whose interpretation finished
+    // without one (the thesis test runs on the frozen series either way, and the document then records no finding)
+    let fallback: string | null = null;
     for (const r of list.runs) {
       if (r.state !== "COMPLETE") continue;
       const d = await runs.getRun(s, r.runId).catch(() => null);
       if (d && d.interpretation.state === "ready" && d.findings.length) return r.runId;
+      if (d && !fallback && (d.interpretation.state as string) === "unavailable") fallback = r.runId;
     }
+    if (fallback) return fallback;
     throw new KernelError(
       "VALIDATION_FAILED",
       "NO_COMPLETE_RUN",

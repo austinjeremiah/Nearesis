@@ -331,11 +331,14 @@ export async function createWorkspaceCapsule(
     throw new KernelError("NOT_FOUND", "RUN_NOT_IN_WORKSPACE", "No such run in this workspace.");
   if (run.state !== "COMPLETE")
     throw new KernelError("VALIDATION_FAILED", "RUN_NOT_COMPLETE", `The run is ${run.state}, not COMPLETE.`);
-  if (run.interpretation.state !== "ready" || !run.findings.length)
+  // A capsule rests on the run's frozen panel results (two aligned daily series), not on the model's reading: a run whose
+  // interpretation finished without a grounded finding still has its data, and the capsule then simply restates no finding.
+  const interp = run.interpretation.state as string;
+  if (!(interp === "ready" && run.findings.length) && interp !== "unavailable")
     throw new KernelError(
       "VALIDATION_FAILED",
       "INTERPRETATION_NOT_READY",
-      "The run has no ready interpretation to build a capsule from.",
+      "The run has no finished interpretation to build a capsule from.",
     );
 
   const capsuleId = workspaceRunCapsuleId(workspaceId, runId, test);

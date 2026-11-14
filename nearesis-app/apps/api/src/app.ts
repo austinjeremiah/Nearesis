@@ -25,6 +25,7 @@ import { metricRegistryRoutes } from "./metric-registry-routes.ts";
 import { accountRoutes } from "./account-routes.ts";
 import { analyticsPanelRoutes } from "./analytics-panel-routes.ts";
 import { assistantRoutes } from "./assistant-routes.ts";
+import { agentRoutes } from "./agent-routes.ts";
 import { CollabTicketStore } from "./collab-ticket.ts";
 import { frontendRoutes } from "./frontend-routes.ts";
 import { globalRoutes } from "./global-routes.ts";
@@ -76,6 +77,8 @@ export interface AppOptions {
   publishAnchorChain?: (manifestHash: string) => Promise<import("@nearesis/capsule").ChainCommitPayload>;
   /** Test seams for the Agent tab routes (analytics sources, model, spend files, rate limit). */
   assistant?: Partial<import("./assistant-routes.ts").AssistantRoutesOptions>;
+  /** Test seams for the Agent v2 routes (planner model, in-process api, executor timings). */
+  agent?: Partial<import("./agent-routes.ts").AgentRoutesOptions>;
   /** Test seams for credits and the paid OutLayer proof routes (tx lookup, chain client, prover, spend file). */
   credits?: Partial<import("./credits-routes.ts").CreditsRoutesOptions>;
   /** Starts/signals investigation workflows (production: `temporalEngine()`). Without one, question/cancel/approval writes are 503. */
@@ -635,6 +638,13 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     ...(opts.frontend?.oidc !== undefined ? { client: opts.frontend.oidc } : {}),
   });
 
+  await app.register(agentRoutes, {
+    kernel,
+    authenticate,
+    ...(opts.assistant?.inference ? { inference: opts.assistant.inference } : {}),
+    ...(opts.externalModelSpend ? { externalModelSpend: opts.externalModelSpend } : {}),
+    ...(opts.agent ?? {}),
+  });
   await app.register(nearAuthRoutes, { kernel, authenticate, ...(opts.nearAuth ?? {}) });
   await app.register(reportRoutes, { kernel });
 

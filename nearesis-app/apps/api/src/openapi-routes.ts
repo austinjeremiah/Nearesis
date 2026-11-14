@@ -1,5 +1,6 @@
 import { PRODUCT_ROUTES } from "./product-openapi.ts";
 import { CREDITS_ROUTES } from "./credits-openapi.ts";
+import { AGENT_ROUTES } from "./agent-openapi.ts";
 import { REPORT_ROUTES } from "./report-openapi.ts";
 import { AnswerRequest, AnswerResponse, SetupRequest, SetupResponse } from "./assistant-routes.ts";
 import { RangeQ as AccountRangeQ, HfQ as AccountHfQ, GrowthQ as AccountGrowthQ } from "./account-routes.ts";
@@ -317,6 +318,7 @@ const metricRoutes = (): RouteSpec[] =>
 export const ROUTES: RouteSpec[] = [
   ...PRODUCT_ROUTES,
   ...CREDITS_ROUTES,
+  ...AGENT_ROUTES,
   ...REPORT_ROUTES,
   // ---- platform ----------------------------------------------------------------------------------------------------
   R("get", "/health", "platform", "Liveness", { auth: "none", ok: typed(StatusOk) }),

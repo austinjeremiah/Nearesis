@@ -19,3 +19,22 @@ export function savePrefs(p: AgentPrefs): void {
     /* private mode or blocked storage: the preference is simply not remembered */
   }
 }
+
+/** Which view the middle area shows. Remembered per viewer; a blocked store just means the default every time. */
+const VIEW_KEY = 'nearesis.agent.view.v1';
+export type MiddleViewPref = 'storyboard' | 'charts';
+export function loadView(): MiddleViewPref {
+  try {
+    const v = typeof localStorage === 'undefined' ? null : localStorage.getItem(VIEW_KEY);
+    return v === 'charts' ? 'charts' : 'storyboard';
+  } catch {
+    return 'storyboard';
+  }
+}
+export function saveView(v: MiddleViewPref): void {
+  try {
+    localStorage.setItem(VIEW_KEY, v);
+  } catch {
+    /* private mode or blocked storage: the choice is simply not remembered */
+  }
+}

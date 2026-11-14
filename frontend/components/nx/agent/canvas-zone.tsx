@@ -41,7 +41,7 @@ export function useRunFindingIndex(wid: string | null, runIds: string[]) {
   }, [results]);
 }
 
-function AnswerChartCard({ turnId, c, answer, sel, onSelect }: { turnId: string; c: AgentChart; answer: AgentAnswer; sel: Selection; onSelect: (s: Selection) => void }) {
+export function AnswerChartCard({ turnId, c, answer, sel, onSelect }: { turnId: string; c: AgentChart; answer: AgentAnswer; sel: Selection; onSelect: (s: Selection) => void }) {
   const key = chartKey(turnId, c.id);
   const hl = chartHighlighted(sel, key);
   const cites = findingsCiting(turnId, answer, c.id);
@@ -81,7 +81,7 @@ function AnswerChartCard({ turnId, c, answer, sel, onSelect }: { turnId: string;
   );
 }
 
-function WorkspaceCanvas({ wid, objective, runIds, sel, onSelect }: { wid: string; objective?: string; runIds: string[]; sel: Selection; onSelect: (s: Selection) => void }) {
+export function WorkspaceCanvas({ wid, objective, runIds, sel, onSelect }: { wid: string; objective?: string; runIds: string[]; sel: Selection; onSelect: (s: Selection) => void }) {
   const router = useRouter();
   const canvas = useCanvas(wid);
   const progress = usePanelProgress(wid);

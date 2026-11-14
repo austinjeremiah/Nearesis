@@ -15,14 +15,17 @@ import { creditsApi, creditsKey } from '@/lib/near/api';
 import { reportExhaustedOnLoad } from '@/lib/credits/refusal';
 import { useWorkspaceStream } from '@/lib/sse/hub';
 import { agentApi, agentKeys, isUnavailable } from '@/lib/agent/api';
-import { loadPrefs, savePrefs } from '@/lib/agent/prefs';
+import { loadPrefs, loadView, savePrefs, saveView, type MiddleViewPref } from '@/lib/agent/prefs';
+import { buildStages, stageOfStep } from '@/lib/agent/storyboard';
 import type { Selection } from '@/lib/agent/selection';
 import { focusTask, needsPolling, pollDelay, pollReducer, stepLine, taskLive, type PollState } from '@/lib/agent/tasks';
 import type { Thread, ThreadDetail } from '@/lib/agent/thread';
 import { investigateApi } from '@/lib/investigate/api';
 import AskComposer from './ask-composer';
 import { ComposerCard } from './composer-card';
-import CanvasZone, { type AnswerGroup } from './canvas-zone';
+import { type AnswerGroup } from './canvas-zone';
+import MiddleZone from './storyboard/middle';
+import { StoryboardSyncContext } from './storyboard/sync';
 import CostsDrawer from './costs-drawer';
 import { MessageView } from './messages';
 import OpsStrip from './ops-strip';
@@ -54,6 +57,9 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
   const [sel, setSel] = useState<Selection>(null);
   const [pane, setPane] = useState<'rail' | 'charts' | 'chat'>('chat');
   const [chatOpen, setChatOpen] = useState(true);
+  const [view, setView] = useState<MiddleViewPref>('storyboard');
+  const [activeStageId, setActiveStageId] = useState<string | null>(null);
+  const [request, setRequest] = useState<{ stageId: string; n: number } | null>(null);
   const [costsOpen, setCostsOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [localRuns, setLocalRuns] = useState<LocalRun[]>([]);
@@ -75,6 +81,7 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
     const p = loadPrefs();
     setThreadId(p.threadId);
     setWid(p.workspaceId);
+    setView(loadView());
     setReady(true);
   }, []);
   useEffect(() => {
@@ -115,6 +122,28 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
   const tasks = useMemo(() => d?.tasks ?? [], [d]);
   const task = useMemo(() => focusTask(tasks), [tasks]);
   const liveTask = task && taskLive(task) ? task : null;
+  const stages = useMemo(() => buildStages(task), [task]);
+  // A different task starts with no stage chosen; the storyboard picks the first, or the one that is running.
+  const taskId = task?.id ?? null;
+  useEffect(() => setActiveStageId(null), [taskId]);
+  const chooseView = (v: MiddleViewPref) => {
+    setView(v);
+    saveView(v);
+  };
+  const sync = useMemo(
+    () => ({
+      activeStepIdxs: stages.find((s) => s.id === activeStageId)?.stepIdxs ?? [],
+      onStepClick: (idx: number) => {
+        const st = stageOfStep(stages, idx);
+        if (!st) return;
+        setView('storyboard');
+        setPane('charts');
+        setActiveStageId(st.id);
+        setRequest((r) => ({ stageId: st.id, n: (r?.n ?? 0) + 1 }));
+      },
+    }),
+    [stages, activeStageId],
+  );
 
   // A thread remembers its workspace; opening it selects that workspace.
   const threadWs = d?.thread.workspaceId ?? null;
@@ -257,6 +286,7 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
   const empty = !!d && d.messages.length === 0 && localRuns.length === 0;
 
   return (
+    <StoryboardSyncContext.Provider value={task && view === 'storyboard' ? sync : null}>
     <div className="ag-page" data-testid="agent-page" data-chat={chatOpen ? 'open' : 'closed'} data-pane={pane}>
       <div className="ag-switch" role="tablist" aria-label="Agent view">
         <button type="button" role="tab" aria-selected={pane === 'rail'} onClick={() => setPane('rail')}>Threads</button>
@@ -280,16 +310,28 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
       <div className="ag-zone ag-zone-canvas">
         <div className="ag-zone-head">
           <h1 className="ag-title">Agent</h1>
-          <span className="small dim grow">Charts from the selected workspace and every answer</span>
+          <span className="small dim grow ag-head-sub">{view === 'storyboard' ? 'Every step the agent takes, as it happens' : 'Charts from the selected workspace and every answer'}</span>
+          <Segmented ariaLabel="Middle view" value={view} onChange={chooseView} options={[{ value: 'storyboard', label: 'Storyboard' }, { value: 'charts', label: 'Charts' }]} />
           {!chatOpen && (
             <button type="button" className="btn" onClick={() => setChatOpen(true)} data-testid="agent-chat-open" style={{ padding: '0 var(--s3)', border: '1px solid var(--line-hard)' }}>
               <PanelRightOpen size={14} /> Open chat
             </button>
           )}
         </div>
-        <div className="ag-zone-scroll">
-          <CanvasZone groups={groups} wid={wid} objective={wsObjective ?? undefined} runIds={runIds} sel={sel} onSelect={setSel} />
-        </div>
+        <MiddleZone
+          view={view}
+          task={task}
+          stages={stages}
+          groups={groups}
+          wid={wid}
+          objective={wsObjective ?? undefined}
+          runIds={runIds}
+          sel={sel}
+          onSelect={setSel}
+          activeStageId={activeStageId}
+          onActiveStage={setActiveStageId}
+          request={request}
+        />
       </div>
 
       <aside className="ag-zone ag-zone-chat" aria-label="Agent chat" data-testid="agent-chat">
@@ -372,5 +414,6 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
       <CostsDrawer open={costsOpen} onOpenChange={setCostsOpen} threadId={threadId} />
       {wid && <WsManage open={manageOpen} onOpenChange={setManageOpen} wid={wid} objective={wsObjective} onShowRun={(runId, q) => showRun(wid, runId, q)} />}
     </div>
+    </StoryboardSyncContext.Provider>
   );
 }

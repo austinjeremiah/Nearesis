@@ -13,9 +13,24 @@ export type MessageKind = 'text' | 'answer' | 'plan' | 'result' | 'notice';
 
 export type Thread = { id: string; title: string; workspaceId: string | null; updatedAt: string | null; preview: string; activeTaskId: string | null };
 
-export type ResultItem = { label: string; value: string; href: string | null };
+/** `original`, `reproduced` and `delta` are carried by the rows of a thesis comparison. */
+export type ResultItem = { label: string; value: string; href: string | null; original?: string; reproduced?: string; delta?: string };
 /** One cost line. Amounts are USD decimal strings; `detail` may carry the NEAR amount and the rate it was converted at. */
 export type CostEntry = { label: string; unit: 'usd'; amount: string | null; txHash: string | null; detail: Record<string, unknown> | null };
+
+/** Ids of what a finished step produced. Every field is optional: tasks finished before the server sent refs have none. */
+export type StepRefs = {
+  workspaceId?: string;
+  runId?: string;
+  capsuleId?: string;
+  proofId?: string;
+  publicationId?: string;
+  hypothesisId?: string;
+  thesisId?: string;
+  markerIds?: string[];
+  monitorIds?: string[];
+  skipped?: { kind: string; reason: string }[];
+};
 
 export type TaskStep = {
   idx: number;
@@ -26,7 +41,7 @@ export type TaskStep = {
   startedAt: string | null;
   finishedAt: string | null;
   progress: string | null;
-  result: { summary: string; items: ResultItem[] } | null;
+  result: { summary: string; items: ResultItem[]; refs: StepRefs } | null;
   waiting: { kind: string; runId: string; approvalId: string; approvalKind: string; summary: string; costLimit: string | null } | null;
   /** `creditsUsd` is the on-chain part (OutLayer, gas); what the account is charged for the step is model + on-chain. */
   cost: { modelUsd: string | null; modelCalls: number | null; creditsUsd: string | null; entries: CostEntry[] };
@@ -46,7 +61,7 @@ export type Task = {
   consent: { required: ConsentRequirement[]; given: string[] };
   estimate: { creditsMaxUsd: string | null; modelUsdMax: string | null };
   cost: { modelUsd: string | null; modelCalls: number | null; creditsUsd: string | null; creditsHeldUsd: string | null; entries: CostEntry[] };
-  links: { workspaceId: string | null; runId: string | null; capsuleId: string | null; proofId: string | null; publicationId: string | null; reportUrl: string | null };
+  links: { workspaceId: string | null; runId: string | null; capsuleId: string | null; proofId: string | null; publicationId: string | null; reportUrl: string | null; thesisId: string | null };
   createdAt: string | null;
   startedAt: string | null;
   finishedAt: string | null;
@@ -102,7 +117,30 @@ function normalizeEntries(v: unknown): CostEntry[] {
 }
 
 function normalizeItems(v: unknown): ResultItem[] {
-  return arr(v).map((i) => ({ label: str(i.label) ?? '', value: str(i.value) ?? (num(i.value) !== null ? String(i.value) : ''), href: str(i.href) }));
+  const text = (x: unknown) => str(x) ?? (num(x) !== null ? String(num(x)) : undefined);
+  return arr(v).map((i) => {
+    const out: ResultItem = { label: str(i.label) ?? str(i.what) ?? '', value: text(i.value) ?? '', href: str(i.href) };
+    for (const k of ['original', 'reproduced', 'delta'] as const) {
+      const t = text(i[k]);
+      if (t !== undefined) out[k] = t;
+    }
+    return out;
+  });
+}
+
+/** Tolerant: a field of the wrong type is dropped, never guessed. An empty id list stays an empty list. */
+export function normalizeRefs(raw: unknown): StepRefs {
+  const r = obj(raw);
+  const out: StepRefs = {};
+  for (const k of ['workspaceId', 'runId', 'capsuleId', 'proofId', 'publicationId', 'hypothesisId', 'thesisId'] as const) {
+    const v = str(r[k]);
+    if (v) out[k] = v;
+  }
+  for (const k of ['markerIds', 'monitorIds'] as const) {
+    if (Array.isArray(r[k])) out[k] = (r[k] as unknown[]).filter((x): x is string => typeof x === 'string' && x !== '');
+  }
+  if (Array.isArray(r.skipped)) out.skipped = arr(r.skipped).map((x) => ({ kind: str(x.kind) ?? 'item', reason: str(x.reason) ?? 'No reason was given.' }));
+  return out;
 }
 
 function normalizeStep(raw: unknown, i: number): TaskStep {
@@ -120,7 +158,7 @@ function normalizeStep(raw: unknown, i: number): TaskStep {
     startedAt: str(r.startedAt),
     finishedAt: str(r.finishedAt),
     progress: str(r.progress),
-    result: res ? { summary: str(res.summary) ?? '', items: normalizeItems(res.items) } : null,
+    result: res ? { summary: str(res.summary) ?? '', items: normalizeItems(res.items), refs: normalizeRefs(res.refs) } : null,
     waiting: w ? { kind: str(w.kind) ?? 'approval', runId: str(w.runId) ?? '', approvalId: str(w.approvalId) ?? '', approvalKind: str(w.approvalKind) ?? 'approval', summary: str(w.summary) ?? '', costLimit: str(w.costLimit) } : null,
     cost: {
       modelUsd: amount(c.modelUsd),
@@ -155,7 +193,7 @@ export function normalizeTask(raw: unknown): Task {
     },
     estimate: { creditsMaxUsd: amount(est.creditsMaxUsd), modelUsdMax: amount(est.modelUsdMax) },
     cost: { modelUsd: amount(cost.modelUsd), modelCalls: num(cost.modelCalls), creditsUsd: amount(cost.creditsUsd), creditsHeldUsd: amount(cost.creditsHeldUsd), entries: normalizeEntries(cost.entries) },
-    links: { workspaceId: str(links.workspaceId), runId: str(links.runId), capsuleId: str(links.capsuleId), proofId: str(links.proofId), publicationId: str(links.publicationId), reportUrl: str(links.reportUrl) },
+    links: { workspaceId: str(links.workspaceId), runId: str(links.runId), capsuleId: str(links.capsuleId), proofId: str(links.proofId), publicationId: str(links.publicationId), reportUrl: str(links.reportUrl), thesisId: str(links.thesisId) },
     createdAt: str(r.createdAt),
     startedAt: str(r.startedAt),
     finishedAt: str(r.finishedAt),

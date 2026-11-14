@@ -9,6 +9,7 @@ import { Button } from '@/components/nx/ui';
 import { ConfirmDialog } from '@/components/nx/overlays';
 import { MutationError } from '@/components/nx/research-kit';
 import { openCreditsPopup } from '@/lib/credits/refusal';
+import { useStoryboardSync } from './storyboard/sync';
 import { agentApi, agentKeys } from '@/lib/agent/api';
 import type { Task, TaskStep } from '@/lib/agent/thread';
 import {
@@ -220,13 +221,19 @@ function StepRow({ task, s, now }: { task: Task; s: TaskStep; now: number }) {
   const retry = useMutation({ mutationFn: () => agentApi.retry(task.id), onSettled: refresh });
   const running = s.state === 'running';
   const sec = elapsedSeconds(s.startedAt, now, running || s.state === 'waiting_user' ? null : s.finishedAt);
+  const sync = useStoryboardSync();
+  const shown = !!sync?.activeStepIdxs.includes(s.idx);
   return (
-    <li className="ag-step" data-s={s.state} data-testid="task-step" aria-current={running || s.state === 'waiting_user' ? 'step' : undefined}>
+    <li className="ag-step" data-s={s.state} data-shown={shown ? 'true' : undefined} data-testid="task-step" aria-current={running || s.state === 'waiting_user' ? 'step' : undefined}>
       <StepIcon state={s.state} />
       <div className="ag-step-body">
         <div className="row gap2 wrap" style={{ alignItems: 'baseline' }}>
           <span className="tiny mono dim">{s.idx + 1}.</span>
-          <span className="strong ag-step-title">{s.title}</span>
+          {sync ? (
+            <button type="button" className="strong ag-step-title ag-step-link" onClick={() => sync.onStepClick(s.idx)} title="Show this step in the storyboard" aria-pressed={shown}>{s.title}</button>
+          ) : (
+            <span className="strong ag-step-title">{s.title}</span>
+          )}
           <span className="ag-step-state">{STEP_LABEL[s.state]}</span>
           <span className="grow" />
           {(running || s.state === 'waiting_user' || s.state === 'done' || s.state === 'failed') && s.startedAt && (

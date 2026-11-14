@@ -175,6 +175,22 @@ interface GroundedFact {
 }
 
 /** Recomputes one fact from the result rows. Returns the grounded facts (the derived one plus its inputs) or why it failed. */
+/**
+ * True when a fact only points at date cells (the day or period column of a row). A date is the label of a row, not a
+ * measured value: such a fact grounds nothing and is skipped, instead of failing the whole finding as a bad reference.
+ * The numbers of the statement must still be tied to result cells by its other facts.
+ */
+function isDateLabelFact(panels: Map<string, PanelResult>, f: DraftFact): boolean {
+  if (f.op !== "cell" || f.of.length === 0) return false;
+  return f.of.every((r) => {
+    const p = panels.get(r.panelId);
+    if (!p) return false;
+    const col = columnIndex(p, r.column);
+    const raw = col < 0 ? null : (p.rows[r.row]?.[col] ?? null);
+    return typeof raw === "string" && /^\d{4}-\d{2}-\d{2}(?:[T ][\d:.]+Z?)?$/.test(raw.trim());
+  });
+}
+
 function groundFact(
   panels: Map<string, PanelResult>,
   f: DraftFact,
@@ -400,6 +416,7 @@ export async function interpretRun(input: InterpretInput): Promise<Interpretatio
     const grounded: GroundedFact[] = [];
     let failed: string | null = null;
     for (const f of d.facts) {
+      if (isDateLabelFact(panels, f)) continue;
       const g = groundFact(panels, f);
       if (!g.ok) {
         failed = g.why;

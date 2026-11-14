@@ -119,6 +119,41 @@ describe("interpretation stage", () => {
     expect(m.calls).toEqual([`${base.runId}:interpret`, `${base.runId}:skeptic`]);
   });
 
+  it("skips a fact that only cites a date cell (a row label) instead of rejecting the finding", async () => {
+    const f = finding({
+      statement: "Daily NEAR transactions were 1000 on 2026-05-01 and 1800 on 2026-05-05.",
+      facts: [
+        { value: "2026-05-01", unit: "date", op: "cell", of: [{ panelId: P_TX, column: "day", row: 0 }] },
+        {
+          value: "1000",
+          unit: "count",
+          op: "cell",
+          of: [{ panelId: P_TX, column: "near.tx_count", row: 0 }],
+        },
+        { value: "2026-05-05", unit: "date", op: "cell", of: [{ panelId: P_TX, column: "day", row: 4 }] },
+        {
+          value: "1800",
+          unit: "count",
+          op: "cell",
+          of: [{ panelId: P_TX, column: "near.tx_count", row: 4 }],
+        },
+      ],
+    });
+    const out = await interpretRun({ ...base, panels: [TX], model: model({ findings: [f] }) });
+    expect(out.state).toBe("ready");
+    expect(out.findings[0]!.facts.map((x) => x.value)).toEqual(["1000", "1800"]);
+    // a finding with nothing but date labels still has no grounded number
+    const only = finding({
+      statement: "The rows end on 2026-05-05.",
+      facts: [
+        { value: "2026-05-05", unit: "date", op: "cell", of: [{ panelId: P_TX, column: "day", row: 4 }] },
+      ],
+    });
+    const none = await interpretRun({ ...base, panels: [TX], model: model({ findings: [only] }) });
+    expect(none.state).toBe("unavailable");
+    expect(none.rejected[0]!.reasonCode).toBe("NO_FACTS");
+  });
+
   it("rejects a number that is not in the results (UNGROUNDED_NUMBER) and a derived value that does not recompute", async () => {
     const out = await interpretRun({
       ...base,

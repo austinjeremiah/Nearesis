@@ -10,6 +10,8 @@ import { qk } from '@/lib/api/keys';
 import { useDecision } from '@/lib/investigate/hooks';
 import { ACTIVE_STATES, investigateApi } from '@/lib/investigate/api';
 import type { GlobalApproval } from '@/lib/api/shell';
+import { creditsApi, creditsKey } from '@/lib/near/api';
+import { pillState } from '@/lib/credits/model';
 
 const MAX_WORKSPACES = 6;
 
@@ -41,7 +43,7 @@ export default function OpsStrip({ taskLine = null, taskWaiting = false }: { tas
     queries: newest.map((w) => ({ queryKey: ['agent', 'ops', 'runs', w.id], queryFn: () => investigateApi.runs(w.id), refetchInterval: 20_000, retry: false })),
   });
   const approvals = useQuery({ queryKey: ['agent', 'ops', 'approvals'], queryFn: () => shellBrowser.approvals('pending'), refetchInterval: 15_000, retry: false });
-  const spend = useQuery({ queryKey: ['agent', 'ops', 'spend'], queryFn: () => shellBrowser.costGlobal(), refetchInterval: 30_000, retry: false });
+  const credits = useQuery({ queryKey: creditsKey, queryFn: () => creditsApi.get(), refetchInterval: 30_000, retry: false });
 
   const active = newest.flatMap((w, i) => (runs[i]?.data?.runs ?? []).filter((r) => !r.terminal && ACTIVE_STATES.has(r.state)).map((r) => ({ w, r })));
   const runsKnown = newest.length === 0 || runs.every((r) => r.isSuccess);
@@ -63,10 +65,9 @@ export default function OpsStrip({ taskLine = null, taskWaiting = false }: { tas
           <span className="mono">{approvals.isSuccess ? pend.length : '—'}</span>
           {approvals.data?.truncated && <span className="tiny dim"> (some workspaces not included)</span>}
         </span>
-        <span data-testid="agent-ops-spend" title="Global model spend against the shared ceiling">
-          <span className="label">Spend</span>{' '}
-          <span className="mono">{spend.data ? `${usd(spend.data.committedUsd)} / ${usd(spend.data.ceilingUsd)}` : '—'}</span>
-          {spend.data && spend.data.state !== 'ok' && <> <Badge tone="warn">{spend.data.state}</Badge></>}
+        <span data-testid="agent-ops-spend" title="Your credits: what is left of your allowance">
+          <span className="label">Credits</span>{' '}
+          <span className="mono">{pillState(credits.data).text}</span>
         </span>
       </div>
       {active.length > 0 && (

@@ -25,34 +25,6 @@ import { ThemeToggle } from './theme';
 
 const POLL = 30_000;
 
-function GlobalSpendChip() {
-  const q = useQuery({
-    queryKey: ['global', 'cost'],
-    queryFn: () => shellBrowser.costGlobal(),
-    refetchInterval: POLL,
-    retry: false,
-  });
-  // The ceiling is owner/admin data: other roles get 403 and see no chip.
-  if (!q.data) return null;
-  const s = q.data;
-  const tone = s.state === 'ok' ? '' : s.state === 'warning' ? ' warn' : ' bad';
-  return (
-    <Link
-      href="/system#spend"
-      className={`badge line${tone}`}
-      data-testid="global-spend"
-      data-state={s.state}
-      title={`Global model-spend ceiling ${formatUsd(s.ceilingUsd)}; committed ${formatUsd(s.committedUsd)}; remaining ${formatUsd(s.remainingUsd)}${s.unknownPriceEntries ? `; ${s.unknownPriceEntries} entries with unknown price are not counted` : ''}`}
-    >
-      Model spend {formatUsd(s.committedUsd)} / {formatUsd(s.ceilingUsd)}
-    </Link>
-  );
-}
-
-/**
- * Available / allowance in USD ("CREDITS $2.97 / $3.00"). Available is cut off, never rounded up. Says "unknown" until the
- * API answers or when it still serves the old shape, never 0. Warn tone under 10% left.
- */
 function CreditsPill() {
   const q = useQuery({ queryKey: creditsKey, queryFn: () => creditsApi.get(), refetchInterval: POLL, retry: false });
   const c = q.data;
@@ -156,7 +128,7 @@ export function UserMenu({ workspaceId }: { workspaceId?: string | null }) {
         </span>
       )}
       {workspaceId && <WorkspaceBudgetChip workspaceId={workspaceId} />}
-      <GlobalSpendChip />
+      {/* One figure in the top bar: the signed-in account's own credits. The app-wide ceiling lives on System health. */}
       <CreditsPill />
       {m && m.nearAccountId === null && <LinkNearWallet compact />}
       <ThemeToggle />

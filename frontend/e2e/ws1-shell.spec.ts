@@ -35,15 +35,13 @@ test('1 sign-in cookie is HttpOnly, sign-out revokes the token', async ({ page }
   await expect(page).toHaveURL(/\/login/);
 });
 
-test('shell shows identity, role and the global USD 5 ceiling from the API', async ({ page }) => {
+test('shell shows identity, role and the account credits', async ({ page }) => {
   await signIn(page);
   const me = await apiGet(page, '/v1/me');
-  const cost = await apiGet(page, '/v1/cost/global');
   await expect(page.getByTestId('me-label')).toContainText(me.body.role);
-  const chip = page.getByTestId('global-spend');
-  await expect(chip).toBeVisible();
-  await expect(chip).toContainText('$5.00');
-  await expect(chip).toHaveAttribute('data-state', cost.body.state);
+  // one figure in the top bar: the account's own credits (the app-wide ceiling is on System health)
+  await expect(page.getByTestId('credits-pill')).toBeVisible();
+  await expect(page.getByTestId('global-spend')).toHaveCount(0);
   // pending approvals and unread counts equal the API's own aggregates
   const approvals = await apiGet(page, '/v1/approvals?status=pending');
   await expect(page.getByTestId('pending-approvals')).toHaveAttribute('data-count', String(approvals.body.approvals.length));

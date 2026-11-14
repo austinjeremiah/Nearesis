@@ -7,6 +7,7 @@ import type {
   ThesisRow,
   ThesisSection,
   ThesisTest,
+  ThesisTestPlan,
   ThesisVerification,
 } from '@/lib/thesis-track/model';
 
@@ -132,12 +133,41 @@ function seriesName(v: unknown): string | null {
   return null;
 }
 
+/** `column` or `panel` names the resolved series; a plain string is taken as the name. */
+function resolvedName(v: unknown): string | null {
+  if (typeof v === 'string') return str(v);
+  if (isRec(v)) {
+    const panel = str(v.panel) ?? str(v.panelTitle) ?? str(v.label);
+    const col = str(v.column);
+    return panel && col ? `${panel} (${col})` : (panel ?? col);
+  }
+  return null;
+}
+
+export function testPlan(v: unknown): ThesisTestPlan | null {
+  if (!isRec(v)) return null;
+  const r = isRec(v.resolved) ? { x: resolvedName(v.resolved.x), y: resolvedName(v.resolved.y) } : null;
+  return {
+    statement: str(v.statement),
+    relation: v.relation === 'moves_with' || v.relation === 'leads' ? v.relation : null,
+    lagDays: intOrNull(v.lagDays),
+    expectedSign: v.expectedSign === 'positive' || v.expectedSign === 'negative' || v.expectedSign === 'either' ? v.expectedSign : null,
+    wouldCountAsWrong: str(v.wouldCountAsWrong),
+    lockedAt: str(v.lockedAt),
+    sha256: str(v.sha256),
+    editedByUser: v.editedByUser === true,
+    chosenBy: v.chosenBy === 'user' || v.chosenBy === 'planner' || v.chosenBy === 'rule' ? v.chosenBy : null,
+    resolved: r && (r.x || r.y) ? r : null,
+  };
+}
+
 function test(v: unknown): ThesisTest | null {
   if (!isRec(v)) return null;
   const w = isRec(v.window) ? { from: str(v.window.from), to: str(v.window.to) } : null;
   const lag: { days: number | null; value: string | null }[] = [];
   for (const l of arr(v.lag)) if (isRec(l)) lag.push({ days: intOrNull(l.days), value: numStr(l.value) });
   return {
+    plan: testPlan(v.plan),
     rule: str(v.rule),
     x: seriesName(v.x),
     y: seriesName(v.y),

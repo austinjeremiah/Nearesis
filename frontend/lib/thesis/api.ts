@@ -2,6 +2,7 @@ import { browserApi } from '@/lib/api/browser';
 import { ApiRequestError } from '@/lib/api/errors';
 import { THESIS_PATH } from '@/lib/thesis-track/model';
 import { normalizeDoc } from './doc';
+import { normalizeChallenges, type Challenge } from './challenge';
 import { REFERENCE_ID, normalizeList, normalizeReceipts, normalizeSummary, referenceSummary, type Receipts, type ThesisSummary } from './list';
 import type { Thesis } from '@/lib/thesis-track/model';
 
@@ -18,6 +19,8 @@ export type ThesisBundle = {
   doc: Thesis;
   /** null when receipts are not available (the new API is not serving this thesis yet). */
   receipts: Receipts | null;
+  /** Newest first; empty when the API sent none. */
+  challenges: Challenge[];
   /** 'api' = GET /v1/theses/:id; 'legacy' = the reference read from GET /v1/thesis. */
   source: 'api' | 'legacy';
 };
@@ -32,17 +35,17 @@ export async function fetchThesisList(): Promise<ThesisSummary[]> {
 export async function fetchLegacyReference(): Promise<ThesisBundle> {
   const doc = normalizeDoc(await browserApi.get<unknown>(THESIS_PATH));
   if (!doc) throw new Error('The reference thesis is not a nearesis.thesis.v1 document.');
-  return { summary: referenceSummary(doc), doc, receipts: null, source: 'legacy' };
+  return { summary: referenceSummary(doc), doc, receipts: null, challenges: [], source: 'legacy' };
 }
 
 export async function fetchThesis(id: string): Promise<ThesisBundle> {
   try {
-    const raw = await browserApi.get<{ thesis?: unknown; doc?: unknown; receipts?: unknown }>(`/v1/theses/${enc(id)}`);
+    const raw = await browserApi.get<{ thesis?: unknown; doc?: unknown; receipts?: unknown; challenges?: unknown }>(`/v1/theses/${enc(id)}`);
     const doc = normalizeDoc(raw?.doc);
     if (!doc) throw new Error('The API returned a thesis without a readable document.');
     const summary = normalizeSummary(raw.thesis) ?? { ...referenceSummary(doc), id, kind: id === REFERENCE_ID ? 'reference' : 'workspace' };
     const fromSummary = isRecord(raw.thesis) ? raw.thesis.receipts : undefined;
-    return { summary, doc, receipts: normalizeReceipts(fromSummary ?? raw.receipts), source: 'api' };
+    return { summary, doc, receipts: normalizeReceipts(fromSummary ?? raw.receipts), challenges: normalizeChallenges(raw.challenges ?? (isRecord(raw.thesis) ? raw.thesis.challenges : undefined)), source: 'api' };
   } catch (e) {
     if (id === REFERENCE_ID && isNotServed(e)) return fetchLegacyReference();
     throw e;
@@ -53,3 +56,7 @@ const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v =
 
 export const thesisFileHref = (id: string, file: string) => `/api/k/theses/${enc(id)}/files/${file}`;
 export const pdfHref = (id: string) => `/api/thesis/${enc(id)}/pdf`;
+
+/** Run the skeptic against a thesis (uses the caller's credits). */
+export const challengeThesis = (id: string): Promise<unknown> => browserApi.send<unknown>('POST', `/v1/theses/${enc(id)}/challenge`, {}, { idempotencyKey: false });
+export const answerChallenge = (id: string, cid: string, text: string): Promise<unknown> => browserApi.send<unknown>('POST', `/v1/theses/${enc(id)}/challenges/${enc(cid)}/answer`, { text });

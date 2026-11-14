@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Receipt, X } from 'lucide-react';
 import { ApiErrorState } from '@/components/nx/states';
@@ -14,6 +14,7 @@ import type { Thread, ThreadDetail } from '@/lib/agent/thread';
 import { ComposerCard } from '@/components/nx/agent/composer-card';
 import CostsDrawer from '@/components/nx/agent/costs-drawer';
 import { MessageView } from '@/components/nx/agent/messages';
+import { ComposerBridgeProvider } from '@/components/nx/agent/followups';
 import '@/components/nx/agent/agent.css';
 
 const KEY = (wid: string) => `nearesis.ask.thread.${wid}`;
@@ -130,9 +131,21 @@ export function AskDock({ workspaceId, workspaceName, onClose }: { workspaceId: 
     endRef.current?.scrollIntoView?.({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }, [d?.messages.length, stepKey]);
 
+  const fill = useCallback((text: string) => {
+    setDraft(text);
+    setTimeout(() => {
+      const el = document.getElementById('ask-dock-q') as HTMLTextAreaElement | null;
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.setSelectionRange?.(el.value.length, el.value.length);
+      el.scrollIntoView?.({ block: 'nearest' });
+    }, 30);
+  }, []);
+  const bridge = useMemo(() => ({ fill, workspaceId }), [fill, workspaceId]);
   const empty = !threadId || (!!d && d.messages.length === 0);
 
   return (
+    <ComposerBridgeProvider value={bridge}>
     <aside className="askpanel" aria-label="Agent panel" data-testid="ask-dock">
       <header className="ask-head">
         <span className="label">Ask</span>
@@ -188,5 +201,6 @@ export function AskDock({ workspaceId, workspaceName, onClose }: { workspaceId: 
       </div>
       <CostsDrawer open={costsOpen} onOpenChange={setCostsOpen} threadId={threadId} />
     </aside>
+    </ComposerBridgeProvider>
   );
 }

@@ -295,3 +295,7 @@
   .sb-agent-who { grid-column: 2; }
   .sb-agent-obj { grid-column: 2 / 4; }
 }
+
+/* why this step / reasons (the shared .why line lives in ../five.css) */
+.sb-why { margin: -4px 0 10px; }
+.sb-pwhy { padding: 6px 4px 0; }

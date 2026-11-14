@@ -11,6 +11,9 @@ import { MutationError } from '@/components/nx/research-kit';
 import { openCreditsPopup } from '@/lib/credits/refusal';
 import { useStoryboardSync } from './storyboard/sync';
 import WorkspaceThesisButtons from '@/components/nx/thesis/workspace-thesis-buttons';
+import TestPlanBlock from './test-plan';
+import { useComposerBridge } from './followups';
+import { whyLine } from '@/lib/agent/why';
 import { useAnnounce, useBringIntoView } from './approval';
 import { approvalAnnouncement, approvalNeeded, consentAllowance } from '@/lib/agent/approval';
 import { agentApi, agentKeys } from '@/lib/agent/api';
@@ -95,6 +98,7 @@ export function PlanCard({ task }: { task: Task }) {
             <div className="ag-plan-body">
               <span className="strong">{s.title}</span>
               {s.detail && <span className="small dim">{s.detail}</span>}
+              {whyLine(s) && <span className="why" data-testid="step-why">{whyLine(s)}</span>}
             </div>
           </li>
         ))}
@@ -113,6 +117,7 @@ export function PlanCard({ task }: { task: Task }) {
           <dd className="mono">{task.steps.length}</dd>
         </div>
       </dl>
+      {proposed && <TestPlanBlock task={task} />}
       {proposed && (
         <section
           ref={blockRef}
@@ -267,6 +272,7 @@ function StepRow({ task, s, now }: { task: Task; s: TaskStep; now: number }) {
             <span className="tiny mono dim" data-testid="step-elapsed" title={running ? 'Time since this step started' : 'How long this step took'}>{formatElapsed(sec)}</span>
           )}
         </div>
+        {whyLine(s) && <p className="why" data-testid="step-why">{whyLine(s)}</p>}
         {(running || s.state === 'pending') && s.detail && <p className="small dim ag-step-detail">{s.detail}</p>}
         {running && (
           <p className="ag-progress" data-testid="step-progress">
@@ -340,6 +346,7 @@ export function TaskTimeline({ task }: { task: Task }) {
   const wid = task.links.workspaceId ?? task.workspaceId;
   const tc = taskCostText(task);
   const thesisId = taskThesisId(task);
+  const bridge = useComposerBridge();
   return (
     <article className="ag-timeline" data-testid="agent-task" data-state={task.state} aria-label={`Task: ${task.title}`}>
       <header className="ag-tl-head">
@@ -366,6 +373,7 @@ export function TaskTimeline({ task }: { task: Task }) {
           {tc.held && <> {' · held '}<span className="mono">{tc.held}</span></>}
         </p>
       </header>
+      <TestPlanBlock task={task} />
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announce}</div>
       <ol className="ag-steps" aria-label="Task steps">
         {task.steps.map((s) => (
@@ -376,6 +384,11 @@ export function TaskTimeline({ task }: { task: Task }) {
         <footer className="ag-tl-foot">
           {task.state === 'completed' && <Badge tone="ok">finished</Badge>}
           {(thesisId || !live) && <WorkspaceThesisButtons wid={wid} thesisId={thesisId} />}
+          {thesisId && task.state === 'completed' && bridge && (
+            <button type="button" className="fu-btn" onClick={() => bridge.fill('Challenge the thesis of this workspace')} title="Fills the message box. Nothing is sent." data-testid="chat-challenge-thesis">
+              Challenge this thesis
+            </button>
+          )}
           <Link className="link small" href={`/w/${wid}/overview`}>Open workspace</Link>
         </footer>
       )}

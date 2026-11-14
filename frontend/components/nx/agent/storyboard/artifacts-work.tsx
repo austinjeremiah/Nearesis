@@ -19,6 +19,8 @@ import { agentDescription, agentDisplay, agentLabel, firstOfRole } from '@/lib/a
 import { FINDING_STATUS_LABEL, FINDING_STATUS_TONE, createdWithin, emphasiseNumbers, markerAt, markerTitle, metricIdsOf, metricWords, monitorSentence, quotedText, thresholdOf, type Stage } from '@/lib/agent/storyboard';
 import { panelForMetric, seriesOf } from '@/lib/agent/storyboard-series';
 import { MiniSeries, SbCard } from './parts';
+import FollowUpActions from '../followups';
+import { markerReason, monitorReason, queryNoteFor, thresholdFromLine } from '@/lib/agent/why';
 import { useCanvasDoc, useEvaluationList, useHypothesisList, useMarkerList, useOnChange, useRuleList, useRunDoc, useRunTasks, useTriggerList, useWorkspaceDoc } from './data';
 
 export type Hl = { id: string | null; hover: (id: string | null) => void; pin: (id: string) => void };
@@ -161,7 +163,7 @@ export function InvestigationArtifact({ wid, stage, hl, live }: { wid: string | 
       {panels.length > 0 ? (
         <div className="sb-grid" data-testid="sb-panels">
           {panels.map((p) => (
-            <PanelCell key={p.panelId} wid={wid!} p={p} hl={hl} markers={markers} progress={progress[p.panelId]} cites={rd.findings.filter((f) => f.panelIds.includes(p.panelId)).length} />
+            <PanelCell key={p.panelId} wid={wid!} p={p} hl={hl} markers={markers} progress={progress[p.panelId]} cites={rd.findings.filter((f) => f.panelIds.includes(p.panelId)).length} why={queryNoteFor(stage.refs, p.title)} />
           ))}
         </div>
       ) : !rd.terminal ? (
@@ -182,7 +184,7 @@ export function InvestigationArtifact({ wid, stage, hl, live }: { wid: string | 
   );
 }
 
-function PanelCell({ wid, p, hl, markers, progress, cites }: { wid: string; p: CanvasPanel; hl: Hl; markers: CanvasMarker[]; progress?: { status: 'QUERYING' | 'READY' | 'ERROR'; reason?: string }; cites: number }) {
+function PanelCell({ wid, p, hl, markers, progress, cites, why }: { why?: string | null; wid: string; p: CanvasPanel; hl: Hl; markers: CanvasMarker[]; progress?: { status: 'QUERYING' | 'READY' | 'ERROR'; reason?: string }; cites: number }) {
   const key = panelKey(p.panelId);
   const on = hl.id === key;
   return (
@@ -194,6 +196,7 @@ function PanelCell({ wid, p, hl, markers, progress, cites }: { wid: string; p: C
       >
         <PanelBody wid={wid} panel={p} height={Math.min(layoutHeight(p), 230)} progress={progress} markers={markers.filter((m) => m.panelId === p.panelId)} />
       </PanelFrame>
+      {why && <p className="why sb-pwhy" data-testid="panel-why">Why this chart: {why}</p>}
     </div>
   );
 }
@@ -242,6 +245,7 @@ export function FindingStoryCard({ f, hl, index }: { f: FindingView; hl: Hl; ind
           ))}
         </div>
       )}
+      <FollowUpActions statement={f.statement} testId="sb-followups" />
       {f.degraded && <p className="sb-note">The skeptic could not complete a full review of this finding; read its notes as partial.</p>}
       {f.skepticNotes.length > 0 && (
         <details className="sb-fold">
@@ -286,7 +290,7 @@ export function FindingsArtifact({ wid, stage, hl, live }: { wid: string | null;
 
 /* ------------------------------------------------------------------------------------------------ 4. markers */
 
-function MarkerCard({ wid, m, panel }: { wid: string; m: Marker; panel: CanvasPanel | null }) {
+function MarkerCard({ wid, m, panel, reason }: { wid: string; m: Marker; panel: CanvasPanel | null; reason?: string | null }) {
   const data = usePanelData(wid, panel?.queryRef?.hash, !!panel).data;
   const series = panel ? seriesOf(panel, data) : null;
   const at = markerAt(m.anchor);
@@ -314,6 +318,7 @@ function MarkerCard({ wid, m, panel }: { wid: string; m: Marker; panel: CanvasPa
         <span className="sb-note">{m.mode === 'replay' ? 'replay' : 'live data'}</span>
       </div>
       <p className="sb-reason"><Num text={markerTitle(m.question)} /></p>
+      {reason && <p className="why-reason" data-testid="marker-reason"><b>Why this marker:</b> {reason}</p>}
       {series ? <MiniSeries series={series} markerAt={Number.isFinite(t) ? t : null} label={`${panel!.title} with the marker at ${longDate(at)}`} /> : panel ? <p className="sb-note">The chart behind this marker has no time series to draw.</p> : <p className="sb-note">The chart this marker sits on is not on the canvas, so it is shown without one.</p>}
     </SbCard>
   );
@@ -337,7 +342,7 @@ export function MarkersArtifact({ wid, stage, live }: { wid: string | null; stag
       {own.length > 0 ? (
         <div className="sb-grid" data-testid="sb-markers">
           {own.map((m) => (
-            <MarkerCard key={m.markerId} wid={wid!} m={m} panel={canvas.data?.panels.find((p) => p.panelId === m.sourcePanelId) ?? null} />
+            <MarkerCard key={m.markerId} wid={wid!} m={m} panel={canvas.data?.panels.find((p) => p.panelId === m.sourcePanelId) ?? null} reason={markerReason(stage.refs, m.markerId)} />
           ))}
         </div>
       ) : stage.skipped.length === 0 ? (
@@ -370,7 +375,7 @@ function evalLine(e: MonitorEvaluation | undefined): { text: string; tone: 'ok' 
   return { text: `${s}, ${formatAge(e.evaluatedAt)}`, tone: /trigger|fire|alert/.test(s) ? 'warn' : 'ok' };
 }
 
-function MonitorCard({ wid, r, panels, evals, triggerCount }: { wid: string; r: MonitorRule; panels: CanvasPanel[]; evals: MonitorEvaluation[]; triggerCount: number | null }) {
+function MonitorCard({ wid, r, panels, evals, triggerCount, why }: { why?: { reason: string; thresholdFrom: string | null } | null; wid: string; r: MonitorRule; panels: CanvasPanel[]; evals: MonitorEvaluation[]; triggerCount: number | null }) {
   const metric = metricIdsOf(r.condition)[0] ?? null;
   const panel = metric ? panelForMetric(panels, metric) : null;
   const data = usePanelData(wid, panel?.queryRef?.hash, !!panel).data;
@@ -406,6 +411,12 @@ function MonitorCard({ wid, r, panels, evals, triggerCount }: { wid: string; r: 
         <Badge outline title="Source">{r.sourceId}</Badge>
       </p>
       <p className="sb-cond"><Num text={monitorSentence(r.condition, labelOf)} /></p>
+      {why && (
+        <p className="why-reason" data-testid="monitor-reason">
+          <b>Why this monitor:</b> {why.reason}
+          {thresholdFromLine(why.thresholdFrom) && <span className="why-from">{thresholdFromLine(why.thresholdFrom)}</span>}
+        </p>
+      )}
       {series ? (
         <MiniSeries series={series} threshold={th && th.metricId === metric ? { value: th.value, op: th.op } : null} label={`${panel!.title} with the alert line`} />
       ) : (
@@ -450,6 +461,7 @@ export function MonitorsArtifact({ wid, stage, live }: { wid: string | null; sta
               panels={canvas.data?.panels ?? []}
               evals={(evals.data?.evaluations ?? []).filter((e) => e.ruleId === r.ruleId)}
               triggerCount={triggers.data ? triggers.data.triggers.filter((t) => t.ruleId === r.ruleId).length : null}
+              why={monitorReason(stage.refs, r.ruleId)}
             />
           ))}
         </div>

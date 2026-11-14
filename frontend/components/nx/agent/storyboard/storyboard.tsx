@@ -19,6 +19,7 @@ import { approvalNeeded } from '@/lib/agent/approval';
 import { CapsuleArtifact, CompareArtifact, GenericArtifact, ThesisArtifact, ThesisLinkArtifact, ProofArtifact, PublicationArtifact, ReportArtifact } from './artifacts-chain';
 import { FindingsArtifact, HypothesisArtifact, InvestigationArtifact, MarkersArtifact, MonitorsArtifact, WorkspaceArtifact, type Hl } from './artifacts-work';
 import { SbCard } from './parts';
+import TestPlanBlock from '../test-plan';
 
 export type ScrollRequest = { stageId: string; n: number } | null;
 
@@ -83,8 +84,10 @@ function SkippedNote({ stage }: { stage: Stage }) {
   );
 }
 
-function Artifact({ stage, wid, hl, live }: { stage: Stage; wid: string | null; hl: Hl; live: boolean }) {
+function Artifact({ stage, wid, hl, live, task }: { stage: Stage; wid: string | null; hl: Hl; live: boolean; task: Task }) {
   switch (stage.kind) {
+    case 'testplan':
+      return <TestPlanStage task={task} />;
     case 'workspace':
       return <WorkspaceArtifact wid={wid} />;
     case 'investigate':
@@ -116,10 +119,17 @@ function Artifact({ stage, wid, hl, live }: { stage: Stage; wid: string | null; 
   }
 }
 
+function TestPlanStage({ task }: { task: Task }) {
+  const sync = useStoryboardSync();
+  return <TestPlanBlock task={task} variant="story" onEditInChat={sync?.onReviewApproval} />;
+}
+
 /** Does the artifact have what it needs to load, or must a working stage show its live note instead? */
 function artifactReady(stage: Stage, wid: string | null): boolean {
   const r = stage.refs;
   switch (stage.kind) {
+    case 'testplan':
+      return true;
     case 'workspace':
     case 'report':
     case 'markers':
@@ -145,11 +155,11 @@ function artifactReady(stage: Stage, wid: string | null): boolean {
   }
 }
 
-function StageSection({ stage, index, total, wid, hl, live, now, active, justRevealed }: { stage: Stage; index: number; total: number; wid: string | null; hl: Hl; live: boolean; now: number; active: boolean; justRevealed: boolean }) {
+function StageSection({ task, stage, index, total, wid, hl, live, now, active, justRevealed }: { task: Task; stage: Stage; index: number; total: number; wid: string | null; hl: Hl; live: boolean; now: number; active: boolean; justRevealed: boolean }) {
   const sec = elapsedSeconds(stage.startedAt, now, stage.state === 'working' ? null : stage.finishedAt);
   const cost = stage.costUsd === null ? null : toMicro(stage.costUsd) === 0n ? 'no cost' : formatUsdString(stage.costUsd);
   // A step that failed made nothing of its own; only the run and the proof have a live object worth showing beside the reason.
-  const runsArtifact = stage.state !== 'waiting' && stage.state !== 'skipped' && (stage.state !== 'failed' || stage.kind === 'investigate' || stage.kind === 'proof');
+  const runsArtifact = stage.kind === 'testplan' || stage.state !== 'waiting' && stage.state !== 'skipped' && (stage.state !== 'failed' || stage.kind === 'investigate' || stage.kind === 'proof');
   const ready = artifactReady(stage, wid);
   return (
     <li id={`stage-${stage.id}`} className="sb-stage" data-testid="sb-stage" data-kind={stage.kind} data-state={stage.state} data-active={active ? 'true' : undefined} data-new={justRevealed ? 'true' : undefined} aria-label={`Step ${index + 1} of ${total}: ${stage.title}, ${STATE_WORD[stage.state].toLowerCase()}`}>
@@ -165,15 +175,16 @@ function StageSection({ stage, index, total, wid, hl, live, now, active, justRev
             <StateBadge stage={stage} />
           </div>
           <p className="sb-stage-meta mono">
-            {stage.startedAt ? <span title="Time on this step">{timeAgoShort(sec)}</span> : <span>not started</span>}
+            {stage.kind === 'testplan' ? <span>{stage.state === 'done' ? 'locked' : 'not locked yet'}</span> : stage.startedAt ? <span title="Time on this step">{timeAgoShort(sec)}</span> : <span>not started</span>}
             {cost && <span title="Model spend plus on-chain cost for this step">{cost}</span>}
           </p>
         </header>
+        {stage.why && <p className="why sb-why" data-testid="stage-why">Why: {stage.why}</p>}
         <div className="sb-stage-body">
-          {stage.state === 'waiting' && <PromiseNote stage={stage} />}
+          {stage.state === 'waiting' && stage.kind !== 'testplan' && <PromiseNote stage={stage} />}
           {stage.state === 'skipped' && <SkippedNote stage={stage} />}
           {stage.state === 'failed' && <FailBand stage={stage} />}
-          {runsArtifact && (ready ? <Artifact stage={stage} wid={wid} hl={hl} live={live} /> : stage.state === 'working' ? <WorkingNote stage={stage} /> : null)}
+          {runsArtifact && (ready ? <Artifact stage={stage} wid={wid} hl={hl} live={live} task={task} /> : stage.state === 'working' ? <WorkingNote stage={stage} /> : null)}
           {stage.state === 'working' && ready && stage.progress && stage.kind !== 'investigate' && <p className="sb-note" role="status">{stage.progress}</p>}
         </div>
       </div>
@@ -384,7 +395,7 @@ export default function Storyboard({
         </header>
         <ol className="sb-stages">
           {stages.map((s, i) => (
-            <StageSection key={s.id} stage={s} index={i} total={stages.length} wid={s.refs.workspaceId ?? wid} hl={hl} live={live} now={now} active={activeStageId === s.id} justRevealed={fresh.has(s.id)} />
+            <StageSection key={s.id} task={task} stage={s} index={i} total={stages.length} wid={s.refs.workspaceId ?? wid} hl={hl} live={live} now={now} active={activeStageId === s.id} justRevealed={fresh.has(s.id)} />
           ))}
         </ol>
         {stages.length === 0 && <p className="sb-note">This task has no steps yet.</p>}

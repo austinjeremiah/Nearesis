@@ -218,7 +218,9 @@ export function FlowHero({
   meta,
   actions,
   eyebrow,
+  extra,
 }: {
+  extra?: ReactNode;
   title: string;
   badge?: ReactNode;
   meta?: ReactNode[];
@@ -239,6 +241,7 @@ export function FlowHero({
           ))}
         </p>
       )}
+      {extra && <div className="fl-hero-extra">{extra}</div>}
       <div className="fl-meter" aria-hidden="true"><span /></div>
       {actions}
     </header>

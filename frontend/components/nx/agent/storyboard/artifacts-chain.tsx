@@ -20,6 +20,10 @@ import { plainLabel, readableCorrelation, readableNumber, stripStatusPrefix } fr
 import { THESIS_TONE, THESIS_VERDICT_LABEL, compareOutcome, compareRows, proofPipeline, thesisPathOf, thesisView, type PipeStep, type Stage } from '@/lib/agent/storyboard';
 import { CopyChip, SbCard } from './parts';
 import { useOnChange } from './data';
+import StrengthMeter from '@/components/nx/thesis/strength-meter';
+import { normalizeStrength } from '@/lib/thesis/strength';
+import { normalizeDoc } from '@/lib/thesis/doc';
+import { CHOSEN_BY_LABEL } from '@/lib/agent/testplan';
 
 const NoId = ({ what }: { what: string }) => <SbCard><p className="sb-note">{what}: unknown. The agent did not report an id for it.</p></SbCard>;
 
@@ -339,6 +343,8 @@ export function ThesisArtifact({ stage }: { stage: Stage }) {
     );
   }
   const t = thesisView(q.data.doc);
+  const strength = normalizeStrength((q.data.thesis as { strength?: unknown } | undefined)?.strength);
+  const plan = normalizeDoc(q.data.doc)?.test?.plan ?? null;
   const tone = t.verdict ? (THESIS_TONE[t.verdict] ?? '') : '';
   const tests: [string, string][] = [
     ['Days compared', t.n === null ? 'unknown' : String(t.n)],
@@ -360,7 +366,13 @@ export function ThesisArtifact({ stage }: { stage: Stage }) {
         </>
       }
     >
-      <p className="sb-reason">{t.hypothesis ?? 'The hypothesis is unknown.'}</p>
+      <p className="sb-reason">{plan?.statement ?? t.hypothesis ?? 'The hypothesis is unknown.'}</p>
+      {plan && (
+        <p className="sb-note" data-testid="sb-thesis-plan">
+          Locked {plan.lockedAt ? formatUtc(plan.lockedAt) : 'at an unknown time'}, before the run. Pair chosen by {plan.chosenBy ? CHOSEN_BY_LABEL[plan.chosenBy] : 'unknown'}.
+        </p>
+      )}
+      {strength && <StrengthMeter strength={strength} testId="strength-tile" />}
       <p className="sb-statement" data-testid="sb-thesis-headline">{stripStatusPrefix(t.headline, t.verdict) ?? 'The headline is unknown.'}</p>
       {t.n !== null || t.pearson !== null ? (
         <ul className="sb-metrics" aria-label="The test behind the verdict">

@@ -1,4 +1,5 @@
 import { normalizeAnswer, type AgentAnswer } from './types';
+import { normalizeTestPlan, type TestPlan } from './testplan';
 
 /**
  * Wire shapes of the server-side agent (threads, messages, tasks, costs) and tolerant normalisers. A missing value stays
@@ -29,6 +30,12 @@ export type StepRefs = {
   thesisId?: string;
   markerIds?: string[];
   monitorIds?: string[];
+  /** Why each marker was made (setup.auto). Absent when the API sent none. */
+  markerReasons?: { id: string; reason: string }[];
+  /** Why each monitor was made and where its threshold came from (setup.auto). */
+  monitorReasons?: { id: string; reason: string; thresholdFrom: string | null }[];
+  /** Why the run's composer drew a panel (question.ask, run.await). */
+  queryNotes?: { panelTitle: string; why: string }[];
   skipped?: { kind: string; reason: string }[];
 };
 
@@ -37,6 +44,8 @@ export type TaskStep = {
   key: string;
   title: string;
   detail: string;
+  /** One line on why this step is in the plan; null when the API gave none. */
+  why: string | null;
   state: StepState;
   startedAt: string | null;
   finishedAt: string | null;
@@ -60,6 +69,8 @@ export type Task = {
   steps: TaskStep[];
   consent: { required: ConsentRequirement[]; given: string[] };
   estimate: { creditsMaxUsd: string | null; modelUsdMax: string | null };
+  /** The claim on record before the data is seen; null when the API sent no test plan. */
+  testPlan: TestPlan | null;
   cost: { modelUsd: string | null; modelCalls: number | null; creditsUsd: string | null; creditsHeldUsd: string | null; entries: CostEntry[] };
   links: { workspaceId: string | null; runId: string | null; capsuleId: string | null; proofId: string | null; publicationId: string | null; reportUrl: string | null; thesisId: string | null };
   createdAt: string | null;
@@ -139,6 +150,12 @@ export function normalizeRefs(raw: unknown): StepRefs {
   for (const k of ['markerIds', 'monitorIds'] as const) {
     if (Array.isArray(r[k])) out[k] = (r[k] as unknown[]).filter((x): x is string => typeof x === 'string' && x !== '');
   }
+  const markerReasons = arr(r.markerReasons).flatMap((x) => (str(x.id) && str(x.reason) ? [{ id: str(x.id)!, reason: str(x.reason)! }] : []));
+  if (markerReasons.length) out.markerReasons = markerReasons;
+  const monitorReasons = arr(r.monitorReasons).flatMap((x) => (str(x.id) && str(x.reason) ? [{ id: str(x.id)!, reason: str(x.reason)!, thresholdFrom: str(x.thresholdFrom) }] : []));
+  if (monitorReasons.length) out.monitorReasons = monitorReasons;
+  const queryNotes = arr(r.queryNotes).flatMap((x) => (str(x.panelTitle) && str(x.why) ? [{ panelTitle: str(x.panelTitle)!, why: str(x.why)! }] : []));
+  if (queryNotes.length) out.queryNotes = queryNotes;
   if (Array.isArray(r.skipped)) out.skipped = arr(r.skipped).map((x) => ({ kind: str(x.kind) ?? 'item', reason: str(x.reason) ?? 'No reason was given.' }));
   return out;
 }
@@ -154,6 +171,7 @@ function normalizeStep(raw: unknown, i: number): TaskStep {
     key: str(r.key) ?? '',
     title: str(r.title) ?? str(r.key) ?? `Step ${i + 1}`,
     detail: str(r.detail) ?? '',
+    why: str(r.why)?.trim() || null,
     state: oneOf(r.state, STEP_STATES, 'pending'),
     startedAt: str(r.startedAt),
     finishedAt: str(r.finishedAt),
@@ -192,6 +210,7 @@ export function normalizeTask(raw: unknown): Task {
       given: (Array.isArray(consent.given) ? consent.given : []).filter((x): x is string => typeof x === 'string'),
     },
     estimate: { creditsMaxUsd: amount(est.creditsMaxUsd), modelUsdMax: amount(est.modelUsdMax) },
+    testPlan: normalizeTestPlan(r.testPlan),
     cost: { modelUsd: amount(cost.modelUsd), modelCalls: num(cost.modelCalls), creditsUsd: amount(cost.creditsUsd), creditsHeldUsd: amount(cost.creditsHeldUsd), entries: normalizeEntries(cost.entries) },
     links: { workspaceId: str(links.workspaceId), runId: str(links.runId), capsuleId: str(links.capsuleId), proofId: str(links.proofId), publicationId: str(links.publicationId), reportUrl: str(links.reportUrl), thesisId: str(links.thesisId) },
     createdAt: str(r.createdAt),

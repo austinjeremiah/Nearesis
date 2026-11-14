@@ -5,6 +5,7 @@ import { Badge } from '@/components/nx/evidence';
 import { DataTable } from '@/components/nx/table';
 import { SeriesChart } from '@/components/nx/data/charts';
 import { Notice } from '@/components/nx/ui';
+import FollowUpActions from './followups';
 import { chartPoints, type AgentAnswer, type AgentChart, type AgentFinding } from '@/lib/agent/types';
 import { formatUsd } from '@/lib/format';
 import { answerFindingKey, chartKey, findingHighlighted, selectAnswerChart, selectAnswerFinding, toggle, type Selection } from '@/lib/agent/selection';
@@ -65,7 +66,7 @@ export function ChartMeta({ c }: { c: AgentChart }) {
   );
 }
 
-export function FindingCard({ f, highlighted, onSelect, onChip }: { f: AgentFinding; highlighted?: boolean; onSelect?: () => void; onChip?: (chartId: string) => void }) {
+export function FindingCard({ f, highlighted, onSelect, onChip, objective }: { f: AgentFinding; highlighted?: boolean; onSelect?: () => void; onChip?: (chartId: string) => void; objective?: string | null }) {
   return (
     <article className="ag-finding" data-testid="agent-finding" data-hl={highlighted ? 'true' : undefined}>
       <div className="row gap2 wrap">
@@ -89,6 +90,7 @@ export function FindingCard({ f, highlighted, onSelect, onChip }: { f: AgentFind
           </button>
         )}
       </div>
+      <FollowUpActions statement={f.statement} objective={objective} />
       {f.limitations.length > 0 && (
         <details>
           <summary>Limitations ({f.limitations.length})</summary>
@@ -184,6 +186,7 @@ export function AnswerBody({
                 highlighted={findingHighlighted(sel, answerFindingKey(turnId, i))}
                 onSelect={() => onSelect?.(toggle(sel, selectAnswerFinding(turnId, a, i)))}
                 onChip={(cid) => onSelect?.(toggle(sel, selectAnswerChart(turnId, a, cid)))}
+                objective={a.suggestedWorkspaceObjective}
               />
             ))}
           </div>

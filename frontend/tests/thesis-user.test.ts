@@ -93,7 +93,7 @@ describe('thesis list view model', () => {
   });
 });
 
-const R0 = { verified: 0, reproduced: 0, drift: 0, different: 0, incomplete: 0, mismatch: 0 };
+const R0 = { verified: 0, reproduced: 0, drift: 0, different: 0, incomplete: 0, mismatch: 0, challenged: 0 };
 describe('receipts text', () => {
   it('formats the strip and the card line, hiding zero buckets except verified and reproduced', () => {
     expect(receiptsText({ ...R0, verified: 2, reproduced: 1, drift: 1 })).toBe('verified 2 · reproduced 1 · drift 1');
@@ -110,7 +110,7 @@ describe('receipts text', () => {
   it('counts from records or reads the counts object, tolerating missing keys', () => {
     expect(normalizeReceipts([{ kind: 'verify', outcome: 'verified' }, { kind: 'reproduce', outcome: 'drift' }])).toEqual({ ...R0, verified: 1, reproduced: 1, drift: 1 });
     expect(normalizeReceipts({ verified: '3', reproduced: -1 })).toEqual({ ...R0, verified: 3 });
-    expect(normalizeReceipts({ verified: 2, reproduced: 1, drift: 1, different: 1, incomplete: 4, mismatch: 5 })).toEqual({ verified: 2, reproduced: 1, drift: 1, different: 1, incomplete: 4, mismatch: 5 });
+    expect(normalizeReceipts({ verified: 2, reproduced: 1, drift: 1, different: 1, incomplete: 4, mismatch: 5 })).toEqual({ verified: 2, reproduced: 1, drift: 1, different: 1, incomplete: 4, mismatch: 5, challenged: 0 });
     expect(normalizeReceipts(null)).toEqual(R0);
   });
 });

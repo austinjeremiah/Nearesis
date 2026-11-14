@@ -10,8 +10,9 @@ import { ApiErrorState } from '@/components/nx/states';
 import { browserApi } from '@/lib/api/browser';
 import { THESIS_MD_HREF } from '@/lib/thesis-track/model';
 import { pdfHref, thesisFileHref, thesisKeys, type ThesisBundle } from '@/lib/thesis/api';
-import { receiptParts, receiptTotal } from '@/lib/thesis/list';
+import { receiptParts, receiptTotal, receiptsText } from '@/lib/thesis/list';
 import { checkLabel, verifyView, type VerifyView } from '@/lib/thesis/verify';
+import { ChallengeButton } from './challenges';
 
 const enc = encodeURIComponent;
 type Panel = null | 'share' | 'verify';
@@ -177,6 +178,7 @@ export default function ThesisActions({ b }: { b: ThesisBundle }) {
         <Button onClick={() => { document.getElementById('th-reproduce')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); document.getElementById('th-reproduce')?.querySelector<HTMLElement>('[data-testid="thesis-rerun-go"]')?.focus({ preventScroll: true }); }} title="Re-runs this thesis's own queries on the same dates. Free, no AI involved." data-testid="thesis-reproduce-open">
           <GitCompareArrows size={14} /> Reproduce
         </Button>
+        {apiServed && <ChallengeButton thesisId={id} />}
         <a className="btn" href={md} download data-testid="thesis-download-md">
           <Download size={14} /> THESIS.md
         </a>
@@ -187,7 +189,7 @@ export default function ThesisActions({ b }: { b: ThesisBundle }) {
           {!b.receipts
             ? 'Receipts are not available yet'
             : receiptTotal(b.receipts) === 0
-              ? 'Not verified or reproduced yet'
+              ? receiptsText(b.receipts)
               : receiptParts(b.receipts).map((p, i) => (
                   <span key={p.text} data-warn={p.warn || undefined}>{i > 0 ? ' · ' : ''}{p.text}</span>
                 ))}

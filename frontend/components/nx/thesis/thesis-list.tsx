@@ -14,6 +14,7 @@ import { workspaceLabel } from '@/lib/workspace/label';
 import { statusLabel, statusTone } from '@/lib/thesis-track/model';
 import { stripStatusPrefix } from '@/lib/thesis/display';
 import { fetchLegacyReference, fetchThesisList, isNotServed, thesisKeys } from '@/lib/thesis/api';
+import StrengthMeter from './strength-meter';
 import { groupTheses, receiptTotal, receiptsShort, type ThesisSummary } from '@/lib/thesis/list';
 
 function Card({ s, pinned, workspaces }: { s: ThesisSummary; pinned?: boolean; workspaces: Map<string, string> }) {
@@ -29,6 +30,7 @@ function Card({ s, pinned, workspaces }: { s: ThesisSummary; pinned?: boolean; w
       <h3>
         <Link href={`/thesis/${encodeURIComponent(s.id)}`}>{s.hypothesis ?? s.title ?? 'unknown'}</Link>
       </h3>
+      {s.strength && <StrengthMeter strength={s.strength} testId="strength-card" />}
       {s.headline && <p className="th-headline">{stripStatusPrefix(s.headline, s.verdictStatus)}</p>}
       <div className="th-detail">
         {ws && <span>{workspaceLabel(ws, 70)}</span>}

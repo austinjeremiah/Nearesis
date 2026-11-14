@@ -9,7 +9,7 @@ import type { StepRefs, Task, TaskStep } from './thread';
  * hypothesis), and several steps can feed one stage (asking the question and waiting for the run).
  */
 
-export type StageKind = 'workspace' | 'investigate' | 'findings' | 'markers' | 'monitors' | 'hypothesis' | 'capsule' | 'proof' | 'publish' | 'thesis' | 'thesislink' | 'compare' | 'report' | 'archive' | 'other';
+export type StageKind = 'testplan' | 'workspace' | 'investigate' | 'findings' | 'markers' | 'monitors' | 'hypothesis' | 'capsule' | 'proof' | 'publish' | 'thesis' | 'thesislink' | 'compare' | 'report' | 'archive' | 'other';
 export type StageState = 'waiting' | 'working' | 'done' | 'failed' | 'skipped';
 
 export type Stage = {
@@ -32,9 +32,12 @@ export type Stage = {
   skipped: { kind: string; reason: string }[];
   error: { reasonCode: string; message: string; retryable: boolean } | null;
   progress: string | null;
+  /** The first "why this step" line among the stage's steps; null when the API gave none. */
+  why: string | null;
 };
 
 export const STAGE_LABEL: Record<StageKind, string> = {
+  testplan: 'Test plan',
   workspace: 'Workspace',
   investigate: 'Investigate',
   findings: 'Findings',
@@ -53,6 +56,7 @@ export const STAGE_LABEL: Record<StageKind, string> = {
 };
 
 export const STAGE_TITLE: Record<StageKind, string> = {
+  testplan: 'The test plan',
   workspace: 'The workspace',
   investigate: 'The investigation',
   findings: 'What the agent found',
@@ -72,6 +76,7 @@ export const STAGE_TITLE: Record<StageKind, string> = {
 
 /** What a stage that has not happened yet will show, so a pending stage is a promise and not an empty box. */
 export const STAGE_PROMISE: Record<StageKind, string> = {
+  testplan: 'The test plan will appear here: the one sentence the run is judged against, locked before any data is seen.',
   workspace: 'The workspace will appear here: the objective the agent works toward and where everything it makes is kept.',
   investigate: 'The investigation will appear here: the question, then each query and chart as it comes back.',
   findings: 'The findings will appear here: short statements, each tied to numbers and to the charts that show them.',
@@ -138,6 +143,9 @@ function mergeRefs(steps: TaskStep[]): StepRefs {
     for (const k of ['workspaceId', 'runId', 'capsuleId', 'proofId', 'publicationId', 'hypothesisId', 'thesisId'] as const) if (r[k]) out[k] = r[k];
     if (r.markerIds) out.markerIds = [...new Set([...(out.markerIds ?? []), ...r.markerIds])];
     if (r.monitorIds) out.monitorIds = [...new Set([...(out.monitorIds ?? []), ...r.monitorIds])];
+    if (r.markerReasons) out.markerReasons = [...(out.markerReasons ?? []), ...r.markerReasons];
+    if (r.monitorReasons) out.monitorReasons = [...(out.monitorReasons ?? []), ...r.monitorReasons];
+    if (r.queryNotes) out.queryNotes = [...(out.queryNotes ?? []), ...r.queryNotes];
     if (r.skipped) out.skipped = [...(out.skipped ?? []), ...r.skipped];
   }
   return out;
@@ -188,7 +196,7 @@ export function buildStages(task: Task | null | undefined): Stage[] {
       const id = kind === 'other' ? `other-${step.idx}` : kind;
       let st = byId.get(id);
       if (!st) {
-        st = { id, kind, title: kind === 'other' ? step.title : STAGE_TITLE[kind], state: 'waiting', stepIdxs: [], steps: [], needsApproval: false, startedAt: null, finishedAt: null, costUsd: null, refs: {}, skipped: [], error: null, progress: null };
+        st = { id, kind, title: kind === 'other' ? step.title : STAGE_TITLE[kind], state: 'waiting', stepIdxs: [], steps: [], needsApproval: false, startedAt: null, finishedAt: null, costUsd: null, refs: {}, skipped: [], error: null, progress: null, why: null };
         byId.set(id, st);
         order.push(id);
       }
@@ -215,7 +223,13 @@ export function buildStages(task: Task | null | undefined): Stage[] {
     const failed = own.find((s) => s.state === 'failed');
     st.error = failed?.error ?? (failed ? { reasonCode: 'UNKNOWN', message: 'The step failed.', retryable: true } : null);
     const live = own.find((s) => s.state === 'running' || s.state === 'waiting_user');
+    st.why = own.filter((x) => derivedFrom.get(st.id) !== x.idx).map((x) => x.why).find((w): w is string => !!w) ?? null;
     st.progress = live ? (live.state === 'waiting_user' ? (live.waiting?.summary ?? 'Waiting for your approval.') : live.progress) : null;
+  }
+  // The test plan is the first stage: it exists from the proposal, pending until Start locks it.
+  if (task.testPlan) {
+    const locked = !!task.testPlan.lockedAt;
+    stages.unshift({ id: 'testplan', kind: 'testplan', title: STAGE_TITLE.testplan, state: locked ? 'done' : 'waiting', stepIdxs: [], steps: [], needsApproval: false, startedAt: null, finishedAt: task.testPlan.lockedAt, costUsd: null, refs: {}, skipped: [], error: null, progress: null, why: null });
   }
   return stages;
 }

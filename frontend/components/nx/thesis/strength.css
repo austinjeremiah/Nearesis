@@ -1,0 +1,61 @@
+/* Strength meter and challenges. Tokens only, so both themes follow. */
+.sm { display: inline-flex; flex-direction: column; gap: 8px; min-width: 0; color: var(--text); }
+.sm-btn, .sm-static { display: inline-flex; align-items: center; gap: 9px; font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: left; }
+.sm-btn { cursor: pointer; border-radius: 999px; padding: 2px 10px 2px 2px; border: 1px solid transparent; }
+.sm-btn:hover { border-color: var(--line-strong); }
+.sm-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.sm-text { display: flex; flex-direction: column; line-height: 1.15; }
+.sm-band { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-small); }
+.sm-band[data-tone='bad'] { color: var(--bad); }
+.sm-band[data-tone='warn'] { color: var(--warn); }
+.sm-band[data-tone='info'] { color: var(--info, var(--text)); }
+.sm-band[data-tone='ok'] { color: var(--ok); }
+.sm-sub { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-3); letter-spacing: var(--ls-label); }
+.sm-ring-bg { stroke: var(--line-strong); }
+.sm-ring-fg { stroke: var(--text-3); }
+.sm-ring[data-tone='bad'] .sm-ring-fg { stroke: var(--bad); }
+.sm-ring[data-tone='warn'] .sm-ring-fg { stroke: var(--warn); }
+.sm-ring[data-tone='info'] .sm-ring-fg { stroke: var(--info, var(--text)); }
+.sm-ring[data-tone='ok'] .sm-ring-fg { stroke: var(--ok); }
+.sm-ring-n { font-family: var(--font-mono); font-size: 11px; font-weight: 600; fill: var(--text); }
+.sm-compact { position: relative; }
+.sm-pop { margin-top: 4px; width: min(520px, calc(100vw - 32px)); border: 1px solid var(--line-strong); border-radius: var(--radius, 8px); background: var(--surface); padding: 8px 12px; }
+.sm-full { display: flex; width: 100%; gap: 10px; }
+.sm-full .sm-band { font-size: 20px; letter-spacing: -0.01em; }
+.sm-head { display: flex; align-items: center; gap: 12px; }
+.sm-lede { margin: 0; font-size: var(--fs-small); color: var(--text-2); }
+.sm-none { margin: 0; font-size: var(--fs-small); color: var(--text-3); }
+.sm-parts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.sm-part { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px 0; border-top: 1px solid var(--line); }
+.sm-part:first-child { border-top: 0; }
+.sm-mark { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--text-3); margin-top: 1px; }
+.sm-part[data-full='true'] .sm-mark { background: var(--ok); border-color: var(--ok); color: var(--accent-ink, #fff); }
+.sm-part-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sm-part-label { font-size: var(--fs-small); font-weight: 600; overflow-wrap: anywhere; }
+.sm-part-detail { font-size: var(--fs-tiny); color: var(--text-3); line-height: 1.45; overflow-wrap: anywhere; }
+.sm-part[data-full='false'] .sm-part-detail { color: var(--text-2); }
+.sm-pts { font-size: var(--fs-tiny); font-weight: 600; white-space: nowrap; padding-top: 2px; }
+
+/* ---------------------------------------------------------------- challenges */
+.ch-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.ch-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--text-3); }
+.ch-groups { display: flex; flex-direction: column; gap: 12px; }
+.ch-group h4 { margin: 0 0 6px; font-size: var(--fs-small); font-weight: 700; color: var(--text-2); }
+.ch-notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ch-note { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: baseline; font-size: var(--fs-small); line-height: 1.5; }
+.ch-note p { margin: 0; overflow-wrap: anywhere; }
+.ch-dropped { margin: 0; font-size: var(--fs-small); color: var(--text-2); }
+.ch-answer { border-left: 3px solid var(--ok); background: var(--sunken); padding: 10px 14px; border-radius: 0 var(--radius, 8px) var(--radius, 8px) 0; display: flex; flex-direction: column; gap: 4px; }
+.ch-answer p { margin: 0; font-size: var(--fs-small); overflow-wrap: anywhere; }
+.ch-answer-k { font-weight: 700; font-size: var(--fs-small); }
+.ch-form { display: flex; flex-direction: column; gap: 6px; }
+.ch-form label { font-size: var(--fs-small); font-weight: 600; }
+.ch-form textarea { width: 100%; font: inherit; font-size: var(--fs-small); color: var(--text); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px 10px; resize: vertical; outline: none; }
+.ch-form textarea:focus { box-shadow: var(--focus-ring); }
+.ch-form-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ch-count { font-size: var(--fs-tiny); color: var(--text-3); }
+.th-hero-strength { margin: 4px 0 0; }
+
+@media (max-width: 560px) {
+  .sm-pop { width: calc(100vw - 32px); }
+}

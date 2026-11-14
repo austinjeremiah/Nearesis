@@ -25,6 +25,7 @@ import type { Thread, ThreadDetail } from '@/lib/agent/thread';
 import { investigateApi } from '@/lib/investigate/api';
 import AskComposer from './ask-composer';
 import { ComposerCard } from './composer-card';
+import { ComposerBridgeProvider } from './followups';
 import { type AnswerGroup } from './canvas-zone';
 import MiddleZone from './storyboard/middle';
 import { StoryboardSyncContext } from './storyboard/sync';
@@ -49,7 +50,7 @@ type LocalRun = { wid: string; runId: string; question: string };
  * The agentic workspace: threads and the workspace switcher on the left, the canvas of charts in the middle, the agent
  * chat on the right. Conversations and tasks live on the server; the page only polls the open thread.
  */
-export default function AgentWorkspace({ initialQuestion }: { initialQuestion: string | null }) {
+export default function AgentWorkspace({ initialQuestion, initialWorkspace = null }: { initialQuestion: string | null; initialWorkspace?: string | null }) {
   const router = useRouter();
   const qc = useQueryClient();
   const [ready, setReady] = useState(false);
@@ -245,10 +246,10 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
   });
   const newThread = useMutation({
     // A new conversation starts clean: no workspace bound and no charts carried over from the previous one.
-    mutationFn: () => agentApi.createThread({}),
-    onSuccess: (t) => {
+    mutationFn: (workspaceId?: string | null) => agentApi.createThread(workspaceId ? { workspaceId } : {}),
+    onSuccess: (t, workspaceId) => {
       setThreadId(t.id);
-      setWid(null);
+      setWid(workspaceId || null);
       setMode('chat');
       setLocalRuns([]);
       setSel(null);
@@ -284,9 +285,10 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
     router.replace('/agent', { scroll: false });
     setDraft(initialQuestion);
     setMode('chat');
-    newThread.mutate();
+    // `w` binds the new conversation to a workspace (a follow-up opened from a thesis); an unknown id is dropped below.
+    newThread.mutate(initialWorkspace, { onSuccess: () => setTimeout(() => document.getElementById('agent-q')?.focus({ preventScroll: true }), 200) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, initialQuestion, router]);
+  }, [ready, initialQuestion, initialWorkspace, router]);
 
   const stepKey = liveTask ? `${liveTask.id}:${liveTask.steps.find((s) => s.state === 'running' || s.state === 'waiting_user')?.idx}` : '';
   useEffect(() => {
@@ -301,10 +303,32 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
     const t = text.trim().slice(0, 2000);
     if (t && !send.isPending) send.mutate(t);
   };
+  // A follow-up from a finding: put the text in the composer, show it, focus it. Never sends.
+  const fillComposer = useCallback((text: string) => {
+    setMode('chat');
+    setDraft(text);
+    setPane('chat');
+    setChatOpen(true);
+    let tries = 0;
+    const tick = () => {
+      const el = document.getElementById('agent-q') as HTMLTextAreaElement | null;
+      if (!el || el.getClientRects().length === 0) {
+        if (++tries <= 12) setTimeout(tick, 60);
+        return;
+      }
+      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      el.focus({ preventScroll: true });
+      el.setSelectionRange?.(el.value.length, el.value.length);
+      el.scrollIntoView?.({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    };
+    setTimeout(tick, 30);
+  }, []);
+  const bridge = useMemo(() => ({ fill: fillComposer, workspaceId: wid }), [fillComposer, wid]);
   const line = liveTask ? stepLine(liveTask) : null;
   const empty = !!d && d.messages.length === 0 && localRuns.length === 0;
 
   return (
+    <ComposerBridgeProvider value={bridge}>
     <StoryboardSyncContext.Provider value={task && view === 'storyboard' ? sync : null}>
     <div className="ag-page" data-testid="agent-page" data-chat={chatOpen ? 'open' : 'closed'} data-pane={pane}>
       <div className="ag-switch" role="tablist" aria-label="Agent view">
@@ -317,7 +341,7 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
         <ThreadsRail
           threadId={threadId}
           onSelectThread={openThread}
-          onNewThread={() => newThread.mutate()}
+          onNewThread={() => newThread.mutate(null)}
           onThreadDeleted={(id) => id === threadId && (setThreadId(null), setLocalRuns([]))}
           creatingThread={newThread.isPending}
           wid={wid}
@@ -439,5 +463,6 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
       {wid && <WsManage open={manageOpen} onOpenChange={setManageOpen} wid={wid} objective={wsObjective} onShowRun={(runId, q) => showRun(wid, runId, q)} />}
     </div>
     </StoryboardSyncContext.Provider>
+    </ComposerBridgeProvider>
   );
 }

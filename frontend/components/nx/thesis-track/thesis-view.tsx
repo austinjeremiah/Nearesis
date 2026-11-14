@@ -35,6 +35,13 @@ import {
   type ThesisSection,
 } from '@/lib/thesis-track/model';
 import MarkdownView from './markdown-view';
+import StrengthMeter from '@/components/nx/thesis/strength-meter';
+import { ChallengesBody } from '@/components/nx/thesis/challenges';
+import FollowUpActions from '@/components/nx/agent/followups';
+import { isFindingClaim } from '@/lib/agent/followups';
+import { CHOSEN_BY_LABEL, relationText, signText } from '@/lib/agent/testplan';
+import type { Strength } from '@/lib/thesis/strength';
+import type { Challenge } from '@/lib/thesis/challenge';
 
 /** One fetch of the whole bundle, shared (same query key) by the page and the Sources section. */
 export function useThesis() {
@@ -199,7 +206,7 @@ export function keyTiles(t: Thesis): KeyTile[] {
   });
 }
 
-function VerdictStage({ t }: { t: Thesis }) {
+function VerdictStage({ t, strength }: { t: Thesis; strength?: Strength | null }) {
   const status = t.verdict?.status;
   const tone = statusTone(status);
   const cmp = t.verdict?.comparison ?? t.verdict?.intentsVsPrice ?? null;
@@ -233,7 +240,36 @@ function VerdictStage({ t }: { t: Thesis }) {
           </Disclose>
         )}
       </FlowCard>
+      {t.test?.plan && <PlanCard plan={t.test.plan} />}
+      {strength && (
+        <div id="th-strength" className="th-strength-anchor">
+          <FlowCard title="How strong is this thesis" badges={<Badge outline>checked by the server, not by a model</Badge>} testid="thesis-strength">
+            <StrengthMeter strength={strength} variant="full" testId="strength-full" />
+          </FlowCard>
+        </div>
+      )}
     </div>
+  );
+}
+
+/** The claim as it went on record before the data was seen: sentence, lock time, who chose the pair, the resolved series. */
+function PlanCard({ plan }: { plan: NonNullable<NonNullable<Thesis['test']>['plan']> }) {
+  const chosen = plan.chosenBy ? CHOSEN_BY_LABEL[plan.chosenBy] : null;
+  return (
+    <FlowCard title="The test plan" badges={<Badge tone={plan.lockedAt ? 'ok' : ''} outline={!plan.lockedAt}>{plan.lockedAt ? 'locked before the data' : 'lock time unknown'}</Badge>} testid="thesis-test-plan" foot={plan.sha256 ? <span title={plan.sha256}>fingerprint {plan.sha256.slice(0, 12)}</span> : undefined}>
+      <p className="fl-lead" data-testid="thesis-plan-statement">{plan.statement ?? 'The pair was chosen by rule, not named in advance.'}</p>
+      <dl className="th-kv">
+        <dt>Locked</dt>
+        <dd className="mono">{plan.lockedAt ? formatUtc(plan.lockedAt) : 'unknown'}</dd>
+        <dt>Pair chosen by</dt>
+        <dd data-testid="thesis-plan-chosen">{chosen ?? 'unknown'}{plan.editedByUser && plan.chosenBy !== 'user' ? ' (edited by the owner)' : ''}</dd>
+        <dt>Relation</dt>
+        <dd>{plan.relation ? `${relationText(plan)}, ${signText(plan.expectedSign)}` : 'unknown'}</dd>
+        {plan.resolved?.x && (<><dt>First series</dt><dd>{plan.resolved.x}</dd></>)}
+        {plan.resolved?.y && (<><dt>Second series</dt><dd>{plan.resolved.y}</dd></>)}
+        {plan.wouldCountAsWrong && (<><dt>Would count as wrong</dt><dd>{plan.wouldCountAsWrong}</dd></>)}
+      </dl>
+    </FlowCard>
   );
 }
 
@@ -287,7 +323,7 @@ function EvidenceStage({ t, print }: { t: Thesis; print: boolean }) {
 
 /* ------------------------------------------------------------------ claims */
 
-function ClaimsStage({ t, print }: { t: Thesis; print: boolean }) {
+function ClaimsStage({ t, print, followUpWorkspaceId }: { t: Thesis; print: boolean; followUpWorkspaceId?: string | null }) {
   const claims = t.claims ?? [];
   const [filter, setFilter] = useState<string>('all');
   const verdicts = [...new Set(claims.map((c) => orUnknown(c.verdict)))];
@@ -315,6 +351,7 @@ function ClaimsStage({ t, print }: { t: Thesis; print: boolean }) {
                 <Badge tone={statusTone(c.verdict)}>{orUnknown(c.verdict)}</Badge>
               </div>
               <p className="th-claim-stmt">{c.statement}</p>
+              {!print && followUpWorkspaceId && isFindingClaim(c.kind, c.statement) && <FollowUpActions statement={c.statement} workspaceId={followUpWorkspaceId} testId="claim-followups" />}
               <dl className="th-kv">
                 <dt>Estimate</dt>
                 <dd className={(c.estimate ?? '').length > 40 ? '' : 'mono'}>{c.estimate ?? 'unknown'}</dd>
@@ -602,6 +639,10 @@ export function ThesisDocView({
   publication = null,
   receiptsLine,
   reproduceHead,
+  strength = null,
+  strengthInline = false,
+  challenges = null,
+  followUpWorkspaceId = null,
 }: {
   doc: Thesis;
   print?: boolean;
@@ -612,6 +653,14 @@ export function ThesisDocView({
   receiptsLine?: string | null;
   /** The app's Reproduce controls and result, shown at the top of the Reproduce stage. */
   reproduceHead?: ReactNode;
+  /** Server-computed strength; the meter is hidden when null. */
+  strength?: Strength | null;
+  /** Open the checklist under the header meter instead of jumping to the Verdict stage (the public page). */
+  strengthInline?: boolean;
+  /** The Challenges stage: shown when `show` or when there are challenges; `owner` adds the answer box. */
+  challenges?: { items: Challenge[]; thesisId: string | null; owner: boolean; show: boolean; action?: ReactNode } | null;
+  /** Workspace the follow-up links open the Agent on; none hides the actions. */
+  followUpWorkspaceId?: string | null;
 }) {
   const charts = t.charts ?? [];
   const claims = t.claims ?? [];
@@ -628,6 +677,9 @@ export function ThesisDocView({
     { id: 'th-claims', label: 'Claims', title: 'Claims', dot: claims.length ? 'done' : 'idle', note: `${claims.length} ${claims.length === 1 ? 'claim' : 'claims'}` },
     { id: 'th-charts', label: 'Charts', title: 'Charts', dot: charts.length ? 'done' : 'idle', note: `${charts.length} ${charts.length === 1 ? 'chart' : 'charts'}` },
     ...(hasBriefs ? [{ id: 'th-monitors', label: 'Monitors', title: 'Monitors and markers', dot: 'done' as const, note: `${t.monitors?.length ?? 0} monitors · ${t.markers?.length ?? 0} markers` }] : []),
+    ...(challenges && (challenges.show || challenges.items.length > 0)
+      ? [{ id: 'th-challenges', label: 'Challenges', title: 'Challenges', dot: (challenges.items.length === 0 ? 'idle' : challenges.items[0]!.outcome === 'holds' ? 'ok' : challenges.items[0]!.outcome === 'unavailable' ? 'idle' : challenges.items[0]!.outcome === 'weakened' ? 'warn' : 'bad') as FlowItem['dot'], note: `${challenges.items.length} ${challenges.items.length === 1 ? 'challenge' : 'challenges'}` }]
+      : []),
     { id: 'th-verification', label: 'Verification', title: 'Verification', dot: t.verification ? stepTone(t.verification.capsule?.status) === 'ok' ? 'ok' : 'warn' : 'idle' },
     { id: 'th-reproduce', label: 'Reproduce', title: 'Reproduce this', dot: t.reproduce?.command ? 'done' : 'idle' },
     { id: 'th-limits', label: 'Limits', title: 'What it could not do', dot: unable.length ? 'warn' : 'done', note: `${unable.length} not computed` },
@@ -665,12 +717,13 @@ export function ThesisDocView({
         badge={<Badge tone={tone}>{statusLabel(t.verdict?.status)}</Badge>}
         meta={meta}
         actions={actions}
+        extra={strength ? <StrengthMeter strength={strength} expandable={strengthInline} onMore={strengthInline ? undefined : () => go('th-strength')} testId="strength-hero" /> : undefined}
       />
       {!print && <FlowRail label="Thesis sections" items={items} active={active} onSelect={go} />}
       <FlowStages>
-        {stage('th-verdict', <VerdictStage t={t} />)}
+        {stage('th-verdict', <VerdictStage t={t} strength={strength} />)}
         {stage('th-evidence', <EvidenceStage t={t} print={print} />)}
-        {stage('th-claims', <ClaimsStage t={t} print={print} />)}
+        {stage('th-claims', <ClaimsStage t={t} print={print} followUpWorkspaceId={followUpWorkspaceId} />)}
         {stage(
           'th-charts',
           <div className="fl-stage-body">
@@ -697,6 +750,7 @@ export function ThesisDocView({
               </div>
             </div>,
           )}
+        {challenges && (challenges.show || challenges.items.length > 0) && stage('th-challenges', <ChallengesBody items={challenges.items} thesisId={challenges.thesisId} owner={challenges.owner} action={challenges.action} />)}
         {stage('th-verification', <VerificationStage t={t} isReference={isReference} publication={publication} />)}
         {stage(
           'th-reproduce',

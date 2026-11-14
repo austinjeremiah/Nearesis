@@ -8,6 +8,7 @@ import { fetchThesis, isNotServed, thesisKeys, type ThesisBundle } from '@/lib/t
 import { isNotBuilt } from '@/lib/thesis-track/model';
 import ThesisActions from './thesis-actions';
 import { ReproducePanel, useRerun } from './rerun';
+import { ChallengeButton } from './challenges';
 
 /** `/thesis/[id]`: the one viewer for every thesis the signed-in reader can open. */
 export default function ThesisPage({ id }: { id: string }) {
@@ -42,6 +43,15 @@ function Loaded({ b }: { b: ThesisBundle }) {
       publication={b.source === 'api' && b.summary.kind !== 'reference' ? (b.summary.published ? 'published' : 'draft') : null}
       actions={<ThesisActions b={b} />}
       reproduceHead={<ReproducePanel b={b} rr={rr} />}
+      strength={b.summary.strength}
+      followUpWorkspaceId={b.source === 'api' && b.summary.kind === 'workspace' ? (b.summary.workspaceId ?? b.doc.origin?.workspaceId ?? null) : null}
+      challenges={{
+        items: b.challenges,
+        thesisId: b.summary.id,
+        owner: b.source === 'api' && b.summary.kind === 'workspace',
+        show: b.source === 'api',
+        action: b.source === 'api' ? <div className="th-actions-row"><ChallengeButton thesisId={b.summary.id} /></div> : undefined,
+      }}
     />
   );
 }

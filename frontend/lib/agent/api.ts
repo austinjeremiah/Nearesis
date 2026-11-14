@@ -1,6 +1,7 @@
 import { browserApi } from '@/lib/api/browser';
 import { ApiRequestError } from '@/lib/api/errors';
 import { newKey } from '@/lib/api/transport';
+import type { PatchBody } from './testplan';
 import { normalizeSetup, type AgentSetup } from './types';
 import { normalizeCosts, normalizeMessage, normalizeTask, normalizeThread, normalizeThreadDetail, type Costs, type Task, type Thread, type ThreadDetail, type ThreadMessage } from './thread';
 
@@ -37,6 +38,8 @@ export const agentApi = {
 
   task: async (id: string): Promise<Task> => normalizeTask(await browserApi.get<unknown>(tk(id))),
   start: async (id: string, consent: string[]): Promise<Task> => normalizeTask(await browserApi.send<unknown>('POST', `${tk(id)}/start`, { consent }, { idempotencyKey: newKey() })),
+  /** Only the changed fields; only while the task is proposed. A 422 names the field in `details`. */
+  patchTestPlan: async (id: string, body: PatchBody): Promise<Task> => normalizeTask(await browserApi.send<unknown>('PATCH', `${tk(id)}/test-plan`, body)),
   cancel: async (id: string): Promise<Task> => normalizeTask(await browserApi.send<unknown>('POST', `${tk(id)}/cancel`, {})),
   retry: async (id: string): Promise<Task> => normalizeTask(await browserApi.send<unknown>('POST', `${tk(id)}/retry`, {})),
   approval: async (id: string, idx: number, decision: 'approve' | 'reject'): Promise<unknown> =>

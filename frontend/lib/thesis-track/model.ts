@@ -51,7 +51,21 @@ export type ThesisOrigin = {
   capsuleHash?: string | null;
   hypothesisId?: string | null;
 };
+/** The test plan a workspace thesis was locked to before the data was seen. */
+export type ThesisTestPlan = {
+  statement: string | null;
+  relation: 'moves_with' | 'leads' | null;
+  lagDays: number | null;
+  expectedSign: 'positive' | 'negative' | 'either' | null;
+  wouldCountAsWrong: string | null;
+  lockedAt: string | null;
+  sha256: string | null;
+  editedByUser: boolean;
+  chosenBy: 'user' | 'planner' | 'rule' | null;
+  resolved: { x: string | null; y: string | null } | null;
+};
 export type ThesisTest = {
+  plan?: ThesisTestPlan | null;
   rule?: string | null;
   x?: string | null;
   y?: string | null;

@@ -2,10 +2,12 @@ import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { KernelError, workspaceNotFound, zodDetails } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
-import { injectApi } from "./agent/api-client.ts";
+import { apiErrorOf, injectApi } from "./agent/api-client.ts";
 import type { AgentApi, AgentUser } from "./agent/api-client.ts";
 import { AgentService } from "./agent/service.ts";
 import type { AgentServiceOptions } from "./agent/service.ts";
+import { validateOrder, validateStep } from "./agent/catalog.ts";
+import type { PlannedStep } from "./agent/catalog.ts";
 import { CONSENT_KEYS } from "./agent/types.ts";
 
 export interface AgentRoutesOptions extends Partial<
@@ -46,6 +48,10 @@ function parse<S extends z.ZodType>(schema: S, v: unknown): z.infer<S> {
     });
   return r.data;
 }
+const ThesisId = z.string().regex(/^[A-Za-z0-9_-]{1,200}$/);
+const thesisNotFound = () => new KernelError("NOT_FOUND", "THESIS_NOT_FOUND", "Thesis not found.");
+const REFERENCE_THESIS_ID = "reference-near-intents";
+const text = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 const threadNotFound = () => new KernelError("NOT_FOUND", "THREAD_NOT_FOUND", "Thread not found.");
 const taskNotFound = () => new KernelError("NOT_FOUND", "TASK_NOT_FOUND", "Task not found.");
 
@@ -142,7 +148,9 @@ export const agentRoutes: FastifyPluginAsync<AgentRoutesOptions> = async (app, o
     const s = await authenticate(req);
     if (!Uuid.safeParse(req.params.id).success) throw threadNotFound();
     const b = parse(PostMessage, req.body);
-    return reply.status(202).send(await svc.postMessage(userOf(s), req.params.id, b.text, b.workspaceId ?? undefined));
+    return reply
+      .status(202)
+      .send(await svc.postMessage(userOf(s), req.params.id, b.text, b.workspaceId ?? undefined));
   });
 
   const taskOr404 = async (s: Session, id: string) => {
@@ -185,6 +193,93 @@ export const agentRoutes: FastifyPluginAsync<AgentRoutesOptions> = async (app, o
       return taskOr404(s, req.params.id);
     },
   );
+  /**
+   * Reproduce a thesis in the caller's account: a thread and a PROPOSED task (nothing runs until the user presses Start, which
+   * spends their credits). The thesis is read through the thesis route as the caller, so only a thesis they can see is reproducible.
+   */
+  app.post<{ Params: { id: string } }>("/v1/theses/:id/reproduce", async (req, reply) => {
+    const s = await authenticate(req);
+    if (!ThesisId.safeParse(req.params.id).success) throw thesisNotFound();
+    const u = userOf(s);
+    const r = await svc.api(u, "GET", `/v1/theses/${encodeURIComponent(req.params.id)}`);
+    if (r.status === 404) throw thesisNotFound();
+    if (r.status < 200 || r.status >= 300) {
+      const x = apiErrorOf(r);
+      throw new KernelError(
+        r.status === 401 ? "UNAUTHENTICATED" : r.status === 403 ? "FORBIDDEN" : "UPSTREAM_DEGRADED",
+        x.reasonCode,
+        x.message,
+        { retryable: x.retryable },
+      );
+    }
+    const body = (r.body ?? {}) as { thesis?: Record<string, unknown>; doc?: Record<string, unknown> };
+    const summary = body.thesis ?? {};
+    const doc = body.doc ?? {};
+    const origin = (doc.origin ?? {}) as Record<string, unknown>;
+    if (
+      req.params.id === REFERENCE_THESIS_ID ||
+      summary.kind === "reference" ||
+      summary.id === REFERENCE_THESIS_ID ||
+      origin.kind === "reference"
+    ) {
+      const rep = (doc.reproduce ?? {}) as Record<string, unknown>;
+      const commands = [
+        text(rep.command) ?? "pnpm thesis:build",
+        text(rep.check) ?? "pnpm thesis:verify",
+        "pnpm thesis:data",
+      ];
+      throw new KernelError(
+        "DOMAIN_INVARIANT",
+        "REFERENCE_THESIS_OFFLINE",
+        "The reference thesis is rebuilt offline from its frozen data, not through the agent.",
+        {
+          retryable: false,
+          nextAction: `From the repository root nearesis-app run: ${commands.join(" ; ")}`,
+          detailsObject: { commands, folder: "nearesis-app" },
+        },
+      );
+    }
+    const title = text(summary.title) ?? text(doc.title) ?? req.params.id;
+    const hypothesis = text(summary.hypothesis) ?? text(doc.hypothesis);
+    if (!hypothesis)
+      throw new KernelError(
+        "DOMAIN_INVARIANT",
+        "THESIS_HAS_NO_HYPOTHESIS",
+        "This thesis does not state a hypothesis, so there is nothing to reproduce.",
+        { retryable: false },
+      );
+    // The original question: carried by the document, else read from the original run when the caller can see it, else the hypothesis.
+    let question = text(origin.question) ?? text(doc.question);
+    let source = "the thesis document";
+    if (!question && typeof origin.workspaceId === "string" && typeof origin.runId === "string") {
+      const rr = await svc.api(u, "GET", `/v1/workspaces/${encodeURIComponent(origin.workspaceId)}/runs`);
+      if (rr.status === 200) {
+        const runs = (rr.body as { runs?: Array<{ runId?: string; questionSummary?: string }> } | null)?.runs;
+        const hit = Array.isArray(runs) ? runs.find((x) => x.runId === origin.runId) : undefined;
+        question = text(hit?.questionSummary);
+        if (question) source = "the original run";
+      }
+    }
+    const fallback = !question;
+    if (!question) question = hypothesis;
+    question = question.slice(0, 2000);
+    const planned: PlannedStep[] = [
+      validateStep("workspace.create", { objective: `Reproduction of: ${hypothesis}`.slice(0, 2000) }),
+      validateStep("question.ask", { question }),
+      validateStep("run.await", {}),
+      validateStep("capsule.build", {}),
+      validateStep("thesis.build", {}),
+      validateStep("thesis.compare", { against: req.params.id }),
+    ];
+    validateOrder(planned, {});
+    const thread = await svc.store.createThread(ctxOf(u), `Reproduce: ${title}`.slice(0, 200), null);
+    const taskId = await svc.createTask(u, thread.id, null, `Reproduce: ${title}`.slice(0, 200), planned, {
+      1: fallback
+        ? "The thesis does not carry its original question and the original run is not visible to you, so the hypothesis is used as the question. Starts a live investigation with the minimum budget (model spend is charged to your credits)."
+        : `Starts a live investigation of the original question (read from ${source}) with the minimum budget (model spend is charged to your credits): "${question.slice(0, 160)}".`,
+    });
+    return reply.status(201).send({ threadId: thread.id, taskId });
+  });
   app.get("/v1/agent/costs", async (req) => {
     const s = await authenticate(req);
     const q = parse(CostsQuery, req.query);

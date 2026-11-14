@@ -377,6 +377,8 @@ export class AgentService {
     workspaceId: string | null,
     title: string,
     steps: PlannedStep[],
+    /** Replaces the standard detail line of a step (by index) when the caller knows more than the step's parameters. */
+    detailOverrides: Record<number, string> = {},
   ): Promise<string> {
     let proofEstimate: string | null = null;
     if (steps.some((s) => s.key === "capsule.prove")) {
@@ -395,7 +397,12 @@ export class AgentService {
       title,
       consentRequired: required,
       estimate: { creditsMaxUsd: spend?.maxUsd ?? null, modelUsdMax: modelUsdMaxFor(steps) },
-      steps: steps.map((s) => ({ key: s.key, params: s.params, title: titleOf(s), detail: detailOf(s) })),
+      steps: steps.map((s, i) => ({
+        key: s.key,
+        params: s.params,
+        title: titleOf(s),
+        detail: detailOverrides[i] ?? detailOf(s),
+      })),
     });
   }
 

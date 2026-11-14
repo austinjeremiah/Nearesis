@@ -258,6 +258,7 @@ export class Executor {
                   ...(ctx.proofId ? { proofId: ctx.proofId } : {}),
                   ...(ctx.publicationId ? { publicationId: ctx.publicationId } : {}),
                   ...(ctx.hypothesisId ? { hypothesisId: ctx.hypothesisId } : {}),
+                  ...(ctx.thesisId ? { thesisId: ctx.thesisId } : {}),
                   ...(outcome.result.refs ?? {}),
                 },
               }),

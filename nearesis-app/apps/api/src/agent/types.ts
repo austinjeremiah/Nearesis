@@ -22,6 +22,7 @@ export interface StepRefs {
   proofId?: string;
   publicationId?: string;
   hypothesisId?: string;
+  thesisId?: string;
   markerIds?: string[];
   monitorIds?: string[];
   skipped?: Array<{ kind: string; reason: string }>;
@@ -104,6 +105,7 @@ export interface TaskView {
     capsuleId: string | null;
     proofId: string | null;
     publicationId: string | null;
+    thesisId: string | null;
     reportUrl: string | null;
   };
   createdAt: string;
@@ -140,5 +142,6 @@ export interface TaskCtx {
   proofId?: string;
   publicationId?: string;
   hypothesisId?: string;
+  thesisId?: string;
   reportUrl?: string;
 }

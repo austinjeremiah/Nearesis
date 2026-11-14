@@ -731,6 +731,106 @@ async function reportBuild(e: Env): Promise<Outcome> {
   };
 }
 
+const verdictText = (v: unknown): string | null => {
+  if (typeof v === "string") return str(v);
+  if (v && typeof v === "object") {
+    const o = v as Obj;
+    const status = str(o.status);
+    const headline = str(o.headline);
+    return status && headline ? `${status}: ${headline}` : (status ?? headline);
+  }
+  return null;
+};
+const cell = (v: unknown): string =>
+  v === null || v === undefined ? "not available" : typeof v === "string" ? v : JSON.stringify(v);
+
+async function thesisBuild(e: Env): Promise<Outcome> {
+  const ws = wsOf(e);
+  // No run named by the plan or the task: the route takes the workspace's newest run with a ready interpretation.
+  const runId = str(e.params.runId) ?? e.ctx.runId ?? null;
+  const r = await call<Obj>(
+    e.api,
+    e.user,
+    "POST",
+    `/v1/workspaces/${ws}/theses`,
+    runId ? { runId } : {},
+    idem(e),
+  );
+  const thesisId = need(str(r.body.thesisId), "the thesis id");
+  await e.patchCtx({ thesisId });
+  const verdict = verdictText(r.body.verdict);
+  const version =
+    typeof r.body.version === "string" || typeof r.body.version === "number" ? String(r.body.version) : null;
+  return {
+    kind: "done",
+    result: {
+      summary: `Thesis built${verdict ? `. Verdict ${verdict}` : ""}.`,
+      items: [
+        item("Thesis", thesisId, `/thesis/${thesisId}`),
+        ...(verdict ? [item("Verdict", verdict)] : []),
+        ...(version ? [item("Version", version)] : []),
+      ],
+      refs: { thesisId },
+    },
+  };
+}
+
+async function thesisPublish(e: Env): Promise<Outcome> {
+  const thesisId = need(str(e.params.thesisId) ?? e.ctx.thesisId ?? null, "a thesis");
+  const r = await call<Obj>(
+    e.api,
+    e.user,
+    "POST",
+    `/v1/theses/${encodeURIComponent(thesisId)}/publish`,
+    {},
+    idem(e),
+  );
+  const slug = str(r.body.shareSlug);
+  const path = str(r.body.publicUrlPath) ?? (slug ? `/t/${slug}` : null);
+  const publicPath = need(path, "the public link of the thesis");
+  return {
+    kind: "done",
+    result: {
+      summary: "The thesis is published at a public link.",
+      items: [item("Public page", publicPath, publicPath), item("Thesis", thesisId, `/thesis/${thesisId}`)],
+      refs: { thesisId },
+    },
+  };
+}
+
+async function thesisCompare(e: Env): Promise<Outcome> {
+  const thesisId = need(str(e.params.thesisId) ?? e.ctx.thesisId ?? null, "a thesis");
+  const against = need(str(e.params.against), "the thesis to compare with");
+  const r = await call<{ outcome?: unknown; rows?: Obj[] }>(
+    e.api,
+    e.user,
+    "POST",
+    `/v1/theses/${encodeURIComponent(thesisId)}/compare`,
+    { against },
+    idem(e),
+  );
+  const outcome = str(r.body.outcome);
+  if (outcome !== "match" && outcome !== "drift" && outcome !== "different")
+    throw new StepFail("COMPARE_UNREADABLE", "The comparison did not return an outcome.", false);
+  const rows = Array.isArray(r.body.rows) ? r.body.rows : [];
+  const words = {
+    match: "The reproduction matches the original.",
+    drift: "The reproduction drifted from the original.",
+    different: "The reproduction is different from the original.",
+  } as const;
+  return {
+    kind: "done",
+    result: {
+      summary: `${words[outcome]} (${outcome}, ${rows.length} compared value${rows.length === 1 ? "" : "s"})`,
+      items: rows.slice(0, 100).map((x) => {
+        const delta = x.delta === null || x.delta === undefined ? "" : `; delta ${cell(x.delta)}`;
+        return item(cell(x.what), `original ${cell(x.original)}; reproduced ${cell(x.reproduced)}${delta}`);
+      }),
+      refs: { thesisId },
+    },
+  };
+}
+
 export const HANDLERS: Record<string, (e: Env) => Promise<Outcome>> = {
   "workspace.create": workspaceCreate,
   "workspace.use": workspaceUse,
@@ -746,4 +846,7 @@ export const HANDLERS: Record<string, (e: Env) => Promise<Outcome>> = {
   "capsule.prove": capsuleProve,
   "capsule.publish": capsulePublish,
   "report.build": reportBuild,
+  "thesis.build": thesisBuild,
+  "thesis.publish": thesisPublish,
+  "thesis.compare": thesisCompare,
 };

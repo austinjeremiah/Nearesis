@@ -8,6 +8,7 @@ import {
   PlanRejected,
   validateOrder,
   validateStep,
+  withAutoSteps,
 } from "./catalog.ts";
 import type { PlannedStep } from "./catalog.ts";
 import type { TaskCtx } from "./types.ts";
@@ -45,12 +46,13 @@ export const AGENT_PLANNER_SYSTEM = [
   "Never pick a workspace the user did not select or name: with no current workspace, a plan creates one (workspace.create) or you ask which one (clarify). If the user asks for several actions, plan all of them in order; for hypothesis.freeze take the id from <current_hypotheses> when exactly one draft exists, otherwise ask which one (clarify).",
   'A direct lookup of approvals or workspaces needs no workspace (workspaceId ""); it then covers all of the user\'s workspaces.',
   '"answer": a quick read-only question about NEAR Intents, entities or accounts that needs no workspace (a grounded answer with charts is produced elsewhere).',
-  '"plan": the user wants something done (create or use a workspace, investigate, set up monitoring or hypotheses, build/verify/publish a capsule, produce the report, archive). Return steps from the catalog only.',
+  '"plan": the user wants something done (create or use a workspace, investigate, set up monitoring or hypotheses, build/verify/publish a capsule, build or publish a thesis or report, archive). Return steps from the catalog only.',
   '"clarify": the request is ambiguous or lacks something required (for example which workspace); put ONE short question in text.',
   '"direct": a read-only lookup of the user\'s own data: set lookup to one of workspaces, monitors, hypotheses, findings, approvals, credits; set workspaceId when it is about one workspace (an id from <workspaces> or the current workspace).',
   '"text": you cannot do what was asked with this catalog; say so plainly in text. Never promise something the catalog cannot do.',
   "Plan rules: steps use only the catalog keys with their parameters. Each step is {key, params} where params is ONE JSON object string. Omitted ids default to what earlier steps produced.",
   "In an existing workspace, setup.auto and capsule.build without runId use its newest finished run, and capsule.prove and capsule.publish without capsuleId use its newest capsule: when the user refers to the latest run or capsule, start the plan with workspace.use and omit the id; do not ask and do not start a new investigation unless the workspace holds no finished run.",
+  'A request for a "report" or a "thesis" plans thesis.build (the thesis is the report of a workspace); keep report.build only for when the user explicitly asks for the PDF report. A full investigation flow ends with thesis.build, after capsule.build and capsule.prove. Publishing or sharing a thesis uses thesis.publish. thesis.compare needs the id of the thesis to compare with. The server adds capsule.build before thesis.build when the plan has none, so you need not add it.',
   "Never ask the user for authorization, consent or confirmation in text and never use clarify for that: when the request is clear, return the plan, and the server shows the consent boxes before anything runs. capsule.publish does NOT require capsule.prove: include capsule.prove only when the user asks to prove or verify on OutLayer.",
   "Never put consent, costs or estimates in a plan; they are computed by the server. Spending credits, publishing, freezing and archiving are only planned when the user clearly asked for them.",
   "Use an existing workspace id only if it appears in <workspaces>; otherwise create one. Prefer these playbooks:",
@@ -137,7 +139,11 @@ export function interpret(out: PlannerOutput, ambient: TaskCtx): PlannerDecision
           return validateStep(s.key, params);
         });
         validateOrder(steps, ambient);
-        return { kind: "plan", title: out.title.trim().slice(0, 120) || "Agent task", steps };
+        return {
+          kind: "plan",
+          title: out.title.trim().slice(0, 120) || "Agent task",
+          steps: withAutoSteps(steps, ambient),
+        };
       } catch (e) {
         if (e instanceof PlanRejected)
           return { kind: "text", text: `I cannot do that as asked. ${e.message}` };

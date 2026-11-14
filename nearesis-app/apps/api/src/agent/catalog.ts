@@ -44,6 +44,9 @@ export const STEP_PARAMS = {
     acknowledge: z.array(Text(1, 100)).max(20).optional(),
   }),
   "report.build": z.strictObject({ workspaceId: Uuid.optional() }),
+  "thesis.build": z.strictObject({ runId: Uuid.optional() }),
+  "thesis.publish": z.strictObject({ thesisId: Text(1, 200).optional() }),
+  "thesis.compare": z.strictObject({ against: Text(1, 200), thesisId: Text(1, 200).optional() }),
 } as const;
 export type StepKey = keyof typeof STEP_PARAMS;
 export const STEP_KEYS = Object.keys(STEP_PARAMS) as StepKey[];
@@ -54,6 +57,7 @@ export const STEP_CONSENT: Partial<Record<StepKey, ConsentKey[]>> = {
   "hypothesis.freeze": ["freeze_hypothesis"],
   "capsule.prove": ["spend_credits"],
   "capsule.publish": ["publish_public", "spend_credits"],
+  "thesis.publish": ["publish_public"],
 };
 
 /** What the planner is told about each key (the prompt documents parameters; validation is STEP_PARAMS). */
@@ -82,13 +86,20 @@ export const CATALOG_DOC: Record<StepKey, string> = {
   "capsule.publish":
     'publish the capsule publicly (needs consent). params {"capsuleId"?: string, "acknowledge"?: string[]}',
   "report.build":
-    'check the workspace report is ready and link the page and PDF. params {"workspaceId"?: uuid}',
+    'check the workspace report is ready and link the page and PDF. params {"workspaceId"?: uuid}; use it only when the user explicitly asks for the PDF report',
+  "thesis.build":
+    'build the workspace thesis (the report of the workspace: claim, evidence for and against, charts with their queries, verdict) from a finished run and its capsule. params {"runId"?: uuid} (default: the run just asked, else the newest finished run)',
+  "thesis.publish":
+    'publish a thesis at a public link (needs consent). params {"thesisId"?: string} (default: the thesis just built)',
+  "thesis.compare":
+    'compare a thesis with another one (for example a reproduction with the original). params {"against": string (the thesis id to compare with), "thesisId"?: string} (default thesis: the one just built)',
 };
 
 export const PLAYBOOKS = [
   "investigate: workspace.create (or workspace.use), question.ask, run.await, setup.auto",
-  "full publish: workspace.create|use, question.ask, run.await, capsule.build, capsule.prove, capsule.publish, report.build",
-  "report only: report.build (on an existing workspace)",
+  "full flow: workspace.create|use, question.ask, run.await, setup.auto, capsule.build, capsule.prove, capsule.publish, thesis.build (the flow ends with thesis.build, after capsule.build and capsule.prove)",
+  'thesis or report: a request for a "report" or a "thesis" plans thesis.build (on an existing workspace with a finished run it is the only step needed; capsule.build is added by the server when missing); use report.build only when the user explicitly asks for the PDF report',
+  "publish a thesis: thesis.publish (after thesis.build, or alone when the thesis id is known)",
   "single actions: one step on an existing workspace (for example hypothesis.create or workspace.archive)",
 ].join("\n");
 
@@ -126,6 +137,7 @@ export function validateOrder(steps: PlannedStep[], ambient: TaskCtx): void {
         delete have.runId;
         delete have.capsuleId;
         delete have.hypothesisId;
+        delete have.thesisId;
         break;
       case "workspace.use":
         have.workspaceId = p.workspaceId;
@@ -173,8 +185,43 @@ export function validateOrder(steps: PlannedStep[], ambient: TaskCtx): void {
       case "report.build":
         need(p.workspaceId || have.workspaceId, `${at} needs a workspace.`);
         break;
+      case "thesis.build":
+        need(have.workspaceId, `${at} needs a workspace.`);
+        // An existing workspace may already hold a finished run: the step then takes its newest one.
+        need(p.runId || have.runId || have.workspaceId !== "<new>", `${at} needs a finished run.`);
+        have.thesisId = "<new>";
+        break;
+      case "thesis.publish":
+      case "thesis.compare":
+        need(p.thesisId || have.thesisId, `${at} needs a thesis (build one first or name its id).`);
+        if (p.thesisId) have.thesisId = p.thesisId;
+        break;
     }
   });
+}
+
+/**
+ * Server-side completion of a validated plan (never taken from the model): a thesis is built from a capsule, so when the plan
+ * has no capsule.build before a thesis.build and no capsule exists in context, one is inserted right before it.
+ */
+export function withAutoSteps(steps: PlannedStep[], ambient: TaskCtx): PlannedStep[] {
+  const out: PlannedStep[] = [];
+  let hasCapsule = Boolean(ambient.capsuleId);
+  for (const s of steps) {
+    if (s.key === "workspace.create" || s.key === "workspace.use") hasCapsule = false;
+    if (s.key === "capsule.build") hasCapsule = true;
+    if (s.key === "thesis.build" && !hasCapsule) {
+      const runId = (s.params as { runId?: string }).runId;
+      out.push({ key: "capsule.build", params: runId ? { runId } : {} });
+      hasCapsule = true;
+    }
+    out.push(s);
+  }
+  if (out.length > MAX_PLAN_STEPS)
+    throw new PlanRejected(
+      `The plan needs ${out.length} steps with the capsule it requires; the limit is ${MAX_PLAN_STEPS}.`,
+    );
+  return out;
 }
 
 /** yoctoNEAR decimal string -> NEAR with up to 6 decimals, exact (truncated, never rounded up). */
@@ -219,6 +266,12 @@ export function titleOf(step: PlannedStep): string {
       return "Publish the capsule";
     case "report.build":
       return "Prepare the workspace report";
+    case "thesis.build":
+      return "Build the thesis";
+    case "thesis.publish":
+      return "Publish the thesis";
+    case "thesis.compare":
+      return "Compare with the original thesis";
   }
 }
 
@@ -254,6 +307,12 @@ export function detailOf(step: PlannedStep): string {
       return "Publishes the capsule to the public gateway with its verification badge; a testnet anchor may burn gas charged to your credits.";
     case "report.build":
       return "Checks the report data for the workspace and links the report page and the PDF.";
+    case "thesis.build":
+      return "Builds the thesis from the run's panel results and its capsule with a fixed, descriptive rule (no model call; nothing is invented). The thesis stays a private draft.";
+    case "thesis.publish":
+      return "Publishes the thesis at a public link anyone can open without signing in.";
+    case "thesis.compare":
+      return `Compares the thesis with ${String(p.against).slice(0, 80)} (verdict, sample size, window, test numbers, charts) and reports match, drift or different.`;
   }
 }
 
@@ -272,6 +331,8 @@ export function consentFor(steps: PlannedStep[], proofEstimateUsd: string | null
     proofEstimateUsd !== null && /^\d+(\.\d+)?$/.test(proofEstimateUsd) && proves > 0
       ? timesUsd(proofEstimateUsd, proves)
       : null;
+  const publishesThesis = steps.some((s) => s.key === "thesis.publish");
+  const publishesCapsule = publishes > 0;
   for (const s of steps)
     for (const k of STEP_CONSENT[s.key] ?? []) {
       if (out.has(k)) continue;
@@ -292,7 +353,13 @@ export function consentFor(steps: PlannedStep[], proofEstimateUsd: string | null
           key: k,
           label: "Publish publicly",
           detail:
-            "The capsule becomes publicly visible with its verification badge. If the publish route lists cautions (for example INSUFFICIENT_DATA) the task stops and asks you to acknowledge them.",
+            (publishesCapsule
+              ? "The capsule becomes publicly visible with its verification badge. If the publish route lists cautions (for example INSUFFICIENT_DATA) the task stops and asks you to acknowledge them."
+              : "") +
+            (publishesCapsule && publishesThesis ? " " : "") +
+            (publishesThesis
+              ? "The thesis becomes readable by anyone with its link, without signing in; you can unpublish it later."
+              : ""),
           maxUsd: null,
         });
       else if (k === "freeze_hypothesis")

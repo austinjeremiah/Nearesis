@@ -18,70 +18,7 @@ import { browserApi } from '@/lib/api/browser';
 import { fInt, fPct, fUsd, fSeconds } from '@/lib/data/num';
 import { formatAge } from '@/lib/format';
 import { tidyNumbers } from '@/lib/prose';
-
-/** Questions the live pipeline answers end to end today (Intents Explorer, BigQuery daily chain data, accounts). */
-const EXAMPLES = [
-  'How has NEAR Intents swap volume changed over the last 90 days?',
-  'Which chain pairs carry the most NEAR Intents volume, and how concentrated is it?',
-  'How many new versus returning accounts were active on NEAR in the last 30 days?',
-  'Which routes have the highest Intents refund rates?',
-  'Compare daily NEAR transactions with NEAR Intents swaps since August.',
-];
-
-/* ---------------------------------------------------------------- ask box */
-
-function AskBox() {
-  const router = useRouter();
-  const [q, setQ] = useState('');
-  // The question is answered in the Agent tab (a quick answer, no workspace is created here).
-  const submit = (text: string) => {
-    const t = text.trim().slice(0, 2000);
-    if (t) router.push(`/agent?q=${encodeURIComponent(t)}`);
-  };
-  return (
-    <form
-      className="home-ask"
-      onSubmit={(e) => {
-        e.preventDefault();
-        submit(q);
-      }}
-    >
-      <label htmlFor="home-q" className="sr-only">
-        Ask a question about NEAR
-      </label>
-      <div className="home-ask-row">
-        <textarea
-          id="home-q"
-          data-testid="home-question"
-          rows={2}
-          maxLength={2000}
-          placeholder="Ask anything about NEAR: swaps, accounts, chains, fees…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              submit(q);
-            }
-          }}
-        />
-        <Button type="submit" variant="primary" disabled={!q.trim()} disabledReason="Type a question first." data-testid="home-ask-submit">
-          Ask <ArrowRight size={14} />
-        </Button>
-      </div>
-      <div className="home-chips" aria-label="Example questions">
-        {EXAMPLES.map((e) => (
-          <button key={e} type="button" className="home-chip" onClick={() => submit(e)} data-testid="home-example">
-            {e}
-          </button>
-        ))}
-      </div>
-      <p className="tiny dim">
-        This opens the Agent page and answers your question with charts. Nothing is created until you choose &quot;Create workspace&quot; there and confirm.
-      </p>
-    </form>
-  );
-}
+import ThesisGlimpse from './thesis-glimpse';
 
 /* ------------------------------------------------------------ live strip */
 
@@ -347,47 +284,12 @@ function Findings() {
 
 /* ------------------------------------------------------------ how it works */
 
-function HowItWorks() {
-  const steps = [
-    { icon: <Sparkles size={18} />, t: 'Ask', d: 'Type a question in plain English. Nearesis drafts a plan: which certified metrics to query, the charts to draw and the cost. You approve it.' },
-    { icon: <Workflow size={18} />, t: 'Agents investigate', d: 'Agents query real NEAR data, build the charts, and an analyst writes findings where every number is tied to a result cell. A skeptic agent then challenges each one.' },
-    { icon: <ShieldCheck size={18} />, t: 'Publish proof', d: 'Freeze the evidence into a capsule anyone can rebuild offline, with its hash committed on NEAR testnet.' },
-  ];
-  return (
-    <div className="home-steps">
-      {steps.map((s, i) => (
-        <div key={s.t} className="home-step">
-          <span className="home-step-n mono">0{i + 1}</span>
-          <span className="home-step-i">{s.icon}</span>
-          <div className="h3">{s.t}</div>
-          <p className="small dim">{s.d}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /* ------------------------------------------------------------------ page */
 
 export default function HomeView() {
   return (
-    <div className="col gap4" data-testid="home-view">
-      <section className="home-hero">
-        <span className="home-eyebrow">
-          <Radio size={12} /> Live NEAR research, with receipts
-        </span>
-        <h1 className="home-title">Ask anything about NEAR. Get answers you can check.</h1>
-        <p className="home-sub">
-          Agents query a year of real on-chain and NEAR Intents data, chart it, explain what it shows and argue against themselves. Every number links back to the
-          query that produced it.
-        </p>
-        <AskBox />
-        <Link href="/thesis" className="home-thesis" data-testid="home-thesis-link">
-          <span className="home-thesis-k">NEAR Thesis</span>
-          <span className="home-thesis-t">Is NEAR Intents volume a better leading indicator of network usage than price? Read the verdict, the evidence for and against, and every query.</span>
-          <span className="home-thesis-go">Read the thesis <ArrowRight size={14} /></span>
-        </Link>
-      </section>
+    <div className="col gap4" data-testid="home-view" data-no-smooth>
+      <ThesisGlimpse />
 
       <LiveStrip />
 
@@ -404,10 +306,6 @@ export default function HomeView() {
         <Findings />
       </section>
 
-      <section>
-        <SectionBar title="How it works" number="003" />
-        <HowItWorks />
-      </section>
     </div>
   );
 }

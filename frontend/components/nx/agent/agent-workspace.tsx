@@ -37,11 +37,15 @@ import RunCard from './run-card';
 import ThreadsRail from './threads-rail';
 import WsManage from './ws-manage';
 
+/**
+ * Full-flow prompts: each one creates a workspace, investigates two named daily series, and ends with a thesis whose PDF
+ * can be downloaded. They only propose a plan; nothing runs until the user presses Start.
+ */
 export const EXAMPLES = [
-  'How has NEAR Intents swap volume changed over the last 90 days?',
-  'Which chain pairs carry the most NEAR Intents volume, and how concentrated is it?',
-  'Create a workspace on NEAR Intents refunds, investigate it and build the thesis.',
-  'List my workspaces and their pending approvals.',
+  'Create a workspace on NEAR Intents reliability. Test whether days with more swaps have a higher refund rate over the last 90 days, set up monitors and a hypothesis, then build the thesis and its PDF.',
+  'Create a workspace on NEAR base-layer usage. Test whether days with more transactions have more active accounts over the last 120 days, then build the thesis and its PDF.',
+  'Create a workspace on NEAR user growth. Test whether new accounts move with returning accounts over the last 90 days, then build the thesis and its PDF.',
+  'Create a workspace on NEAR Intents and the NEAR price. Test whether the daily Intents swap count moves with the NEAR price over the last 180 days, verify the capsule on OutLayer, publish it, then build the thesis and its PDF.',
 ];
 
 type LocalRun = { wid: string; runId: string; question: string };

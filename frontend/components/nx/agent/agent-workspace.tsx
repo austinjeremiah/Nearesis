@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import './agent.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -305,6 +306,9 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
                     {e}
                   </button>
                 ))}
+                <Link className="ag-chip" href="/thesis">
+                  Read the NEAR thesis
+                </Link>
               </div>
             </div>
           )}

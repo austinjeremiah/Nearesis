@@ -232,3 +232,26 @@
     padding: 24px 16px;
   }
 }
+
+/* Link to the NEAR Thesis page, in the hero. */
+.home-thesis {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: 6px;
+  padding: 14px 18px;
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--accent);
+  background: var(--raised);
+  color: var(--text);
+  text-decoration: none;
+}
+.home-thesis:hover { border-color: var(--accent); }
+.home-thesis:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.home-thesis-k { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+.home-thesis-t { font-size: var(--fs-small); color: var(--text-2); line-height: 1.4; }
+.home-thesis-go { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: var(--fs-small); white-space: nowrap; }
+@media (max-width: 720px) {
+  .home-thesis { grid-template-columns: minmax(0, 1fr); }
+}

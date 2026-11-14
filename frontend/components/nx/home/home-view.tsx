@@ -382,6 +382,11 @@ export default function HomeView() {
           query that produced it.
         </p>
         <AskBox />
+        <Link href="/thesis" className="home-thesis" data-testid="home-thesis-link">
+          <span className="home-thesis-k">NEAR Thesis</span>
+          <span className="home-thesis-t">Is NEAR Intents volume a better leading indicator of network usage than price? Read the verdict, the evidence for and against, and every query.</span>
+          <span className="home-thesis-go">Read the thesis <ArrowRight size={14} /></span>
+        </Link>
       </section>
 
       <LiveStrip />

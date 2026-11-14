@@ -1,5 +1,6 @@
 import { Content, PageHeader } from '@/components/nx/shell';
 import { DataNav } from '@/components/nx/data/kit';
+import { SourcesThesisTables } from '@/components/nx/thesis-track/thesis-view';
 import { SourcesList } from '@/components/nx/data/sources-view';
 
 export default function Page() {
@@ -9,6 +10,7 @@ export default function Page() {
       <Content>
         <DataNav />
         <SourcesList />
+        <SourcesThesisTables />
       </Content>
     </>
   );

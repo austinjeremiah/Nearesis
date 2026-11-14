@@ -19,6 +19,7 @@ export function proxy(req: NextRequest) {
 export const config = {
   matcher: [
     '/home/:path*',
+    '/thesis/:path*',
     '/workspaces/:path*',
     '/w/:path*',
     '/data/:path*',

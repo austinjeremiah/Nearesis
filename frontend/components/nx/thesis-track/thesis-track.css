@@ -1,0 +1,108 @@
+/* NEAR Thesis page. Tokens only, so both themes follow. */
+.tt { display: flex; flex-direction: column; gap: 40px; max-width: 1280px; }
+.tt section.tt-sec { display: flex; flex-direction: column; gap: 14px; }
+.tt-secnote { margin: 0; color: var(--text-2); font-size: var(--fs-small); max-width: 72ch; }
+
+/* verdict */
+.tt-verdict { border: 1px solid var(--line-strong); background: var(--surface); padding: 28px 28px 24px; display: flex; flex-direction: column; gap: 16px; }
+.tt-verdict[data-tone='ok'] { border-left: 6px solid var(--ok); }
+.tt-verdict[data-tone='bad'] { border-left: 6px solid var(--bad); }
+.tt-verdict[data-tone='warn'] { border-left: 6px solid var(--warn); }
+.tt-verdict[data-tone='info'] { border-left: 6px solid var(--info, var(--text-3)); }
+.tt-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.tt-hyp { margin: 0; font-family: var(--font-display); font-size: clamp(22px, 2.6vw, 32px); line-height: 1.15; letter-spacing: -0.02em; font-weight: 500; max-width: 38ch; }
+.tt-status-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.tt-status-row .badge { font-size: 13px; padding: 5px 12px; }
+.tt-headline { margin: 0; font-size: clamp(16px, 1.6vw, 19px); line-height: 1.45; color: var(--text); max-width: 70ch; }
+.tt-compare-sum { margin: 0; font-size: var(--fs-small); color: var(--text-2); max-width: 70ch; }
+.tt-ref { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); word-break: break-all; }
+
+/* evidence */
+.tt-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.tt-ev { border: 1px solid var(--line-strong); background: var(--surface); }
+.tt-ev > header { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line-strong); }
+.tt-ev > header h3 { margin: 0; font-size: var(--fs-h3); font-weight: 600; }
+.tt-ev.for > header { background: var(--ok-bg); color: var(--ok); }
+.tt-ev.against > header { background: var(--bad-bg); color: var(--bad); }
+.tt-ev.for { border-top: 4px solid var(--ok); }
+.tt-ev.against { border-top: 4px solid var(--bad); }
+.tt-ev .tt-ev-body { padding: 14px 18px 18px; }
+.tt-mind { border: 1px solid var(--line-strong); border-top: 4px solid var(--warn); background: var(--surface); margin-top: 16px; }
+.tt-mind > header { padding: 12px 18px; background: var(--warn-bg); color: var(--warn); border-bottom: 1px solid var(--line-strong); }
+.tt-mind > header h3 { margin: 0; font-size: var(--fs-h3); font-weight: 600; }
+.tt-mind .tt-ev-body { padding: 14px 18px 18px; }
+
+/* markdown */
+.tt-md { font-size: var(--fs-body, 14px); line-height: 1.6; color: var(--text); overflow-wrap: anywhere; }
+.tt-md > :first-child { margin-top: 0; }
+.tt-md > :last-child { margin-bottom: 0; }
+.tt-md h4, .tt-md h5, .tt-md h6 { margin: 18px 0 6px; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
+.tt-md p { margin: 0 0 10px; max-width: 76ch; }
+.tt-md ul, .tt-md ol { margin: 0 0 12px; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; max-width: 76ch; }
+.tt-md code { font-family: var(--font-mono); font-size: 0.9em; background: var(--sunken); padding: 1px 5px; }
+.tt-md a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+.tt-md blockquote { margin: 0 0 12px; padding: 2px 14px; border-left: 3px solid var(--line-strong); color: var(--text-2); }
+.tt-md hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+.tt-md .tt-md-table { margin: 0 0 14px; }
+.tt-md .table td, .tt-md .table th { vertical-align: top; }
+.tt-code { margin: 0 0 12px; padding: 12px 14px; background: var(--sunken); border: 1px solid var(--line); overflow: auto; max-height: 360px; font-family: var(--font-mono); font-size: 12px; line-height: 1.55; white-space: pre; tab-size: 2; }
+.tt-code code { background: none; padding: 0; font-size: inherit; }
+.tt-code:focus-visible, .tt-md-table:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* claims */
+.tt-claims td { vertical-align: top; min-width: 120px; line-height: 1.45; }
+.tt-claims td.stmt { min-width: 260px; }
+
+/* charts */
+.tt-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.tt-chart { border: 1px solid var(--line-strong); background: var(--surface); display: flex; flex-direction: column; min-width: 0; }
+.tt-chart > header { padding: 14px 18px 0; display: flex; flex-direction: column; gap: 4px; }
+.tt-chart > header h3 { margin: 0; font-size: var(--fs-h3); font-weight: 600; }
+.tt-chart .tt-sentence { margin: 0; font-size: 15px; line-height: 1.45; }
+.tt-chart-body { padding: 10px 18px 0; }
+.tt-chart-foot { padding: 12px 18px 16px; display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
+.tt-against { border-left: 4px solid var(--bad); background: var(--bad-bg); color: var(--text); padding: 8px 12px; font-size: var(--fs-small); line-height: 1.45; }
+.tt-against b { color: var(--bad); text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; display: block; margin-bottom: 2px; }
+.tt-caveats { margin: 0; padding-left: 18px; font-size: var(--fs-small); color: var(--text-2); display: flex; flex-direction: column; gap: 3px; }
+.tt-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--fs-tiny); color: var(--text-3); }
+.tt-meta span b { font-weight: 600; color: var(--text-2); }
+.tt-qtag { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tt-sqllabel { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); font-weight: 600; margin: 6px 0 4px; }
+.tt-nodata { padding: 36px 12px; text-align: center; color: var(--text-3); font-size: var(--fs-small); border: 1px dashed var(--line-strong); }
+
+/* reproduce / copy */
+.tt-repro { border: 1px solid var(--line-strong); background: var(--surface); padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.tt-copy { position: relative; }
+.tt-copy .tt-code { margin: 0; padding-right: 84px; }
+.tt-copy button { position: absolute; top: 8px; right: 8px; }
+.tt-hashes { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 6px 16px; margin: 0; font-size: var(--fs-small); }
+.tt-hashes dt { font-family: var(--font-mono); font-size: 12px; color: var(--text-2); word-break: break-all; }
+.tt-hashes dd { margin: 0; font-family: var(--font-mono); font-size: 12px; color: var(--text-3); word-break: break-all; }
+
+/* lists, accordion, downloads */
+.tt-unable { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.tt-unable li { border: 1px solid var(--line-strong); border-left: 4px solid var(--warn); background: var(--surface); padding: 10px 14px; font-size: var(--fs-small); line-height: 1.45; }
+.tt-unable li b { display: block; font-size: 14px; }
+.tt-acc { border: 1px solid var(--line-strong); background: var(--surface); }
+.tt-acc + .tt-acc { border-top: 0; }
+.tt-acc > summary { cursor: pointer; padding: 12px 18px; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 10px; }
+.tt-acc > summary::-webkit-details-marker { display: none; }
+.tt-acc > summary::before { content: '+'; font-family: var(--font-mono); width: 14px; color: var(--text-3); }
+.tt-acc[open] > summary::before { content: '\2212'; }
+.tt-acc > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tt-acc .tt-acc-body { padding: 4px 18px 18px; border-top: 1px solid var(--line); }
+.tt-downloads { display: flex; flex-wrap: wrap; gap: 10px; }
+.tt-notbuilt { border: 1px solid var(--line-strong); border-left: 6px solid var(--warn); background: var(--surface); padding: 28px; display: flex; flex-direction: column; gap: 12px; max-width: 760px; }
+.tt-notbuilt h2 { margin: 0; font-size: var(--fs-h2); }
+.tt-skel { display: flex; flex-direction: column; gap: 16px; }
+
+@media (max-width: 1100px) {
+  .tt-two, .tt-charts { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .tt { gap: 28px; }
+  .tt-verdict { padding: 18px 16px; }
+  .tt-hashes { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .tt-hashes dd { margin-bottom: 8px; }
+  .tt-chart > header, .tt-chart-body, .tt-chart-foot { padding-left: 12px; padding-right: 12px; }
+}

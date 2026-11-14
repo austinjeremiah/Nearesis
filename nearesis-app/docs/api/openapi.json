@@ -819,7 +819,7 @@
         "tags": [
           "agent"
         ],
-        "summary": "A task with its steps, consent, estimate, costs and links",
+        "summary": "A task with its steps (each with a one-line `why`), test plan (`testPlan`, null when the plan has no investigation), consent, estimate, costs and links",
         "parameters": [
           {
             "name": "id",
@@ -1191,6 +1191,101 @@
         "responses": {
           "200": {
             "description": "Task",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agent/tasks/{id}/test-plan": {
+      "patch": {
+        "operationId": "patchAgentTasksByIdTestPlan",
+        "tags": [
+          "agent"
+        ],
+        "summary": "Edit the test plan of a PROPOSED task (owner only). Any of statement, xLabel, yLabel, relation, lagDays, expectedSign, windowDays, wouldCountAsWrong; each is validated (plain text, no numbers in the sentences, no causal or bullish wording, the two labels name different series) and a bad field is a 422 INVALID_TEST_PLAN with details [{ path, issue }]. `statement: null` clears the plan. editedByUser becomes true. 409 TEST_PLAN_LOCKED once the task has started (Start locks the plan: lockedAt and sha256 are set and never change)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchAgentTasksByIdTestPlanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task (testPlan: { statement, xLabel, yLabel, relation, lagDays, expectedSign, windowDays, wouldCountAsWrong, editedByUser, lockedAt, sha256 })",
             "x-schema-status": "untyped"
           },
           "401": {
@@ -21264,6 +21359,80 @@
         "x-capability": "investigation progress"
       }
     },
+    "/v1/workspaces/{id}/runs/{runId}/query-notes": {
+      "get": {
+        "operationId": "getWorkspacesByIdRunsByRunIdQueryNotes",
+        "tags": [
+          "publication"
+        ],
+        "summary": "Why each panel of a run was drawn, as the run recorded it (empty when it recorded none)",
+        "description": "Reads the composer's plan of the run: a panel has a note only when the plan entry of that panel carries a reason. Nothing is invented. `complete` is true only when every panel has one.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ runId, panels: number, notes: [{ panelTitle, why }], complete: boolean }",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/workspaces/{id}/settings": {
       "get": {
         "operationId": "getWorkspacesByIdSettings",
@@ -22247,6 +22416,102 @@
         "responses": {
           "201": {
             "description": "Summary",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{id}/test-plan/resolve": {
+      "post": {
+        "operationId": "postWorkspacesByIdTestPlanResolve",
+        "tags": [
+          "publication"
+        ],
+        "summary": "Find the two series a test plan names among a finished run's real daily series (no model, nothing written)",
+        "description": "Matches xLabel and yLabel against the daily numeric columns of the COMPLETE run's panels by name only: every concept word of a label (stemmed; generic words such as daily, count, total dropped) must be found in the column name or panel title and at least one in the column name; an exact match of the column wins. `resolved` (by: name) when each label matches exactly one series and the two share at least two days; `ambiguous` otherwise, with the candidate series (ids and names only, best matches first, at most 40) so the caller can propose a pair by id; `missing` when the run has no daily series or the pair shares fewer than two days. With `proposal` ({ x, y } as panel hash and column) the pair is validated against the real candidates (both exist, are different series, share days and are not mechanically related) and answered `resolved` (by: model) or `rejected` with the reason. Errors: 404 workspace or RUN_NOT_IN_WORKSPACE, 422 RUN_NOT_COMPLETE or RUN_NOT_CAPSULABLE (no result panels), 503 PANEL_DATA_UNAVAILABLE.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostWorkspacesByIdTestPlanResolveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "{ status: 'resolved', by: 'name'|'model', x: Series, y: Series } | { status: 'ambiguous', matches: { x: 'one'|'many'|'none', y }, candidates: Series[] } | { status: 'missing', missing: 'x'|'y', label, reason } | { status: 'rejected', reason }; Series = { panelHash, panelTitle, column, unit, days }",
             "x-schema-status": "untyped"
           },
           "401": {
@@ -30468,6 +30733,48 @@
         ],
         "additionalProperties": false
       },
+      "PatchAgentTasksByIdTestPlanRequest": {
+        "type": "object",
+        "properties": {
+          "statement": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "xLabel": {
+            "type": "string"
+          },
+          "yLabel": {
+            "type": "string"
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "moves_with",
+              "leads"
+            ]
+          },
+          "lagDays": {
+            "type": "number"
+          },
+          "expectedSign": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "negative",
+              "either"
+            ]
+          },
+          "windowDays": {
+            "type": "number"
+          },
+          "wouldCountAsWrong": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "PatchAgentThreadsByIdRequest": {
         "type": "object",
         "properties": {
@@ -31400,12 +31707,16 @@
                 },
                 "reason": {
                   "type": "string"
+                },
+                "thresholdFrom": {
+                  "type": "string"
                 }
               },
               "required": [
                 "id",
                 "title",
-                "reason"
+                "reason",
+                "thresholdFrom"
               ],
               "additionalProperties": false
             }
@@ -31572,6 +31883,11 @@
               "statement": {
                 "type": "string",
                 "maxLength": 300,
+                "pattern": "^[\\x20-\\x7e]*$"
+              },
+              "why": {
+                "type": "string",
+                "maxLength": 600,
                 "pattern": "^[\\x20-\\x7e]*$"
               }
             },
@@ -32139,6 +32455,80 @@
         ],
         "additionalProperties": false
       },
+      "PostWorkspacesByIdTestPlanResolveRequest": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "xLabel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "yLabel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "proposal": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "object",
+                "properties": {
+                  "panelHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "column": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "panelHash",
+                  "column"
+                ],
+                "additionalProperties": false
+              },
+              "y": {
+                "type": "object",
+                "properties": {
+                  "panelHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "column": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "panelHash",
+                  "column"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "runId",
+          "xLabel",
+          "yLabel"
+        ],
+        "additionalProperties": false
+      },
       "PostWorkspacesByIdThesesRequest": {
         "type": "object",
         "properties": {
@@ -32213,11 +32603,31 @@
                 "type": "string",
                 "maxLength": 300,
                 "pattern": "^[\\x20-\\x7e]*$"
+              },
+              "why": {
+                "type": "string",
+                "maxLength": 600,
+                "pattern": "^[\\x20-\\x7e]*$"
               }
             },
             "required": [
               "x",
               "y"
+            ],
+            "additionalProperties": false
+          },
+          "planLock": {
+            "description": "An agent task of the caller whose locked test plan this thesis tests (needs test and runId). The server reads the plan from the task and checks it: locked, hash of its canonical fields, same workspace, the task started this run, and test.statement is the plan's sentence; then doc.test.plan carries lockedAt, sha256, editedByUser and wouldCountAsWrong of the plan and Methods says it was locked before the investigation ran. 422 TEST_PLAN_LOCK_INVALID otherwise. Without planLock the plan is chosen at build and lockedAt is null.",
+            "type": "object",
+            "properties": {
+              "taskId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              }
+            },
+            "required": [
+              "taskId"
             ],
             "additionalProperties": false
           }

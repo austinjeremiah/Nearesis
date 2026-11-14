@@ -1,17 +1,17 @@
 {
   "schema": "nearesis.thesis.hashes.v1",
-  "version": "v-87666ef9b9e9",
+  "version": "v-772d7d6dbdf6",
   "generatedAt": "2026-11-14T10:12:49.255Z",
   "files": [
     {
       "path": "build/THESIS.md",
-      "sha256": "fdc7a447f22a738b4f787dffaa270f689705eafcc9f6e5fb1e1e85dfa566db93",
-      "bytes": 99829
+      "sha256": "bd2236693c1f458ef02e45290e357af4212fcbad6f48f7ecc21c3f7cfda39054",
+      "bytes": 99835
     },
     {
       "path": "build/site/index.html",
-      "sha256": "5333eff02e84d339f96721e2fb333e536c783454447000332e3caa9c863f6dbc",
-      "bytes": 580605
+      "sha256": "43eb8dfdcacc1a54803d8df246988f4e01590e5302cd77e2f3d35bf12a556352",
+      "bytes": 580617
     },
     {
       "path": "build/FACTS.md",
@@ -25,8 +25,8 @@
     },
     {
       "path": "build/thesis.json",
-      "sha256": "cca221208c0a162541d2ea4d7a1657c73f6eeedf5d11c05a66e4fceba67678d8",
-      "bytes": 1657977
+      "sha256": "48ffb57bff77a9bec89e194ba7a2d39a4131793c06e5ef1e497e8b8514aeea0b",
+      "bytes": 1657983
     }
   ],
   "inputs": [
@@ -68,7 +68,7 @@
     },
     {
       "path": "thesis/raw/fees/NOTES.md",
-      "sha256": "9a1138fda1217e1682375b943ef6f23552ca11c0b8563c3a3dbf87a1338de0e2"
+      "sha256": "110140f0743153f2a93e29d5936b076cc23f7fba4789c1bd250e917635284785"
     },
     {
       "path": "thesis/raw/fees/fees_by_receiver_top.json",

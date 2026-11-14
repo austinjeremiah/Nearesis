@@ -20,7 +20,7 @@ import {
 } from "./fees-sql.ts";
 
 /**
- * Thesis fee and burn data (The Toll Booth Problem). Commands:
+ * Thesis fee and burn data (Volume Without Value Capture). Commands:
  *   discover [--execute]   top-40 executors of receipts that belong to transactions sent to intents.near, on three sample days
  *   plan                   dry-run every chunk (free) and print bytes per chunk, total and how it fits the remaining quota
  *   run [--execute]        run chunks newest first; completed chunks are never re-billed; stops when the quota is exhausted

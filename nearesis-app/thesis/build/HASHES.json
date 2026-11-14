@@ -1,17 +1,17 @@
 {
   "schema": "nearesis.thesis.hashes.v1",
-  "version": "v-bb9e31a06bb9",
+  "version": "v-87666ef9b9e9",
   "generatedAt": "2026-11-14T10:12:49.255Z",
   "files": [
     {
       "path": "build/THESIS.md",
-      "sha256": "3286331f838ec92dfa0bec6377a35a10db45ff2d147181484f548370d64f4c2e",
-      "bytes": 99831
+      "sha256": "fdc7a447f22a738b4f787dffaa270f689705eafcc9f6e5fb1e1e85dfa566db93",
+      "bytes": 99829
     },
     {
       "path": "build/site/index.html",
-      "sha256": "ce9ba842147e333d954bf089b582ff99a934d3826cab36583772269b83628860",
-      "bytes": 580607
+      "sha256": "5333eff02e84d339f96721e2fb333e536c783454447000332e3caa9c863f6dbc",
+      "bytes": 580605
     },
     {
       "path": "build/FACTS.md",
@@ -25,8 +25,8 @@
     },
     {
       "path": "build/thesis.json",
-      "sha256": "83f852299a380d62001ed78324be1cee555e0f20b1ba6cb48ae68a2a059971be",
-      "bytes": 1657979
+      "sha256": "cca221208c0a162541d2ea4d7a1657c73f6eeedf5d11c05a66e4fceba67678d8",
+      "bytes": 1657977
     }
   ],
   "inputs": [
@@ -40,7 +40,7 @@
     },
     {
       "path": "thesis/interpretation.md",
-      "sha256": "3e4727c32afb632346fbf4b94411ae14dbfafbc6154b2fa8e76f77cfd5d4c227"
+      "sha256": "699e2fe1f9869e58024a1efec010f74d4b5c0861fb7ba2cc62cb9e488fc5f3db"
     },
     {
       "path": "thesis/raw/asset_sets.json",

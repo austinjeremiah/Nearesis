@@ -1,6 +1,6 @@
 # The Toll Booth Problem
 
-Version v-bb9e31a06bb9; generated from frozen data only (frozen at 2026-11-14T10:12:49.255Z).
+Version v-87666ef9b9e9; generated from frozen data only (frozen at 2026-11-14T10:12:49.255Z).
 
 ## Executive claim
 
@@ -207,7 +207,7 @@ Checkpoints that can prove the thesis wrong (the thirty-day average ending on ea
 
 **Analysis**
 
-- The forecasts are uncertain. In the time-ordered backtest only 50.0% [raw/forecast.json#/series/intents_tx/calibration/pooledForward80] of realised Intents transaction values fell inside the eighty percent band, so the bands are too narrow and every series is labelled low skill. The gas take rate itself has no skill over a naive forecast ([raw/forecast.json#/series/take_rate_gas/skill90] skill): its central path is simply the latest level held flat.
+- The forecasts are uncertain. In the time-ordered backtest only 50.0% [raw/forecast.json#/series/intents_tx/calibration/pooledForward80] of realised Intents transaction values fell inside the eighty percent band, so the bands are too narrow and every series is labelled low skill. The gas take rate itself shows a skill of 0 [raw/forecast.json#/series/take_rate_gas/skill90] over a naive forecast: its central path is simply the latest level held flat.
 - Gas is only one toll. The protocol's fee switch sends part of the front-end and protocol fees to NEAR buybacks, and our swap data sees that flow only partly (raw/fees/FEE_MODEL.md). If most of it travels outside the public records, NEAR's real cut is larger than this thesis measures.
 - A small rate on a large base is still money: the forecast twelve-month gas burn by the Intents contracts is 33.2 thousand NEAR [raw/forecast.json#/derived/intents_burn_near_12m/centralTotal], about 113 thousand dollars [raw/forecast.json#/derived/intents_burn_near_12m/usdAtLastClose/central] at the last close, with the price held fixed. Whether that is "almost nothing" depends on what NEAR needs to earn.
 - Volume is the least predictable input: a year out, the eighty percent band for daily settled value runs from 22.8 million [raw/forecast.json#/series/intents_usd/horizons/2/band80/0] to 75.1 million dollars [raw/forecast.json#/series/intents_usd/horizons/2/band80/1].
@@ -307,7 +307,7 @@ Citations in square brackets are `file#pointer`. `raw/` is thesis/raw (raw/forec
 |---|---|---|
 | TABLES.md | thesis/TABLES.md | 386053ae7beafeda360897249aebc6f9d46b41a2f60b3de91bf4eec3f6188438 |
 | archive/thesis.json | thesis/archive/intents-vs-price-v1/build/thesis.json | 7f0da7a1ad9a7845d8a8815eb981b3bb655000185773ba0a5e21d0d44c85c05b |
-| interpretation.md | thesis/interpretation.md | 3e4727c32afb632346fbf4b94411ae14dbfafbc6154b2fa8e76f77cfd5d4c227 |
+| interpretation.md | thesis/interpretation.md | 699e2fe1f9869e58024a1efec010f74d4b5c0861fb7ba2cc62cb9e488fc5f3db |
 | raw/asset_sets.json | thesis/raw/asset_sets.json | 2fa260e3b9419b6569182bfc33785cc054e3ebe28b5f3851cb69c216213f2c34 |
 | raw/bq_account_scan_daily.json | thesis/raw/bq_account_scan_daily.json | 1beeea90bd18768d7ac8900c1ca59b17acafab50054f02ff0602507747bf881a |
 | raw/bq_transactions_signers_daily.json | thesis/raw/bq_transactions_signers_daily.json | c0588d9f21767c5890c2456d59ee45d2a56f01010d8d279d6c3798c64521ea03 |
@@ -354,6 +354,6 @@ raw/forecast.json is generated: its sha256 is in thesis/build/HASHES.json and it
 
 ## Changes since previous version
 
-First generated version of this forecast bundle, id v-bb9e31a06bb9. The version id is derived from the input hashes and the forecast file, so any change in the frozen data changes it.
+First generated version of this forecast bundle, id v-87666ef9b9e9. The version id is derived from the input hashes and the forecast file, so any change in the frozen data changes it.
 
 - The previous reference thesis (Cross-chain volume through NEAR Intents is a better leading indicator of real network usage than token price.) is archived at thesis/archive/intents-vs-price-v1 with its verdict INSUFFICIENT_DATA (version v-69055059d3e7). It stays verifiable with `pnpm thesis:verify --dir thesis/archive/intents-vs-price-v1` and its files are served under /v1/thesis/files/archive/intents-vs-price-v1/. [archive/thesis.json#/hypothesis][archive/thesis.json#/verdict/status][archive/thesis.json#/version]

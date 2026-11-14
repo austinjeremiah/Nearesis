@@ -1,4 +1,3 @@
-import { nearOf } from "./catalog.ts";
 import { createHash } from "node:crypto";
 import { QUESTION_BUDGET } from "./catalog.ts";
 import { ApiError, call, apiErrorOf } from "./api-client.ts";
@@ -11,6 +10,7 @@ export class StepFail extends Error {
     readonly reasonCode: string,
     message: string,
     readonly retryable: boolean,
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
   }
@@ -21,7 +21,12 @@ export type Outcome =
 
 export interface CostReport {
   label: string;
-  unit: "usd" | "yoctoNEAR";
+  unit: "usd";
+  /** `onchain` = OutLayer / anchor gas charged to the user's credits (USD); default `model`. */
+  category?: "model" | "onchain";
+  /** Extra facts shown with the entry (NEAR amounts, rate, rate date). */
+  detail?: Record<string, unknown>;
+  /** USD, 6 places. */
   amount: string;
   /** Model calls this entry stands for (usd entries). */
   calls?: number;
@@ -49,7 +54,8 @@ export interface Env {
   progress(text: string): Promise<void>;
   cancelled(): Promise<boolean>;
   cost(c: CostReport): Promise<void>;
-  setHeld(yocto: string): Promise<void>;
+  /** USD currently held from the user's credits for this task (6 places). */
+  setHeld(usd: string): Promise<void>;
   limits: Limits;
 }
 export interface Limits {
@@ -94,7 +100,8 @@ const asApi = async <T>(fn: () => Promise<T>): Promise<T> => {
   try {
     return await fn();
   } catch (e) {
-    if (e instanceof ApiError) throw new StepFail(e.reasonCode, e.message, e.retryable);
+    if (e instanceof ApiError)
+      throw new StepFail(e.reasonCode, e.message, e.retryable, e.detailsObject ?? undefined);
     throw e;
   }
 };
@@ -226,7 +233,8 @@ async function runAwait(e: Env): Promise<Outcome> {
         await e.sleep(1000);
         continue;
       }
-      if (err instanceof ApiError) throw new StepFail(err.reasonCode, err.message, err.retryable);
+      if (err instanceof ApiError)
+        throw new StepFail(err.reasonCode, err.message, err.retryable, err.detailsObject ?? undefined);
       throw err;
     }
     const state = run.state ?? "UNKNOWN";
@@ -475,12 +483,20 @@ interface ProofView {
   state?: string;
   error?: string | null;
   job?: { txHash?: string | null; explorerUrl?: string | null; requestId?: string | null };
-  cost?: { heldYocto?: string | null; chargedYocto?: string | null; totalYocto?: string | null };
+  cost?: {
+    heldUsd?: string | null;
+    chargedUsd?: string | null;
+    totalUsd?: string | null;
+    totalYocto?: string | null;
+    nearUsdRate?: string | null;
+    rateDate?: string | null;
+  };
 }
 interface CreditEntryRow {
   id: string;
   kind: string;
-  amountYocto: string;
+  category?: string;
+  amountUsd: string;
   refKind: string | null;
   refId: string | null;
   detail?: Obj;
@@ -489,30 +505,56 @@ interface CreditEntryRow {
 const creditEntries = async (e: Env): Promise<CreditEntryRow[]> =>
   (await call<{ entries?: CreditEntryRow[] }>(e.api, e.user, "GET", "/v1/credits")).body.entries ?? [];
 
+/** NEAR with up to 6 decimals from a yocto decimal string (exact, truncated), for entry details only. */
+const nearText = (yocto: unknown): string | null => {
+  if (typeof yocto !== "string" || !/^\d+$/.test(yocto)) return null;
+  const v = BigInt(yocto);
+  const frac = ((v % 10n ** 24n) / 10n ** 18n).toString().padStart(6, "0").replace(/0+$/, "");
+  return frac ? `${v / 10n ** 24n}.${frac}` : `${v / 10n ** 24n}`;
+};
+const chargeDetail = (d: Obj, kind: string): Record<string, unknown> => ({
+  kind,
+  ...(nearText(d.chargedYocto) ? { chargedNear: nearText(d.chargedYocto) } : {}),
+  ...(nearText(d.tokensBurntYocto) ? { gasNear: nearText(d.tokensBurntYocto) } : {}),
+  ...(nearText(d.gasBurntYocto) ? { gasNear: nearText(d.gasBurntYocto) } : {}),
+  ...(str(d.nearUsdRate) ? { nearUsdRate: str(d.nearUsdRate) } : {}),
+  ...(str(d.rateDate) ? { rateDate: str(d.rateDate) } : {}),
+});
+
 async function recordProofCosts(e: Env, proofId: string, proof: ProofView): Promise<void> {
   let n = 0;
   for (const c of await creditEntries(e)) {
     if (c.refKind !== "proof" || c.refId !== proofId || c.kind !== "charge") continue;
     const d = c.detail ?? {};
+    const near = chargeDetail(d, "outlayer_proof");
     const parts = [
-      typeof d.chargedYocto === "string" ? `OutLayer charge ${nearOf(d.chargedYocto)} NEAR` : null,
-      typeof d.tokensBurntYocto === "string" ? `gas ${nearOf(d.tokensBurntYocto)} NEAR` : null,
+      near.chargedNear ? `OutLayer charge ${String(near.chargedNear)} NEAR` : null,
+      near.gasNear ? `gas ${String(near.gasNear)} NEAR` : null,
+      near.nearUsdRate ? `at USD ${String(near.nearUsdRate)} per NEAR` : null,
     ].filter(Boolean);
     await e.cost({
       label: `OutLayer proof${parts.length ? ` (${parts.join(", ")})` : ""}`,
-      unit: "yoctoNEAR",
-      amount: c.amountYocto,
+      unit: "usd",
+      category: "onchain",
+      amount: c.amountUsd,
+      detail: near,
       txHash: str(d.txHash) ?? proof.job?.txHash ?? null,
       sourceKey: `credit:${c.id}`,
     });
     n++;
   }
-  const total = proof.cost?.totalYocto;
-  if (n === 0 && typeof total === "string" && /^\d+$/.test(total) && total !== "0")
+  const total = proof.cost?.totalUsd;
+  if (n === 0 && typeof total === "string" && /^\d+(\.\d+)?$/.test(total) && Number(total) > 0)
     await e.cost({
       label: "OutLayer proof",
-      unit: "yoctoNEAR",
+      unit: "usd",
+      category: "onchain",
       amount: total,
+      detail: {
+        kind: "outlayer_proof",
+        ...(proof.cost?.nearUsdRate ? { nearUsdRate: proof.cost.nearUsdRate } : {}),
+        ...(proof.cost?.rateDate ? { rateDate: proof.cost.rateDate } : {}),
+      },
       txHash: proof.job?.txHash ?? null,
       sourceKey: `proof:${proofId}:total`,
     });
@@ -525,8 +567,8 @@ export async function awaitProof(e: Env, proofId: string): Promise<ProofView> {
   for (;;) {
     const p = (await asApi(() => call<ProofView>(e.api, e.user, "GET", `/v1/proofs/${proofId}`))).body;
     if (p.state !== "running") return p;
-    if (typeof p.cost?.heldYocto === "string" && /^\d+$/.test(p.cost.heldYocto))
-      await e.setHeld(p.cost.heldYocto);
+    if (typeof p.cost?.heldUsd === "string" && /^\d+(\.\d+)?$/.test(p.cost.heldUsd))
+      await e.setHeld(p.cost.heldUsd);
     await e.progress(`OutLayer job running (${Math.round((e.now() - began) / 1000)} s)`);
     if (await e.cancelled()) throw new StepFail("CANCELLED", "The task was cancelled.", false);
     if (e.now() - began > e.limits.proofTimeoutMs)
@@ -576,8 +618,10 @@ async function capsuleProve(e: Env): Promise<Outcome> {
         },
       };
     }
-    if (r.status < 200 || r.status >= 300)
-      throw new StepFail(apiErrorOf(r).reasonCode, apiErrorOf(r).message, apiErrorOf(r).retryable);
+    if (r.status < 200 || r.status >= 300) {
+      const x = apiErrorOf(r);
+      throw new StepFail(x.reasonCode, x.message, x.retryable, x.detailsObject ?? undefined);
+    }
     proofId = need(str((r.body as Obj).proofId), "the proof id");
     await e.patchCtx({ proofId });
   }
@@ -586,7 +630,15 @@ async function capsuleProve(e: Env): Promise<Outcome> {
   const items = [
     item("Proof", proofId),
     ...(proof.job?.txHash ? [item("Transaction", proof.job.txHash, proof.job.explorerUrl ?? null)] : []),
-    ...(proof.cost?.totalYocto ? [item("Charged (NEAR)", nearOf(proof.cost.totalYocto))] : []),
+    ...(proof.cost?.totalUsd ? [item("Charged (USD)", proof.cost.totalUsd)] : []),
+    ...(proof.cost?.nearUsdRate
+      ? [
+          item(
+            "NEAR/USD rate",
+            `${proof.cost.nearUsdRate}${proof.cost.rateDate ? ` (${proof.cost.rateDate})` : ""}`,
+          ),
+        ]
+      : []),
   ];
   if (proof.state === "verified")
     return { kind: "done", result: { summary: "The capsule is verified on OutLayer (testnet).", items } };
@@ -623,8 +675,10 @@ async function capsulePublish(e: Env): Promise<Outcome> {
     for (const c of entries.filter((x) => x.kind === "charge"))
       await e.cost({
         label: "Publication anchor gas",
-        unit: "yoctoNEAR",
-        amount: c.amountYocto,
+        unit: "usd",
+        category: "onchain",
+        amount: c.amountUsd,
+        detail: chargeDetail(c.detail ?? {}, "publication_anchor"),
         txHash: str(c.detail?.txHash),
         sourceKey: `credit:${c.id}`,
       });

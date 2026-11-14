@@ -16,9 +16,8 @@ import type {
 } from "./types.ts";
 
 const iso = (d: Date | string | null): string | null => (d === null ? null : new Date(d).toISOString());
-/** numeric(x,6) amounts come back as "1.230000"; yoctoNEAR amounts as integers. */
+/** numeric(x,6) amounts come back as "1.230000". */
 const usd = (v: unknown): string => Number(String(v ?? 0)).toFixed(6);
-const intStr = (v: unknown): string => String(v ?? "0").replace(/\.0+$/, "");
 
 interface ThreadRow {
   id: string;
@@ -50,12 +49,12 @@ interface TaskRow {
   current_step: number;
   consent_required: ConsentRequirement[];
   consent_given: ConsentKey[];
-  estimate: { creditsMaxYocto: string | null; modelUsdMax: string };
+  estimate: { creditsMaxUsd?: string | null; modelUsdMax: string };
   ctx: TaskCtx;
   model_usd: string;
   model_calls: number;
-  credits_charged_yocto: string;
-  credits_held_yocto: string;
+  credits_charged_usd: string;
+  credits_held_usd: string;
   created_at: Date;
   started_at: Date | null;
   finished_at: Date | null;
@@ -76,7 +75,7 @@ export interface StepRow {
   error: StepError | null;
   model_usd: string;
   model_calls: number;
-  credits_yocto: string;
+  credits_usd: string;
 }
 interface CostRow {
   id: string;
@@ -89,6 +88,8 @@ interface CostRow {
   unit: "usd" | "yoctoNEAR";
   amount: string;
   tx_hash: string | null;
+  category: "model" | "onchain";
+  detail: Record<string, unknown> | null;
 }
 
 export const threadView = (r: ThreadRow): ThreadView => ({
@@ -111,11 +112,14 @@ export const messageView = (r: MessageRow): MessageView => ({
   cost: { modelUsd: usd(r.model_usd), modelCalls: r.model_calls },
   error: r.error ?? null,
 });
+/** Legacy yoctoNEAR entries (before USD credits) have no rate and are not shown. */
+const usdOnly = (rows: CostRow[]): CostRow[] => rows.filter((r) => r.unit === "usd");
 const costEntry = (r: CostRow): CostEntryView => ({
   label: r.label,
-  unit: r.unit,
-  amount: r.unit === "usd" ? usd(r.amount) : intStr(r.amount),
+  unit: "usd",
+  amount: usd(r.amount),
   txHash: r.tx_hash,
+  ...(r.detail ? { detail: r.detail } : {}),
 });
 export const stepView = (r: StepRow, entries: CostRow[] = []): StepView => ({
   idx: r.idx,
@@ -131,8 +135,8 @@ export const stepView = (r: StepRow, entries: CostRow[] = []): StepView => ({
   cost: {
     modelUsd: usd(r.model_usd),
     modelCalls: r.model_calls,
-    creditsYocto: intStr(r.credits_yocto),
-    entries: entries.map(costEntry),
+    creditsUsd: usd(r.credits_usd),
+    entries: usdOnly(entries).map(costEntry),
   },
   error: r.error ?? null,
 });
@@ -149,13 +153,21 @@ export const taskView = (t: TaskRow, steps: StepRow[], costs: CostRow[]): TaskVi
       costs.filter((c) => c.step_idx === s.idx),
     ),
   ),
-  consent: { required: t.consent_required, given: t.consent_given },
-  estimate: t.estimate,
+  consent: {
+    required: t.consent_required.map((c) => {
+      const { maxUsd, ...rest } = c as ConsentRequirement & { maxYocto?: unknown };
+      delete (rest as { maxYocto?: unknown }).maxYocto;
+      return { ...rest, maxUsd: maxUsd ?? null };
+    }),
+    given: t.consent_given,
+  },
+  estimate: { creditsMaxUsd: t.estimate.creditsMaxUsd ?? null, modelUsdMax: t.estimate.modelUsdMax },
   cost: {
     modelUsd: usd(t.model_usd),
     modelCalls: t.model_calls,
-    creditsChargedYocto: intStr(t.credits_charged_yocto),
-    creditsHeldYocto: intStr(t.credits_held_yocto),
+    creditsUsd: usd(t.credits_charged_usd),
+    creditsHeldUsd: usd(t.credits_held_usd),
+    entries: usdOnly(costs).map(costEntry),
   },
   links: {
     workspaceId: t.ctx.workspaceId ?? t.workspace_id ?? null,
@@ -183,8 +195,11 @@ export interface CostInput {
   stepIdx: number | null;
   stepKey: string | null;
   label: string;
-  unit: "usd" | "yoctoNEAR";
+  unit: "usd";
   amount: string;
+  /** `onchain` = OutLayer / anchor gas charged to the user's credits (USD, with the NEAR detail); `model` = model spend. */
+  category?: "model" | "onchain";
+  detail?: Record<string, unknown> | null;
   txHash?: string | null;
   sourceKey?: string | null;
 }
@@ -294,7 +309,7 @@ export class AgentStore {
       taskId?: string | null;
       modelUsd?: number;
       modelCalls?: number;
-      error?: { reasonCode: string; message: string } | null;
+      error?: { reasonCode: string; message: string; details?: Record<string, unknown> } | null;
     },
   ): Promise<void> {
     await this.db.tx(ctx, async (tx) => {
@@ -343,7 +358,7 @@ export class AgentStore {
       workspaceId: string | null;
       title: string;
       consentRequired: ConsentRequirement[];
-      estimate: { creditsMaxYocto: string | null; modelUsdMax: string };
+      estimate: { creditsMaxUsd: string | null; modelUsdMax: string };
       steps: NewStep[];
     },
   ): Promise<string> {
@@ -418,8 +433,8 @@ export class AgentStore {
   async addCost(ctx: TenantContext, c: CostInput): Promise<boolean> {
     return this.db.tx(ctx, async (tx) => {
       const r = await tx.query(
-        `INSERT INTO agent_cost_entries(org_id, user_id, thread_id, task_id, message_id, step_idx, step_key, label, unit, amount, tx_hash, source_key)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT DO NOTHING`,
+        `INSERT INTO agent_cost_entries(org_id, user_id, thread_id, task_id, message_id, step_idx, step_key, label, unit, amount, tx_hash, source_key, category, detail)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb) ON CONFLICT DO NOTHING`,
         [
           ctx.orgId,
           ctx.userId,
@@ -433,6 +448,8 @@ export class AgentStore {
           c.amount,
           c.txHash ?? null,
           c.sourceKey ?? null,
+          c.category ?? "model",
+          c.detail ? JSON.stringify(c.detail) : null,
         ],
       );
       return (r.rowCount ?? 0) > 0;
@@ -441,8 +458,8 @@ export class AgentStore {
   async costs(ctx: TenantContext, threadId: string | null, limit: number) {
     return this.db.tx(ctx, async (tx) => {
       const where = threadId ? "WHERE thread_id = $1" : "WHERE $1::uuid IS NULL";
-      const totals = await tx.query<{ unit: string; total: string; n: string }>(
-        `SELECT unit, sum(amount)::text AS total, count(*)::text AS n FROM agent_cost_entries ${where} GROUP BY unit`,
+      const totals = await tx.query<{ category: string; total: string; n: string }>(
+        `SELECT category, sum(amount)::text AS total, count(*)::text AS n FROM agent_cost_entries ${where} AND unit = 'usd' GROUP BY category`,
         [threadId],
       );
       const calls = await tx.query<{ calls: string }>(
@@ -454,14 +471,15 @@ export class AgentStore {
         `SELECT * FROM agent_cost_entries ${where} ORDER BY seq DESC LIMIT ${Math.max(1, Math.min(500, limit))}`,
         [threadId],
       );
-      const t = (u: string) => totals.rows.find((x) => x.unit === u)?.total ?? "0";
+      const t = (c: string) => Number(totals.rows.find((x) => x.category === c)?.total ?? "0");
       return {
         totals: {
-          modelUsd: usd(t("usd")),
+          modelUsd: usd(t("model")),
           modelCalls: Number(calls.rows[0]?.calls ?? 0),
-          creditsChargedYocto: intStr(t("yoctoNEAR")),
+          onChainUsd: usd(t("onchain")),
+          totalUsd: usd(t("model") + t("onchain")),
         },
-        items: items.rows.map((r) => ({
+        items: usdOnly(items.rows).map((r) => ({
           id: r.id,
           at: iso(r.created_at)!,
           threadId: r.thread_id,
@@ -469,9 +487,11 @@ export class AgentStore {
           stepIdx: r.step_idx,
           stepKey: r.step_key,
           label: r.label,
-          unit: r.unit,
-          amount: r.unit === "usd" ? usd(r.amount) : intStr(r.amount),
+          unit: "usd" as const,
+          category: r.category,
+          amount: usd(r.amount),
           txHash: r.tx_hash,
+          ...(r.detail ? { detail: r.detail } : {}),
         })),
       };
     });

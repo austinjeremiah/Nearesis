@@ -45,15 +45,32 @@ describe("GET /v1/workspaces/:id/report", () => {
     expect(r.statusCode).toBe(200);
     const b = r.json() as any;
     expect(Object.keys(b).sort()).toEqual(
-      ["capsules", "costs", "generatedAt", "hypotheses", "limitations", "markers", "monitors", "panels", "runs", "workspace"].sort(),
+      [
+        "capsules",
+        "costs",
+        "generatedAt",
+        "hypotheses",
+        "limitations",
+        "markers",
+        "monitors",
+        "panels",
+        "runs",
+        "workspace",
+      ].sort(),
     );
-    expect(b.workspace).toMatchObject({ id: wsA, objective: "Is demand durable?", archivedAt: null, dataWindow: null });
+    expect(b.workspace).toMatchObject({
+      id: wsA,
+      objective: "Is demand durable?",
+      archivedAt: null,
+      dataWindow: null,
+    });
     expect(b.workspace.owner).toEqual({ displayName: expect.anything(), nearAccountId: null });
     expect(b.runs).toEqual([]);
     expect(b.panels).toEqual([]);
     expect(b.capsules).toEqual([]);
     expect(b.costs.modelUsd).toBeNull(); // no run recorded a spend: unknown, not 0.000000
-    expect(b.costs.creditsChargedYocto).toBe("0");
+    expect(b.costs.creditsChargedUsd).toBe("0.000000");
+    expect(b.costs).not.toHaveProperty("creditsChargedYocto");
     expect(b.costs.entries).toEqual([]);
     expect(Date.parse(b.generatedAt)).not.toBeNaN();
   });
@@ -121,7 +138,10 @@ describe("report helpers", () => {
     const m = new Map([["p1", h1]]);
     expect(
       findingHashes(
-        { panelIds: ["p1", "gone"], facts: [{ resultRef: { queryHash: h2 } }, { resultRef: { queryHash: h1 } }, {}] },
+        {
+          panelIds: ["p1", "gone"],
+          facts: [{ resultRef: { queryHash: h2 } }, { resultRef: { queryHash: h1 } }, {}],
+        },
         m,
       ),
     ).toEqual([h1, h2]);
@@ -130,16 +150,48 @@ describe("report helpers", () => {
   it("describePanel takes unit from the encoded columns and leaves unknowns null", () => {
     const data = {
       state: "partial",
-      chart: { columns: [{ name: "d", unit: null }, { name: "swaps", unit: "swaps" }, { name: "rate", unit: "ratio" }], rows: [] },
-      provenance: { sourceLabel: "LIVE", sources: ["near-explorer"], semanticVersion: "1.0.0", ast: { time: { from: "2026-01-01", to: "2026-02-01" } } },
+      chart: {
+        columns: [
+          { name: "d", unit: null },
+          { name: "swaps", unit: "swaps" },
+          { name: "rate", unit: "ratio" },
+        ],
+        rows: [],
+      },
+      provenance: {
+        sourceLabel: "LIVE",
+        sources: ["near-explorer"],
+        semanticVersion: "1.0.0",
+        ast: { time: { from: "2026-01-01", to: "2026-02-01" } },
+      },
       gaps: [{ from: "a", to: "b", reason: "r" }],
       caveats: ["c"],
       freshness: { state: "fresh", sourceWatermark: null },
     };
-    const p = describePanel("h".repeat(64), { title: "T", kind: "timeSeries", encoding: { x: "d", y: ["rate"] } }, data, null);
-    expect(p).toMatchObject({ title: "T", unit: "ratio", source: "LIVE: near-explorer", metricVersion: "1.0.0", window: { from: "2026-01-01", to: "2026-02-01" }, caveats: ["c"] });
+    const p = describePanel(
+      "h".repeat(64),
+      { title: "T", kind: "timeSeries", encoding: { x: "d", y: ["rate"] } },
+      data,
+      null,
+    );
+    expect(p).toMatchObject({
+      title: "T",
+      unit: "ratio",
+      source: "LIVE: near-explorer",
+      metricVersion: "1.0.0",
+      window: { from: "2026-01-01", to: "2026-02-01" },
+      caveats: ["c"],
+    });
     expect(p.coverage).toMatchObject({ state: "partial", gaps: 1, nullCount: null });
     const none = describePanel("h".repeat(64), undefined, null, { status: 404, reasonCode: "QUERY_UNKNOWN" });
-    expect(none).toMatchObject({ title: null, kind: null, unit: null, source: null, window: null, coverage: null, data: null });
+    expect(none).toMatchObject({
+      title: null,
+      kind: null,
+      unit: null,
+      source: null,
+      window: null,
+      coverage: null,
+      data: null,
+    });
   });
 });

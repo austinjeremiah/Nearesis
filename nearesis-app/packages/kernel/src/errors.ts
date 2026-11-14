@@ -7,6 +7,8 @@ export interface KernelErrorOptions {
   nextAction?: string;
   lastStableRevision?: number;
   details?: Array<{ path: string; issue: string }>;
+  /** A structured object sent as the body's `details` instead of the path/issue list (the credits 402 uses it). */
+  detailsObject?: Record<string, unknown>;
 }
 
 /** Typed domain error. `code` is the public ErrorCode; `reasonCode` is the machine-readable sub-reason. */
@@ -42,6 +44,7 @@ export function toErrorResponse(err: unknown, traceId: string): { status: number
         : {}),
       ...(err.opts.details ? { details: err.opts.details.slice(0, 100) } : {}),
     };
+    if (err.opts.detailsObject) (body as unknown as Record<string, unknown>).details = err.opts.detailsObject;
     // v1.7.0 (additive): the frontend state taxonomy; absent for errors that are none of the twelve states.
     const state = stateOfError(err.code, err.reasonCode);
     if (state) body.state = state;

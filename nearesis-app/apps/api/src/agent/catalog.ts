@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MIN_QUESTION_BUDGET } from "@nearesis/contracts";
+import { microToUsd } from "@nearesis/kernel";
 import type { ConsentKey, ConsentRequirement, TaskCtx } from "./types.ts";
 
 /**
@@ -248,7 +249,7 @@ export function detailOf(step: PlannedStep): string {
     case "capsule.build":
       return "Builds a capsule from the run's panel results (nothing is invented or padded).";
     case "capsule.prove":
-      return "Runs the verifier on OutLayer (testnet); the deposit and gas are charged to your credits.";
+      return "Runs the verifier on OutLayer (testnet); the deposit and gas are converted to USD and charged to your credits.";
     case "capsule.publish":
       return "Publishes the capsule to the public gateway with its verification badge; a testnet anchor may burn gas charged to your credits.";
     case "report.build":
@@ -256,14 +257,20 @@ export function detailOf(step: PlannedStep): string {
   }
 }
 
-/** Consent requirements derived from the steps. `proofEstimateYocto` is the server's current hold for one proof (null if unknown). */
-export function consentFor(steps: PlannedStep[], proofEstimateYocto: string | null): ConsentRequirement[] {
+/** USD decimal string with 6 places x n, exact (micro-USD integers). */
+function timesUsd(usd6: string, n: number): string {
+  const [w = "0", f = ""] = usd6.split(".");
+  return microToUsd(BigInt(w) * 1_000_000n * BigInt(n) + BigInt(f.padEnd(6, "0").slice(0, 6)) * BigInt(n));
+}
+
+/** Consent requirements derived from the steps. `proofEstimateUsd` is the server's current hold for one proof in USD (null if unknown). */
+export function consentFor(steps: PlannedStep[], proofEstimateUsd: string | null): ConsentRequirement[] {
   const out = new Map<ConsentKey, ConsentRequirement>();
   const proves = steps.filter((s) => s.key === "capsule.prove").length;
   const publishes = steps.filter((s) => s.key === "capsule.publish").length;
   const maxProof =
-    proofEstimateYocto !== null && proves > 0
-      ? (BigInt(proofEstimateYocto) * BigInt(proves)).toString()
+    proofEstimateUsd !== null && /^\d+(\.\d+)?$/.test(proofEstimateUsd) && proves > 0
+      ? timesUsd(proofEstimateUsd, proves)
       : null;
   for (const s of steps)
     for (const k of STEP_CONSENT[s.key] ?? []) {
@@ -271,14 +278,14 @@ export function consentFor(steps: PlannedStep[], proofEstimateYocto: string | nu
       if (k === "spend_credits")
         out.set(k, {
           key: k,
-          label: "Spend NEAR credits",
+          label: "Spend credits",
           detail:
             (proves > 0
               ? maxProof
-                ? `Up to ${nearOf(maxProof)} NEAR of your credits is held for the OutLayer proof; only what it really costs (OutLayer charge plus gas) is charged and the rest is released.`
+                ? `Up to USD ${maxProof} of your credits is held for the OutLayer proof; only what it really costs (OutLayer charge plus gas, converted at the latest NEAR/USD close) is charged and the rest is released.`
                 : "The OutLayer proof cost cannot be estimated right now; it is held from your credits and only what it really costs is charged."
               : "") + (publishes > 0 ? " Publishing may anchor on testnet and charge the gas burnt." : ""),
-          maxYocto: maxProof,
+          maxUsd: maxProof,
         });
       else if (k === "publish_public")
         out.set(k, {
@@ -286,21 +293,21 @@ export function consentFor(steps: PlannedStep[], proofEstimateYocto: string | nu
           label: "Publish publicly",
           detail:
             "The capsule becomes publicly visible with its verification badge. If the publish route lists cautions (for example INSUFFICIENT_DATA) the task stops and asks you to acknowledge them.",
-          maxYocto: null,
+          maxUsd: null,
         });
       else if (k === "freeze_hypothesis")
         out.set(k, {
           key: k,
           label: "Freeze a hypothesis",
           detail: "A frozen hypothesis can no longer be edited, only amended.",
-          maxYocto: null,
+          maxUsd: null,
         });
       else
         out.set(k, {
           key: k,
           label: "Archive the workspace",
           detail: "The workspace is hidden from the workspace list until an owner or admin unarchives it.",
-          maxYocto: null,
+          maxUsd: null,
         });
     }
   return [...out.values()];

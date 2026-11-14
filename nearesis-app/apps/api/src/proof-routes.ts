@@ -1,7 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { InsufficientCredits, KernelError, canWrite, chargeIn, holdIn, releaseIn } from "@nearesis/kernel";
+import {
+  KernelError,
+  canWrite,
+  chargeUsdIn,
+  holdUsdIn,
+  microToUsd,
+  releaseUsdIn,
+  yoctoToMicroUsd,
+} from "@nearesis/kernel";
 import type { Db, Kernel, Session, TenantContext } from "@nearesis/kernel";
 import {
   APP_ROOT,
@@ -24,6 +32,8 @@ import { resolveCapsuleDir } from "./capsule-resolve.ts";
 import { PROOF_COLUMNS, readFileProof, rowToProof } from "./proof-view.ts";
 import type { Proof, ProofRow } from "./proof-view.ts";
 import { readManifest } from "@nearesis/capsule";
+import type { NearUsdRate, NearUsdRateReader } from "./near-usd-rate.ts";
+import { usdCreditsOf } from "./usd-credits-api.ts";
 
 /** Gas attached to `request_execution` (TestnetOutlayerChain): the hold covers all of it at the current gas price. */
 export const PROOF_GAS = 300_000_000_000_000n;
@@ -39,6 +49,8 @@ export interface ProofRoutesOptions {
   spendFile?: string;
   /** Test seam: the pinned verifier wasm. */
   wasmPath?: string;
+  /** NEAR -> USD: the latest local daily close (production: ClickHouse price_candles). Absent: no rate, proofs answer 503 PRICE_UNAVAILABLE. */
+  nearUsdRate?: NearUsdRateReader;
 }
 
 const liveEnabled = () => process.env.NEARESIS_OUTLAYER_LIVE === "1";
@@ -69,18 +81,20 @@ export async function recoverInterruptedProofs(db: Db): Promise<number> {
       org_id: string;
       requested_by: string;
       tx_hash: string | null;
-      held_yocto: string;
-    }>("SELECT id, org_id, requested_by, tx_hash, held_yocto FROM outlayer_proofs_running()");
+      held_micro: string;
+    }>("SELECT id, org_id, requested_by, tx_hash, held_micro FROM outlayer_proofs_running_usd()");
     return r.rows;
   });
+  const allowance = usdCreditsOf(db).allowanceMicro;
   for (const p of running) {
     await db.tx({ orgId: p.org_id, userId: p.requested_by }, async (tx) => {
       if (p.tx_hash === null) {
-        const held = BigInt(p.held_yocto);
+        const held = BigInt(p.held_micro);
         if (held > 0n)
-          await releaseIn(tx, p.requested_by, held, {
+          await releaseUsdIn(tx, p.requested_by, allowance, held, {
             refKind: "proof",
             refId: p.id,
+            category: "outlayer",
             detail: { reason: "interrupted before any transaction" },
           });
         await tx.query(
@@ -100,7 +114,7 @@ export async function recoverInterruptedProofs(db: Db): Promise<number> {
 }
 
 export interface ProofRoutes {
-  /** Hold estimate for one proof (null when the provider is disabled or the chain cannot be read). */
+  /** Hold estimate for one proof in USD with 6 places (null when the provider is disabled, the chain cannot be read or no NEAR/USD rate is held). */
   estimateFor(ctx: TenantContext, capsuleId?: string): Promise<string | null>;
 }
 
@@ -183,8 +197,11 @@ export async function proofRoutes(
     chain: ProofChain,
     hold: bigint,
     budget: bigint,
+    holdMicro: bigint,
+    rate: NearUsdRate,
   ): Promise<void> {
     const ctx = ctxOf(s);
+    const allowance = usdCreditsOf(kernel.db).allowanceMicro;
     type Sent = {
       txHash: string;
       requestId: number | null;
@@ -197,7 +214,8 @@ export async function proofRoutes(
     const ref = (detail: Record<string, unknown>) => ({
       refKind: "proof",
       refId: proofId,
-      detail: { capsuleId, ...detail },
+      category: "outlayer" as const,
+      detail: { capsuleId, nearUsdRate: rate.rate, rateDate: rate.date, ...detail },
     });
     try {
       let doc: OutlayerProofDocument | null = null;
@@ -248,14 +266,15 @@ export async function proofRoutes(
       if (txHash === null) {
         // Failed before any transaction: nothing was spent, release the whole hold.
         await kernel.db.tx(ctx, async (tx) => {
-          await releaseIn(
+          await releaseUsdIn(
             tx,
             ctx.userId,
-            hold,
+            allowance,
+            holdMicro,
             ref({ reason: "failed before any transaction", error: failure }),
           );
           await tx.query(
-            "UPDATE outlayer_proofs SET state='failed', error=$2, total_yocto=0, finished_at=now() WHERE id=$1",
+            "UPDATE outlayer_proofs SET state='failed', error=$2, total_yocto=0, total_micro=0, finished_at=now() WHERE id=$1",
             [proofId, failure ?? "no job was submitted"],
           );
         });
@@ -280,13 +299,17 @@ export async function proofRoutes(
           : String(sentTx!.requestId);
       const attested = doc?.labels.attestation === "attested";
       const state = failure !== null ? "failed" : attested ? "verified" : "not_attested";
+      const chargedMicro = yoctoToMicroUsd(charged, rate.rate);
+      const gasMicro = yoctoToMicroUsd(burnt, rate.rate);
+      const totalMicro = yoctoToMicroUsd(total, rate.rate);
       const v = doc?.verification ?? null;
       await kernel.db.tx(ctx, async (tx) => {
-        await chargeIn(
+        await chargeUsdIn(
           tx,
           ctx.userId,
-          hold,
-          total,
+          allowance,
+          holdMicro,
+          totalMicro,
           ref({
             txHash,
             requestId,
@@ -297,7 +320,8 @@ export async function proofRoutes(
         );
         await tx.query(
           `UPDATE outlayer_proofs SET state=$2, tx_hash=$3, request_id=$4, output_sha256=$5, decision=$6, reasons=$7::jsonb,
-             mr_td=$8, rtmr3=$9, charged_yocto=$10, gas_yocto=$11, total_yocto=$12, error=$13, finished_at=now() WHERE id=$1`,
+             mr_td=$8, rtmr3=$9, charged_yocto=$10, gas_yocto=$11, total_yocto=$12, error=$13,
+             charged_micro=$14, gas_micro=$15, total_micro=$16, finished_at=now() WHERE id=$1`,
           [
             proofId,
             state,
@@ -312,6 +336,9 @@ export async function proofRoutes(
             burnt.toString(),
             total.toString(),
             failure,
+            chargedMicro.toString(),
+            gasMicro.toString(),
+            totalMicro.toString(),
           ],
         );
       });
@@ -392,6 +419,7 @@ export async function proofRoutes(
     let chain: ProofChain;
     let hold: bigint;
     let remaining: bigint;
+    let rate: NearUsdRate | null = null;
     try {
       chain = makeChain();
       hold = await estimate(chain, Buffer.byteLength(loaded.inputData));
@@ -403,6 +431,19 @@ export async function proofRoutes(
         "The OutLayer provider could not be reached or is not configured.",
       );
     }
+    try {
+      rate = (await opts.nearUsdRate?.()) ?? null;
+    } catch {
+      rate = null;
+    }
+    if (!rate)
+      throw new KernelError(
+        "UPSTREAM_DEGRADED",
+        "PRICE_UNAVAILABLE",
+        "No NEAR/USD price is available, so the proof cannot be priced in credits.",
+        { retryable: true },
+      );
+    const holdMicro = yoctoToMicroUsd(hold, rate.rate);
     if (hold > remaining)
       return reply
         .status(409)
@@ -417,11 +458,13 @@ export async function proofRoutes(
         );
 
     const proofId = randomUUID();
+    const usdCredits = usdCreditsOf(kernel.db);
+    await usdCredits.reconcileRuns(ctx.userId).catch(() => undefined);
     try {
       await kernel.db.tx(ctx, async (tx) => {
         await tx.query(
-          `INSERT INTO outlayer_proofs(id, org_id, workspace_id, capsule_id, requested_by, idempotency_key, state, wasm_sha256, input_sha256, held_yocto)
-           VALUES ($1,$2,$3,$4,$5,$6,'running',$7,$8,$9)`,
+          `INSERT INTO outlayer_proofs(id, org_id, workspace_id, capsule_id, requested_by, idempotency_key, state, wasm_sha256, input_sha256, held_yocto, held_micro, near_usd_rate, rate_date)
+           VALUES ($1,$2,$3,$4,$5,$6,'running',$7,$8,$9,$10,$11,$12)`,
           [
             proofId,
             owner.orgId,
@@ -432,27 +475,25 @@ export async function proofRoutes(
             wasmSha,
             loaded.manifest.computation.inputFile.sha256,
             hold.toString(),
+            holdMicro.toString(),
+            rate.rate,
+            rate.date,
           ],
         );
-        await holdIn(tx, ctx.userId, hold, {
+        await holdUsdIn(tx, ctx.userId, usdCredits.allowanceMicro, holdMicro, {
           refKind: "proof",
           refId: proofId,
-          detail: { capsuleId, kind: "outlayer_proof" },
+          category: "outlayer",
+          detail: {
+            capsuleId,
+            kind: "outlayer_proof",
+            holdYocto: hold.toString(),
+            nearUsdRate: rate.rate,
+            rateDate: rate.date,
+          },
         });
       });
     } catch (e) {
-      if (e instanceof InsufficientCredits)
-        return reply
-          .status(402)
-          .send(
-            errBody(
-              req,
-              "BUDGET_EXCEEDED",
-              "INSUFFICIENT_CREDITS",
-              "Not enough credits for an OutLayer proof.",
-              { requiredYocto: e.requiredYocto.toString(), availableYocto: e.availableYocto.toString() },
-            ),
-          );
       if ((e as { code?: string }).code === "23505")
         throw new KernelError(
           "STALE_VERSION",
@@ -461,7 +502,7 @@ export async function proofRoutes(
         );
       throw e;
     }
-    const job = execute(s, proofId, capsuleId, dir, chain, hold, remaining).finally(() =>
+    const job = execute(s, proofId, capsuleId, dir, chain, hold, remaining, holdMicro, rate).finally(() =>
       inflight.delete(job),
     );
     inflight.add(job);
@@ -506,7 +547,9 @@ export async function proofRoutes(
       try {
         const len = await inputLenOf(capsuleId);
         if (len === null) return null;
-        return (await estimate(makeChain(), len)).toString();
+        const rate = (await opts.nearUsdRate?.()) ?? null;
+        if (!rate) return null;
+        return microToUsd(yoctoToMicroUsd(await estimate(makeChain(), len), rate.rate));
       } catch {
         return null;
       }

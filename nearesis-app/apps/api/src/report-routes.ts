@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
-import { CreditsService, KernelError, workspaceNotFound } from "@nearesis/kernel";
+import { KernelError, microToUsd, workspaceNotFound } from "@nearesis/kernel";
+import { usdCreditsOf } from "./usd-credits-api.ts";
 import type { Kernel, Session } from "@nearesis/kernel";
 
 export const REPORT_MAX_RUNS = 20;
@@ -24,7 +25,11 @@ export function usd6(n: number | null | undefined): string | null {
 /** The planned objective of a run (the composer's), as the run page shows it; the root task is only "investigation". */
 export function questionOf(run: J): string | null {
   const kids: J[] = Array.isArray(run.children) ? run.children : [];
-  const q = kids.find((c) => c.role === "composer")?.objective ?? kids[0]?.objective ?? run.rootTask?.objective ?? null;
+  const q =
+    kids.find((c) => c.role === "composer")?.objective ??
+    kids[0]?.objective ??
+    run.rootTask?.objective ??
+    null;
   return typeof q === "string" ? q : null;
 }
 
@@ -52,7 +57,12 @@ export function describePanel(hash: string, canvas: J | undefined, data: J | nul
     ...new Set(
       ((chart?.columns as J[] | undefined) ?? [])
         .slice(1)
-        .filter((c) => !Array.isArray(canvas?.encoding?.y) || canvas.encoding.y.length === 0 || canvas.encoding.y.includes(c.name))
+        .filter(
+          (c) =>
+            !Array.isArray(canvas?.encoding?.y) ||
+            canvas.encoding.y.length === 0 ||
+            canvas.encoding.y.includes(c.name),
+        )
         .map((c) => c.unit)
         .filter((u): u is string => typeof u === "string"),
     ),
@@ -98,7 +108,7 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
     const token = h?.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : undefined;
     return kernel.identity.resolveSession(token);
   };
-  const credits = new CreditsService(kernel.db);
+  const credits = usdCreditsOf(kernel.db);
 
   app.get<{ Params: { id: string } }>("/v1/workspaces/:id/report", async (req) => {
     const s = await authenticate(req);
@@ -113,8 +123,14 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
     }
     const limitations: string[] = [];
     const authz = req.headers.authorization as string;
-    const read = async (url: string): Promise<{ ok: true; body: J } | { ok: false; status: number; reason: string }> => {
-      const r = await (app as FastifyInstance).inject({ method: "GET", url, headers: { authorization: authz } });
+    const read = async (
+      url: string,
+    ): Promise<{ ok: true; body: J } | { ok: false; status: number; reason: string }> => {
+      const r = await (app as FastifyInstance).inject({
+        method: "GET",
+        url,
+        headers: { authorization: authz },
+      });
       let body: J = {};
       try {
         body = r.json() as J;
@@ -123,7 +139,11 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
       }
       return r.statusCode === 200
         ? { ok: true, body }
-        : { ok: false, status: r.statusCode, reason: String(body.reasonCode ?? body.errorCode ?? r.statusCode) };
+        : {
+            ok: false,
+            status: r.statusCode,
+            reason: String(body.reasonCode ?? body.errorCode ?? r.statusCode),
+          };
     };
     const base = `/v1/workspaces/${wid}`;
     const part = async (name: string, url: string): Promise<J | null> => {
@@ -153,7 +173,9 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
           "SELECT display_name, near_account_id FROM users WHERE id = $1",
           [ws.createdBy],
         );
-        return r.rows[0] ? { displayName: r.rows[0].display_name, nearAccountId: r.rows[0].near_account_id } : null;
+        return r.rows[0]
+          ? { displayName: r.rows[0].display_name, nearAccountId: r.rows[0].near_account_id }
+          : null;
       })
       .catch(() => null);
 
@@ -164,30 +186,42 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
       limitations.push(`Only the newest ${REPORT_MAX_RUNS} of ${allRuns.length} runs are included.`);
     const canvasPanels: J[] = (canvas?.panels as J[] | undefined) ?? [];
     const canvasHash = new Map<string, string>(
-      canvasPanels.filter((p) => typeof p?.queryRef?.hash === "string").map((p) => [p.panelId as string, p.queryRef.hash as string]),
+      canvasPanels
+        .filter((p) => typeof p?.queryRef?.hash === "string")
+        .map((p) => [p.panelId as string, p.queryRef.hash as string]),
     );
     const canvasByHash = new Map<string, J>();
-    for (const p of canvasPanels) if (typeof p?.queryRef?.hash === "string" && !canvasByHash.has(p.queryRef.hash)) canvasByHash.set(p.queryRef.hash, p);
+    for (const p of canvasPanels)
+      if (typeof p?.queryRef?.hash === "string" && !canvasByHash.has(p.queryRef.hash))
+        canvasByHash.set(p.queryRef.hash, p);
 
     const runDetails = await mapLimit(allRuns.slice(0, REPORT_MAX_RUNS), 4, async (r) => {
       const d = await read(`/v1/runs/${r.runId}`);
-      return d.ok ? d.body : (limitations.push(`Run ${String(r.runId).slice(0, 8)} could not be read (${d.reason}).`), null);
+      return d.ok
+        ? d.body
+        : (limitations.push(`Run ${String(r.runId).slice(0, 8)} could not be read (${d.reason}).`), null);
     });
     const runs: J[] = [];
     const hashOrder: string[] = [];
     const hashRuns = new Map<string, string[]>();
     for (const d of runDetails) {
       if (!d) continue;
-      const findings: J[] = ((d.findings as J[] | undefined) ?? []).map((f) => ({ ...f, panelHashes: findingHashes(f, canvasHash) }));
+      const findings: J[] = ((d.findings as J[] | undefined) ?? []).map((f) => ({
+        ...f,
+        panelHashes: findingHashes(f, canvasHash),
+      }));
       const runHashes: string[] = [];
-      for (const f of findings) for (const h of f.panelHashes as string[]) if (!runHashes.includes(h)) runHashes.push(h);
+      for (const f of findings)
+        for (const h of f.panelHashes as string[]) if (!runHashes.includes(h)) runHashes.push(h);
       for (const h of runHashes) {
         if (!hashOrder.includes(h)) hashOrder.push(h);
         hashRuns.set(h, [...(hashRuns.get(h) ?? []), d.runId]);
       }
       const interp = (d.interpretation as J | undefined) ?? { state: "none", reason: null, findingCount: 0 };
       if (d.terminal && interp.state !== "ready")
-        limitations.push(`Run ${String(d.runId).slice(0, 8)} has no ready interpretation (${interp.state}${interp.reason ? `: ${interp.reason}` : ""}).`);
+        limitations.push(
+          `Run ${String(d.runId).slice(0, 8)} has no ready interpretation (${interp.state}${interp.reason ? `: ${interp.reason}` : ""}).`,
+        );
       runs.push({
         id: d.runId,
         question: questionOf(d),
@@ -198,7 +232,13 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
         updatedAt: d.updatedAt ?? null,
         budget: d.budget ?? null,
         // The runtime stores no written summary of a run; the report's summary is built from the findings themselves.
-        interpretation: { state: interp.state, reason: interp.reason ?? null, findingCount: interp.findingCount ?? findings.length, summary: null, findings },
+        interpretation: {
+          state: interp.state,
+          reason: interp.reason ?? null,
+          findingCount: interp.findingCount ?? findings.length,
+          summary: null,
+          findings,
+        },
         panelHashes: runHashes,
       });
     }
@@ -208,19 +248,31 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
       limitations.push(`Only the first ${REPORT_MAX_PANELS} of ${hashOrder.length} panels are included.`);
     const panels = await mapLimit(hashOrder.slice(0, REPORT_MAX_PANELS), 4, async (h) => {
       const r = await read(`${base}/panels/${h}/data`);
-      if (!r.ok) limitations.push(`Panel ${h.slice(0, 8)} could not be read (${r.reason}); it is listed without data.`);
-      const p = describePanel(h, canvasByHash.get(h), r.ok ? r.body : null, r.ok ? null : { status: r.status, reasonCode: r.reason });
+      if (!r.ok)
+        limitations.push(
+          `Panel ${h.slice(0, 8)} could not be read (${r.reason}); it is listed without data.`,
+        );
+      const p = describePanel(
+        h,
+        canvasByHash.get(h),
+        r.ok ? r.body : null,
+        r.ok ? null : { status: r.status, reasonCode: r.reason },
+      );
       return { ...p, runIds: hashRuns.get(h) ?? [] };
     });
     if (panels.some((p) => p.data))
-      limitations.push("Panel data is read again from its source when the report is generated; values can differ from those a finding cited if the source has since been revised or extended.");
+      limitations.push(
+        "Panel data is read again from its source when the report is generated; values can differ from those a finding cited if the source has since been revised or extended.",
+      );
 
     // ---- monitors ----
     const lastBy = new Map<string, J>();
-    for (const e of ((evals?.evaluations as J[] | undefined) ?? []))
-      if (!lastBy.has(e.ruleId) || String(e.evaluatedAt) > String(lastBy.get(e.ruleId)!.evaluatedAt)) lastBy.set(e.ruleId, e);
+    for (const e of (evals?.evaluations as J[] | undefined) ?? [])
+      if (!lastBy.has(e.ruleId) || String(e.evaluatedAt) > String(lastBy.get(e.ruleId)!.evaluatedAt))
+        lastBy.set(e.ruleId, e);
     const trigBy = new Map<string, J[]>();
-    for (const t of ((trig?.triggers as J[] | undefined) ?? [])) trigBy.set(t.ruleId, [...(trigBy.get(t.ruleId) ?? []), t]);
+    for (const t of (trig?.triggers as J[] | undefined) ?? [])
+      trigBy.set(t.ruleId, [...(trigBy.get(t.ruleId) ?? []), t]);
     const monitors = ((mon?.rules as J[] | undefined) ?? []).slice(0, MAX_LIST).map((r) => ({
       ...r,
       lastEvaluation: lastBy.get(r.ruleId) ?? null,
@@ -229,7 +281,9 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
     }));
 
     // ---- capsules of this workspace ----
-    const mine: J[] = ((pubs?.publications as J[] | undefined) ?? []).filter((p) => p.workspaceId === wid).slice(0, 50);
+    const mine: J[] = ((pubs?.publications as J[] | undefined) ?? [])
+      .filter((p) => p.workspaceId === wid)
+      .slice(0, 50);
     const proofIds = new Set<string>();
     const capsuleIds = new Set<string>(mine.map((p) => p.capsuleId as string));
     const capsules = await mapLimit(mine, 3, async (p) => {
@@ -239,11 +293,22 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
         read(`/v1/capsules/${enc}/proofs`),
         read(`/v1/capsules/${enc}/publication`),
       ]);
-      if (!view.ok || view.body.status !== "available") limitations.push(`Capsule ${String(p.capsuleId).slice(0, 24)} could not be read; only its publication row is shown.`);
-      if (!proofs.ok) limitations.push(`Proofs of capsule ${String(p.capsuleId).slice(0, 24)} could not be read (${proofs.reason}).`);
+      if (!view.ok || view.body.status !== "available")
+        limitations.push(
+          `Capsule ${String(p.capsuleId).slice(0, 24)} could not be read; only its publication row is shown.`,
+        );
+      if (!proofs.ok)
+        limitations.push(
+          `Proofs of capsule ${String(p.capsuleId).slice(0, 24)} could not be read (${proofs.reason}).`,
+        );
       const items: J[] = proofs.ok ? ((proofs.body.items as J[] | undefined) ?? []) : [];
       for (const it of items) proofIds.add(it.proofId);
-      const { provenance: _pv, rebuild: _rb, exports: _ex, ...cap } = (view.ok && view.body.capsule ? view.body.capsule : {}) as J;
+      const {
+        provenance: _pv,
+        rebuild: _rb,
+        exports: _ex,
+        ...cap
+      } = (view.ok && view.body.capsule ? view.body.capsule : {}) as J;
       return {
         capsuleId: p.capsuleId,
         title: p.title ?? null,
@@ -262,7 +327,9 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
       };
     });
     if (capsules.some((c) => (c.proofs as J[]).length))
-      limitations.push("Intel collateral (TCB status) is not checked for any OutLayer attestation in this report.");
+      limitations.push(
+        "Intel collateral (TCB status) is not checked for any OutLayer attestation in this report.",
+      );
 
     // ---- costs ----
     const entries: J[] = [];
@@ -271,7 +338,15 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
       const spent = r.budget?.spent?.usd;
       if (typeof spent === "number" && Number.isFinite(spent)) {
         modelUsd = (modelUsd ?? 0) + spent;
-        entries.push({ source: "run", label: `Investigation run ${String(r.id).slice(0, 8)}`, unit: "usd", amount: spent.toFixed(6), at: r.updatedAt, ref: r.id, txHash: null });
+        entries.push({
+          source: "run",
+          label: `Investigation run ${String(r.id).slice(0, 8)}`,
+          unit: "usd",
+          amount: spent.toFixed(6),
+          at: r.updatedAt,
+          ref: r.id,
+          txHash: null,
+        });
       }
     }
     const agentUsd = await agentCostEntries(kernel, s, wid);
@@ -279,18 +354,24 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
       modelUsd = (modelUsd ?? 0) + Number(e.amount);
       entries.push(e);
     }
-    let chargedYocto = 0n;
-    const credit = (await credits.entries({ orgId: s.principal.orgId, userId: s.userId }, 500).catch(() => [])).filter((e) => {
+    let chargedMicro = 0n;
+    const credit = (
+      await credits.entries({ orgId: s.principal.orgId, userId: s.userId }, 500).catch(() => [])
+    ).filter((e) => {
       const cid = typeof e.detail?.capsuleId === "string" ? e.detail.capsuleId : null;
-      return (e.refKind === "proof" && e.refId !== null && proofIds.has(e.refId)) || (e.refKind === "publication" && ((e.refId !== null && capsuleIds.has(e.refId)) || (cid !== null && capsuleIds.has(cid))));
+      return (
+        (e.refKind === "proof" && e.refId !== null && proofIds.has(e.refId)) ||
+        (e.refKind === "publication" &&
+          ((e.refId !== null && capsuleIds.has(e.refId)) || (cid !== null && capsuleIds.has(cid))))
+      );
     });
     for (const e of credit) {
-      if (e.kind === "charge") chargedYocto += BigInt(e.amountYocto);
+      if (e.kind === "charge") chargedMicro += e.amountMicro;
       entries.push({
         source: "credits",
         label: `${e.kind} (${e.refKind})`,
-        unit: "yoctoNEAR",
-        amount: e.amountYocto,
+        unit: "usd",
+        amount: microToUsd(e.amountMicro),
         at: e.createdAt,
         ref: e.refId,
         txHash: typeof e.detail?.txHash === "string" ? e.detail.txHash : null,
@@ -300,7 +381,7 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
     const ledgerEntries: J[] = ((ledger?.entries as J[] | undefined) ?? []).slice(0, MAX_LIST);
     const costs = {
       modelUsd: usd6(modelUsd),
-      creditsChargedYocto: chargedYocto.toString(),
+      creditsChargedUsd: microToUsd(chargedMicro),
       entries,
       ledger: {
         spentUsd: typeof burn?.spentUsd === "number" ? usd6(burn.spentUsd) : null,
@@ -310,12 +391,18 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
       basis:
         "Model spend is the sum of the USD each included run recorded in its budget" +
         (agentUsd.table ? ", plus the agent cost entries of this workspace" : "") +
-        ". NEAR credits charged is the sum of charge entries in the caller's credits ledger that reference this workspace's capsule proofs and publications. The workspace cost ledger is shown separately and is not added to either total.",
+        ". Credits charged (USD) is the sum of charge entries in the caller's USD credits ledger that reference this workspace's capsule proofs and publications. The workspace cost ledger is shown separately and is not added to either total.",
     };
 
     const windows = panels.map((p) => p.window).filter((w): w is { from: string; to: string } => w !== null);
     const dataWindow = windows.length
-      ? { from: windows.map((w) => w.from).sort()[0]!, to: windows.map((w) => w.to).sort().at(-1)! }
+      ? {
+          from: windows.map((w) => w.from).sort()[0]!,
+          to: windows
+            .map((w) => w.to)
+            .sort()
+            .at(-1)!,
+        }
       : null;
 
     return {
@@ -346,10 +433,16 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
  * Model spend recorded by the Agent tab for this workspace (table `agent_cost_entries`, migration 023). A database that
  * does not have the table, or not the columns read here, simply has none: the report then relies on the run budgets.
  */
-async function agentCostEntries(kernel: Kernel, s: Session, workspaceId: string): Promise<{ table: boolean; entries: J[] }> {
+async function agentCostEntries(
+  kernel: Kernel,
+  s: Session,
+  workspaceId: string,
+): Promise<{ table: boolean; entries: J[] }> {
   try {
     return await kernel.db.tx({ orgId: s.principal.orgId, userId: s.userId }, async (tx) => {
-      const reg = await tx.query<{ t: string | null }>("SELECT to_regclass('public.agent_cost_entries')::text AS t");
+      const reg = await tx.query<{ t: string | null }>(
+        "SELECT to_regclass('public.agent_cost_entries')::text AS t",
+      );
       if (!reg.rows[0]?.t) return { table: false, entries: [] };
       const cols = await tx.query<{ column_name: string }>(
         "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'agent_cost_entries'",
@@ -363,7 +456,15 @@ async function agentCostEntries(kernel: Kernel, s: Session, workspaceId: string)
       );
       return {
         table: true,
-        entries: r.rows.map((x) => ({ source: "agent", label: x.label, unit: "usd", amount: Number(x.amount).toFixed(6), at: x.created_at.toISOString(), ref: null, txHash: x.tx_hash ?? null })),
+        entries: r.rows.map((x) => ({
+          source: "agent",
+          label: x.label,
+          unit: "usd",
+          amount: Number(x.amount).toFixed(6),
+          at: x.created_at.toISOString(),
+          ref: null,
+          txHash: x.tx_hash ?? null,
+        })),
       };
     });
   } catch {

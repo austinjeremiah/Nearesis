@@ -12,6 +12,8 @@ import { monitoringRoutes } from "./monitoring-routes.ts";
 import { capsuleRoutes } from "./capsule-routes.ts";
 import { workspaceCapsuleRoutes } from "./workspace-capsule-routes.ts";
 import { creditsRoutes } from "./credits-routes.ts";
+import { clickhouseNearUsdRate } from "./near-usd-rate.ts";
+import type { NearUsdRateReader } from "./near-usd-rate.ts";
 import { publishRoutes } from "./publish-routes.ts";
 import { integrityRoutes } from "./integrity-routes.ts";
 import { gatewayRoutes } from "./gateway-routes.ts";
@@ -68,7 +70,9 @@ export interface AppOptions {
   monitorReplayValues?: (metricIds: string[], dayIso: string) => Promise<Record<string, number>>;
   kernel: Kernel;
   /** Test seams for NEAR wallet sign-in (RPC fetch, clock, rate limit). */
-  nearAuth?: Partial<Pick<import("./near-auth-routes.ts").NearAuthRoutesOptions, "service" | "perMinute" | "now">>;
+  nearAuth?: Partial<
+    Pick<import("./near-auth-routes.ts").NearAuthRoutesOptions, "service" | "perMinute" | "now">
+  >;
   /** Governed metric authoring service; when set, the /v1/workspaces/:id/metrics routes are served. */
   authoring?: AuthoringService;
   /** Model USD recorded outside Postgres (inference spend files); counted in the global ceiling view. */
@@ -81,7 +85,9 @@ export interface AppOptions {
   assistant?: Partial<import("./assistant-routes.ts").AssistantRoutesOptions>;
   /** Test seams for the Agent v2 routes (planner model, in-process api, executor timings). */
   agent?: Partial<import("./agent-routes.ts").AgentRoutesOptions>;
-  /** Test seams for credits and the paid OutLayer proof routes (tx lookup, chain client, prover, spend file). */
+  /** NEAR -> USD for proofs and the publication anchor (default: the latest daily close in ClickHouse `price_candles`). Test seam. */
+  nearUsdRate?: NearUsdRateReader;
+  /** Test seams for credits and the paid OutLayer proof routes (chain client, prover, spend file). */
   credits?: Partial<import("./credits-routes.ts").CreditsRoutesOptions>;
   /** Starts/signals investigation workflows (production: `temporalEngine()`). Without one, question/cancel/approval writes are 503. */
   engine?: InvestigationEngine;
@@ -582,12 +588,16 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     ...(opts.frontend?.panelData ? { panelData: opts.frontend.panelData } : {}),
     ...(opts.frontend?.capsuleRoot ? { capsuleRoot: opts.frontend.capsuleRoot } : {}),
   });
+  const rates = opts.nearUsdRate ? null : clickhouseNearUsdRate();
+  const nearUsdRate: NearUsdRateReader = opts.nearUsdRate ?? rates!.read;
+  if (rates) app.addHook("onClose", async () => rates.close());
   await app.register(publishRoutes, {
     kernel,
+    nearUsdRate,
     ...(opts.authoring ? { authoring: opts.authoring } : {}),
     ...(opts.publishAnchorChain ? { anchorChain: opts.publishAnchorChain } : {}),
   });
-  await app.register(creditsRoutes, { kernel, authenticate, ...(opts.credits ?? {}) });
+  await app.register(creditsRoutes, { kernel, authenticate, nearUsdRate, ...(opts.credits ?? {}) });
   await app.register(integrityRoutes, { kernel });
   if (opts.gatewayCredential)
     await app.register(gatewayRoutes, { kernel, credential: opts.gatewayCredential });

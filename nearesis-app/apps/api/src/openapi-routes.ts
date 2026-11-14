@@ -415,18 +415,24 @@ export const ROUTES: RouteSpec[] = [
   ),
 
   // ---- investigations ----------------------------------------------------------------------------------------------
-  R("post", `${W}/questions`, "investigation", "Submit an analyst question (starts an investigation run)", {
-    body: SubmitQuestionRequest,
-    headers: idem,
-    capability: "investigation progress",
-    states: S("loading", "rate_limited", "budget_exhausted"),
-    status: "202",
-    ok: typed(
-      SubmitQuestionResponse,
-      "Accepted; follow progress on the event stream",
-      "question-accepted.json",
-    ),
-  }),
+  R(
+    "post",
+    `${W}/questions`,
+    "investigation",
+    "Submit an analyst question (starts an investigation run; 402 BUDGET_EXCEEDED / CREDITS_EXHAUSTED when the caller has used their USD credits; the run's model USD is charged to the caller when it finishes)",
+    {
+      body: SubmitQuestionRequest,
+      headers: idem,
+      capability: "investigation progress",
+      states: S("loading", "rate_limited", "budget_exhausted"),
+      status: "202",
+      ok: typed(
+        SubmitQuestionResponse,
+        "Accepted; follow progress on the event stream",
+        "question-accepted.json",
+      ),
+    },
+  ),
   R("get", `${W}/runs`, "investigation", "List investigations", {
     capability: "investigation progress",
     ok: typed(RunListResponse, "OK", "runs-list.json"),
@@ -756,7 +762,7 @@ export const ROUTES: RouteSpec[] = [
     "post",
     "/v1/publish",
     "publication",
-    "Export the static publication bundle for a capsule (emits research.published)",
+    "Export the static publication bundle for a capsule (emits research.published); an anchored publication holds anchor gas in USD from the caller's credits (402 CREDITS_EXHAUSTED; 503 PRICE_UNAVAILABLE)",
     {
       body: PublishBody,
       role: "writer",
@@ -898,13 +904,20 @@ export const ROUTES: RouteSpec[] = [
     "post",
     "/v1/assistant/answer",
     "assistant",
-    "Quick answer with charts and detailed analysis from typed read-only analytics (no workspace); spends model USD against the global ceiling",
+    "Quick answer with charts and detailed analysis from typed read-only analytics (no workspace); spends model USD that is charged to the caller's USD credits and counts against the global ceiling",
     {
       description:
-        "A planner call picks up to 4 calls from the typed analytics catalogue (intents, entities, accounts), they run in parallel, charts are built from the result tables, and the interpretation stage (analyst and skeptic) writes findings whose every number is tied to a result cell. `summary` is returned only when every number in it grounds against the returned facts, else null. `cannot_answer` carries a reason and what data exists instead. Unknown values are null, never zero. 402 BUDGET_EXCEEDED when the one global model-spend ceiling is reached; 429 RATE_LIMITED per user.",
+        "A planner call picks up to 4 calls from the typed analytics catalogue (intents, entities, accounts), they run in parallel, charts are built from the result tables, and the interpretation stage (analyst and skeptic) writes findings whose every number is tied to a result cell. `summary` is returned only when every number in it grounds against the returned facts, else null. `cannot_answer` carries a reason and what data exists instead. Unknown values are null, never zero. 402 BUDGET_EXCEEDED / CREDITS_EXHAUSTED (details { allowanceUsd, spentUsd, availableUsd, requiredUsd, contactEmail }) when the caller has used their USD credits; 402 BUDGET_EXCEEDED when the one global model-spend ceiling is reached; 429 RATE_LIMITED per user. The actual USD of the turn is charged once to the caller.",
       body: AnswerRequest,
       capability: "agent quick answer",
-      states: S("complete", "partial", "insufficient_data", "budget_exhausted", "rate_limited", "source_unavailable"),
+      states: S(
+        "complete",
+        "partial",
+        "insufficient_data",
+        "budget_exhausted",
+        "rate_limited",
+        "source_unavailable",
+      ),
       ok: typed(AnswerResponse, "The answer, its charts, findings, steps, cost and elapsed time"),
     },
   ),
@@ -991,10 +1004,16 @@ export const ROUTES: RouteSpec[] = [
       ok: typed(CollabTicketResponse, "Ticket, expiry and the socket path"),
     },
   ),
-  R("get", "/v1/me", "frontend", "The caller: principal, organisation, role and workspaces", {
-    capability: "identity",
-    ok: typed(MeResponse),
-  }),
+  R(
+    "get",
+    "/v1/me",
+    "frontend",
+    "The caller: principal, organisation, role, workspaces and credits ({ availableUsd, allowanceUsd, exhausted }, additive)",
+    {
+      capability: "identity",
+      ok: typed(MeResponse),
+    },
+  ),
   R(
     "get",
     "/v1/notifications",
@@ -1014,11 +1033,17 @@ export const ROUTES: RouteSpec[] = [
     capability: "global approvals",
     ok: typed(GlobalApprovalList),
   }),
-  R("get", "/v1/findings", "frontend", "Newest interpreted findings (analyst + skeptic) across the caller's workspaces", {
-    query: z.object({ limit: z.number().int().min(1).max(50).optional() }),
-    capability: "global findings",
-    ok: "{ findings: { runId, workspaceId, workspaceObjective, question, createdAt, finding: InterpretedFinding }[], truncated, workspaceCount }",
-  }),
+  R(
+    "get",
+    "/v1/findings",
+    "frontend",
+    "Newest interpreted findings (analyst + skeptic) across the caller's workspaces",
+    {
+      query: z.object({ limit: z.number().int().min(1).max(50).optional() }),
+      capability: "global findings",
+      ok: "{ findings: { runId, workspaceId, workspaceObjective, question, createdAt, finding: InterpretedFinding }[], truncated, workspaceCount }",
+    },
+  ),
   R(
     "get",
     "/v1/publications",
@@ -1081,20 +1106,26 @@ export const ROUTES: RouteSpec[] = [
   ),
 
   // ---- NEAR wallet sign-in (NEP-413, testnet) ---------------------------------------------------------------------
-  R("post", "/v1/auth/near/challenge", "session", "Issue a single-use NEP-413 sign-in challenge (5 minutes)", {
-    auth: "none",
-    body: z.strictObject({}),
-    ok: typed(
-      z.strictObject({
-        challengeId: z.uuid(),
-        message: z.string(),
-        recipient: z.string(),
-        nonce: z.string().describe("base64 of 32 random bytes"),
-        network: z.literal("testnet"),
-        expiresAt: z.string(),
-      }),
-    ),
-  }),
+  R(
+    "post",
+    "/v1/auth/near/challenge",
+    "session",
+    "Issue a single-use NEP-413 sign-in challenge (5 minutes)",
+    {
+      auth: "none",
+      body: z.strictObject({}),
+      ok: typed(
+        z.strictObject({
+          challengeId: z.uuid(),
+          message: z.string(),
+          recipient: z.string(),
+          nonce: z.string().describe("base64 of 32 random bytes"),
+          network: z.literal("testnet"),
+          expiresAt: z.string(),
+        }),
+      ),
+    },
+  ),
   R("post", "/v1/auth/near/verify", "session", "Verify a NEAR wallet signature and receive a session token", {
     auth: "none",
     description:
@@ -1110,7 +1141,8 @@ export const ROUTES: RouteSpec[] = [
     ),
   }),
   R("post", "/v1/auth/near/link", "session", "Link a verified NEAR account to the signed-in user", {
-    description: "409 ACCOUNT_ALREADY_LINKED when another user holds the account, USER_ALREADY_LINKED when this user has a different one.",
+    description:
+      "409 ACCOUNT_ALREADY_LINKED when another user holds the account, USER_ALREADY_LINKED when this user has a different one.",
     body: NearVerifyBody,
     ok: typed(z.strictObject({ accountId: z.string(), userId: z.uuid() })),
   }),

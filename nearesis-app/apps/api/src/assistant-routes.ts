@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z, ZodError } from "zod";
 import type { InferenceProvider } from "@nearesis/contracts";
@@ -27,6 +28,7 @@ import {
 } from "@nearesis/workflow";
 import { assistantSetup } from "./assistant-setup.ts";
 import { ctxOf } from "./product-common.ts";
+import { chargeModelUsd, requireCredits } from "./usd-credits-api.ts";
 import type { RunsService } from "./runs.ts";
 
 export interface AssistantRoutesOptions {
@@ -181,6 +183,8 @@ export const assistantRoutes: FastifyPluginAsync<AssistantRoutesOptions> = async
         retryable: true,
         nextAction: `Retry after ${wait} seconds.`,
       });
+    // Credits: nothing starts when the caller's USD credits are used up (402 CREDITS_EXHAUSTED).
+    await requireCredits(kernel, s);
     const chosen = opts.inference ?? assistantProviderFromEnv();
     // FND-073: the egress policy applies to whichever provider is used, injected or configured.
     const provider = isGuardedInference(chosen.provider)
@@ -199,12 +203,22 @@ export const assistantRoutes: FastifyPluginAsync<AssistantRoutesOptions> = async
       if (!req.raw.complete) abort.abort();
     });
     const modelPort = assistantModelOver(provider, model, await gateFor(s), abort.signal);
+    const charge = (usd: number, refId: string, modelCalls: number) =>
+      chargeModelUsd(kernel.db, ctxOf(s), usd, { refKind: "answer", refId, detail: { modelCalls } }).catch(
+        (err) => app.log.error({ err: (err as Error).message }, "charging the answer's model spend failed"),
+      );
     try {
-      return await answerQuestion(
+      const answer = await answerQuestion(
         { analytics: analytics(), model: modelPort, tenantId: s.principal.orgId },
         { question: body.data.question, ...(body.data.history ? { history: body.data.history } : {}) },
       );
+      // The ACTUAL provider-priced USD of this turn (the same figure the answer reports), charged once per answer.
+      await charge(answer.cost.usd, answer.answerId, answer.cost.modelCalls);
+      return answer;
     } catch (e) {
+      // A turn that failed part-way still spent what its calls cost.
+      const spent = modelPort.usage();
+      await charge(spent.usd, randomUUID(), spent.modelCalls);
       if (e instanceof KernelError) throw e;
       const code = (e as { code?: unknown } | null)?.code;
       if (code === "BUDGET_EXCEEDED")
@@ -245,12 +259,22 @@ export const assistantRoutes: FastifyPluginAsync<AssistantRoutesOptions> = async
         "INVALID_IDEMPOTENCY_KEY",
         "Invalid Idempotency-Key header.",
       );
-    return assistantSetup(
+    await requireCredits(kernel, s);
+    const made = await assistantSetup(
       { kernel, runs: opts.runs, analytics },
       s,
       req.params.id,
       body.data.runId,
       req.traceId,
     );
+    // Deterministic today (cost 0); whatever model spend it reports is charged to the caller, once per run.
+    await chargeModelUsd(kernel.db, ctxOf(s), made.cost.usd, {
+      refKind: "setup",
+      refId: body.data.runId,
+      detail: { workspaceId: req.params.id, modelCalls: made.cost.modelCalls },
+    }).catch((err) =>
+      app.log.error({ err: (err as Error).message }, "charging the setup's model spend failed"),
+    );
+    return made;
   });
 };

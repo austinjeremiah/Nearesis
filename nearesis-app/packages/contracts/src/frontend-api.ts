@@ -197,6 +197,12 @@ export const MeResponse = z.strictObject({
       createdAt: IsoDateTime,
     }),
   ),
+  /** The caller's unified USD credits (6-place decimal strings); `exhausted` when available is zero. */
+  credits: z.strictObject({
+    availableUsd: z.string().regex(/^\d+\.\d{6}$/),
+    allowanceUsd: z.string().regex(/^\d+\.\d{6}$/),
+    exhausted: z.boolean(),
+  }),
 });
 export type MeResponse = z.infer<typeof MeResponse>;
 

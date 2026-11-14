@@ -45,3 +45,4 @@ export * from "./telemetry.ts";
 export * from "./oidc.ts";
 export * from "./near-auth.ts";
 export * from "./credits.ts";
+export * from "./usd-credits.ts";

@@ -1,7 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
-import { InsufficientCredits, KernelError, chargeIn, holdIn, releaseIn, writeAudit } from "@nearesis/kernel";
+import {
+  KernelError,
+  chargeUsdIn,
+  holdUsdIn,
+  releaseUsdIn,
+  writeAudit,
+  yoctoToMicroUsd,
+} from "@nearesis/kernel";
+import type { NearUsdRate, NearUsdRateReader } from "./near-usd-rate.ts";
+import { usdCreditsOf } from "./usd-credits-api.ts";
 import { guardCapsuleMetrics, principalOf } from "./metric-publish-guard.ts";
 import type { PublishAuthoring } from "./metric-publish-guard.ts";
 import type { Kernel, Session } from "@nearesis/kernel";
@@ -38,6 +47,8 @@ export interface PublishRoutesOptions {
    * `anchorChain` is not configured.
    */
   anchorHoldYocto?: bigint;
+  /** NEAR -> USD (latest local daily close). Absent: an anchored publication answers 503 PRICE_UNAVAILABLE. */
+  nearUsdRate?: NearUsdRateReader;
 }
 
 /** The anchor's own spending limit (scripts/release/testnet-anchor-manifest.ts ANCHOR_BUDGET_YOCTO): 0.005 NEAR. */
@@ -57,9 +68,10 @@ const publishRoot = (): string => process.env.NEARESIS_PUBLISH_DIR ?? join(APP_R
  */
 export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (
   app,
-  { kernel, authoring, anchorChain, anchorHoldYocto },
+  { kernel, authoring, anchorChain, anchorHoldYocto, nearUsdRate },
 ) => {
   const holdAmount = anchorHoldYocto ?? DEFAULT_ANCHOR_HOLD_YOCTO;
+  const usdCredits = usdCreditsOf(kernel.db);
   async function authenticate(req: FastifyRequest): Promise<Session> {
     const h = req.headers.authorization;
     const token = h?.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : undefined;
@@ -89,7 +101,9 @@ export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (
   type PublishReq = FastifyRequest<{ Body: { capsuleId?: string; acknowledge?: string[] } | undefined }>;
   /** Credits held for the anchor of this request (0n = nothing held). Settled or released exactly once. */
   interface AnchorHold {
+    /** Held micro-USD. */
     amount: bigint;
+    rate: NearUsdRate | null;
     userId: string;
     orgId: string;
   }
@@ -159,32 +173,39 @@ export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (
     // Anchor gas is paid by the caller's credits: hold an estimate before anything is sent, so a caller without credits
     // is refused (402) before the publication is recorded.
     if (anchorChain) {
+      let rate: NearUsdRate | null = null;
       try {
-        await kernel.db.tx(
-          { orgId: s.principal.orgId, userId: s.userId, actorKind: s.principal.kind },
-          (tx) =>
-            holdIn(tx, s.userId, holdAmount, {
-              refKind: "publication",
-              refId: id,
-              detail: { capsuleId: id, kind: "publication_anchor_hold" },
-            }),
-        );
-        hold.amount = holdAmount;
-        hold.userId = s.userId;
-        hold.orgId = s.principal.orgId;
-      } catch (e) {
-        if (e instanceof InsufficientCredits)
-          return reply.status(402).send({
-            traceId: req.traceId,
-            errorCode: "BUDGET_EXCEEDED",
-            reasonCode: "INSUFFICIENT_CREDITS",
-            message: "Not enough credits for the testnet anchor gas of this publication.",
-            retryable: false,
-            requiredYocto: e.requiredYocto.toString(),
-            availableYocto: e.availableYocto.toString(),
-          });
-        throw e;
+        rate = (await nearUsdRate?.()) ?? null;
+      } catch {
+        rate = null;
       }
+      if (!rate)
+        throw new KernelError(
+          "UPSTREAM_DEGRADED",
+          "PRICE_UNAVAILABLE",
+          "No NEAR/USD price is available, so the anchor gas cannot be priced in credits.",
+          { retryable: true },
+        );
+      const holdMicro = yoctoToMicroUsd(holdAmount, rate.rate);
+      await usdCredits.reconcileRuns(s.userId).catch(() => undefined);
+      await kernel.db.tx({ orgId: s.principal.orgId, userId: s.userId, actorKind: s.principal.kind }, (tx) =>
+        holdUsdIn(tx, s.userId, usdCredits.allowanceMicro, holdMicro, {
+          refKind: "publication",
+          refId: id,
+          category: "anchor",
+          detail: {
+            capsuleId: id,
+            kind: "publication_anchor_hold",
+            holdYocto: holdAmount.toString(),
+            nearUsdRate: rate.rate,
+            rateDate: rate.date,
+          },
+        }),
+      );
+      hold.amount = holdMicro;
+      hold.rate = rate;
+      hold.userId = s.userId;
+      hold.orgId = s.principal.orgId;
     }
 
     let published: ReturnType<typeof publishStatic>;
@@ -359,21 +380,37 @@ export const publishRoutes: FastifyPluginAsync<PublishRoutesOptions> = async (
     const amount = hold.amount;
     hold.amount = 0n;
     const ctx = { orgId: hold.orgId, userId: hold.userId };
+    const rate = hold.rate;
     const ref = {
       refKind: "publication",
       refId: manifestHash,
-      detail: { capsuleId, kind: "publication_anchor", ...(txHash ? { txHash } : {}) },
+      category: "anchor" as const,
+      detail: {
+        capsuleId,
+        kind: "publication_anchor",
+        ...(txHash ? { txHash } : {}),
+        ...(burnt !== null ? { gasBurntYocto: burnt.toString() } : {}),
+        ...(rate ? { nearUsdRate: rate.rate, rateDate: rate.date } : {}),
+      },
     };
     await kernel.db.tx(ctx, async (tx) => {
-      if (burnt !== null && txHash) await chargeIn(tx, hold.userId, amount, burnt, ref);
-      else await releaseIn(tx, hold.userId, amount, ref);
+      if (burnt !== null && txHash && rate)
+        await chargeUsdIn(
+          tx,
+          hold.userId,
+          usdCredits.allowanceMicro,
+          amount,
+          yoctoToMicroUsd(burnt, rate.rate),
+          ref,
+        );
+      else await releaseUsdIn(tx, hold.userId, usdCredits.allowanceMicro, amount, ref);
     });
   }
 
   app.post<{ Body: { capsuleId?: string; acknowledge?: string[] } | undefined }>(
     "/v1/publish",
     async (req, reply) => {
-      const hold: AnchorHold = { amount: 0n, userId: "", orgId: "" };
+      const hold: AnchorHold = { amount: 0n, rate: null, userId: "", orgId: "" };
       try {
         return await publishOnce(req, reply, hold);
       } catch (e) {

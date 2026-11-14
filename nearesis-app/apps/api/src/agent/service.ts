@@ -1,4 +1,12 @@
-import { KernelError, guardInference, isGuardedInference, modelPolicyFromEnv } from "@nearesis/kernel";
+import {
+  CreditsExhausted,
+  KernelError,
+  exhaustedDetails,
+  guardInference,
+  isGuardedInference,
+  modelPolicyFromEnv,
+  usdNumberToMicro,
+} from "@nearesis/kernel";
 import type { Db, Session } from "@nearesis/kernel";
 import type { InferenceProvider } from "@nearesis/contracts";
 import {
@@ -10,7 +18,8 @@ import {
 import type { AssistantModelPort, AssistantSpendGate } from "@nearesis/workflow";
 import { ApiError, apiErrorOf, call } from "./api-client.ts";
 import type { AgentApi, AgentUser } from "./api-client.ts";
-import { consentFor, detailOf, modelUsdMaxFor, nearOf, titleOf } from "./catalog.ts";
+import { consentFor, detailOf, modelUsdMaxFor, titleOf } from "./catalog.ts";
+import { chargeModelUsd, usdCreditsOf } from "../usd-credits-api.ts";
 import type { PlannedStep } from "./catalog.ts";
 import { Executor } from "./executor.ts";
 import { DIRECT_LOOKUPS, planMessage } from "./planner.ts";
@@ -178,7 +187,16 @@ export class AgentService {
   private async fail(user: AgentUser, replyId: string, err: unknown, usd = 0, calls = 0): Promise<void> {
     let reasonCode = "AGENT_FAILED";
     let message = "The agent could not answer just now.";
-    if (err instanceof KernelError || err instanceof ApiError) {
+    let details: Record<string, unknown> | undefined;
+    if (err instanceof CreditsExhausted) {
+      reasonCode = err.reasonCode;
+      message = err.message;
+      details = exhaustedDetails(err.facts);
+    } else if (err instanceof ApiError && err.detailsObject) {
+      reasonCode = err.reasonCode;
+      message = err.message;
+      details = err.detailsObject;
+    } else if (err instanceof KernelError || err instanceof ApiError) {
       reasonCode = err.reasonCode;
       message = err.message;
     } else if ((err as { code?: unknown } | null)?.code === "BUDGET_EXCEEDED") {
@@ -194,7 +212,7 @@ export class AgentService {
       text: message,
       modelUsd: usd,
       modelCalls: calls,
-      error: { reasonCode, message },
+      error: { reasonCode, message, ...(details ? { details } : {}) },
     });
   }
 
@@ -227,6 +245,10 @@ export class AgentService {
         });
     };
     try {
+      // Credits: no planner call is made once the user's USD credits are used up.
+      const credits = usdCreditsOf(this.o.db);
+      await credits.reconcileRuns(user.userId).catch(() => undefined);
+      await credits.require(ctx);
       model = await this.modelFor(user);
       const ws = await this.o.api(user, "GET", "/v1/workspaces");
       const workspaces = (
@@ -281,6 +303,13 @@ export class AgentService {
       } finally {
         const u = model.usage();
         await recordCost("Planner", u.usd, u.modelCalls, "planner");
+        // The planner's ACTUAL model spend is charged to the user once per reply (the quick answer is charged by its own route).
+        if (u.usd > 0 && usdNumberToMicro(u.usd) > 0n)
+          await chargeModelUsd(this.o.db, ctx, u.usd, {
+            refKind: "agent_message",
+            refId: replyId,
+            detail: { step: "planner", modelCalls: u.modelCalls },
+          }).catch(() => undefined);
       }
       switch (decision.kind) {
         case "text":
@@ -355,8 +384,8 @@ export class AgentService {
       const url =
         typeof known === "string" ? `/v1/credits?capsuleId=${encodeURIComponent(known)}` : "/v1/credits";
       const r = await this.o.api(user, "GET", url);
-      const est = (r.body as { proofEstimateYocto?: unknown } | null)?.proofEstimateYocto;
-      proofEstimate = r.status === 200 && typeof est === "string" && /^\d+$/.test(est) ? est : null;
+      const est = (r.body as { proofEstimateUsd?: unknown } | null)?.proofEstimateUsd;
+      proofEstimate = r.status === 200 && typeof est === "string" && /^\d+(\.\d+)?$/.test(est) ? est : null;
     }
     const required = consentFor(steps, proofEstimate);
     const spend = required.find((c) => c.key === "spend_credits");
@@ -365,7 +394,7 @@ export class AgentService {
       workspaceId,
       title,
       consentRequired: required,
-      estimate: { creditsMaxYocto: spend?.maxYocto ?? null, modelUsdMax: modelUsdMaxFor(steps) },
+      estimate: { creditsMaxUsd: spend?.maxUsd ?? null, modelUsdMax: modelUsdMaxFor(steps) },
       steps: steps.map((s) => ({ key: s.key, params: s.params, title: titleOf(s), detail: detailOf(s) })),
     });
   }
@@ -493,15 +522,19 @@ export class AgentService {
           };
         }
         case "credits": {
-          const c = await get<{ balanceYocto: string; heldYocto: string; availableYocto: string }>(
-            "/v1/credits",
-          );
+          const c = await get<{
+            allowanceUsd: string;
+            spentUsd: string;
+            heldUsd: string;
+            availableUsd: string;
+          }>("/v1/credits");
           return {
-            summary: `Available credits: ${nearOf(c.availableYocto)} NEAR.`,
+            summary: `Available credits: USD ${c.availableUsd} of USD ${c.allowanceUsd}.`,
             items: [
-              item("Balance (NEAR)", nearOf(c.balanceYocto), "/credits"),
-              item("Held (NEAR)", nearOf(c.heldYocto), "/credits"),
-              item("Available (NEAR)", nearOf(c.availableYocto), "/credits"),
+              item("Allowance (USD)", c.allowanceUsd, "/credits"),
+              item("Spent (USD)", c.spentUsd, "/credits"),
+              item("Held (USD)", c.heldUsd, "/credits"),
+              item("Available (USD)", c.availableUsd, "/credits"),
             ],
           };
         }

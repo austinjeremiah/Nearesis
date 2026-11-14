@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { AnalyticsPanelData } from "@nearesis/contracts";
-import { CreditsService } from "@nearesis/kernel";
+import { UsdCreditsService } from "@nearesis/kernel";
 import {
   addTrustedKey,
   buildCapsule,
@@ -116,6 +116,7 @@ let runOne: string;
 let runIncomplete: string;
 let runOther: string;
 let anchorSpent = "1200000000000000000000";
+let rate: { rate: string; date: string } | null = { rate: "3.5", date: "2026-11-13" };
 let anchorCalls = 0;
 const post = (tok: string, url: string, payload: unknown = {}) =>
   f.app.inject({ method: "POST", url, headers: bearer(tok), payload: payload as object });
@@ -239,6 +240,7 @@ beforeAll(async () => {
   f = await apiFixture({
     runtime: true,
     appOptions: {
+      nearUsdRate: async () => rate,
       frontend: { panelData: fakePort, capsuleRoot: () => root },
       publishAnchorChain: async () => {
         anchorCalls += 1;
@@ -382,11 +384,11 @@ describe("POST /v1/workspaces/:id/capsules", () => {
   });
 });
 
-describe("publication anchor gas is paid from credits", () => {
+describe("publication anchor gas is paid from USD credits", () => {
   const ID = "cap-anchor-gas-fixture";
-  const NEAR = 10n ** 24n;
-  let svc: CreditsService;
+  let svc: UsdCreditsService;
   let ctx: { orgId: string; userId: string };
+  const HOLD_USD = "0.017500"; // 0.005 NEAR at USD 3.5
   beforeAll(async () => {
     buildCapsule({
       snapshotDir: join(import.meta.dirname, "../../../packages/capsule/fixtures/snapshot-synthetic"),
@@ -394,52 +396,82 @@ describe("publication anchor gas is paid from credits", () => {
       capsuleId: ID,
     });
     writeCapsuleOwnership(join(root, ID), { orgId: orgA, workspaceId: wsA });
-    svc = new CreditsService(f.db.app);
+    svc = new UsdCreditsService(f.db.app);
     ctx = { orgId: orgA, userId: aliceId };
   });
 
-  it("no credits: 402 with requiredYocto and availableYocto, nothing published, nothing anchored", async () => {
+  it("no NEAR/USD close: 503 PRICE_UNAVAILABLE, nothing held, published or anchored", async () => {
+    const before = anchorCalls;
+    rate = null;
+    try {
+      const r = await post(alice, "/v1/publish", { capsuleId: ID });
+      expect(r.statusCode).toBe(503);
+      expect(r.json()).toMatchObject({ reasonCode: "PRICE_UNAVAILABLE" });
+    } finally {
+      rate = { rate: "3.5", date: "2026-11-13" };
+    }
+    expect(anchorCalls).toBe(before);
+    expect((await svc.account(ctx)).heldMicro).toBe(0n);
+    expect(existsSync(join(published, ID))).toBe(false);
+  });
+
+  it("exhausted credits: 402 CREDITS_EXHAUSTED with the hold as required amount, nothing published, nothing anchored", async () => {
+    const left = await svc.account(ctx);
+    await svc.charge(ctx, left.availableMicro, { refKind: "run", refId: "drain-anchor", category: "model" });
     const before = anchorCalls;
     const r = await post(alice, "/v1/publish", { capsuleId: ID });
     expect(r.statusCode).toBe(402);
     expect(r.json()).toMatchObject({
-      reasonCode: "INSUFFICIENT_CREDITS",
-      requiredYocto: (5n * 10n ** 21n).toString(),
-      availableYocto: "0",
+      errorCode: "BUDGET_EXCEEDED",
+      reasonCode: "CREDITS_EXHAUSTED",
+      details: {
+        allowanceUsd: "3.000000",
+        availableUsd: "0.000000",
+        requiredUsd: HOLD_USD,
+        contactEmail: "connect@kaushikh.xyz",
+      },
     });
     expect(anchorCalls).toBe(before);
     expect(existsSync(join(published, ID))).toBe(false);
   });
 
-  it("holds an estimate, charges the gas actually burnt (refKind publication, detail txHash) and releases the rest", async () => {
-    await svc.topup(ctx, NEAR, {
-      txHash: "TOPUP1",
-      signerAccountId: "alice.testnet",
-      receiverAccountId: "dep.testnet",
-    });
-    anchorSpent = "1200000000000000000000";
+  it("holds an estimate in USD, charges the gas actually burnt x the rate (category anchor, detail txHash, rate, date) and releases the rest", async () => {
+    // give the user USD 1 back by raising the grant directly (operator action), then publish
+    await f.db.admin.query(
+      "UPDATE usd_credit_accounts SET granted_micro = granted_micro + 1000000 WHERE user_id = $1",
+      [aliceId],
+    );
+    anchorSpent = "1200000000000000000000"; // 0.0012 NEAR = USD 0.0042
     const r = await post(alice, "/v1/publish", { capsuleId: ID });
     expect(r.statusCode, r.body).toBe(200);
     expect(r.json().anchor).toMatchObject({ chain: "committed", txHash: expect.stringMatching(/^TXHASH/) });
     const acc = await svc.account(ctx);
-    expect(acc.heldYocto).toBe(0n);
-    expect(acc.balanceYocto).toBe(NEAR - 1_200_000_000_000_000_000_000n);
+    expect(acc.heldMicro).toBe(0n);
+    expect(acc.availableMicro).toBe(1_000_000n - 4_200n);
     const entries = (await svc.entries(ctx, 20)).filter((e) => e.refKind === "publication");
     const charge = entries.find((e) => e.kind === "charge")!;
-    expect(charge.amountYocto).toBe("1200000000000000000000");
-    expect(charge.detail).toMatchObject({ txHash: r.json().anchor.txHash, capsuleId: ID });
-    expect(entries.find((e) => e.kind === "hold")!.amountYocto).toBe((5n * 10n ** 21n).toString());
-    expect(entries.find((e) => e.kind === "release")!.amountYocto).toBe("3800000000000000000000");
+    expect(charge).toMatchObject({ category: "anchor", amountMicro: 4_200n });
+    expect(charge.detail).toMatchObject({
+      txHash: r.json().anchor.txHash,
+      capsuleId: ID,
+      nearUsdRate: "3.5",
+      rateDate: "2026-11-13",
+      gasBurntYocto: "1200000000000000000000",
+    });
+    expect(entries.find((e) => e.kind === "hold")!.amountMicro).toBe(17_500n);
+    expect(entries.find((e) => e.kind === "release")!.amountMicro).toBe(13_300n);
+    const summary = await svc.summary(ctx);
+    expect(summary.byCategoryMicro.anchor).toBe(4_200n);
   });
 
   it("a repeat publication sends no new anchor and gives the whole hold back", async () => {
     const before = anchorCalls;
-    const bal = (await svc.account(ctx)).balanceYocto;
+    const spentBefore = (await svc.account(ctx)).spentMicro;
     const r = await post(alice, "/v1/publish", { capsuleId: ID });
     expect(r.statusCode, r.body).toBe(200);
     expect(anchorCalls).toBe(before);
     const acc = await svc.account(ctx);
-    expect(acc.balanceYocto).toBe(bal);
-    expect(acc.heldYocto).toBe(0n);
+    expect(acc.spentMicro).toBe(spentBefore);
+    expect(acc.heldMicro).toBe(0n);
   });
 });

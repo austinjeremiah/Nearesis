@@ -586,3 +586,93 @@ describe("POST /v1/workspaces/:id/assistant/setup", () => {
     ).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("USD credits on the quick answer", () => {
+  let tok: string;
+  let userId: string;
+  let orgId: string;
+  const creditsOf = async () =>
+    (await get(tok, "/v1/credits")).json<{
+      spentUsd: string;
+      availableUsd: string;
+      byCategory: { modelUsd: string };
+      entries: Array<Record<string, unknown>>;
+    }>();
+  beforeAll(async () => {
+    const o = await seedOrg(f.db.admin, "as-credits", { zed: "owner" });
+    orgId = o.orgId;
+    userId = o.users.zed!.userId;
+    tok = await login(f.app, o.users.zed!.subject);
+  });
+
+  it("charges the ACTUAL usd of the answer to the caller once, as a model entry keyed by the answer", async () => {
+    spent = 0;
+    current = scripted(fixtures());
+    const before = await creditsOf();
+    expect(before.spentUsd).toBe("0.000000");
+    const r = await ask(tok, { question: "How did NEAR Intents swaps change over the last 4 days?" });
+    expect(r.statusCode).toBe(200);
+    const a = AnswerResponse.parse(r.json());
+    expect(a.cost.usd).toBeGreaterThan(0);
+    const after = await creditsOf();
+    const charge = after.entries.find((e) => e.kind === "charge" && e.refKind === "answer")!;
+    expect(charge).toMatchObject({ category: "model", refId: a.answerId });
+    const micro = BigInt(Math.ceil(Number((a.cost.usd * 1e6).toFixed(3))));
+    expect(BigInt(String(charge.amountUsd).replace(".", ""))).toBe(micro);
+    expect(after.byCategory.modelUsd).toBe(charge.amountUsd);
+    expect(charge.detail).toMatchObject({ modelCalls: 3 });
+    // the same answer is never charged twice
+    await creditsOf();
+    expect((await creditsOf()).entries.filter((e) => e.refKind === "answer")).toHaveLength(1);
+  });
+
+  it("a turn that fails part-way still pays for the calls it made", async () => {
+    spent = 0;
+    current = scripted(
+      fixtures({
+        answerable: true,
+        reason: "r",
+        objective: "o",
+        unavailable: [],
+        calls: [{ title: "x", capability: "nope@9", input: "{}" }],
+      }),
+    );
+    const before = Number((await creditsOf()).spentUsd);
+    await ask(tok, { question: "What happened with swaps?" });
+    const after = Number((await creditsOf()).spentUsd);
+    expect(after).toBeGreaterThanOrEqual(before);
+  });
+
+  it("is refused with 402 CREDITS_EXHAUSTED once the credits are used up, before any model call", async () => {
+    const { UsdCreditsService } = await import("@nearesis/kernel");
+    const svc = new UsdCreditsService(f.db.app);
+    const left = await svc.account({ orgId, userId });
+    await svc.charge({ orgId, userId }, left.availableMicro, {
+      refKind: "run",
+      refId: "drain",
+      category: "model",
+    });
+    current = scripted(fixtures());
+    const r = await ask(tok, { question: "How did NEAR Intents swaps change over the last 4 days?" });
+    expect(r.statusCode).toBe(402);
+    expect(r.json()).toMatchObject({
+      errorCode: "BUDGET_EXCEEDED",
+      reasonCode: "CREDITS_EXHAUSTED",
+      details: {
+        allowanceUsd: "3.000000",
+        availableUsd: "0.000000",
+        requiredUsd: null,
+        contactEmail: "connect@kaushikh.xyz",
+      },
+    });
+    expect(current.prompts).toHaveLength(0);
+    const me = (await get(tok, "/v1/me")).json<{ credits: unknown }>();
+    expect(me.credits).toEqual({ availableUsd: "0.000000", allowanceUsd: "3.000000", exhausted: true });
+  });
+
+  it("the setup route is gated too", async () => {
+    const r = await post(tok, `/v1/workspaces/${ws1}/assistant/setup`, { runId: randomUUID() });
+    expect(r.statusCode).toBe(402);
+    expect(r.json()).toMatchObject({ reasonCode: "CREDITS_EXHAUSTED" });
+  });
+});

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { CapsuleViewRecord } from "@nearesis/contracts";
+import { microToUsd } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
 import {
   APP_ROOT,
@@ -31,6 +32,12 @@ export interface ProofRow {
   charged_yocto: string | null;
   gas_yocto: string | null;
   total_yocto: string | null;
+  held_micro: string | null;
+  charged_micro: string | null;
+  gas_micro: string | null;
+  total_micro: string | null;
+  near_usd_rate: string | null;
+  rate_date: string | null;
   error: string | null;
   created_at: Date;
   finished_at: Date | null;
@@ -54,19 +61,28 @@ export interface Proof {
     rtmr3: string | null;
     collateralChecked: false;
   };
+  /** USD is what the user's credits were held / charged (null for proofs that predate USD credits or are not yet settled). */
   cost: {
+    heldUsd: string | null;
+    chargedUsd: string | null;
+    gasUsd: string | null;
+    totalUsd: string | null;
     heldYocto: string | null;
     chargedYocto: string | null;
     gasYocto: string | null;
     totalYocto: string | null;
+    nearUsdRate: string | null;
+    rateDate: string | null;
   };
   error: string | null;
 }
 
 export const PROOF_COLUMNS =
-  "id, workspace_id, capsule_id, requested_by, state, request_id, tx_hash, wasm_sha256, input_sha256, output_sha256, decision, reasons, mr_td, rtmr3, held_yocto, charged_yocto, gas_yocto, total_yocto, error, created_at, finished_at";
+  "id, workspace_id, capsule_id, requested_by, state, request_id, tx_hash, wasm_sha256, input_sha256, output_sha256, decision, reasons, mr_td, rtmr3, held_yocto, charged_yocto, gas_yocto, total_yocto, held_micro::text AS held_micro, charged_micro::text AS charged_micro, gas_micro::text AS gas_micro, total_micro::text AS total_micro, near_usd_rate, rate_date::text AS rate_date, error, created_at, finished_at";
 
 const explorer = (h: string | null) => (h ? `https://testnet.nearblocks.io/txns/${h}` : null);
+
+const usdOf = (m: string | null): string | null => (m === null ? null : microToUsd(BigInt(m)));
 
 export function rowToProof(r: ProofRow): Proof {
   return {
@@ -88,10 +104,16 @@ export function rowToProof(r: ProofRow): Proof {
       collateralChecked: false,
     },
     cost: {
+      heldUsd: usdOf(r.held_micro),
+      chargedUsd: usdOf(r.charged_micro),
+      gasUsd: usdOf(r.gas_micro),
+      totalUsd: usdOf(r.total_micro),
       heldYocto: r.held_yocto,
       chargedYocto: r.charged_yocto,
       gasYocto: r.gas_yocto,
       totalYocto: r.total_yocto,
+      nearUsdRate: r.near_usd_rate,
+      rateDate: r.rate_date,
     },
     error: r.error,
   };
@@ -171,11 +193,18 @@ export function readFileProof(capsuleDir: string, capsuleId: string, capsuleHash
             rtmr3: doc.verification?.rtmr3 ?? null,
             collateralChecked: false,
           },
+          // A proof file written by `research:prove --live` predates user credits: it was paid by the dev wallet, not charged.
           cost: {
+            heldUsd: null,
+            chargedUsd: null,
+            gasUsd: null,
+            totalUsd: null,
             heldYocto: null,
             chargedYocto: charged,
             gasYocto: burnt,
             totalYocto: charged !== null && burnt ? (BigInt(charged) + BigInt(burnt)).toString() : null,
+            nearUsdRate: null,
+            rateDate: null,
           },
           error: null,
         },

@@ -81,11 +81,16 @@ export const AGENT_ROUTES: RouteSpec[] = [
     "Decide the run approval a waiting step shows; forwarded to the run approval route as the user",
     { body: z.strictObject({ decision: z.enum(["approve", "reject"]) }), ok: "Task" },
   ),
-  R("get", "/v1/agent/costs", "Model USD and credits per step and per message, with totals", {
-    query: z.strictObject({
-      threadId: z.uuid().optional(),
-      limit: z.coerce.number().int().min(1).max(500).optional(),
-    }),
-    ok: "{ totals: { modelUsd, modelCalls, creditsChargedYocto }, items: [...] }",
-  }),
+  R(
+    "get",
+    "/v1/agent/costs",
+    "Model USD and on-chain (OutLayer / anchor) USD per step and per message, with totals",
+    {
+      query: z.strictObject({
+        threadId: z.uuid().optional(),
+        limit: z.coerce.number().int().min(1).max(500).optional(),
+      }),
+      ok: "{ totals: { modelUsd, modelCalls, onChainUsd, totalUsd }, items: [{ ..., unit: usd, category: model|onchain, amount, detail? }] }",
+    },
+  ),
 ];

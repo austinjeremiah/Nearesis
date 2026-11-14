@@ -26,10 +26,21 @@ const userOf = (u: AgentUser) => ({ orgId: u.orgId, userId: u.userId });
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 
 const stepErrorOf = (e: unknown): StepError => {
-  if (e instanceof StepFail) return { reasonCode: e.reasonCode, message: e.message, retryable: e.retryable };
+  if (e instanceof StepFail)
+    return {
+      reasonCode: e.reasonCode,
+      message: e.message,
+      retryable: e.retryable,
+      ...(e.details ? { details: e.details } : {}),
+    };
   if (e instanceof ApiError) return e.toStepError();
   if (e instanceof KernelError)
-    return { reasonCode: e.reasonCode, message: e.message, retryable: e.opts.retryable ?? false };
+    return {
+      reasonCode: e.reasonCode,
+      message: e.message,
+      retryable: e.opts.retryable ?? false,
+      ...(e.opts.detailsObject ? { details: e.opts.detailsObject } : {}),
+    };
   return { reasonCode: "STEP_FAILED", message: "The step failed unexpectedly.", retryable: true };
 };
 
@@ -84,15 +95,15 @@ export class Executor {
     const ctxU = userOf(user);
     const store = this.d.store;
     let lastProgress: string | null = step.progress;
-    const add = (tx: Tx, usd: string, calls: number, yocto: string) =>
+    const add = (tx: Tx, usd: string, calls: number, creditsUsd: string) =>
       Promise.all([
         tx.query(
-          "UPDATE agent_task_steps SET model_usd = model_usd + $3, model_calls = model_calls + $4, credits_yocto = credits_yocto + $5 WHERE task_id=$1 AND idx=$2",
-          [taskId, step.idx, usd, calls, yocto],
+          "UPDATE agent_task_steps SET model_usd = model_usd + $3, model_calls = model_calls + $4, credits_usd = credits_usd + $5 WHERE task_id=$1 AND idx=$2",
+          [taskId, step.idx, usd, calls, creditsUsd],
         ),
         tx.query(
-          "UPDATE agent_tasks SET model_usd = model_usd + $2, model_calls = model_calls + $3, credits_charged_yocto = credits_charged_yocto + $4 WHERE id=$1",
-          [taskId, usd, calls, yocto],
+          "UPDATE agent_tasks SET model_usd = model_usd + $2, model_calls = model_calls + $3, credits_charged_usd = credits_charged_usd + $4 WHERE id=$1",
+          [taskId, usd, calls, creditsUsd],
         ),
       ]);
     const env: Env = {
@@ -154,24 +165,22 @@ export class Executor {
           stepIdx: step.idx,
           stepKey: step.key,
           label: c.label,
-          unit: c.unit,
+          unit: "usd",
+          category: c.category ?? "model",
+          detail: c.detail ?? null,
           amount: c.amount,
           txHash: c.txHash ?? null,
           sourceKey: c.sourceKey,
         });
         if (!inserted) return;
+        const onChain = c.category === "onchain";
         await store.inTx(ctxU, (tx) =>
-          add(
-            tx,
-            c.unit === "usd" ? c.amount : "0",
-            c.unit === "usd" ? (c.calls ?? 0) : 0,
-            c.unit === "yoctoNEAR" ? c.amount : "0",
-          ),
+          add(tx, onChain ? "0" : c.amount, onChain ? 0 : (c.calls ?? 0), onChain ? c.amount : "0"),
         );
       },
-      setHeld: async (yocto) => {
+      setHeld: async (usd) => {
         await store.inTx(ctxU, (tx) =>
-          tx.query("UPDATE agent_tasks SET credits_held_yocto = $2 WHERE id = $1", [taskId, yocto]),
+          tx.query("UPDATE agent_tasks SET credits_held_usd = $2 WHERE id = $1", [taskId, usd]),
         );
       },
     };
@@ -279,7 +288,7 @@ export class Executor {
     };
     const done = await this.d.store.inTx(userOf(user), async (tx) => {
       const r = await tx.query(
-        "UPDATE agent_tasks SET state='completed', finished_at=now(), credits_held_yocto=0 WHERE id=$1 AND state IN ('running','waiting_user')",
+        "UPDATE agent_tasks SET state='completed', finished_at=now(), credits_held_usd=0 WHERE id=$1 AND state IN ('running','waiting_user')",
         [taskId],
       );
       return (r.rowCount ?? 0) > 0;

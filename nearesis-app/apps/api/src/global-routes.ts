@@ -10,7 +10,7 @@ import type {
   MeResponse,
   PublicationList,
 } from "@nearesis/contracts";
-import { KernelError, canAdmin, canWrite } from "@nearesis/kernel";
+import { KernelError, canAdmin, canWrite, microToUsd } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
 import type { AuthoringService } from "@nearesis/semantic-gateway";
 import {
@@ -21,6 +21,7 @@ import {
   readManifest,
 } from "@nearesis/capsule";
 import type { RunsService } from "./runs.ts";
+import { usdCreditsOf } from "./usd-credits-api.ts";
 import { createSourceHealthPort, type SourceHealthPort } from "./source-health.ts";
 
 export interface GlobalRoutesOptions {
@@ -106,15 +107,24 @@ export const globalRoutes: FastifyPluginAsync<GlobalRoutesOptions> = async (app,
       return { org, user };
     });
     const ws = (await workspacesOf(s)).list;
-    const body: MeResponse = {
-      principal: { userId: s.userId, kind: s.principal.kind, displayName: info.user?.display_name ?? null },
-      org: { id: s.principal.orgId, name: info.org?.name ?? "" },
-      nearAccountId: info.user?.near_account_id ?? null,
-      role: s.role,
-      roles: [s.role],
-      permissions: { canWrite: canWrite(s.role), canAdmin: canAdmin(s.role) },
-      workspaces: ws,
-    };
+    const usd = usdCreditsOf(kernel.db);
+    await usd.reconcileRuns(s.userId).catch(() => undefined);
+    const acct = await usd.account({ orgId: s.principal.orgId, userId: s.userId });
+    const body: MeResponse & { credits: { availableUsd: string; allowanceUsd: string; exhausted: boolean } } =
+      {
+        principal: { userId: s.userId, kind: s.principal.kind, displayName: info.user?.display_name ?? null },
+        org: { id: s.principal.orgId, name: info.org?.name ?? "" },
+        nearAccountId: info.user?.near_account_id ?? null,
+        role: s.role,
+        roles: [s.role],
+        permissions: { canWrite: canWrite(s.role), canAdmin: canAdmin(s.role) },
+        workspaces: ws,
+        credits: {
+          availableUsd: microToUsd(acct.availableMicro),
+          allowanceUsd: microToUsd(acct.grantedMicro),
+          exhausted: acct.availableMicro <= 0n,
+        },
+      };
     return body;
   });
 

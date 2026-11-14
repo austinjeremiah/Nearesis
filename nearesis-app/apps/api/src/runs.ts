@@ -8,10 +8,11 @@ import type {
   SourceListResponse,
   WorkspaceListResponse,
 } from "@nearesis/contracts";
-import { KernelError, canWrite, redact, writeAudit, zodDetails } from "@nearesis/kernel";
+import { KernelError, canWrite, microToUsd, redact, writeAudit, zodDetails } from "@nearesis/kernel";
 import type { Kernel, Session, Tx } from "@nearesis/kernel";
 import { z } from "zod";
 import type { Occupancy, Priority, TenantAdmission } from "./overload/index.ts";
+import { requireCredits, usdCreditsOf } from "./usd-credits-api.ts";
 
 /** The slice of @nearesis/workflow the API needs. The real implementation is `temporalEngine()` (src/temporal-engine.ts). */
 export interface InvestigationEngine {
@@ -226,6 +227,17 @@ export class RunsService {
       budgetId: id("budget"),
     };
 
+    // Credits: the run's model spend is charged to the caller when it finishes, so nothing starts without credits (402
+    // CREDITS_EXHAUSTED), and the run's own budget is capped to what the caller still has. A replayed key starts nothing.
+    let usdCap = body.budget.usd;
+    if (!(seed && (await this.runExists(s, ids.runId)))) {
+      await requireCredits(this.kernel, s);
+      const acct = await usdCreditsOf(this.kernel.db).account(this.ctx(s));
+      // Never below the minimum budget the runtime must reserve (a lower total would stop every plan at its first
+      // reservation), so a run asked with the minimum is not capped; a larger ask is capped to the caller's available credits.
+      usdCap = Math.max(Math.min(body.budget.usd, Number(microToUsd(acct.availableMicro))), min.usd);
+    }
+
     // Overload protection: take a per-tenant investigation slot (or wait in the bounded queue, or get 429 + Retry-After)
     // before anything is written. A replayed Idempotency-Key returns the original run and takes no slot.
     let ticket: Awaited<ReturnType<TenantAdmission["admit"]>> | undefined;
@@ -234,7 +246,7 @@ export class RunsService {
         priority: opts.priority ?? body.priority ?? "normal",
       });
     try {
-      return await this.submitAdmitted(s, workspaceId, body, ids, seed, ticket);
+      return await this.submitAdmitted(s, workspaceId, body, ids, seed, ticket, usdCap);
     } finally {
       ticket?.release(); // a no-op once the run is committed to the slot
     }
@@ -247,6 +259,7 @@ export class RunsService {
     ids: { runId: string; investigationId: string; questionId: string; budgetId: string },
     seed: string | undefined,
     ticket: { commit(runId: string): void } | undefined,
+    usdCap: number,
   ): Promise<{ runId: string; workflowId: string }> {
     const snapshotRef = await this.kernel.db.tx(this.ctx(s), async (tx) => {
       const ws = (
@@ -259,14 +272,7 @@ export class RunsService {
         await tx.query(
           `INSERT INTO runtime.budgets (id, tenant_id, workspace_id, tokens_total, tool_calls_total, usd_total)
            VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`,
-          [
-            ids.budgetId,
-            s.principal.orgId,
-            workspaceId,
-            body.budget.tokens,
-            body.budget.toolCalls,
-            body.budget.usd,
-          ],
+          [ids.budgetId, s.principal.orgId, workspaceId, body.budget.tokens, body.budget.toolCalls, usdCap],
         );
       } catch (e) {
         runtimeUnavailable(e);

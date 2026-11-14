@@ -29,12 +29,17 @@ export interface StepError {
   retryable: boolean;
   /** Present when the API listed what the user must acknowledge (publish): retry with these in `acknowledge`. */
   acknowledge?: string[];
+  /** CREDITS_EXHAUSTED: `{ allowanceUsd, spentUsd, availableUsd, requiredUsd | null, contactEmail }`. */
+  details?: Record<string, unknown>;
 }
 export interface CostEntryView {
   label: string;
-  unit: "usd" | "yoctoNEAR";
+  unit: "usd";
+  /** USD, 6 places. */
   amount: string;
   txHash: string | null;
+  /** On-chain entries carry the NEAR amounts and the rate they were converted at. */
+  detail?: Record<string, unknown>;
 }
 export type StepState = "pending" | "running" | "waiting_user" | "done" | "failed" | "skipped";
 export interface StepView {
@@ -48,7 +53,8 @@ export interface StepView {
   progress: string | null;
   result: StepResult | null;
   waiting: StepWaiting | null;
-  cost: { modelUsd: string; modelCalls: number; creditsYocto: string; entries: CostEntryView[] };
+  /** `creditsUsd` is the on-chain part (OutLayer, anchor gas); what the step charged the user is modelUsd + creditsUsd. */
+  cost: { modelUsd: string; modelCalls: number; creditsUsd: string; entries: CostEntryView[] };
   error: StepError | null;
 }
 export type TaskState = "proposed" | "running" | "waiting_user" | "completed" | "failed" | "cancelled";
@@ -56,7 +62,8 @@ export interface ConsentRequirement {
   key: ConsentKey;
   label: string;
   detail: string;
-  maxYocto: string | null;
+  /** Most the on-chain part of this consent can charge, USD with 6 places (null when it cannot be estimated). */
+  maxUsd: string | null;
 }
 export interface TaskView {
   id: string;
@@ -67,8 +74,14 @@ export interface TaskView {
   currentStep: number;
   steps: StepView[];
   consent: { required: ConsentRequirement[]; given: ConsentKey[] };
-  estimate: { creditsMaxYocto: string | null; modelUsdMax: string };
-  cost: { modelUsd: string; modelCalls: number; creditsChargedYocto: string; creditsHeldYocto: string };
+  estimate: { creditsMaxUsd: string | null; modelUsdMax: string };
+  cost: {
+    modelUsd: string;
+    modelCalls: number;
+    creditsUsd: string;
+    creditsHeldUsd: string;
+    entries: CostEntryView[];
+  };
   links: {
     workspaceId: string | null;
     runId: string | null;
@@ -93,7 +106,7 @@ export interface MessageView {
   rows: StepResultItem[] | null;
   taskId: string | null;
   cost: { modelUsd: string; modelCalls: number };
-  error: { reasonCode: string; message: string } | null;
+  error: { reasonCode: string; message: string; details?: Record<string, unknown> } | null;
 }
 export interface ThreadView {
   id: string;

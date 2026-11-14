@@ -66,13 +66,21 @@ describe("plan validation against the catalog", () => {
 describe("server-side consent", () => {
   const P = (key: string, params: Record<string, unknown> = {}): PlannedStep => validateStep(key, params);
   it("prove needs spend_credits capped at the current estimate", () => {
-    const c = consentFor([P("capsule.prove", { capsuleId: "cap" })], "5000");
-    expect(c).toEqual([expect.objectContaining({ key: "spend_credits", maxYocto: "5000" })]);
+    const c = consentFor([P("capsule.prove", { capsuleId: "cap" })], "0.012346");
+    expect(c).toEqual([expect.objectContaining({ key: "spend_credits", maxUsd: "0.012346" })]);
+    expect(c[0]).not.toHaveProperty("maxYocto");
+    // two proofs hold twice the estimate, exactly
+    expect(
+      consentFor(
+        [P("capsule.prove", { capsuleId: "a" }), P("capsule.prove", { capsuleId: "b" })],
+        "0.012346",
+      )[0],
+    ).toMatchObject({ maxUsd: "0.024692" });
   });
   it("prove with an unknown estimate still needs consent, with a null max", () => {
     expect(consentFor([P("capsule.prove", { capsuleId: "cap" })], null)[0]).toMatchObject({
       key: "spend_credits",
-      maxYocto: null,
+      maxUsd: null,
     });
   });
   it("publish needs publish_public plus spend_credits; freeze and archive need theirs", () => {
@@ -219,7 +227,12 @@ describe("messages and planning", () => {
     });
     expect(th.thread.title).toBe("tweet this");
     const costs = (await call(alice, "GET", `/v1/agent/costs?threadId=${tid}`)).json<any>();
-    expect(costs.totals).toMatchObject({ modelUsd: "0.002100", modelCalls: 1, creditsChargedYocto: "0" });
+    expect(costs.totals).toEqual({
+      modelUsd: "0.002100",
+      modelCalls: 1,
+      onChainUsd: "0.000000",
+      totalUsd: "0.002100",
+    });
     expect(costs.items[0]).toMatchObject({ label: "Planner", unit: "usd", amount: "0.002100", taskId: null });
   });
 
@@ -431,8 +444,8 @@ describe("executor", () => {
     expect(t.cost).toMatchObject({
       modelUsd: "0.016300",
       modelCalls: 6,
-      creditsChargedYocto: "0",
-      creditsHeldYocto: "0",
+      creditsUsd: "0.000000",
+      creditsHeldUsd: "0.000000",
     });
     expect(t.steps[2].cost.entries[0]).toMatchObject({ unit: "usd", amount: "0.012300" });
     const th = (await call(alice, "GET", `/v1/agent/threads/${tid}`)).json<any>();
@@ -657,12 +670,12 @@ describe("executor", () => {
               status: 200,
               body:
                 polls++ < 1
-                  ? { proofId, state: "running", cost: { heldYocto: "900" } }
+                  ? { proofId, state: "running", cost: { heldUsd: "0.003150" } }
                   : {
                       proofId,
                       state: "verified",
                       job: { txHash: "TX1", explorerUrl: "https://testnet.nearblocks.io/txns/TX1" },
-                      cost: { heldYocto: "900", chargedYocto: "400", gasYocto: "100", totalYocto: "500" },
+                      cost: { heldUsd: "0.003150", chargedUsd: "0.001750", totalUsd: "0.001750" },
                     },
             }
           : null,
@@ -675,15 +688,23 @@ describe("executor", () => {
                   {
                     id: "e1",
                     kind: "charge",
-                    amountYocto: "500",
+                    category: "outlayer",
+                    amountUsd: "0.001750",
                     refKind: "proof",
                     refId: proofId,
-                    detail: { txHash: "TX1", chargedYocto: "400", tokensBurntYocto: "100" },
+                    detail: {
+                      txHash: "TX1",
+                      chargedYocto: "400000000000000000000",
+                      tokensBurntYocto: "100000000000000000000",
+                      nearUsdRate: "3.5",
+                      rateDate: "2026-11-13",
+                    },
                   },
                   {
                     id: "e0",
                     kind: "hold",
-                    amountYocto: "900",
+                    category: "outlayer",
+                    amountUsd: "0.003150",
                     refKind: "proof",
                     refId: proofId,
                     detail: {},
@@ -700,20 +721,40 @@ describe("executor", () => {
     await call(alice, "POST", `/v1/agent/tasks/${id}/start`, { consent: ["spend_credits"] });
     const t = await settle(id, ["completed", "failed"]);
     expect(t.state).toBe("completed");
-    expect(t.steps[0].cost.creditsYocto).toBe("500");
+    expect(t.steps[0].cost.creditsUsd).toBe("0.001750");
+    expect(t.steps[0].cost.modelUsd).toBe("0.000000");
     expect(t.steps[0].cost.entries).toEqual([
-      expect.objectContaining({ unit: "yoctoNEAR", amount: "500", txHash: "TX1" }),
+      expect.objectContaining({
+        unit: "usd",
+        amount: "0.001750",
+        txHash: "TX1",
+        detail: expect.objectContaining({
+          chargedNear: "0.0004",
+          gasNear: "0.0001",
+          nearUsdRate: "3.5",
+          rateDate: "2026-11-13",
+        }),
+      }),
     ]);
-    expect(t.cost).toMatchObject({ creditsChargedYocto: "500", creditsHeldYocto: "0" });
+    expect(t.cost).toMatchObject({
+      creditsUsd: "0.001750",
+      creditsHeldUsd: "0.000000",
+      modelUsd: "0.000000",
+    });
     expect(t.links.proofId).toBe(proofId);
     const costs = (await call(alice, "GET", `/v1/agent/costs?threadId=${tid}`)).json<any>();
-    expect(costs.totals.creditsChargedYocto).toBe("500");
+    expect(costs.totals).toMatchObject({
+      modelUsd: "0.000000",
+      onChainUsd: "0.001750",
+      totalUsd: "0.001750",
+    });
     expect(costs.items[0]).toMatchObject({
       taskId: id,
       stepIdx: 0,
       stepKey: "capsule.prove",
-      unit: "yoctoNEAR",
-      amount: "500",
+      unit: "usd",
+      category: "onchain",
+      amount: "0.001750",
       txHash: "TX1",
     });
     stub = null;
@@ -747,5 +788,88 @@ describe("startup recovery", () => {
     });
     const m = await svc.store.getMessage(aliceU, pend.id);
     expect(m).toMatchObject({ state: "failed", error: { reasonCode: "INTERRUPTED" } });
+  });
+});
+
+describe("USD credits in the agent", () => {
+  let tok: string;
+  let user: AgentUser;
+  const credits = async () => (await call(tok, "GET", "/v1/credits")).json<any>();
+  beforeAll(async () => {
+    const o = await seedOrg(f.db.admin, "ag-credits", { dina: "owner" });
+    tok = await login(f.app, o.users.dina!.subject);
+    user = { userId: o.users.dina!.userId, orgId: o.orgId };
+  });
+
+  it("charges the planner's actual spend to the user once per reply, as a model entry keyed by the reply", async () => {
+    stub = null;
+    plan = out({ route: "text", text: "Nothing to do." });
+    const tid = await newThread(tok);
+    const r = await call(tok, "POST", `/v1/agent/threads/${tid}/messages`, { text: "hello there" });
+    const { reply } = r.json<any>();
+    await svc.idle();
+    const c = await credits();
+    const e = c.entries.find((x: any) => x.refKind === "agent_message");
+    expect(e).toMatchObject({ kind: "charge", category: "model", refId: reply.id, amountUsd: "0.002100" });
+    expect(c.byCategory.modelUsd).toBe("0.002100");
+    expect(c.spentUsd).toBe("0.002100");
+  });
+
+  it("with no credits left the reply fails with CREDITS_EXHAUSTED (and its details) and the model is never called", async () => {
+    const { UsdCreditsService } = await import("@nearesis/kernel");
+    const k = new UsdCreditsService(f.db.app);
+    const left = await k.account(user);
+    await k.charge(user, left.availableMicro, { refKind: "run", refId: "drain", category: "model" });
+    plan = out({ route: "text", text: "should not be produced" });
+    const tid = await newThread(tok);
+    const r = await call(tok, "POST", `/v1/agent/threads/${tid}/messages`, { text: "hello again" });
+    await svc.idle();
+    const th = (await call(tok, "GET", `/v1/agent/threads/${tid}`)).json<any>();
+    const m = th.messages.find((x: any) => x.id === r.json<any>().reply.id);
+    expect(m).toMatchObject({
+      state: "failed",
+      kind: "notice",
+      error: {
+        reasonCode: "CREDITS_EXHAUSTED",
+        message: "You have used your credits. Write to connect@kaushikh.xyz to request more access.",
+        details: {
+          allowanceUsd: "3.000000",
+          availableUsd: "0.000000",
+          requiredUsd: null,
+          contactEmail: "connect@kaushikh.xyz",
+        },
+      },
+      cost: { modelUsd: "0.000000", modelCalls: 0 },
+    });
+  });
+
+  it("an agent step refused for credits fails with CREDITS_EXHAUSTED, not retryable, with the same details", async () => {
+    stub = null;
+    const tid = await newThread(tok);
+    const id = await svc.createTask(user, tid, null, "Investigate", [
+      S("workspace.create", { objective: "Why did swaps fall?" }),
+      S("question.ask"),
+    ]);
+    expect((await call(tok, "POST", `/v1/agent/tasks/${id}/start`, { consent: [] })).statusCode).toBe(200);
+    const t = await waitFor(async () => {
+      const x = (await call(tok, "GET", `/v1/agent/tasks/${id}`)).json<any>();
+      return ["failed", "completed"].includes(x.state) ? x : null;
+    });
+    expect(t.state).toBe("failed");
+    expect(t.steps[0].state).toBe("done");
+    expect(t.steps[1]).toMatchObject({
+      state: "failed",
+      error: {
+        reasonCode: "CREDITS_EXHAUSTED",
+        retryable: false,
+        details: {
+          allowanceUsd: "3.000000",
+          spentUsd: "3.000000",
+          availableUsd: "0.000000",
+          requiredUsd: null,
+          contactEmail: "connect@kaushikh.xyz",
+        },
+      },
+    });
   });
 });

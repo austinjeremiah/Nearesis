@@ -26,6 +26,8 @@ export class ApiError extends Error {
     message: string,
     readonly retryable: boolean,
     readonly details: string[] = [],
+    /** Structured `details` object (the credits 402: allowanceUsd, spentUsd, availableUsd, requiredUsd, contactEmail). */
+    readonly detailsObject: Record<string, unknown> | null = null,
   ) {
     super(message);
   }
@@ -37,6 +39,7 @@ export class ApiError extends Error {
       ...(this.reasonCode === "ACKNOWLEDGEMENT_REQUIRED" && this.details.length
         ? { acknowledge: this.details }
         : {}),
+      ...(this.detailsObject ? { details: this.detailsObject } : {}),
     };
   }
 }
@@ -49,7 +52,11 @@ export function apiErrorOf(r: ApiResponse): ApiError {
   const details = Array.isArray(b.details)
     ? (b.details as Array<{ issue?: unknown }>).map((d) => String(d?.issue ?? "")).filter(Boolean)
     : [];
-  return new ApiError(r.status, reasonCode, message, retryable, details);
+  const detailsObject =
+    b.details && typeof b.details === "object" && !Array.isArray(b.details)
+      ? (b.details as Record<string, unknown>)
+      : null;
+  return new ApiError(r.status, reasonCode, message, retryable, details, detailsObject);
 }
 
 export function injectApi(

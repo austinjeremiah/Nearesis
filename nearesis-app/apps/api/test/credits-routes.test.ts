@@ -11,9 +11,8 @@ import {
   writeCapsuleOwnership,
 } from "../../../packages/capsule/src/index.ts";
 import type { OutlayerProofDocument, ProveOptions } from "../../../packages/capsule/src/index.ts";
-import { CreditsService } from "@nearesis/kernel";
+import { UsdCreditsService, yoctoToMicroUsd, microToUsd } from "@nearesis/kernel";
 import { recoverInterruptedProofs } from "../src/proof-routes.ts";
-import type { TxStatus } from "../src/credits-routes.ts";
 import { apiFixture, bearer, login, seedOrg } from "./helpers.ts";
 import type { ApiFixture } from "./helpers.ts";
 
@@ -21,6 +20,9 @@ const NEAR = 10n ** 24n;
 const DEPOSIT = "majorlynx5104.testnet";
 const ALICE = "alice.testnet";
 const HOLD = 1_500_100_000_000_000_000_000n + 300_000_000_000_000n * 100_000_000n; // estimate + 300 Tgas at 1e8
+const RATE = { rate: "3.5", date: "2026-11-13" };
+const usdMicro = (v: string) => BigInt(v.replace(".", ""));
+const usd = (yocto: bigint) => microToUsd(yoctoToMicroUsd(yocto, RATE.rate));
 const TX = "9bmC5uig8dt1TU4aCmef27X4oQ6aMauaoQM6WgAxkY8i";
 const hash = (n: number) =>
   `${"abcdefghijkmnpqrstuvwxyz"[n % 24]}${"ABCDEFGHJK"[Math.floor(n / 24)]}${TX}`.slice(0, 44);
@@ -32,9 +34,10 @@ let spendFile: string;
 let capId: string;
 let orgId: string;
 let aliceId: string;
+let carolId: string;
 let ws: string;
 const tokens: Record<string, string> = {};
-let txImpl: (h: string, who: string) => Promise<TxStatus | null> = async () => null;
+let rateImpl: () => Promise<{ rate: string; date: string } | null> = async () => RATE;
 let runImpl: (o: ProveOptions) => Promise<OutlayerProofDocument> = async () => {
   throw new Error("no runner");
 };
@@ -64,19 +67,6 @@ const writeSpend = (cap: string) =>
     }),
   );
 
-const transfer = (
-  o: Partial<TxStatus["transaction"]> = {},
-  status: Record<string, unknown> = { SuccessValue: "" },
-): TxStatus => ({
-  final_execution_status: "FINAL",
-  status,
-  transaction: {
-    signer_id: ALICE,
-    receiver_id: DEPOSIT,
-    actions: [{ Transfer: { deposit: NEAR.toString() } }],
-    ...o,
-  },
-});
 const post = (u: string, t: string, payload: unknown = {}, h: Record<string, string> = {}) =>
   f.app.inject({ method: "POST", url: u, headers: { ...bearer(t), ...h }, payload: payload as object });
 const get = (u: string, t: string) => f.app.inject({ method: "GET", url: u, headers: bearer(t) });
@@ -144,8 +134,8 @@ beforeAll(async () => {
   capId = m.capsuleId;
   f = await apiFixture({
     appOptions: {
+      nearUsdRate: () => rateImpl(),
       credits: {
-        fetchTx: (h, who) => txImpl(h, who),
         chainFactory: () => fakeChain as never,
         runProof: (o) => runImpl(o),
         spendFile,
@@ -156,6 +146,7 @@ beforeAll(async () => {
   const org = await seedOrg(f.db.admin, "acme-credits", { alice: "owner", carol: "owner", vera: "viewer" });
   orgId = org.orgId;
   aliceId = org.users.alice!.userId;
+  carolId = org.users.carol!.userId;
   await f.db.admin.query("UPDATE users SET near_account_id = $2 WHERE id = $1", [aliceId, ALICE]);
   for (const n of ["alice", "carol", "vera"]) tokens[n] = await login(f.app, org.users[n]!.subject);
   const w = await post(
@@ -178,81 +169,43 @@ it("requires a session", async () => {
   expect((await f.app.inject({ method: "GET", url: "/v1/credits" })).statusCode).toBe(401);
 });
 
-it("GET /v1/credits is zero for a new user and has no estimate while proofs are disabled", async () => {
+it("GET /v1/credits grants the USD 3 allowance on first use and has no estimate while proofs are disabled", async () => {
   const c = await credits(tokens.alice!);
   expect(c).toMatchObject({
-    accountId: ALICE,
-    balanceYocto: "0",
-    heldYocto: "0",
-    availableYocto: "0",
-    depositAccount: DEPOSIT,
-    network: "testnet",
-    proofEstimateYocto: null,
-    entries: [],
+    allowanceUsd: "3.000000",
+    spentUsd: "0.000000",
+    heldUsd: "0.000000",
+    availableUsd: "3.000000",
+    exhausted: false,
+    contactEmail: "connect@kaushikh.xyz",
+    byCategory: { modelUsd: "0.000000", outlayerUsd: "0.000000", anchorUsd: "0.000000" },
+    nearUsdRate: RATE,
+    proofEstimateUsd: null,
   });
+  expect(c.entries).toHaveLength(1);
+  expect(c.entries[0]).toMatchObject({ kind: "grant", category: "grant", amountUsd: "3.000000" });
+  expect(c).not.toHaveProperty("depositAccount");
+  expect(c).not.toHaveProperty("balanceYocto");
+  // a second read grants nothing more
+  expect((await credits(tokens.alice!)).entries).toHaveLength(1);
 });
 
-it("topup: a caller without a linked NEAR account gets 409 NO_NEAR_ACCOUNT", async () => {
-  const r = await post("/v1/credits/topups", tokens.carol!, { txHash: hash(1) });
-  expect(r.statusCode).toBe(409);
-  expect(r.json()).toMatchObject({ reasonCode: "NO_NEAR_ACCOUNT" });
-});
-
-it("topup: malformed hash is a 422", async () => {
-  expect((await post("/v1/credits/topups", tokens.alice!, { txHash: "not base58!" })).statusCode).toBe(422);
-});
-
-it("topup: every refusal has its own reasonCode and credits nothing", async () => {
-  const cases: Array<[string, TxStatus | null]> = [
-    ["TX_NOT_FOUND", null],
-    ["TX_NOT_FOUND", { ...transfer(), final_execution_status: "EXECUTED_OPTIMISTIC" }],
-    ["TX_FAILED", transfer({}, { Failure: { ActionError: {} } })],
-    ["TX_FAILED", { ...transfer(), receipts_outcome: [{ outcome: { status: { Failure: {} } } }] }],
-    ["WRONG_SIGNER", transfer({ signer_id: "mallory.testnet" })],
-    ["WRONG_RECEIVER", transfer({ receiver_id: "other.testnet" })],
-    ["NOT_A_TRANSFER", transfer({ actions: [{ FunctionCall: { method_name: "x", deposit: "1" } }] })],
-    ["NOT_A_TRANSFER", transfer({ actions: [{ Transfer: { deposit: "5" } }, { DeleteAccount: {} }] })],
-    ["NOT_A_TRANSFER", transfer({ actions: [] })],
-    ["NOT_A_TRANSFER", transfer({ actions: [{ Transfer: { deposit: "0" } }] })],
-  ];
-  let i = 10;
-  for (const [code, tx] of cases) {
-    txImpl = async () => tx;
-    const r = await post("/v1/credits/topups", tokens.alice!, { txHash: hash(i++) });
-    expect(r.statusCode, code).toBe(422);
-    expect(r.json()).toMatchObject({ reasonCode: code });
+it("GET /v1/credits has a null rate when no NEAR/USD close is held", async () => {
+  rateImpl = async () => null;
+  try {
+    expect((await credits(tokens.alice!)).nearUsdRate).toBeNull();
+  } finally {
+    rateImpl = async () => RATE;
   }
-  expect((await credits(tokens.alice!)).balanceYocto).toBe("0");
 });
 
-it("topup: an RPC outage is 503, not a refusal", async () => {
-  txImpl = async () => {
-    throw new Error("boom");
-  };
-  const r = await post("/v1/credits/topups", tokens.alice!, { txHash: hash(40) });
-  expect(r.statusCode).toBe(503);
-  expect(r.json()).toMatchObject({ reasonCode: "NEAR_RPC_UNAVAILABLE" });
+it("POST /v1/credits/topups is gone (404)", async () => {
+  expect((await post("/v1/credits/topups", tokens.alice!, { txHash: hash(1) })).statusCode).toBe(404);
 });
 
-it("topup: credits the sum of the transfers once; a repeat is 409 TOPUP_ALREADY_CREDITED", async () => {
-  let asked: [string, string] | null = null;
-  txImpl = async (h, who) => {
-    asked = [h, who];
-    return transfer({
-      actions: [{ Transfer: { deposit: NEAR.toString() } }, { Transfer: { deposit: "5" } }],
-    });
-  };
-  const r = await post("/v1/credits/topups", tokens.alice!, { txHash: hash(50) });
-  expect(r.statusCode).toBe(200);
-  expect(asked).toEqual([hash(50), ALICE]);
-  const c = r.json() as Record<string, any>;
-  expect(c.balanceYocto).toBe((NEAR + 5n).toString());
-  expect(c.availableYocto).toBe((NEAR + 5n).toString());
-  expect(c.entries[0]).toMatchObject({ kind: "topup", amountYocto: (NEAR + 5n).toString(), refId: hash(50) });
-  const dup = await post("/v1/credits/topups", tokens.alice!, { txHash: hash(50) });
-  expect(dup.statusCode).toBe(409);
-  expect(dup.json()).toMatchObject({ reasonCode: "TOPUP_ALREADY_CREDITED" });
-  expect((await credits(tokens.alice!)).balanceYocto).toBe((NEAR + 5n).toString());
+it("GET /v1/me carries the credits summary", async () => {
+  const me = (await get("/v1/me", tokens.alice!)).json() as Record<string, any>;
+  expect(me.credits).toEqual({ availableUsd: "3.000000", allowanceUsd: "3.000000", exhausted: false });
 });
 
 it("proofs: disabled provider is 503 PROOF_PROVIDER_DISABLED", async () => {
@@ -268,23 +221,50 @@ it("proofs: viewers cannot request, foreign ids are 404", async () => {
   expect((await post(`/v1/capsules/nope/proofs`, tokens.alice!)).statusCode).toBe(404);
 });
 
-it("proofs: insufficient credits is 402 with required and available, and nothing is held", async () => {
+it("proofs: exhausted credits is 402 CREDITS_EXHAUSTED with the contact details, and nothing is held", async () => {
   process.env.NEARESIS_OUTLAYER_LIVE = "1";
+  const svc = new UsdCreditsService(f.db.app);
+  await svc.charge({ orgId, userId: carolId }, 3_000_000n, {
+    refKind: "run",
+    refId: "spent",
+    category: "model",
+  });
   const r = await post(`/v1/capsules/${capId}/proofs`, tokens.carol!);
   expect(r.statusCode).toBe(402);
   expect(r.json()).toMatchObject({
-    reasonCode: "INSUFFICIENT_CREDITS",
-    requiredYocto: HOLD.toString(),
-    availableYocto: "0",
+    errorCode: "BUDGET_EXCEEDED",
+    reasonCode: "CREDITS_EXHAUSTED",
+    message: "You have used your credits. Write to connect@kaushikh.xyz to request more access.",
+    details: {
+      allowanceUsd: "3.000000",
+      spentUsd: "3.000000",
+      availableUsd: "0.000000",
+      requiredUsd: usd(HOLD),
+      contactEmail: "connect@kaushikh.xyz",
+    },
   });
-  expect((await credits(tokens.carol!)).heldYocto).toBe("0");
+  const c = await credits(tokens.carol!);
+  expect(c).toMatchObject({ heldUsd: "0.000000", exhausted: true, byCategory: { modelUsd: "3.000000" } });
 });
 
-it("GET /v1/credits shows the hold estimate when enabled", async () => {
+it("proofs: no NEAR/USD close is 503 PRICE_UNAVAILABLE, nothing is held and no rate is guessed", async () => {
   process.env.NEARESIS_OUTLAYER_LIVE = "1";
-  expect((await credits(tokens.alice!)).proofEstimateYocto).toBe(
-    (1_500_100_000_000_000_000_000n + 300_000_000_000_000n * 100_000_000n).toString(),
-  );
+  rateImpl = async () => null;
+  try {
+    const r = await post(`/v1/capsules/${capId}/proofs`, tokens.alice!);
+    expect(r.statusCode).toBe(503);
+    expect(r.json()).toMatchObject({ reasonCode: "PRICE_UNAVAILABLE" });
+    const c = await credits(tokens.alice!);
+    expect(c.heldUsd).toBe("0.000000");
+    expect(c.proofEstimateUsd).toBeNull();
+  } finally {
+    rateImpl = async () => RATE;
+  }
+});
+
+it("GET /v1/credits shows the hold estimate in USD when enabled", async () => {
+  process.env.NEARESIS_OUTLAYER_LIVE = "1";
+  expect((await credits(tokens.alice!)).proofEstimateUsd).toBe(usd(HOLD));
 });
 
 it("proofs: a failure before any transaction releases the whole hold and charges nothing", async () => {
@@ -301,12 +281,13 @@ it("proofs: a failure before any transaction releases the whole hold and charges
   expect(p).toMatchObject({
     state: "failed",
     job: { txHash: null },
-    cost: { heldYocto: HOLD.toString(), totalYocto: "0" },
+    cost: { heldYocto: HOLD.toString(), heldUsd: usd(HOLD), totalYocto: "0", totalUsd: "0.000000" },
   });
   expect(p.error).toContain("WASMTIME_UNAVAILABLE");
   const after = await credits(tokens.alice!);
-  expect(after.balanceYocto).toBe(before.balanceYocto);
-  expect(after.heldYocto).toBe("0");
+  expect(after.spentUsd).toBe(before.spentUsd);
+  expect(after.availableUsd).toBe(before.availableUsd);
+  expect(after.heldUsd).toBe("0.000000");
   expect(after.entries.map((e: { kind: string }) => e.kind).slice(0, 2)).toEqual(["release", "hold"]);
   // nothing recorded as evidence: the capsule view still says not submitted
   const v = CapsuleResponseRecord.parse((await get(`/v1/capsules/${capId}`, tokens.alice!)).json());
@@ -335,15 +316,27 @@ it("proofs: a failure after the transaction charges what was burnt plus the prov
       chargedYocto: "1051000300000000000000",
       gasYocto: "1635944140488800000000",
       totalYocto: total.toString(),
+      chargedUsd: usd(1_051_000_300_000_000_000_000n),
+      gasUsd: usd(1_635_944_140_488_800_000_000n),
+      totalUsd: usd(total),
+      heldUsd: usd(HOLD),
+      nearUsdRate: "3.5",
+      rateDate: "2026-11-13",
     },
   });
   const after = await credits(tokens.alice!);
-  expect(BigInt(after.balanceYocto)).toBe(BigInt(before.balanceYocto) - total);
-  expect(after.heldYocto).toBe("0");
-  expect(after.entries[0]).toMatchObject({ kind: "release", amountYocto: (HOLD - total).toString() });
+  const totalMicro = yoctoToMicroUsd(total, RATE.rate);
+  expect(usdMicro(after.spentUsd) - usdMicro(before.spentUsd)).toBe(totalMicro);
+  expect(after.heldUsd).toBe("0.000000");
+  expect(after.byCategory.outlayerUsd).toBe(after.spentUsd);
+  expect(after.entries[0]).toMatchObject({
+    kind: "release",
+    amountUsd: microToUsd(yoctoToMicroUsd(HOLD, RATE.rate) - totalMicro),
+  });
   expect(after.entries[1]).toMatchObject({
     kind: "charge",
-    amountYocto: total.toString(),
+    category: "outlayer",
+    amountUsd: usd(total),
     refKind: "proof",
     refId: p.proofId,
   });
@@ -352,6 +345,8 @@ it("proofs: a failure after the transaction charges what was burnt plus the prov
     requestId: "31106",
     chargedYocto: "1051000300000000000000",
     tokensBurntYocto: "1635944140488800000000",
+    nearUsdRate: "3.5",
+    rateDate: "2026-11-13",
   });
   // a failed job that reached the chain is evidence of a failure in the capsule view
   const v = CapsuleResponseRecord.parse((await get(`/v1/capsules/${capId}`, tokens.alice!)).json());
@@ -381,7 +376,7 @@ it("proofs: a rejected attestation is not_attested but still charged", async () 
   );
 });
 
-it("proofs: success charges chargedYocto + tokensBurntYocto exactly and the capsule view becomes verified", async () => {
+it("proofs: success charges (chargedYocto + tokensBurntYocto) x the recorded rate exactly and the capsule view becomes verified", async () => {
   process.env.NEARESIS_OUTLAYER_LIVE = "1";
   runImpl = async (o) => {
     o.live!.recordSpend!(spendEntry(TX));
@@ -410,12 +405,16 @@ it("proofs: success charges chargedYocto + tokensBurntYocto exactly and the caps
       chargedYocto: "1051000300000000000000",
       gasYocto: "1635944140488800000000",
       totalYocto: total.toString(),
+      heldUsd: usd(HOLD),
+      totalUsd: usd(total),
+      nearUsdRate: "3.5",
+      rateDate: "2026-11-13",
     },
     error: null,
   });
   expect(p.finishedAt).not.toBeNull();
   const after = await credits(tokens.alice!);
-  expect(BigInt(after.balanceYocto)).toBe(BigInt(before.balanceYocto) - total);
+  expect(usdMicro(after.spentUsd) - usdMicro(before.spentUsd)).toBe(yoctoToMicroUsd(total, RATE.rate));
   // replay with the same key returns the same proof and takes no second hold
   const again = await post(
     `/v1/capsules/${capId}/proofs`,
@@ -424,7 +423,7 @@ it("proofs: success charges chargedYocto + tokensBurntYocto exactly and the caps
     { "idempotency-key": "proof-key-0001" },
   );
   expect(again.json()).toMatchObject({ proofId, state: "verified", replayed: true });
-  expect((await credits(tokens.alice!)).balanceYocto).toBe(after.balanceYocto);
+  expect((await credits(tokens.alice!)).spentUsd).toBe(after.spentUsd);
   // list and view
   const list = (await get(`/v1/capsules/${capId}/proofs`, tokens.alice!)).json() as {
     items: Array<{ proofId: string; state: string }>;
@@ -459,20 +458,19 @@ it("proofs: the global testnet cap refuses before any hold", async () => {
   writeSpend(NEAR.toString());
   expect(r.statusCode).toBe(409);
   expect(r.json()).toMatchObject({ reasonCode: "TESTNET_CAP_REACHED" });
-  expect((await credits(tokens.alice!)).heldYocto).toBe(before.heldYocto);
+  expect((await credits(tokens.alice!)).heldUsd).toBe(before.heldUsd);
 });
 
 it("restart recovery: no tx hash releases the hold; with a tx hash it stays held and needs reconciliation", async () => {
-  const svc = new CreditsService(f.db.app);
+  const svc = new UsdCreditsService(f.db.app);
   const ctx = { orgId, userId: aliceId };
-  await svc.topup(ctx, 2n * NEAR, { txHash: hash(70), signerAccountId: ALICE, receiverAccountId: DEPOSIT });
   const before = await svc.account(ctx);
   const ids = ["a", "b"].map((_, i) => `00000000-0000-4000-8000-00000000000${i + 1}`);
   for (const [i, id] of ids.entries()) {
-    await svc.hold(ctx, 100n, { refKind: "proof", refId: id });
+    await svc.hold(ctx, 100n, { refKind: "proof", refId: id, category: "outlayer" });
     await f.db.admin.query(
-      `INSERT INTO outlayer_proofs(id, org_id, workspace_id, capsule_id, requested_by, state, wasm_sha256, input_sha256, held_yocto, tx_hash)
-       VALUES ($1,$2,$3,$4,$5,'running','w','i',100,$6)`,
+      `INSERT INTO outlayer_proofs(id, org_id, workspace_id, capsule_id, requested_by, state, wasm_sha256, input_sha256, held_yocto, held_micro, tx_hash)
+       VALUES ($1,$2,$3,$4,$5,'running','w','i',100,100,$6)`,
       [id, orgId, ws, `cap-recover-${i}`, aliceId, i === 1 ? hash(71) : null],
     );
   }
@@ -490,7 +488,7 @@ it("restart recovery: no tx hash releases the hold; with a tx hash it stays held
     tx_hash: hash(71),
   });
   const after = await svc.account(ctx);
-  expect(after.heldYocto).toBe(before.heldYocto + 100n); // only the tx-less hold was released
+  expect(after.heldMicro).toBe(before.heldMicro + 100n); // only the tx-less hold was released
   expect(await recoverInterruptedProofs(f.db.app)).toBe(0);
 });
 
@@ -517,9 +515,12 @@ it.skipIf(!existsSync(realProof) || !existsSync(realCapsule))(
       state: "verified",
       job: { requestId: "31106", txHash: "9bmC5uig8dt1TU4aCmef27X4oQ6aMauaoQM6WgAxkY8i" },
       cost: {
+        // a proof file of the earlier live job predates user credits: the exact NEAR amounts, no USD charge
         chargedYocto: "1051000300000000000000",
         gasYocto: "1635944140488800000000",
         totalYocto: "2686944440488800000000",
+        chargedUsd: null,
+        totalUsd: null,
       },
     });
     // a verified legacy proof also blocks a second paid proof

@@ -75,7 +75,7 @@ const PANELS: Record<string, AnalyticsPanelData> = {
   ),
   [H("d")]: body(
     H("d"),
-    ["period", "refunds"],
+    ["period", "newWallets"],
     idx(70).map((i) => [day(i), 500 + ((i * 37) % 17) * 20]),
   ),
   [H("e")]: body(
@@ -332,7 +332,9 @@ describe("build", () => {
       verdict: { status: "SUPPORTED" },
       receipts: { verified: 0, reproduced: 0, drift: 0 },
     });
-    expect(r.thesis.hypothesis).toBe("Daily swaps move together with volume over the window.");
+    expect(r.thesis.hypothesis).toBe(
+      "Swaps and volume usd are systematically related from day to day, in either direction.",
+    );
     const d = r.doc;
     expect(d.schema).toBe("nearesis.thesis.v1");
     expect(d.sections.map((s: { id: string }) => s.id)).toHaveLength(14);
@@ -344,13 +346,13 @@ describe("build", () => {
       question: "Do swaps follow volume?",
     });
     expect(d.origin.capsuleId).toMatch(/^cap-wsrun-/);
-    expect(d.test).toMatchObject({ rule: "relationship-v1", n: 70 });
+    expect(d.test).toMatchObject({ rule: "relationship-v2", n: 70 });
     expect(d.verdict.comparison.rows.length).toBeGreaterThan(3);
     expect(d.charts).toHaveLength(2);
     expect(d.charts[0].queries[0].sqlExecuted).toContain("executed query of panel");
     const ev = d.sections.find((s: { id: string }) => s.id === "evidence-against").markdown;
     expect(ev).toContain("> Skeptic note: A single peak can be a one-off.");
-    expect(d.sections[1].markdown).toContain("Rejected if the same-day correlation stays below 0.2.");
+    expect(d.sections[1].markdown).toContain("would give NOT_SUPPORTED");
     expect(d.verification.capsule.status).toBe("reproduced");
   });
 
@@ -445,6 +447,7 @@ describe("publish, public read, import", () => {
       different: 0,
       incomplete: 0,
       mismatch: 0,
+      challenged: 0,
     });
     const text = r.body;
     for (const id of [orgA, wsA, aliceId, runSupported]) expect(text).not.toContain(id);
@@ -544,7 +547,8 @@ describe("verify detects tampering", () => {
     expect(failed).toContain("testNumbers");
     const rec = (await get(alice, `/v1/theses/${id}/receipts`)).json();
     expect(rec.receipts[0]).toMatchObject({ kind: "verify", outcome: "mismatch" });
-    expect(rec.counts.drift).toBe(1);
+    expect(rec.counts.mismatch).toBe(1);
+    expect(rec.counts.drift).toBe(0);
   });
 
   it("a tampered capsule file is a mismatch on the capsule re-verification", async () => {
@@ -793,6 +797,7 @@ describe("rerun: reproduction by re-executing the stored queries", () => {
       different: count("reproduce", "different"),
       incomplete: count("reproduce", "incomplete"),
       mismatch: count("verify", "mismatch"),
+      challenged: 0,
     });
     expect(rec.counts.incomplete).toBe(1);
     expect(rec.counts.different).toBeGreaterThanOrEqual(1);

@@ -432,7 +432,8 @@ async function setupAuto(e: Env): Promise<Outcome> {
   } catch (err) {
     // No grounded finding means nothing honest to anchor markers, monitors or a hypothesis on. That is not a reason to stop
     // the task: the capsule and the thesis run on the frozen series and the locked test plan, so this step is skipped.
-    if (!(err instanceof StepFail) || err.reasonCode !== "INTERPRETATION_NOT_READY") throw err;
+    // the route's refusal arrives as an ApiError here (or a StepFail when a helper already wrapped it)
+    if ((err as { reasonCode?: unknown } | null)?.reasonCode !== "INTERPRETATION_NOT_READY") throw err;
     const reason = "the run produced no grounded finding to anchor them on";
     return {
       kind: "done",

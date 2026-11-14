@@ -41,7 +41,9 @@
     "thesis:data": "tsx scripts/thesis/freeze-data.ts",
     "ci:local": "tsx scripts/ci/local-run.ts",
     "thesis:build": "tsx scripts/thesis/build.ts",
-    "thesis:verify": "tsx scripts/thesis/verify.ts"
+    "thesis:verify": "tsx scripts/thesis/verify.ts",
+    "thesis:fees": "pnpm --filter @nearesis/ingestion exec tsx src/thesis/fees-cli.ts",
+    "thesis:spread": "node --max-old-space-size=6000 --import tsx services/ingestion/src/thesis/spread-cli.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

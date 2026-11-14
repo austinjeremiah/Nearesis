@@ -1,0 +1,237 @@
+{
+ "note": "Decimal strings are exact ClickHouse Decimal output (USD) or rounded to 6 dp (bps). Missing periods are listed in missing_periods and never zero-filled. spread = amount_in_usd - amount_out_usd of SUCCESS swaps with both marks > 0; |spread| > 20% of input is an artefact: reported in artefact_* columns, excluded from every clean_*/bps statistic.",
+ "windows": [
+  {
+   "label": "first_90_days",
+   "from": "2025-11-09",
+   "to": "2026-02-06",
+   "days": 90,
+   "rows": [
+    {
+     "period": "2025-11-09...2026-02-06",
+     "grp": "all",
+     "n_success": 1529133,
+     "n_with_in_usd": 1529131,
+     "in_usd_success": "2895674751.99273525",
+     "n_usable": 1525644,
+     "n_artefact": 32464,
+     "artefact_in_usd": "411288.0309",
+     "artefact_spread_usd": "-4685077.739881735044087807",
+     "n_clean": 1493180,
+     "clean_in_usd": "2895243296.02953525",
+     "clean_spread_usd": "19705937.343680392152119215",
+     "vw_mean_bps": "68.063148",
+     "q": [
+      11.201325353352935,
+      45.88051542366263,
+      96.7644209641477
+     ],
+     "median_bps": "45.880515",
+     "p25_bps": "11.201325",
+     "p75_bps": "96.764421",
+     "n_negative_spread": 104956
+    },
+    {
+     "period": "2025-11-09...2026-02-06",
+     "grp": "same_asset_cross_chain",
+     "n_success": 48030,
+     "n_with_in_usd": 48030,
+     "in_usd_success": "102904215.4729",
+     "n_usable": 47523,
+     "n_artefact": 4882,
+     "artefact_in_usd": "779.784",
+     "artefact_spread_usd": "-600959.3294",
+     "n_clean": 42641,
+     "clean_in_usd": "102903429.799",
+     "clean_spread_usd": "569434.8792",
+     "vw_mean_bps": "55.336822",
+     "q": [
+      1.7005728501115092,
+      11.114114925955965,
+      125.99160055996268
+     ],
+     "median_bps": "11.114115",
+     "p25_bps": "1.700573",
+     "p75_bps": "125.991601",
+     "n_negative_spread": 463
+    },
+    {
+     "period": "2025-11-09...2026-02-06",
+     "grp": "stable_to_stable",
+     "n_success": 376536,
+     "n_with_in_usd": 376536,
+     "in_usd_success": "556797415.5674",
+     "n_usable": 376503,
+     "n_artefact": 1218,
+     "artefact_in_usd": "1428.7994",
+     "artefact_spread_usd": "512.1244",
+     "n_clean": 375285,
+     "clean_in_usd": "556795986.6755",
+     "clean_spread_usd": "415558.2962",
+     "vw_mean_bps": "7.463385",
+     "q": [
+      2.4803374954951134,
+      24.946872401367457,
+      43.09252217997466
+     ],
+     "median_bps": "24.946872",
+     "p25_bps": "2.480337",
+     "p75_bps": "43.092522",
+     "n_negative_spread": 8989
+    },
+    {
+     "period": "2025-11-09...2026-02-06",
+     "grp": "volatile_other",
+     "n_success": 1104567,
+     "n_with_in_usd": 1104565,
+     "in_usd_success": "2235973120.95243525",
+     "n_usable": 1101618,
+     "n_artefact": 26364,
+     "artefact_in_usd": "409079.4475",
+     "artefact_spread_usd": "-4084630.534881735044087807",
+     "n_clean": 1075254,
+     "clean_in_usd": "2235543879.55503525",
+     "clean_spread_usd": "18720944.168280392152119215",
+     "vw_mean_bps": "83.742235",
+     "q": [
+      18.40655209407084,
+      70.64599062137098,
+      123.65766352098926
+     ],
+     "median_bps": "70.645991",
+     "p25_bps": "18.406552",
+     "p75_bps": "123.657664",
+     "n_negative_spread": 95504
+    }
+   ]
+  },
+  {
+   "label": "last_90_days",
+   "from": "2026-08-16",
+   "to": "2026-11-13",
+   "days": 90,
+   "rows": [
+    {
+     "period": "2026-08-16...2026-11-13",
+     "grp": "all",
+     "n_success": 1942174,
+     "n_with_in_usd": 1942174,
+     "in_usd_success": "3926874550.793984080532",
+     "n_usable": 1942106,
+     "n_artefact": 25390,
+     "artefact_in_usd": "43362.668000899388",
+     "artefact_spread_usd": "12085.753548346227",
+     "n_clean": 1916716,
+     "clean_in_usd": "3926831187.923847682557",
+     "clean_spread_usd": "22689936.528194705168",
+     "vw_mean_bps": "57.781798",
+     "q": [
+      18.906708311080415,
+      71.96168615384614,
+      139.68296916613258
+     ],
+     "median_bps": "71.961686",
+     "p25_bps": "18.906708",
+     "p75_bps": "139.682969",
+     "n_negative_spread": 76961
+    },
+    {
+     "period": "2026-08-16...2026-11-13",
+     "grp": "same_asset_cross_chain",
+     "n_success": 91053,
+     "n_with_in_usd": 91053,
+     "in_usd_success": "128903204.768131216481",
+     "n_usable": 91047,
+     "n_artefact": 10308,
+     "artefact_in_usd": "292.595286606556",
+     "artefact_spread_usd": "89.718721100179",
+     "n_clean": 80739,
+     "clean_in_usd": "128902912.172844609925",
+     "clean_spread_usd": "263956.168266482053",
+     "vw_mean_bps": "20.47713",
+     "q": [
+      26.017448006791017,
+      85.31953031381755,
+      538.8469300794695
+     ],
+     "median_bps": "85.31953",
+     "p25_bps": "26.017448",
+     "p75_bps": "538.84693",
+     "n_negative_spread": 298
+    },
+    {
+     "period": "2026-08-16...2026-11-13",
+     "grp": "stable_to_stable",
+     "n_success": 483483,
+     "n_with_in_usd": 483483,
+     "in_usd_success": "1557555018.401447367088",
+     "n_usable": 483462,
+     "n_artefact": 1816,
+     "artefact_in_usd": "4925.61807875368",
+     "artefact_spread_usd": "1473.602451272109",
+     "n_clean": 481646,
+     "clean_in_usd": "1557550092.583251551225",
+     "clean_spread_usd": "2246535.831088738838",
+     "vw_mean_bps": "14.423522",
+     "q": [
+      2.1084275530999115,
+      9.499831068719143,
+      33.32820512820513
+     ],
+     "median_bps": "9.499831",
+     "p25_bps": "2.108428",
+     "p75_bps": "33.328205",
+     "n_negative_spread": 21172
+    },
+    {
+     "period": "2026-08-16...2026-11-13",
+     "grp": "unclassified",
+     "n_success": 857,
+     "n_with_in_usd": 857,
+     "in_usd_success": "101956.272955710932",
+     "n_usable": 857,
+     "n_artefact": 1,
+     "artefact_in_usd": "2.061675267692",
+     "artefact_spread_usd": "0.488898236858",
+     "n_clean": 856,
+     "clean_in_usd": "101954.21128044324",
+     "clean_spread_usd": "790.281164739287",
+     "vw_mean_bps": "77.513342",
+     "q": [
+      47.590844206756756,
+      78.8141578997948,
+      116.55105769415937
+     ],
+     "median_bps": "78.814158",
+     "p25_bps": "47.590844",
+     "p75_bps": "116.551058",
+     "n_negative_spread": 51
+    },
+    {
+     "period": "2026-08-16...2026-11-13",
+     "grp": "volatile_other",
+     "n_success": 1366781,
+     "n_with_in_usd": 1366781,
+     "in_usd_success": "2240314371.351449786031",
+     "n_usable": 1366740,
+     "n_artefact": 13265,
+     "artefact_in_usd": "38142.39296027146",
+     "artefact_spread_usd": "10521.943477737081",
+     "n_clean": 1353475,
+     "clean_in_usd": "2240276228.956471078167",
+     "clean_spread_usd": "20178654.24767474499",
+     "vw_mean_bps": "90.072171",
+     "q": [
+      43.157245677693055,
+      90.4925716907716,
+      153.9482431046954
+     ],
+     "median_bps": "90.492572",
+     "p25_bps": "43.157246",
+     "p75_bps": "153.948243",
+     "n_negative_spread": 55440
+    }
+   ]
+  }
+ ]
+}

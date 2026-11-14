@@ -1,0 +1,509 @@
+{
+ "note": "Decimal strings are exact ClickHouse Decimal output (USD) or rounded to 6 dp (bps). Missing periods are listed in missing_periods and never zero-filled. spread = amount_in_usd - amount_out_usd of SUCCESS swaps with both marks > 0; |spread| > 20% of input is an artefact: reported in artefact_* columns, excluded from every clean_*/bps statistic.",
+ "rows": [
+  {
+   "month": "2025-11",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 7303,
+   "in_usd": "3357703.1065",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2025-11",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 12449,
+   "in_usd": "251181230.5408",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2025-11",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 299883,
+   "in_usd": "645282033.3294",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2025-11",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 4192,
+   "in_usd": "2269577.8363",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2025-12",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 27250,
+   "in_usd": "1697373.8018",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2025-12",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 12068,
+   "in_usd": "164283727.9011",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2025-12",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 400493,
+   "in_usd": "588158764.499",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2025-12",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 8114,
+   "in_usd": "1882351.7341",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-01",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 26764,
+   "in_usd": "3295960.5648",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-01",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 13596,
+   "in_usd": "275295162.7792",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-01",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 551744,
+   "in_usd": "659651688.25293525",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-01",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 6817,
+   "in_usd": "2679412.0606",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-02",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 19383,
+   "in_usd": "9098680.9711",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-02",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 13353,
+   "in_usd": "109304160.2097",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-02",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 474408,
+   "in_usd": "732231874.1494",
+   "n_no_in_usd": 2
+  },
+  {
+   "month": "2026-02",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 3800,
+   "in_usd": "1158401.6089",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-03",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 24834,
+   "in_usd": "48205295.1683",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-03",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 15602,
+   "in_usd": "92398226.706",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-03",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 541726,
+   "in_usd": "670331584.830379744",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-03",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 2311,
+   "in_usd": "1445321.2233",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-04",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 24794,
+   "in_usd": "71749544.572",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-04",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 15133,
+   "in_usd": "77097107.3043",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-04",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 534621,
+   "in_usd": "655610187.3541",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-04",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 1728,
+   "in_usd": "624567.4038",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-05",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 32430,
+   "in_usd": "264806098.8051",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-05",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 32715,
+   "in_usd": "189863188.8342",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-05",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 502603,
+   "in_usd": "592609243.517749510547",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-05",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 1926,
+   "in_usd": "1362519.9773",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-06",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 42096,
+   "in_usd": "168313778.085137513546",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-06",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 39621,
+   "in_usd": "152787084.637879096759",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-06",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 495311,
+   "in_usd": "723319063.056655459736",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-06",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 1397,
+   "in_usd": "874857.133112178785",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-07",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 43071,
+   "in_usd": "204576180.71672458336",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-07",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 24213,
+   "in_usd": "131328061.298630640765",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-07",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 517572,
+   "in_usd": "735102897.434349230242",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-07",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 1312,
+   "in_usd": "1082052.110796448431",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-08",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 73157,
+   "in_usd": "216088830.525574783194",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-08",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 31883,
+   "in_usd": "117330931.619649606509",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-08",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 705284,
+   "in_usd": "878123591.200675280057",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-08",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 1145,
+   "in_usd": "1091656.420454640355",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-09",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 68325,
+   "in_usd": "66062314.852130227474",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-09",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 26517,
+   "in_usd": "75168149.61532138918",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-09",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 597039,
+   "in_usd": "1370512780.856117047713",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-09",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 3103,
+   "in_usd": "2024454.063693598986",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-10",
+   "privacy_era": "private_settlement",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 6274,
+   "in_usd": "18420695.581782565453",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-10",
+   "privacy_era": "private_settlement",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 5385,
+   "in_usd": "5207594.858215339852",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-10",
+   "privacy_era": "private_settlement",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 73762,
+   "in_usd": "158542986.471104423264",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-10",
+   "privacy_era": "private_settlement",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 1177,
+   "in_usd": "2285778.430589352351",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-10",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 38603,
+   "in_usd": "47973438.019967493886",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-10",
+   "privacy_era": "public",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 20196,
+   "in_usd": "21566300.892850664869",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-10",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 356088,
+   "in_usd": "834761216.445046472953",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-10",
+   "privacy_era": "public",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 4399,
+   "in_usd": "6593682.266359834697",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-11",
+   "privacy_era": "private_settlement",
+   "deposit_type": "INTENTS",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 19668,
+   "in_usd": "25587666.04933455529",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-11",
+   "privacy_era": "private_settlement",
+   "deposit_type": "INTENTS",
+   "recipient_type": "INTENTS",
+   "n_success": 4920,
+   "in_usd": "16929651.855721634394",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-11",
+   "privacy_era": "private_settlement",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "DESTINATION_CHAIN",
+   "n_success": 227359,
+   "in_usd": "496819205.472647852308",
+   "n_no_in_usd": 0
+  },
+  {
+   "month": "2026-11",
+   "privacy_era": "private_settlement",
+   "deposit_type": "ORIGIN_CHAIN",
+   "recipient_type": "INTENTS",
+   "n_success": 12205,
+   "in_usd": "2892104.358769834262",
+   "n_no_in_usd": 0
+  }
+ ]
+}

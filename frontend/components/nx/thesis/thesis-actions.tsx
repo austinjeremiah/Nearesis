@@ -2,21 +2,19 @@
 
 import './thesis.css';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { Check, Copy, Download, FileDown, GitCompareArrows, Share2, ShieldCheck } from 'lucide-react';
 import { Button, Notice } from '@/components/nx/ui';
 import { Badge } from '@/components/nx/evidence';
 import { ApiErrorState } from '@/components/nx/states';
 import { browserApi } from '@/lib/api/browser';
-import { savePrefs } from '@/lib/agent/prefs';
-import { BUILD_COMMAND, THESIS_MD_HREF } from '@/lib/thesis-track/model';
+import { THESIS_MD_HREF } from '@/lib/thesis-track/model';
 import { pdfHref, thesisFileHref, thesisKeys, type ThesisBundle } from '@/lib/thesis/api';
-import { receiptsText } from '@/lib/thesis/list';
+import { receiptParts, receiptTotal } from '@/lib/thesis/list';
 import { checkLabel, verifyView, type VerifyView } from '@/lib/thesis/verify';
 
 const enc = encodeURIComponent;
-type Panel = null | 'share' | 'verify' | 'reproduce';
+type Panel = null | 'share' | 'verify';
 
 function CopyLink({ text, label }: { text: string; label: string }) {
   const [done, setDone] = useState(false);
@@ -157,50 +155,6 @@ function VerifyPanel({ id, onDone }: { id: string; onDone: () => void }) {
   );
 }
 
-function ReproducePanel({ b, onClose }: { b: ThesisBundle; onClose: () => void }) {
-  const router = useRouter();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<unknown>(null);
-  const reference = b.summary.kind === 'reference';
-  async function go() {
-    setPending(true);
-    setError(null);
-    try {
-      const r = await browserApi.send<{ threadId?: string; taskId?: string }>('POST', `/v1/theses/${enc(b.summary.id)}/reproduce`);
-      if (!r.threadId) throw new Error('The API did not return the thread to open.');
-      // The Agent page reopens the thread it was last on; point it at this one, then let the person review and start.
-      savePrefs({ threadId: r.threadId, workspaceId: null });
-      router.push('/agent');
-    } catch (e) {
-      setError(e);
-      setPending(false);
-    }
-  }
-  if (reference) {
-    return (
-      <div className="th-panel" data-surface data-testid="thesis-reproduce-panel">
-        <h3>Reproduce the reference thesis offline</h3>
-        <p>This thesis is a file bundle, so it is rebuilt from the repository, not in your account. Run these from the repository root.</p>
-        <pre className="tt-code" tabIndex={0}><code>{`${b.doc.reproduce?.command ?? BUILD_COMMAND}\n${b.doc.reproduce?.check ?? ''}`.trim()}</code></pre>
-        <div className="th-panel-actions"><Button variant="ghost" onClick={onClose}>Close</Button></div>
-      </div>
-    );
-  }
-  return (
-    <div className="th-panel" data-surface data-tone="warn" data-testid="thesis-reproduce-panel">
-      <h3>Reproduce in my account</h3>
-      <p>
-        This creates a plan in your Agent tab: a new workspace, the same question, a run, a capsule, a thesis and a comparison against this one. Running it uses your credits. Nothing starts until you review the plan and press Start.
-      </p>
-      <div className="th-panel-actions">
-        <Button variant="primary" pending={pending} onClick={go} data-testid="thesis-reproduce-go">Create the plan</Button>
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-      </div>
-      {error ? <ApiErrorState error={error} /> : null}
-    </div>
-  );
-}
-
 /** Actions bar for a thesis the reader can open in the app: share, verify, reproduce, downloads, receipts. */
 export default function ThesisActions({ b }: { b: ThesisBundle }) {
   const [panel, setPanel] = useState<Panel>(null);
@@ -220,7 +174,7 @@ export default function ThesisActions({ b }: { b: ThesisBundle }) {
         <Button onClick={() => toggle('verify')} aria-expanded={panel === 'verify'} disabled={!apiServed} disabledReason="Verification is served by the thesis API, which is not available yet." data-testid="thesis-verify">
           <ShieldCheck size={14} /> Verify
         </Button>
-        <Button onClick={() => toggle('reproduce')} aria-expanded={panel === 'reproduce'} data-testid="thesis-reproduce-open">
+        <Button onClick={() => { document.getElementById('th-reproduce')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); document.getElementById('th-reproduce')?.querySelector<HTMLElement>('[data-testid="thesis-rerun-go"]')?.focus({ preventScroll: true }); }} title="Re-runs this thesis's own queries on the same dates. Free, no AI involved." data-testid="thesis-reproduce-open">
           <GitCompareArrows size={14} /> Reproduce
         </Button>
         <a className="btn" href={md} download data-testid="thesis-download-md">
@@ -230,12 +184,17 @@ export default function ThesisActions({ b }: { b: ThesisBundle }) {
           <FileDown size={14} /> PDF
         </a>
         <span className="th-receipts-strip" data-testid="thesis-receipts-strip">
-          {b.receipts ? receiptsText(b.receipts) : 'Receipts are not available yet'}
+          {!b.receipts
+            ? 'Receipts are not available yet'
+            : receiptTotal(b.receipts) === 0
+              ? 'Not verified or reproduced yet'
+              : receiptParts(b.receipts).map((p, i) => (
+                  <span key={p.text} data-warn={p.warn || undefined}>{i > 0 ? ' · ' : ''}{p.text}</span>
+                ))}
         </span>
       </div>
       {panel === 'share' && <SharePanel b={b} onClose={() => setPanel(null)} />}
       {panel === 'verify' && <VerifyPanel id={id} onDone={() => setPanel(null)} />}
-      {panel === 'reproduce' && <ReproducePanel b={b} onClose={() => setPanel(null)} />}
       {!apiServed && (
         <Notice tone="info" title="Reading the reference from the bundle">
           The thesis API is not serving this thesis yet, so Verify and receipts are unavailable. Everything else works from the bundle.

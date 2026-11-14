@@ -4,9 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { ApiErrorState } from '@/components/nx/states';
 import { EmptyState, LinkButton } from '@/components/nx/ui';
 import { ThesisDocView, ThesisLoading } from '@/components/nx/thesis-track/thesis-view';
-import { fetchThesis, isNotServed, thesisKeys } from '@/lib/thesis/api';
+import { fetchThesis, isNotServed, thesisKeys, type ThesisBundle } from '@/lib/thesis/api';
 import { isNotBuilt } from '@/lib/thesis-track/model';
 import ThesisActions from './thesis-actions';
+import { ReproducePanel, useRerun } from './rerun';
 
 /** `/thesis/[id]`: the one viewer for every thesis the signed-in reader can open. */
 export default function ThesisPage({ id }: { id: string }) {
@@ -29,12 +30,18 @@ export default function ThesisPage({ id }: { id: string }) {
     }
     return <ApiErrorState error={q.error} onRetry={() => q.refetch()} />;
   }
+  return <Loaded b={q.data} />;
+}
+
+function Loaded({ b }: { b: ThesisBundle }) {
+  const rr = useRerun(b);
   return (
     <ThesisDocView
-      doc={q.data.doc}
-      isReference={q.data.summary.kind === 'reference'}
-      publication={q.data.source === 'api' && q.data.summary.kind !== 'reference' ? (q.data.summary.published ? 'published' : 'draft') : null}
-      actions={<ThesisActions b={q.data} />}
+      doc={b.doc}
+      isReference={b.summary.kind === 'reference'}
+      publication={b.source === 'api' && b.summary.kind !== 'reference' ? (b.summary.published ? 'published' : 'draft') : null}
+      actions={<ThesisActions b={b} />}
+      reproduceHead={<ReproducePanel b={b} rr={rr} />}
     />
   );
 }

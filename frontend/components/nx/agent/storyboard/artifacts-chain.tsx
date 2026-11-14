@@ -16,6 +16,7 @@ import { caps } from '@/lib/ws6/api';
 import type { ReportDoc } from '@/lib/report/types';
 import { reportPageHref, reportPdfHref } from '@/lib/agent/tasks';
 import { ApiRequestError } from '@/lib/api/errors';
+import { plainLabel, readableCorrelation, readableNumber, stripStatusPrefix } from '@/lib/thesis/display';
 import { THESIS_TONE, THESIS_VERDICT_LABEL, compareOutcome, compareRows, proofPipeline, thesisPathOf, thesisView, type PipeStep, type Stage } from '@/lib/agent/storyboard';
 import { CopyChip, SbCard } from './parts';
 import { useOnChange } from './data';
@@ -317,6 +318,7 @@ export function GenericArtifact({ stage }: { stage: Stage }) {
 /* ------------------------------------------------------------------------------------------------ thesis */
 
 const num = (n: number | null, digits = 3) => (n === null ? 'unknown' : n.toLocaleString('en-US', { maximumFractionDigits: digits }));
+const corr = (n: number | null) => (n === null ? 'unknown' : readableCorrelation(n));
 
 export function ThesisArtifact({ stage }: { stage: Stage }) {
   const id = stage.refs.thesisId ?? null;
@@ -341,8 +343,8 @@ export function ThesisArtifact({ stage }: { stage: Stage }) {
   const tests: [string, string][] = [
     ['Days compared', t.n === null ? 'unknown' : String(t.n)],
     ['Window', t.window ?? 'unknown'],
-    ['Same-day correlation', num(t.pearson)],
-    ['Correlation at a 7-day lag', num(t.lag7)],
+    [plainLabel('Same-day Pearson correlation').label, corr(t.pearson)],
+    [plainLabel('Pearson correlation at a lag of 7 days').label, corr(t.lag7)],
   ];
   return (
     <SbCard
@@ -359,7 +361,7 @@ export function ThesisArtifact({ stage }: { stage: Stage }) {
       }
     >
       <p className="sb-reason">{t.hypothesis ?? 'The hypothesis is unknown.'}</p>
-      <p className="sb-statement" data-testid="sb-thesis-headline">{t.headline ?? 'The headline is unknown.'}</p>
+      <p className="sb-statement" data-testid="sb-thesis-headline">{stripStatusPrefix(t.headline, t.verdict) ?? 'The headline is unknown.'}</p>
       {t.n !== null || t.pearson !== null ? (
         <ul className="sb-metrics" aria-label="The test behind the verdict">
           {tests.map(([l, v]) => (
@@ -406,10 +408,10 @@ export function CompareArtifact({ stage }: { stage: Stage }) {
             <tbody>
               {rows.map((r, i) => (
                 <tr key={i}>
-                  <th scope="row">{r.what}</th>
-                  <td className="mono">{r.original ?? 'unknown'}</td>
-                  <td className="mono">{r.reproduced ?? 'unknown'}</td>
-                  <td className="mono">{r.delta ?? 'unknown'}</td>
+                  <th scope="row">{plainLabel(r.what).label}</th>
+                  <td className="mono" title={r.original ?? undefined}>{r.original === null ? 'unknown' : readableNumber(r.original)}</td>
+                  <td className="mono" title={r.reproduced ?? undefined}>{r.reproduced === null ? 'unknown' : readableNumber(r.reproduced)}</td>
+                  <td className="mono" title={r.delta ?? undefined}>{r.delta === null ? 'unknown' : readableNumber(r.delta)}</td>
                 </tr>
               ))}
             </tbody>

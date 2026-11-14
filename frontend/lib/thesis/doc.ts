@@ -168,18 +168,24 @@ function origin(v: unknown): ThesisOrigin | null {
   };
 }
 
-/** One monitor or marker brief: the first naming field is the title, every other plain field a mono line. */
+/** Fields that are plumbing, not reading: raw ids and hashes are never shown as lines. */
+const PLUMBING = /(^id$|Ids?$|Hash$|^sha256$|^anchorType$|^watchesSeries$)/;
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+const FROM_AGENT = /^from the assistant'?s investigation:\s*/i;
+
+/** One monitor or marker brief: the first naming field is the title, every other plain field a short line. */
 export function brief(v: unknown): ThesisBrief | null {
-  if (typeof v === 'string') return str(v) ? { title: v, lines: [] } : null;
+  if (typeof v === 'string') return str(v) ? { title: v.replace(FROM_AGENT, ''), lines: [] } : null;
   if (!isRec(v)) return null;
-  const titleKey = ['title', 'name', 'label', 'rule', 'text', 'id'].find((k) => str(v[k]));
+  const titleKey = ['title', 'name', 'label', 'rule', 'question', 'text', 'id'].find((k) => str(v[k]));
   const lines: string[] = [];
   for (const [k, x] of Object.entries(v)) {
-    if (k === titleKey) continue;
+    if (k === titleKey || (PLUMBING.test(k) && titleKey !== undefined)) continue;
     const s = numStr(x) ?? str(x) ?? (typeof x === 'boolean' ? String(x) : null);
-    if (s !== null) lines.push(`${humanKey(k)}: ${s}`);
+    if (s === null) continue;
+    lines.push(`${humanKey(k)}: ${ISO.test(s) ? s.slice(0, 16).replace('T', ' ') + ' UTC' : typeof x === 'string' && /^[A-Z_]+$/.test(s) ? s.toLowerCase() : s}`);
   }
-  const title = titleKey ? (str(v[titleKey]) as string) : lines.shift();
+  const title = titleKey ? (str(v[titleKey]) as string).replace(FROM_AGENT, '') : lines.shift();
   return title ? { title, lines } : null;
 }
 

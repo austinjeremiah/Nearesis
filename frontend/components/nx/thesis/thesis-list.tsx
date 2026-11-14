@@ -12,8 +12,9 @@ import { qk } from '@/lib/api/keys';
 import { formatAge } from '@/lib/format';
 import { workspaceLabel } from '@/lib/workspace/label';
 import { statusLabel, statusTone } from '@/lib/thesis-track/model';
+import { stripStatusPrefix } from '@/lib/thesis/display';
 import { fetchLegacyReference, fetchThesisList, isNotServed, thesisKeys } from '@/lib/thesis/api';
-import { groupTheses, receiptsShort, type ThesisSummary } from '@/lib/thesis/list';
+import { groupTheses, receiptTotal, receiptsShort, type ThesisSummary } from '@/lib/thesis/list';
 
 function Card({ s, pinned, workspaces }: { s: ThesisSummary; pinned?: boolean; workspaces: Map<string, string> }) {
   const tone = statusTone(s.verdictStatus);
@@ -28,14 +29,14 @@ function Card({ s, pinned, workspaces }: { s: ThesisSummary; pinned?: boolean; w
       <h3>
         <Link href={`/thesis/${encodeURIComponent(s.id)}`}>{s.hypothesis ?? s.title ?? 'unknown'}</Link>
       </h3>
-      {s.headline && <p className="th-headline">{s.headline}</p>}
+      {s.headline && <p className="th-headline">{stripStatusPrefix(s.headline, s.verdictStatus)}</p>}
       <div className="th-detail">
         {ws && <span>{workspaceLabel(ws, 70)}</span>}
         <span>
           {s.version ? `version ${s.version.slice(0, 12)}` : 'version unknown'}
           {s.updatedAt ? ` · updated ${formatAge(s.updatedAt)}` : ''}
         </span>
-        {s.kind !== 'reference' || s.receipts.verified + s.receipts.reproduced + s.receipts.drift > 0 ? (
+        {s.kind !== 'reference' || receiptTotal(s.receipts) > 0 ? (
           <span className="th-receipts" data-testid="thesis-receipts">{receiptsShort(s.receipts)}</span>
         ) : null}
       </div>

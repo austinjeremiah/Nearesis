@@ -14,6 +14,7 @@ import { ReportChart } from '@/components/report/report-chart';
 import { useApiGet } from '@/components/nx/data/kit';
 import { fInt, toNum } from '@/lib/data/num';
 import { testRows } from '@/lib/thesis/doc';
+import { isCorrelation, plainLabel, plainUnit, readableCorrelation, readableNumber, stripRefs, stripStatusPrefix } from '@/lib/thesis/display';
 import { formatUtc } from '@/lib/format';
 import {
   BUILD_COMMAND,
@@ -81,6 +82,20 @@ function Sql({ label, sql }: { label: string; sql: string | null | undefined }) 
   );
 }
 
+/** One display value: readable text, the exact text for the tooltip. */
+export const shown = (v: string | null | undefined, label: string, unit?: string | null): { text: string; exact: string | undefined } =>
+  v === null || v === undefined || v === '' ? { text: 'unknown', exact: undefined } : { text: isCorrelation(label, unit) ? readableCorrelation(v) : readableNumber(v), exact: v };
+
+function PlainCell({ label, unit }: { label: string; unit?: string | null }) {
+  const p = plainLabel(label, unit);
+  return (
+    <>
+      <span className="strong">{p.label}</span>
+      {p.technical && <span className="mono tiny dim th-line">{p.technical}</span>}
+    </>
+  );
+}
+
 function RowsTable({ rows, caption }: { rows: ThesisRow[]; caption: string }) {
   return (
     <DataTable<ThesisRow>
@@ -88,10 +103,24 @@ function RowsTable({ rows, caption }: { rows: ThesisRow[]; caption: string }) {
       rows={rows}
       rowKey={(r) => r.label}
       columns={[
-        { key: 'l', header: 'Measure', render: (r) => <span className="strong">{r.label}</span> },
-        { key: 'v', header: 'Value', numeric: true, render: (r) => <span className="mono">{orUnknown(r.value)}</span> },
-        { key: 'u', header: 'Unit', render: (r) => r.unit ?? <span className="dim">unknown</span> },
-        { key: 'r', header: 'Source', render: (r) => (r.ref ? <span className="tt-ref">{r.ref}</span> : <span className="dim">unknown</span>) },
+        { key: 'l', header: 'Measure', render: (r) => <PlainCell label={r.label} unit={r.unit} /> },
+        { key: 'v', header: 'Value', numeric: true, render: (r) => { const v = shown(r.value, r.label, r.unit); return <span className="mono" title={v.exact !== v.text ? v.exact : undefined}>{v.text}</span>; } },
+        {
+          key: 'u',
+          header: 'Unit',
+          render: (r) => {
+            const u = plainUnit(r.unit);
+            return u ? (
+              <>
+                {u.label}
+                {u.technical && <span className="mono tiny dim th-line">{u.technical}</span>}
+              </>
+            ) : (
+              <span className="dim">{r.unit ?? 'unknown'}</span>
+            );
+          },
+        },
+        { key: 'r', header: 'Source', render: (r) => (r.ref ? <span className="tt-ref" title={r.ref}>{r.ref}</span> : <span className="dim">unknown</span>) },
       ]}
     />
   );
@@ -108,12 +137,19 @@ function TestBlock({ t }: { t: NonNullable<Thesis['test']> }) {
         {t.x || t.y ? <span className="dim"> · {orUnknown(t.x)} against {orUnknown(t.y)}</span> : null}
       </p>
       <dl className="th-kv">
-        {rows.map((r) => (
-          <div key={r.label} style={{ display: 'contents' }}>
-            <dt>{r.label}</dt>
-            <dd className="mono">{r.value}</dd>
-          </div>
-        ))}
+        {rows.map((r) => {
+          const p = plainLabel(r.label);
+          const v = r.label === 'Window' ? { text: r.value, exact: undefined } : shown(r.value, r.label);
+          return (
+            <div key={r.label} style={{ display: 'contents' }}>
+              <dt>
+                {p.label}
+                {p.technical && <span className="mono tiny dim th-line">{p.technical}</span>}
+              </dt>
+              <dd className="mono" title={v.exact !== v.text ? v.exact : undefined}>{v.text}</dd>
+            </div>
+          );
+        })}
       </dl>
       {thresholds.length > 0 && (
         <>
@@ -122,7 +158,7 @@ function TestBlock({ t }: { t: NonNullable<Thesis['test']> }) {
             {thresholds.map((r) => (
               <div key={r.key} style={{ display: 'contents' }}>
                 <dt>{r.key}</dt>
-                <dd className="mono">{r.value}</dd>
+                <dd className="mono" title={r.value}>{readableNumber(r.value)}</dd>
               </div>
             ))}
           </dl>
@@ -133,18 +169,34 @@ function TestBlock({ t }: { t: NonNullable<Thesis['test']> }) {
   );
 }
 
-/** Up to four headline numbers: the test's own numbers when there is a test, else the first comparison rows. */
-export function keyTiles(t: Thesis): { label: string; value: string; sub: string | null }[] {
+export type KeyTile = { label: string; value: string; sub: string | null; hint?: string | null; exact?: string; small?: boolean };
+
+const win = (w: { from?: string | null; to?: string | null } | null | undefined) => (w && (w.from || w.to) ? `${w.from ?? 'unknown'} to ${w.to ?? 'unknown'}` : null);
+
+/** Up to four headline numbers: a workspace thesis shows days compared, both correlations and the window; the reference its first comparison rows. */
+export function keyTiles(t: Thesis): KeyTile[] {
   const test = t.test;
-  if (test && (test.n !== null && test.n !== undefined || test.pearson)) {
-    const out: { label: string; value: string; sub: string | null }[] = [];
-    if (test.n !== null && test.n !== undefined) out.push({ label: 'Aligned days', value: String(test.n), sub: test.window?.from || test.window?.to ? `${test.window?.from ?? 'unknown'} to ${test.window?.to ?? 'unknown'}` : null });
-    out.push({ label: 'Same-day correlation', value: test.pearson ?? 'unknown', sub: 'Pearson' });
-    for (const l of (test.lag ?? []).slice(0, 2)) out.push({ label: `Correlation at ${l.days ?? 'unknown'}-day lag`, value: l.value ?? 'unknown', sub: null });
+  if (test && ((test.n !== null && test.n !== undefined) || test.pearson)) {
+    const out: KeyTile[] = [];
+    if (test.n !== null && test.n !== undefined) out.push({ label: 'Days compared', value: String(test.n), sub: 'n, aligned days' });
+    const same = plainLabel('Same-day Pearson correlation');
+    out.push({ label: same.label, value: test.pearson ? readableCorrelation(test.pearson) : 'unknown', exact: test.pearson ?? undefined, sub: same.technical?.toLowerCase() ?? null });
+    const lag = (test.lag ?? [])[0];
+    if (lag) {
+      const p = plainLabel(`Pearson correlation at a lag of ${lag.days ?? 'unknown'} days`);
+      out.push({ label: p.label, value: lag.value ? readableCorrelation(lag.value) : 'unknown', exact: lag.value ?? undefined, sub: p.technical });
+    }
+    const w = win(test.window);
+    if (w) out.push({ label: 'Window', value: w, sub: 'first to last aligned day', small: true });
     return out.slice(0, 4);
   }
   const rows = (t.verdict?.comparison ?? t.verdict?.intentsVsPrice)?.rows ?? [];
-  return rows.slice(0, 4).map((r) => ({ label: r.label, value: orUnknown(r.value), sub: r.unit ?? null }));
+  return rows.slice(0, 4).map((r) => {
+    const p = plainLabel(r.label, r.unit);
+    const u = plainUnit(r.unit);
+    const v = shown(r.value, r.label, r.unit);
+    return { label: p.label, value: v.text, exact: v.exact, hint: u && u.technical ? u.label : null, sub: p.technical ?? u?.technical ?? r.unit ?? null };
+  });
 }
 
 function VerdictStage({ t }: { t: Thesis }) {
@@ -157,11 +209,11 @@ function VerdictStage({ t }: { t: Thesis }) {
   return (
     <div className="fl-stage-body" data-testid="thesis-verdict" data-tone={tone}>
       <FlowCard tone={tone === '' ? undefined : tone} badges={<Badge tone={tone}>{statusLabel(status)}</Badge>} title="The verdict">
-        <p className="fl-lead">{orUnknown(t.verdict?.headline)}</p>
+        <p className="fl-lead">{orUnknown(stripStatusPrefix(t.verdict?.headline, status))}</p>
         {tiles.length > 0 && (
           <div className="fl-tiles">
             {tiles.map((x) => (
-              <StatTile key={x.label} label={x.label} value={x.value} sub={x.sub} />
+              <StatTile key={x.label} label={x.label} value={x.value} sub={x.sub} hint={x.hint} exact={x.exact} small={x.small} />
             ))}
           </div>
         )}
@@ -187,12 +239,13 @@ function VerdictStage({ t }: { t: Thesis }) {
 
 /* ------------------------------------------------------------------ evidence */
 
-function Prominent({ kind, title, section, all }: { kind: 'for' | 'against'; title: string; section: ThesisSection | null; all: boolean }) {
+function Prominent({ kind, title, section, all, clean }: { kind: 'for' | 'against'; title: string; section: ThesisSection | null; all: boolean; clean: boolean }) {
+  const md = (m: string) => (clean ? stripRefs(m) : m);
   return (
     <FlowCard title={title} tone={kind === 'for' ? 'ok' : 'bad'} testid={`thesis-evidence-${kind}`}>
       {section ? (
         <Clamp all={all} lines={13}>
-          <MarkdownView markdown={stripLeadingHeading(section.markdown, section.title)} />
+          <MarkdownView markdown={md(stripLeadingHeading(section.markdown, section.title))} />
         </Clamp>
       ) : (
         <p className="small dim">This section is not in the bundle (unknown).</p>
@@ -203,12 +256,13 @@ function Prominent({ kind, title, section, all }: { kind: 'for' | 'against'; tit
 
 function EvidenceStage({ t, print }: { t: Thesis; print: boolean }) {
   const slots = pickSections(t.sections);
-  const mind = t.verdict?.whatWouldChangeOurMind ?? [];
+  const clean = t.origin?.kind === 'workspace';
+  const mind = (t.verdict?.whatWouldChangeOurMind ?? []).map((m) => (clean ? stripRefs(m) : m));
   return (
     <div className="fl-stage-body">
       <div className="fl-two">
-        <Prominent kind="for" title="Evidence for" section={slots.evidenceFor} all={print} />
-        <Prominent kind="against" title="Evidence against" section={slots.evidenceAgainst} all={print} />
+        <Prominent kind="for" title="Evidence for" section={slots.evidenceFor} all={print} clean={clean} />
+        <Prominent kind="against" title="Evidence against" section={slots.evidenceAgainst} all={print} clean={clean} />
       </div>
       <FlowCard title="What would change our mind" tone="warn" testid="thesis-change-mind">
         {mind.length > 0 ? (
@@ -221,7 +275,7 @@ function EvidenceStage({ t, print }: { t: Thesis; print: boolean }) {
           </Clamp>
         ) : slots.changeMind ? (
           <Clamp all={print} lines={9}>
-            <MarkdownView markdown={stripLeadingHeading(slots.changeMind.markdown, slots.changeMind.title)} />
+            <MarkdownView markdown={clean ? stripRefs(stripLeadingHeading(slots.changeMind.markdown, slots.changeMind.title)) : stripLeadingHeading(slots.changeMind.markdown, slots.changeMind.title)} />
           </Clamp>
         ) : (
           <p className="small dim">Not stated in this bundle (unknown).</p>
@@ -392,7 +446,7 @@ export function TablesAndSample({ t }: { t: Thesis }) {
           rows={tables}
           rowKey={(r) => `${r.system}:${r.name}`}
           columns={[
-            { key: 'n', header: 'Table', render: (r) => <span className="mono strong">{r.name}</span> },
+            { key: 'n', header: 'Table', render: (r) => (/^[0-9a-f]{32,}$/i.test(r.name) ? <span className="mono strong" title={r.name}>{r.name.slice(0, 12)}…</span> : <span className="mono strong">{r.name}</span>) },
             { key: 's', header: 'System', render: (r) => orUnknown(r.system) },
             { key: 'p', header: 'Purpose', render: (r) => orUnknown(r.purpose) },
             { key: 'c', header: 'Columns', render: (r) => (r.columns?.length ? <span className="mono small">{r.columns.join(', ')}</span> : <span className="dim">unknown</span>) },
@@ -428,7 +482,7 @@ function Briefs({ title, items, testid }: { title: string; items: ThesisBrief[];
   return (
     <FlowCard title={title} badges={<Badge outline>{items.length}</Badge>} testid={testid}>
       {items.length === 0 ? (
-        <p className="small dim">None recorded in this thesis.</p>
+        <p className="small dim th-brief-empty">None were recorded when this thesis was built.</p>
       ) : (
         <ul className="th-brief-list">
           {items.map((b, i) => (
@@ -481,13 +535,13 @@ function VerificationStage({ t, isReference, publication }: { t: Thesis; isRefer
           <div className="fl-pipe">
             <Step name="Capsule" tone={stepTone(cap?.status)} word={orUnknown(cap?.status)}>
               {cap?.checkedAt && <span className="fl-pipe-detail">checked {formatUtc(cap.checkedAt)}</span>}
-              {t.origin?.capsuleHash && <span className="fl-pipe-detail">{t.origin.capsuleHash}</span>}
+              {t.origin?.capsuleHash && <span className="fl-pipe-detail" title={t.origin.capsuleHash}>capsule {t.origin.capsuleHash.slice(0, 16)}…</span>}
             </Step>
             <Step name="OutLayer proof" tone={out ? stepTone(out.status) : ''} word={out ? orUnknown(out.status) : 'none requested'}>
               {out?.requestId && <span className="fl-pipe-detail">request {out.requestId}</span>}
               {out?.txHash && (
-                <a className="link fl-pipe-detail" href={NEARBLOCKS_TX(out.txHash)} target="_blank" rel="noopener noreferrer" data-testid="thesis-tx-link">
-                  tx {out.txHash}
+                <a className="link fl-pipe-detail" href={NEARBLOCKS_TX(out.txHash)} title={out.txHash} target="_blank" rel="noopener noreferrer" data-testid="thesis-tx-link">
+                  tx {out.txHash.length > 24 ? `${out.txHash.slice(0, 10)}…${out.txHash.slice(-8)}` : out.txHash}
                 </a>
               )}
             </Step>
@@ -547,6 +601,7 @@ export function ThesisDocView({
   actions,
   publication = null,
   receiptsLine,
+  reproduceHead,
 }: {
   doc: Thesis;
   print?: boolean;
@@ -555,6 +610,8 @@ export function ThesisDocView({
   actions?: ReactNode;
   publication?: 'published' | 'draft' | null;
   receiptsLine?: string | null;
+  /** The app's Reproduce controls and result, shown at the top of the Reproduce stage. */
+  reproduceHead?: ReactNode;
 }) {
   const charts = t.charts ?? [];
   const claims = t.claims ?? [];
@@ -644,14 +701,22 @@ export function ThesisDocView({
         {stage(
           'th-reproduce',
           <div className="fl-stage-body" data-testid="thesis-reproduce">
-            <div className="fl-two">
-              <FlowCard title="Rebuild every chart from the frozen data">
-                <CopyBlock text={orUnknownCmd(t.reproduce?.command)} label="build command" />
+            {reproduceHead && <FlowCard title="Reproduce">{reproduceHead}</FlowCard>}
+            {isReference || t.origin?.kind !== 'workspace' ? (
+              <div className="fl-two">
+                <FlowCard title="Rebuild every chart from the frozen data">
+                  <CopyBlock text={orUnknownCmd(t.reproduce?.command)} label="build command" />
+                </FlowCard>
+                <FlowCard title="Check the result matches the published hashes">
+                  <CopyBlock text={orUnknownCmd(t.reproduce?.check)} label="verify command" />
+                </FlowCard>
+              </div>
+            ) : (
+              <FlowCard title="How the checks work" testid="thesis-how-checked">
+                <p className="small" style={{ margin: 0 }}>{orUnknown(t.reproduce?.check)}</p>
+                {t.reproduce?.command && <p className="mono tiny dim th-line" style={{ margin: '6px 0 0' }}>{t.reproduce.command}</p>}
               </FlowCard>
-              <FlowCard title="Check the result matches the published hashes">
-                <CopyBlock text={orUnknownCmd(t.reproduce?.check)} label="verify command" />
-              </FlowCard>
-            </div>
+            )}
             <FlowCard title="Hashes" badges={<Badge outline>{hashes.length}</Badge>}>
               {hashes.length > 0 ? (
                 print ? (

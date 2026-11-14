@@ -159,11 +159,12 @@ export function FlowCard({
   );
 }
 
-export function StatTile({ label, value, sub, tone }: { label: string; value: string; sub?: string | null; tone?: 'ok' | 'bad' | 'warn' | 'info' | '' }) {
+export function StatTile({ label, value, sub, tone, hint, exact, small }: { label: string; value: string; sub?: string | null; tone?: 'ok' | 'bad' | 'warn' | 'info' | ''; hint?: string | null; exact?: string | null; small?: boolean }) {
   return (
     <div className="fl-tile" data-surface data-tone={tone || undefined}>
       <span className="fl-tile-label">{label}</span>
-      <span className="fl-tile-value mono">{value}</span>
+      {hint && <span className="fl-tile-hint">{hint}</span>}
+      <span className="fl-tile-value mono" title={exact && exact !== value ? exact : undefined} data-small={small || undefined}>{value}</span>
       {sub && <span className="fl-tile-sub mono">{sub}</span>}
     </div>
   );

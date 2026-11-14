@@ -39,6 +39,9 @@
       "name": "collaboration"
     },
     {
+      "name": "credits"
+    },
+    {
       "name": "economics"
     },
     {
@@ -959,6 +962,213 @@
         "x-capability": "agent quick answer"
       }
     },
+    "/v1/auth/near/challenge": {
+      "post": {
+        "operationId": "postAuthNearChallenge",
+        "tags": [
+          "session"
+        ],
+        "summary": "Issue a single-use NEP-413 sign-in challenge (5 minutes)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostAuthNearChallengeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostAuthNearChallengeResponse200"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/near/link": {
+      "post": {
+        "operationId": "postAuthNearLink",
+        "tags": [
+          "session"
+        ],
+        "summary": "Link a verified NEAR account to the signed-in user",
+        "description": "409 ACCOUNT_ALREADY_LINKED when another user holds the account, USER_ALREADY_LINKED when this user has a different one.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostAuthNearVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostAuthNearLinkResponse200"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/near/verify": {
+      "post": {
+        "operationId": "postAuthNearVerify",
+        "tags": [
+          "session"
+        ],
+        "summary": "Verify a NEAR wallet signature and receive a session token",
+        "description": "Fails closed with 401 and reasonCode CHALLENGE_INVALID, SIGNATURE_INVALID, NETWORK_MISMATCH, KEY_NOT_FULL_ACCESS or ACCOUNT_NOT_FOUND. The challenge is burned once presented. A first sign-in provisions the user, a personal organisation and an owner membership.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostAuthNearVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostAuthNearVerifyResponse200"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/oidc/callback": {
       "get": {
         "operationId": "getAuthOidcCallback",
@@ -1315,6 +1525,163 @@
           },
           "404": {
             "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/capsules/{id}/proofs": {
+      "get": {
+        "operationId": "getCapsulesByIdProofs",
+        "tags": [
+          "credits"
+        ],
+        "summary": "Proof records of a capsule, newest first (includes a stored legacy proof file)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ items: Proof[] }",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "postCapsulesByIdProofs",
+        "tags": [
+          "credits"
+        ],
+        "summary": "Request a paid OutLayer proof (202 running; 402 INSUFFICIENT_CREDITS; 503 PROOF_PROVIDER_DISABLED; 409 ALREADY_PROVED/TESTNET_CAP_REACHED/PROOF_IN_PROGRESS)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "8-200 chars; a repeated key replays the first result.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "{ proofId, state: running }",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1832,6 +2199,126 @@
           }
         },
         "x-min-role": "admin"
+      }
+    },
+    "/v1/credits": {
+      "get": {
+        "operationId": "getCredits",
+        "tags": [
+          "credits"
+        ],
+        "summary": "Caller's credits: balance, held, available, deposit account, proof hold estimate, newest 50 entries",
+        "responses": {
+          "200": {
+            "description": "Credits object (proofEstimateYocto is null when OutLayer proofs are disabled or the chain cannot be read; ?capsuleId sizes it for that capsule)",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/credits/topups": {
+      "post": {
+        "operationId": "postCreditsTopups",
+        "tags": [
+          "credits"
+        ],
+        "summary": "Credit a testnet transfer to the deposit account (422 TX_NOT_FOUND/TX_FAILED/WRONG_SIGNER/WRONG_RECEIVER/NOT_A_TRANSFER; 409 TOPUP_ALREADY_CREDITED/NO_NEAR_ACCOUNT)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostCreditsTopupsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The new credits object",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/dev/login": {
@@ -7781,6 +8268,61 @@
         },
         "x-min-role": "admin",
         "x-capability": "org settings"
+      }
+    },
+    "/v1/proofs/{proofId}": {
+      "get": {
+        "operationId": "getProofsByProofId",
+        "tags": [
+          "credits"
+        ],
+        "summary": "One proof record (state, job, verification, cost)",
+        "parameters": [
+          {
+            "name": "proofId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Proof",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/public/publications/{id}": {
@@ -25387,6 +25929,12 @@
             ],
             "additionalProperties": false
           },
+          "nearAccountId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "role": {
             "type": "string",
             "enum": [
@@ -25459,6 +26007,7 @@
         "required": [
           "principal",
           "org",
+          "nearAccountId",
           "role",
           "roles",
           "permissions",
@@ -27788,6 +28337,120 @@
         ],
         "additionalProperties": false
       },
+      "PostAuthNearChallengeRequest": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "PostAuthNearChallengeResponse200": {
+        "type": "object",
+        "properties": {
+          "challengeId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "message": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "nonce": {
+            "type": "string",
+            "description": "base64 of 32 random bytes"
+          },
+          "network": {
+            "type": "string",
+            "const": "testnet"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "challengeId",
+          "message",
+          "recipient",
+          "nonce",
+          "network",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "PostAuthNearLinkResponse200": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "accountId",
+          "userId"
+        ],
+        "additionalProperties": false
+      },
+      "PostAuthNearVerifyRequest": {
+        "type": "object",
+        "properties": {
+          "challengeId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "accountId": {
+            "type": "string",
+            "description": "x.testnet or a 64-hex implicit account"
+          },
+          "publicKey": {
+            "type": "string",
+            "description": "ed25519:<base58>"
+          },
+          "signature": {
+            "type": "string",
+            "description": "base64 signature from the wallet"
+          }
+        },
+        "required": [
+          "challengeId",
+          "accountId",
+          "publicKey",
+          "signature"
+        ],
+        "additionalProperties": false
+      },
+      "PostAuthNearVerifyResponse200": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "accountId": {
+            "type": "string"
+          },
+          "created": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "token",
+          "userId",
+          "accountId",
+          "created"
+        ],
+        "additionalProperties": false
+      },
       "PostCapsulesByIdPublishRequest": {
         "type": "object",
         "properties": {
@@ -27798,6 +28461,19 @@
             }
           }
         },
+        "additionalProperties": false
+      },
+      "PostCreditsTopupsRequest": {
+        "type": "object",
+        "properties": {
+          "txHash": {
+            "type": "string",
+            "description": "base58 NEAR testnet transaction hash"
+          }
+        },
+        "required": [
+          "txHash"
+        ],
         "additionalProperties": false
       },
       "PostDevLoginRequest": {

@@ -1,4 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined }) }));
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement, Fragment } from 'react';
 import { AnswerBody, AnswerMeta, ChartBody, ChartMeta } from '@/components/nx/agent/answer-card';
@@ -116,7 +118,22 @@ describe('task timeline', () => {
     expect(h).toContain('0.001 NEAR at $5 per NEAR on 2026-11-13');
     expect(h).toContain('https://testnet.nearblocks.io/txns/HASH123456');
     expect(h).toContain('Cancel task');
-    expect(h).toContain('/api/report/w1/pdf');
+    expect(h).not.toContain('/api/report/');
+    expect(h).not.toMatch(/PDF report|Open report/);
+  });
+  it('a finished task offers the thesis, never the report', () => {
+    const t = mk({ state: 'completed', workspaceId: 'w1', links: { workspaceId: 'w1', thesisId: 'th1' }, steps: [] });
+    const h = wrap(createElement(TaskTimeline, { task: t }));
+    expect(h).toContain('href="/thesis/th1"');
+    expect(h).toContain('Download thesis PDF');
+    expect(h).toContain('/api/thesis/th1/pdf');
+    expect(h).not.toMatch(/report/i);
+  });
+  it('a finished task with no thesis offers one primary Build thesis button', () => {
+    const t = mk({ state: 'completed', workspaceId: 'w1', links: { workspaceId: 'w1' }, steps: [] });
+    const h = wrap(createElement(TaskTimeline, { task: t }));
+    expect(h).toContain('Build thesis');
+    expect(h).not.toMatch(/report/i);
   });
   it('shows a waiting approval with Approve and Reject, and a failed step with reason and Retry', () => {
     const w = mk({ state: 'waiting_user', steps: [{ idx: 0, key: 'run.await', title: 'Wait', state: 'waiting_user', waiting: { kind: 'approval', runId: 'r', approvalId: 'a', approvalKind: 'canvas.apply_patch', summary: 'Apply panels', costLimit: '1.5' } }] });

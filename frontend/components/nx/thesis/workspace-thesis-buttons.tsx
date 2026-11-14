@@ -3,21 +3,23 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, LinkButton } from '@/components/nx/ui';
+import Link from 'next/link';
+import { Button } from '@/components/nx/ui';
 import { browserApi } from '@/lib/api/browser';
 import { ApiRequestError } from '@/lib/api/errors';
-import { fetchThesisList, thesisKeys } from '@/lib/thesis/api';
+import { fetchThesisList, pdfHref, thesisKeys } from '@/lib/thesis/api';
 
 /**
- * Overview buttons: "Open thesis" when this workspace already has one, otherwise "Build thesis"
+ * Thesis buttons: "Open thesis" and "Download thesis PDF" when this workspace already has one, otherwise "Build thesis"
  * (POST /v1/workspaces/:id/theses, then the viewer). A refusal is said in words next to the button.
  */
-export default function WorkspaceThesisButtons({ wid }: { wid: string }) {
+export default function WorkspaceThesisButtons({ wid, thesisId = null, pdf = true }: { wid: string; thesisId?: string | null; pdf?: boolean }) {
   const router = useRouter();
   const qc = useQueryClient();
-  const list = useQuery({ queryKey: thesisKeys.list, queryFn: fetchThesisList, retry: false, staleTime: 15_000 });
+  const list = useQuery({ queryKey: thesisKeys.list, queryFn: fetchThesisList, retry: false, staleTime: 15_000, enabled: !thesisId });
   const mine = (list.data ?? []).filter((t) => t.workspaceId === wid && t.kind === 'workspace');
-  const existing = mine.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))[0];
+  const found = mine.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))[0]?.id ?? null;
+  const existing = thesisId ?? found;
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function build() {
@@ -44,7 +46,10 @@ export default function WorkspaceThesisButtons({ wid }: { wid: string }) {
   return (
     <>
       {existing ? (
-        <LinkButton href={`/thesis/${encodeURIComponent(existing.id)}`} variant="primary">Open thesis</LinkButton>
+        <>
+          <Link className="btn primary" href={`/thesis/${encodeURIComponent(existing)}`} data-testid="open-thesis">Open thesis</Link>
+          {pdf && <a className="btn" href={pdfHref(existing)} download data-testid="download-thesis-pdf">Download thesis PDF</a>}
+        </>
       ) : (
         <Button variant="primary" pending={pending} onClick={build} data-testid="build-thesis">
           Build thesis

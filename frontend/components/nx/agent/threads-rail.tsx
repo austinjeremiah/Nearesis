@@ -11,7 +11,7 @@ import { browserApi } from '@/lib/api/browser';
 import { qk } from '@/lib/api/keys';
 import { newKey } from '@/lib/api/transport';
 import { agentApi, agentKeys, isUnavailable } from '@/lib/agent/api';
-import { reportPageHref, reportPdfHref } from '@/lib/agent/tasks';
+import WorkspaceThesisButtons from '@/components/nx/thesis/workspace-thesis-buttons';
 import type { Thread } from '@/lib/agent/thread';
 import { formatAge } from '@/lib/format';
 
@@ -164,8 +164,7 @@ export default function ThreadsRail({
         {sel && (
           <div className="ag-ws-actions">
             <Button onClick={onManage} data-testid="agent-ws-manage">Manage</Button>
-            <a className="btn" href={reportPdfHref(sel.id)} data-testid="agent-pdf">Download PDF report</a>
-            <a className="link small" href={reportPageHref(sel.id)}>Open report</a>
+            <WorkspaceThesisButtons wid={sel.id} />
             <Button variant="danger" onClick={() => setArchive(true)} data-testid="agent-ws-archive"><Archive size={13} /> Archive</Button>
           </div>
         )}

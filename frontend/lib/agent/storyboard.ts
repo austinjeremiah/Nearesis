@@ -47,7 +47,7 @@ export const STAGE_LABEL: Record<StageKind, string> = {
   thesis: 'Thesis',
   thesislink: 'Public thesis',
   compare: 'Reproduction',
-  report: 'Report',
+  report: 'Older format',
   archive: 'Archive',
   other: 'Step',
 };
@@ -65,7 +65,7 @@ export const STAGE_TITLE: Record<StageKind, string> = {
   thesis: 'The thesis',
   thesislink: 'The public thesis page',
   compare: 'Original against reproduction',
-  report: 'The report',
+  report: 'Workspace summary (older format)',
   archive: 'Archive the workspace',
   other: 'Step',
 };
@@ -84,7 +84,7 @@ export const STAGE_PROMISE: Record<StageKind, string> = {
   thesis: 'The thesis will appear here: the verdict, the numbers behind it and a PDF you can share.',
   thesislink: 'The public link to the thesis will appear here once it is published.',
   compare: 'The comparison will appear here: what the original said, what the reproduction found, and whether they match.',
-  report: 'The report will appear here: the whole workspace as a document you can open or download as a PDF.',
+  report: 'The workspace summary will appear here: the whole workspace as a document you can open or download as a PDF.',
   archive: 'The workspace will be archived here.',
   other: 'The result of this step will appear here.',
 };
@@ -198,7 +198,10 @@ export function buildStages(task: Task | null | undefined): Stage[] {
       if (n > 0) derivedFrom.set(id, step.idx);
     });
   }
-  const stages = placeThesis(order.map((id) => byId.get(id)!));
+  const placed = placeThesis(order.map((id) => byId.get(id)!));
+  // Every result is a thesis. A task that builds one does not also show the older workspace summary stage; a task from
+  // before theses (a report step and no thesis step) still shows it, titled as the older format, so old conversations work.
+  const stages = placed.some((s) => s.kind === 'thesis') ? placed.filter((s) => s.kind !== 'report') : placed;
   for (const st of stages) {
     const own = st.steps;
     st.state = st.kind === 'findings' ? findingsState(own[own.length - 1]!) : mergeStates(own.map((s) => s.state));
@@ -217,7 +220,7 @@ export function buildStages(task: Task | null | undefined): Stage[] {
   return stages;
 }
 
-/** The thesis is the task's main output: it follows the capsule, proof and publication, and comes before the report. */
+/** The thesis is the task's main output: it follows the capsule, proof and publication, and comes before the older workspace summary. */
 function placeThesis(stages: Stage[]): Stage[] {
   const moving = stages.filter((s) => s.kind === 'thesis' || s.kind === 'thesislink');
   if (moving.length === 0) return stages;

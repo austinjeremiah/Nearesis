@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeRefs, normalizeTask } from '@/lib/agent/thread';
-import { buildStages, createdWithin, emphasiseNumbers, markerTitle, mergeStates, monitorSentence, proofPipeline, stageOfStep, thresholdOf, metricWords } from '@/lib/agent/storyboard';
+import { taskThesisId } from '@/lib/agent/tasks';
+import { STAGE_TITLE, buildStages, createdWithin, emphasiseNumbers, markerTitle, mergeStates, monitorSentence, proofPipeline, stageOfStep, thresholdOf, metricWords } from '@/lib/agent/storyboard';
 import type { Proof } from '@/lib/near/api';
 
 const step = (idx: number, key: string, state: string, extra: Record<string, unknown> = {}) => ({ idx, key, title: `T${idx}`, state, ...extra });
@@ -199,7 +200,17 @@ it('reads the quoted question out of a step detail', () => {
 import { compareOutcome, compareRows, thesisPathOf, thesisView } from '@/lib/agent/storyboard';
 
 describe('thesis stages', () => {
-  it('adds thesis, public link and comparison stages and places the thesis after publish and before the report', () => {
+  it('an older task with a report step and no thesis keeps that stage, titled as the older format', () => {
+    const s = buildStages(task([step(0, 'capsule.build', 'done'), step(1, 'report.build', 'done')]));
+    expect(s.map((x) => x.kind)).toEqual(['capsule', 'report']);
+    expect(STAGE_TITLE.report).toBe('Workspace summary (older format)');
+  });
+  it('finds the thesis id from the task link or the thesis step', () => {
+    expect(taskThesisId(task([], { thesisId: 'a' }))).toBe('a');
+    expect(taskThesisId(task([step(0, 'thesis.build', 'done', { result: { summary: 's', items: [], refs: { thesisId: 'b' } } })]))).toBe('b');
+    expect(taskThesisId(task([step(0, 'report.build', 'done')]))).toBeNull();
+  });
+  it('adds thesis, public link and comparison stages and places the thesis last, with no separate report stage', () => {
     const t = task(
       [
         step(0, 'capsule.build', 'done'),
@@ -211,7 +222,7 @@ describe('thesis stages', () => {
       { thesisId: 'th9' },
     );
     const s = buildStages(t);
-    expect(s.map((x) => x.kind)).toEqual(['capsule', 'publish', 'thesis', 'thesislink', 'report']);
+    expect(s.map((x) => x.kind)).toEqual(['capsule', 'publish', 'thesis', 'thesislink']);
     expect(s[2]!.refs.thesisId).toBe('th1');
     expect(buildStages(task([step(0, 'thesis.build', 'running')], { thesisId: 'th9' }))[0]!.refs.thesisId).toBe('th9');
     expect(buildStages(task([step(0, 'thesis.compare', 'done')]))[0]!.kind).toBe('compare');

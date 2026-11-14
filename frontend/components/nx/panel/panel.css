@@ -48,3 +48,8 @@
 .nxp-edit button { font-size: var(--fs-tiny); }
 .nxp-diff { font-family: var(--font-mono); font-size: var(--fs-tiny); }
 .nxp-diff li { padding: 1px 0; }
+.nxp-pv { min-width: 0; }
+.nxp-pv .nxp-pre { max-height: 240px; margin: 6px 0 0; }
+.nxp-pv-list { margin: 4px 0 0; padding-left: 18px; overflow-wrap: anywhere; }
+.nxp-hashrow { align-items: center; }
+.nxp-pv .kv > dd { min-width: 0; overflow-wrap: anywhere; }

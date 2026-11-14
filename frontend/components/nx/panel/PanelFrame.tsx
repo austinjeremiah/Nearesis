@@ -26,6 +26,8 @@ import {
 } from '@/lib/panel/model';
 import type { CanvasMarker, CanvasPanel, PanelData, PanelProgress } from '@/lib/panel/types';
 import { ChartRenderer, DataTable } from './ChartRenderer';
+import { ProvenanceDialog } from './ProvenanceDialog';
+import { buildProvenanceView } from '@/lib/panel/provenance';
 import './panel.css';
 
 /** Fetch a panel's data only once it is near the viewport, so a canvas of 100 panels does not stampede the API. */
@@ -286,6 +288,9 @@ export function PanelFrame({
   const hasQuery = panel.kind !== 'note' && panel.kind !== 'evidenceGraph';
   const data = usePanelData(wid, panel.queryRef?.hash, enabled && hasQuery).data;
   const [local, setLocal] = useState<Viz | null>(null);
+  const [pvOpen, setPvOpen] = useState(false);
+  const articleRef = useRef<HTMLElement>(null);
+  const pv = useMemo(() => (pvOpen && data ? buildProvenanceView(panel, data) : null), [pvOpen, panel, data]);
   const vizList = useMemo(() => availableViz(panel, data), [panel, data]);
   const picked = vizProp ?? local;
   const current = picked && vizList.includes(picked) ? picked : vizList[0];
@@ -297,7 +302,14 @@ export function PanelFrame({
   const partial = !!data && !blocked && (data.state === 'partial' || cov?.state === 'partial');
   const items: MenuItem[] = [
     ...(menuItems ?? []),
-    ...(heading ? [] : [{ label: 'Open panel', onSelect: () => router.push(`/w/${wid}/panels/${panel.panelId}`) } as MenuItem]),
+    // "Query and provenance" opens a popup from the data this card already loaded; a panel with no query (a note) has none, so it opens the page.
+    ...(heading
+      ? []
+      : [
+          hasQuery
+            ? ({ label: 'Query and provenance', disabledReason: data ? undefined : 'The panel data has not loaded yet.', onSelect: () => setPvOpen(true) } as MenuItem)
+            : ({ label: 'Open panel', onSelect: () => router.push(`/w/${wid}/panels/${panel.panelId}`) } as MenuItem),
+        ]),
     ...(vizList.length > 1
       ? [{ kind: 'separator' } as MenuItem, ...vizList.map((v) => ({ label: `${v === current ? 'Showing' : 'Show as'} ${VIZ_VERB[v] ?? v}`, disabledReason: v === current ? 'Already drawn this way.' : undefined, onSelect: () => ctx.set(v) }) as MenuItem)]
       : []),
@@ -305,7 +317,7 @@ export function PanelFrame({
   ];
   return (
     <VizCtx.Provider value={ctx}>
-      <article className="card panel nxp" aria-label={panel.title} data-testid="panel" data-panel-id={panel.panelId} data-kind={panel.kind} data-dim={dim ? 'true' : undefined} data-pending={pending ? 'true' : undefined}>
+      <article ref={articleRef} className="card panel nxp" aria-label={panel.title} data-testid="panel" data-panel-id={panel.panelId} data-kind={panel.kind} data-dim={dim ? 'true' : undefined} data-pending={pending ? 'true' : undefined}>
         <header className="card-head">
           <div className="grow col gap1" style={{ minWidth: 0 }}>
             <div className="row gap2 wrap" style={{ minWidth: 0 }}>
@@ -337,6 +349,19 @@ export function PanelFrame({
           </footer>
         )}
       </article>
+      {pv && (
+        <ProvenanceDialog
+          open={pvOpen}
+          onOpenChange={setPvOpen}
+          view={pv}
+          pageHref={`/w/${wid}/panels/${panel.panelId}`}
+          onCloseAutoFocus={(e) => {
+            // Focus goes back to this card's "..." button, which opened the popup.
+            e.preventDefault();
+            articleRef.current?.querySelector<HTMLElement>('.actions button[aria-label^="Panel actions"]')?.focus();
+          }}
+        />
+      )}
     </VizCtx.Provider>
   );
 }

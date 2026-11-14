@@ -249,7 +249,7 @@ export function PublicationArtifact({ stage }: { stage: Stage }) {
   );
 }
 
-/* ------------------------------------------------------------------------------------------------ 10. report */
+/* ------------------------------------------------------------------------------------------------ 10. workspace summary (older format) */
 
 export function ReportArtifact({ wid, stage }: { wid: string | null; stage: Stage }) {
   const q = useQuery({
@@ -266,8 +266,8 @@ export function ReportArtifact({ wid, stage }: { wid: string | null; stage: Stag
   return (
     <SbCard
       testId="sb-report"
-      label="Report"
-      title="Workspace report"
+      label="Older format"
+      title="Workspace summary"
       badges={<Badge tone={q.isError ? 'bad' : 'ok'}>{q.isError ? 'unavailable' : 'ready'}</Badge>}
       foot={<span className="mono">{d ? `generated ${formatUtc(d.generatedAt)}` : 'generation time unknown'}</span>}
     >
@@ -278,7 +278,7 @@ export function ReportArtifact({ wid, stage }: { wid: string | null; stage: Stag
       ) : (
         <>
           <p className="sb-lead">{d!.workspace.objective}</p>
-          <ul className="sb-counts" aria-label="What the report contains">
+          <ul className="sb-counts" aria-label="What the summary contains">
             <li><b>{d!.runs.length}</b><span>{d!.runs.length === 1 ? 'question' : 'questions'}</span></li>
             <li><b>{findings}</b><span>{findings === 1 ? 'finding' : 'findings'}</span></li>
             <li><b>{d!.panels.length}</b><span>{d!.panels.length === 1 ? 'chart' : 'charts'}</span></li>
@@ -288,8 +288,8 @@ export function ReportArtifact({ wid, stage }: { wid: string | null; stage: Stag
         </>
       )}
       <div className="sb-actions">
-        <Link className="sb-btn sb-btn-primary" href={reportPageHref(wid)} data-testid="sb-report-open">Open report</Link>
-        <a className="sb-btn" href={reportPdfHref(wid)} data-testid="sb-report-pdf">Download PDF</a>
+        <Link className="sb-btn sb-btn-primary" href={reportPageHref(wid)} data-testid="sb-report-open">Open workspace summary</Link>
+        <a className="sb-btn" href={reportPdfHref(wid)} data-testid="sb-report-pdf">Download summary PDF</a>
       </div>
     </SbCard>
   );

@@ -12,6 +12,10 @@ import type { Task } from '@/lib/agent/thread';
 import { STAGE_LABEL, STAGE_PROMISE, currentStage, failureMeaning, timeAgoShort, type Stage, type StageState } from '@/lib/agent/storyboard';
 import { panelKey } from '@/lib/agent/selection';
 import { useNow } from '../task-cards';
+import { ApprovalNotice } from '../approval';
+import { useStoryboardSync } from './sync';
+import { pdfHref } from '@/lib/thesis/api';
+import { approvalNeeded } from '@/lib/agent/approval';
 import { CapsuleArtifact, CompareArtifact, GenericArtifact, ThesisArtifact, ThesisLinkArtifact, ProofArtifact, PublicationArtifact, ReportArtifact } from './artifacts-chain';
 import { FindingsArtifact, HypothesisArtifact, InvestigationArtifact, MarkersArtifact, MonitorsArtifact, WorkspaceArtifact, type Hl } from './artifacts-work';
 import { SbCard } from './parts';
@@ -177,15 +181,15 @@ function StageSection({ stage, index, total, wid, hl, live, now, active, justRev
   );
 }
 
-/** The end of the work: the thesis when the task made one, with the report beside it as the second thing to open. */
-function Outcome({ stages, wid }: { stages: Stage[]; wid: string | null }) {
+/** The end of the work: the thesis the task made, to open or download. */
+function Outcome({ stages }: { stages: Stage[] }) {
   const thesis = stages.find((s) => s.kind === 'thesis' && s.state === 'done' && s.refs.thesisId);
-  const report = stages.find((s) => s.kind === 'report' && s.state === 'done');
-  if (!thesis && !(report && wid)) return null;
+  if (!thesis) return null;
+  const id = encodeURIComponent(thesis.refs.thesisId!);
   return (
     <div className="sb-outcome" data-testid="sb-outcome">
-      {thesis && <Link className="sb-btn sb-btn-primary" href={`/thesis/${encodeURIComponent(thesis.refs.thesisId!)}`}>Open the thesis</Link>}
-      {report && wid && <Link className={thesis ? 'sb-btn' : 'sb-btn sb-btn-primary'} href={`/w/${encodeURIComponent(wid)}/report`}>Open the report</Link>}
+      <Link className="sb-btn sb-btn-primary" href={`/thesis/${id}`} data-testid="sb-outcome-thesis">Open the thesis</Link>
+      <a className="sb-btn" href={pdfHref(thesis.refs.thesisId!)} download data-testid="sb-outcome-pdf">Download thesis PDF</a>
     </div>
   );
 }
@@ -340,6 +344,8 @@ export default function Storyboard({
   }, [stages]);
 
   const tc = taskCostText(task);
+  const syncCtx = useStoryboardSync();
+  const approval = useMemo(() => approvalNeeded(task), [task]);
   const done = doneCount(task);
   const total = task.steps.length;
   const costZero = toMicro(task.cost.modelUsd ?? '') === 0n && toMicro(task.cost.creditsUsd ?? '') === 0n;
@@ -369,8 +375,12 @@ export default function Storyboard({
             {task.links.workspaceId && <Link className="sb-link" href={`/w/${task.links.workspaceId}/overview`}>Open workspace</Link>}
           </p>
           <div className="sb-meter" aria-hidden="true"><span style={{ width: `${total ? Math.round((done / total) * 100) : 0}%` }} /></div>
-          <Outcome stages={stages} wid={task.links.workspaceId ?? wid} />
-          {task.state === 'proposed' && <p className="sb-note">This is the plan. Nothing runs until you press Start in the chat; the stages fill in as it goes.</p>}
+          <Outcome stages={stages} />
+          {approval && syncCtx ? (
+            <ApprovalNotice approval={approval} onReview={syncCtx.onReviewApproval} variant="storyboard" />
+          ) : (
+            task.state === 'proposed' && <p className="sb-note">This is the plan. Nothing runs until you press Start in the chat; the stages fill in as it goes.</p>
+          )}
         </header>
         <ol className="sb-stages">
           {stages.map((s, i) => (

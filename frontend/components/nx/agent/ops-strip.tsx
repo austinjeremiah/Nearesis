@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/nx/evidence';
+import type { Approval } from '@/lib/agent/approval';
+import { ApprovalNotice } from './approval';
 import { ApprovalCard, runLabel, usd } from '@/components/nx/run-parts';
 import { browserApi } from '@/lib/api/browser';
 import { shellBrowser } from '@/lib/api/shell-browser';
@@ -36,7 +38,7 @@ function InlineApproval({ a }: { a: GlobalApproval }) {
  * Header strip: runs that are not finished across the user's workspaces (the newest few, bounded), approvals waiting with
  * in-place decisions, and the global model spend. Polling is slow and react-query pauses it while the tab is hidden.
  */
-export default function OpsStrip({ taskLine = null, taskWaiting = false }: { taskLine?: string | null; taskWaiting?: boolean }) {
+export default function OpsStrip({ taskLine = null, taskWaiting = false, approval = null, onReview }: { taskLine?: string | null; taskWaiting?: boolean; approval?: Approval | null; onReview?: () => void }) {
   const ws = useQuery({ queryKey: qk.workspaces, queryFn: () => browserApi.workspaces(), refetchInterval: 60_000 });
   const newest = [...(ws.data?.workspaces ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, MAX_WORKSPACES);
   const runs = useQueries({
@@ -50,6 +52,7 @@ export default function OpsStrip({ taskLine = null, taskWaiting = false }: { tas
   const pend = approvals.data?.approvals ?? [];
   return (
     <div className="ag-ops" data-testid="agent-ops">
+      {approval && onReview && <ApprovalNotice approval={approval} onReview={onReview} variant="strip" />}
       {taskLine && (
         <p className="ag-ops-task" data-testid="agent-ops-step" data-waiting={taskWaiting ? 'true' : undefined} title={taskLine}>
           <span className="ag-pulse" aria-hidden="true" />

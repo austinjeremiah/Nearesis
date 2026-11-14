@@ -131,5 +131,12 @@ export function safeHref(href: string | null): string | null {
   return href && href.startsWith('/') && !href.startsWith('//') ? href : null;
 }
 
+/** The thesis this task made: its link, else the id a thesis step reported. Null when it made none. */
+export function taskThesisId(t: Pick<Task, 'links' | 'steps'>): string | null {
+  if (t.links.thesisId) return t.links.thesisId;
+  for (const s of t.steps) if (s.key === 'thesis.build' && s.result?.refs.thesisId) return s.result.refs.thesisId;
+  return null;
+}
+
 export const reportPdfHref = (wid: string) => `/api/report/${encodeURIComponent(wid)}/pdf`;
 export const reportPageHref = (wid: string) => `/w/${encodeURIComponent(wid)}/report`;

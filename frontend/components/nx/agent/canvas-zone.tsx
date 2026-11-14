@@ -1,7 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { MoreHorizontal } from 'lucide-react';
+import { Menu } from '@/components/nx/overlays';
+import { IconButton } from '@/components/nx/ui';
+import { ProvenanceDialog } from '@/components/nx/panel/ProvenanceDialog';
+import { buildQuickChartView } from '@/lib/panel/provenance';
 import { useRouter } from 'next/navigation';
 import { useQueries } from '@tanstack/react-query';
 import { Badge } from '@/components/nx/evidence';
@@ -47,13 +52,18 @@ export function AnswerChartCard({ turnId, c, answer, sel, onSelect }: { turnId: 
   const cites = findingsCiting(turnId, answer, c.id);
   const { missing, total } = missingCount(c);
   const select = () => onSelect(toggle(sel, { type: 'chart', id: key, findings: cites }));
+  const [pvOpen, setPvOpen] = useState(false);
+  const cardRef = useRef<HTMLElement>(null);
+  const pv = useMemo(() => buildQuickChartView(c), [c]);
   return (
-    <article className="ag-chartcard" id={`chart-${key}`} data-testid="agent-chart" data-kind={c.kind} data-hl={hl ? 'true' : undefined} data-dim={sel && !hl ? 'true' : undefined} aria-label={c.title}>
+    <>
+    <article ref={cardRef} className="ag-chartcard" id={`chart-${key}`} data-testid="agent-chart" data-kind={c.kind} data-hl={hl ? 'true' : undefined} data-dim={sel && !hl ? 'true' : undefined} aria-label={c.title}>
       <header className="ag-chartcard-head">
         <button type="button" className="ag-chart-title" aria-pressed={hl} onClick={select} title="Select to show the findings that cite this chart">
           {c.title}
         </button>
         <Badge outline>{c.kind}</Badge>
+        <Menu align="end" trigger={<IconButton label={`Chart actions for ${c.title}`}><MoreHorizontal size={15} /></IconButton>} items={[{ label: 'Query and provenance', onSelect: () => setPvOpen(true) }]} />
       </header>
       <div className="ag-chartcard-body">
         <ChartBody c={c} height={230} />
@@ -78,6 +88,16 @@ export function AnswerChartCard({ turnId, c, answer, sel, onSelect }: { turnId: 
         )}
       </footer>
     </article>
+    <ProvenanceDialog
+      open={pvOpen}
+      onOpenChange={setPvOpen}
+      view={pv}
+      onCloseAutoFocus={(e) => {
+        e.preventDefault();
+        cardRef.current?.querySelector<HTMLElement>('button[aria-label^="Chart actions"]')?.focus();
+      }}
+    />
+    </>
   );
 }
 

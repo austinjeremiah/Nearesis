@@ -3,13 +3,16 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Check, Circle, Hourglass, Minus, Loader } from 'lucide-react';
+import { AlertTriangle, BellRing, Check, Circle, Hourglass, Minus, Loader } from 'lucide-react';
 import { Badge } from '@/components/nx/evidence';
 import { Button } from '@/components/nx/ui';
 import { ConfirmDialog } from '@/components/nx/overlays';
 import { MutationError } from '@/components/nx/research-kit';
 import { openCreditsPopup } from '@/lib/credits/refusal';
 import { useStoryboardSync } from './storyboard/sync';
+import WorkspaceThesisButtons from '@/components/nx/thesis/workspace-thesis-buttons';
+import { useAnnounce, useBringIntoView } from './approval';
+import { approvalAnnouncement, approvalNeeded, consentAllowance } from '@/lib/agent/approval';
 import { agentApi, agentKeys } from '@/lib/agent/api';
 import type { Task, TaskStep } from '@/lib/agent/thread';
 import {
@@ -23,8 +26,7 @@ import {
   formatEntry,
   formatUsdString,
   nearblocksTx,
-  reportPageHref,
-  reportPdfHref,
+  taskThesisId,
   safeHref,
   stepCostText,
   taskCostText,
@@ -67,6 +69,11 @@ export function PlanCard({ task }: { task: Task }) {
   const start = useMutation({ mutationFn: () => agentApi.start(task.id, consentBody(task, ticked)), onSettled: refresh });
   const proposed = task.state === 'proposed';
   const missing = task.consent.required.filter((c) => !ticked.has(c.key)).length;
+  const noConsent = task.consent.required.length === 0;
+  const approval = proposed ? approvalNeeded(task, ticked) : null;
+  const blockRef = useRef<HTMLElement>(null);
+  useBringIntoView(blockRef, task.id, proposed);
+  const said = useAnnounce(approvalAnnouncement(approval));
   const toggle = (k: string) =>
     setTicked((s) => {
       const n = new Set(s);
@@ -106,41 +113,52 @@ export function PlanCard({ task }: { task: Task }) {
           <dd className="mono">{task.steps.length}</dd>
         </div>
       </dl>
-      {proposed && task.consent.required.length > 0 && (
-        <fieldset className="ag-consents">
-          <legend className="ag-k">Needs your consent</legend>
-          {task.consent.required.map((c) => (
-            <label key={c.key} className="ag-consent-row" data-on={ticked.has(c.key) ? 'true' : undefined}>
-              <input type="checkbox" checked={ticked.has(c.key)} onChange={() => toggle(c.key)} data-testid={`consent-${c.key}`} />
-              <span className="col gap1">
-                <span className="strong small">{c.label}</span>
-                {c.detail && <span className="small dim">{c.detail}</span>}
-                {c.maxUsd !== null && (
-                  <span className="tiny mono" data-testid="consent-max">
-                    up to {formatUsdString(c.maxUsd)} of your credits
+      {proposed && (
+        <section
+          ref={blockRef}
+          className="ag-approve"
+          data-testid="plan-approval"
+          data-approval-task={task.id}
+          data-needs={noConsent ? 'start' : ready ? 'start' : 'consent'}
+          aria-labelledby={`ag-approve-${task.id}`}
+        >
+          <header className="ag-approve-head">
+            <BellRing size={16} aria-hidden="true" />
+            <h4 id={`ag-approve-${task.id}`} className="ag-approve-title">Needs your approval</h4>
+            <Badge tone="warn">{noConsent ? 'press Start' : ready ? 'ready to start' : `${missing} to tick`}</Badge>
+          </header>
+          <p className="ag-approve-line small">{approval?.line}</p>
+          <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{said}</div>
+          {!noConsent && (
+            <fieldset className="ag-consents">
+              <legend className="sr-only">Permissions this plan needs</legend>
+              {task.consent.required.map((c) => (
+                <label key={c.key} className="ag-consent-row" data-on={ticked.has(c.key) ? 'true' : undefined}>
+                  <input type="checkbox" checked={ticked.has(c.key)} onChange={() => toggle(c.key)} data-testid={`consent-${c.key}`} />
+                  <span className="col gap1">
+                    <span className="strong small">{c.label}</span>
+                    <span className="ag-allow mono tiny" data-testid={c.maxUsd !== null ? 'consent-max' : 'consent-allows'}>{consentAllowance(c)}</span>
+                    {c.detail && <span className="small dim">{c.detail}</span>}
                   </span>
-                )}
-              </span>
-            </label>
-          ))}
-        </fieldset>
+                </label>
+              ))}
+            </fieldset>
+          )}
+          <footer className="ag-plan-foot" data-attn={ready ? 'true' : undefined}>
+            <Button
+              variant="primary"
+              pending={start.isPending}
+              disabled={!ready}
+              disabledReason={`Tick ${missing} consent${missing === 1 ? '' : 's'} above to start.`}
+              onClick={() => start.mutate()}
+              data-testid="plan-start"
+            >
+              Start
+            </Button>
+            {!ready && <span className="small dim">Tick {missing} more consent{missing === 1 ? '' : 's'} to start.</span>}
+          </footer>
+        </section>
       )}
-      {proposed ? (
-        <footer className="ag-plan-foot">
-          <Button
-            variant="primary"
-            pending={start.isPending}
-            disabled={!ready}
-            disabledReason={`Tick ${missing} consent${missing === 1 ? '' : 's'} above to start.`}
-            onClick={() => start.mutate()}
-            data-testid="plan-start"
-          >
-            Start
-          </Button>
-          {!ready && <span className="small dim">Tick {missing} more consent{missing === 1 ? '' : 's'} to start.</span>}
-          {task.consent.required.length === 0 && <span className="small dim">Nothing here costs credits or publishes anything.</span>}
-        </footer>
-      ) : null}
       {start.error != null && (
         <div className="ag-plan-err">
           <MutationError error={start.error} />
@@ -195,10 +213,19 @@ function StepApproval({ task, s }: { task: Task; s: TaskStep }) {
   const w = s.waiting;
   const decide = useMutation({ mutationFn: (d: 'approve' | 'reject') => agentApi.approval(task.id, s.idx, d), onSettled: refresh });
   const [reject, setReject] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useBringIntoView(boxRef, `${task.id}:${s.idx}`, !!w);
+  const said = useAnnounce(w ? approvalAnnouncement(approvalNeeded(task)) : '');
   if (!w) return null;
   const limit = w.costLimit === null ? 'unknown' : /^\d+(\.\d+)?$/.test(w.costLimit) ? formatUsdString(w.costLimit) : w.costLimit;
   return (
-    <div className="ag-approval" data-testid="step-approval" role="group" aria-label="Approval needed">
+    <div ref={boxRef} className="ag-approval" data-attn="true" data-testid="step-approval" data-approval-task={task.id} role="group" aria-label="Approval needed">
+      <div className="ag-approve-head">
+        <BellRing size={16} aria-hidden="true" />
+        <strong className="ag-approve-title">The agent is waiting for you</strong>
+      </div>
+      <p className="small" style={{ margin: 0 }}>Approve to let it continue, or reject to stop the task at this step.</p>
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{said}</div>
       <div className="row gap2 wrap">
         <Badge tone="warn">approval</Badge>
         <span className="mono small">{w.approvalKind}</span>
@@ -312,6 +339,7 @@ export function TaskTimeline({ task }: { task: Task }) {
   }, [curKey, cur, total, task.state]);
   const wid = task.links.workspaceId ?? task.workspaceId;
   const tc = taskCostText(task);
+  const thesisId = taskThesisId(task);
   return (
     <article className="ag-timeline" data-testid="agent-task" data-state={task.state} aria-label={`Task: ${task.title}`}>
       <header className="ag-tl-head">
@@ -347,8 +375,7 @@ export function TaskTimeline({ task }: { task: Task }) {
       {wid && task.state !== 'proposed' && (
         <footer className="ag-tl-foot">
           {task.state === 'completed' && <Badge tone="ok">finished</Badge>}
-          <a className="btn" href={reportPdfHref(wid)} data-testid="task-pdf">Download PDF report</a>
-          <Link className="link small" href={reportPageHref(wid)}>Open report</Link>
+          {(thesisId || !live) && <WorkspaceThesisButtons wid={wid} thesisId={thesisId} />}
           <Link className="link small" href={`/w/${wid}/overview`}>Open workspace</Link>
         </footer>
       )}

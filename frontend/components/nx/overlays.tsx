@@ -50,6 +50,7 @@ export function Modal({
   wide,
   children,
   footer,
+  onCloseAutoFocus,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -58,12 +59,14 @@ export function Modal({
   wide?: boolean;
   children: ReactNode;
   footer?: ReactNode;
+  /** Where focus goes when the dialog closes; call `preventDefault` and focus your own element. */
+  onCloseAutoFocus?: (e: Event) => void;
 }) {
   return (
     <RxDialog.Root open={open} onOpenChange={onOpenChange}>
       <RxDialog.Portal container={usePortalContainer()}>
         <RxDialog.Overlay className="scrim" />
-        <RxDialog.Content className={`dialog ${wide ? 'wide' : ''}`.trim()}>
+        <RxDialog.Content className={`dialog ${wide ? 'wide' : ''}`.trim()} onCloseAutoFocus={onCloseAutoFocus}>
           <div className="dialog-head row between">
             <div className="grow">
               <RxDialog.Title className="h3">{title}</RxDialog.Title>

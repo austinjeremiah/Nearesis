@@ -13,7 +13,7 @@ import Storyboard, { type ScrollRequest } from './storyboard';
 
 export type MiddleView = 'storyboard' | 'charts';
 
-const GHOSTS: StageKind[] = ['workspace', 'investigate', 'findings', 'markers', 'monitors', 'hypothesis', 'capsule', 'proof', 'publish', 'report'];
+const GHOSTS: StageKind[] = ['workspace', 'investigate', 'findings', 'markers', 'monitors', 'hypothesis', 'capsule', 'proof', 'publish', 'thesis'];
 
 /** A new conversation: the stages the agent can go through, faint, with one line on what it can do. */
 function EmptyStoryboard() {

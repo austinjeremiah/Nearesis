@@ -17,6 +17,8 @@ import { useWorkspaceStream } from '@/lib/sse/hub';
 import { agentApi, agentKeys, isUnavailable } from '@/lib/agent/api';
 import { loadPrefs, loadView, savePrefs, saveView, type MiddleViewPref } from '@/lib/agent/prefs';
 import { buildStages, stageOfStep } from '@/lib/agent/storyboard';
+import { approvalNeeded } from '@/lib/agent/approval';
+import { focusApproval } from './approval';
 import type { Selection } from '@/lib/agent/selection';
 import { focusTask, needsPolling, pollDelay, pollReducer, stepLine, taskLive, type PollState } from '@/lib/agent/tasks';
 import type { Thread, ThreadDetail } from '@/lib/agent/thread';
@@ -28,6 +30,7 @@ import MiddleZone from './storyboard/middle';
 import { StoryboardSyncContext } from './storyboard/sync';
 import CostsDrawer from './costs-drawer';
 import { MessageView } from './messages';
+import { PlanCard, TaskTimeline } from './task-cards';
 import OpsStrip from './ops-strip';
 import RunCard from './run-card';
 import ThreadsRail from './threads-rail';
@@ -36,7 +39,7 @@ import WsManage from './ws-manage';
 export const EXAMPLES = [
   'How has NEAR Intents swap volume changed over the last 90 days?',
   'Which chain pairs carry the most NEAR Intents volume, and how concentrated is it?',
-  'Create a workspace on NEAR Intents refunds, investigate it and build a PDF report.',
+  'Create a workspace on NEAR Intents refunds, investigate it and build the thesis.',
   'List my workspaces and their pending approvals.',
 ];
 
@@ -121,6 +124,8 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
 
   const tasks = useMemo(() => d?.tasks ?? [], [d]);
   const task = useMemo(() => focusTask(tasks), [tasks]);
+  // A task made without a chat message (for example "reproduce a thesis") has no plan message to carry it: show it at the end of the chat so its approval is never out of reach.
+  const orphans = useMemo(() => tasks.filter((t) => (t.state === 'proposed' || taskLive(t)) && !(d?.messages ?? []).some((m) => m.taskId === t.id)), [tasks, d]);
   const liveTask = task && taskLive(task) ? task : null;
   const stages = useMemo(() => buildStages(task), [task]);
   // A different task starts with no stage chosen; the storyboard picks the first, or the one that is running.
@@ -130,8 +135,22 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
     setView(v);
     saveView(v);
   };
+  const approval = useMemo(() => approvalNeeded(task), [task]);
+  // "Review and start": make the chat visible (it may be collapsed, or another pane on a phone), then focus the first thing to do.
+  const reviewApproval = useCallback(() => {
+    if (!taskId) return;
+    setPane('chat');
+    setChatOpen(true);
+    let tries = 0;
+    const tick = () => {
+      if (focusApproval(taskId) || ++tries > 10) return;
+      setTimeout(tick, 60);
+    };
+    setTimeout(tick, 30);
+  }, [taskId]);
   const sync = useMemo(
     () => ({
+      onReviewApproval: reviewApproval,
       activeStepIdxs: stages.find((s) => s.id === activeStageId)?.stepIdxs ?? [],
       onStepClick: (idx: number) => {
         const st = stageOfStep(stages, idx);
@@ -142,7 +161,7 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
         setRequest((r) => ({ stageId: st.id, n: (r?.n ?? 0) + 1 }));
       },
     }),
-    [stages, activeStageId],
+    [stages, activeStageId, reviewApproval],
   );
 
   // A thread remembers its workspace; opening it selects that workspace.
@@ -343,7 +362,7 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
             <PanelRightClose size={16} />
           </button>
         </div>
-        <OpsStrip taskLine={line} taskWaiting={liveTask?.state === 'waiting_user'} />
+        <OpsStrip taskLine={line} taskWaiting={liveTask?.state === 'waiting_user'} approval={approval} onReview={reviewApproval} />
 
         <div className="ag-log" role="log" aria-live="off" aria-label="Conversation with the agent" data-testid="agent-log">
           {threadId && detail.isPending && <Skeleton rows={4} />}
@@ -353,7 +372,7 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
               The last refresh failed; retrying with back-off. The task keeps running on the server.
             </Notice>
           )}
-          {(!threadId || empty) && (
+          {(!threadId || (empty && orphans.length === 0)) && (
             <div className="ag-empty" data-testid="agent-empty">
               <h3>What do you want to do on NEAR?</h3>
               <p className="small dim" style={{ margin: 0 }}>
@@ -373,6 +392,11 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
           )}
           {d?.messages.map((m) => (
             <MessageView key={m.id} m={m} tasks={tasks} sel={sel} onSelect={setSel} />
+          ))}
+          {orphans.map((t) => (
+            <div key={t.id} className="col gap2" data-testid="agent-orphan-task">
+              {t.state === 'proposed' ? <PlanCard task={t} /> : <TaskTimeline task={t} />}
+            </div>
           ))}
           {localRuns.map((r) => (
             <div key={r.runId} className="col gap2">

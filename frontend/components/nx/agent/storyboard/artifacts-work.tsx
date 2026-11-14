@@ -15,6 +15,7 @@ import type { Finding, RunDetail } from '@/lib/investigate/types';
 import type { Marker, MonitorRule, MonitorEvaluation } from '@/lib/research/api';
 import { usd } from '@/lib/investigate/format';
 import { panelKey } from '@/lib/agent/selection';
+import { agentDescription, agentDisplay, agentLabel, firstOfRole } from '@/lib/agent/agents';
 import { FINDING_STATUS_LABEL, FINDING_STATUS_TONE, createdWithin, emphasiseNumbers, markerAt, markerTitle, metricIdsOf, metricWords, monitorSentence, quotedText, thresholdOf, type Stage } from '@/lib/agent/storyboard';
 import { panelForMetric, seriesOf } from '@/lib/agent/storyboard-series';
 import { MiniSeries, SbCard } from './parts';
@@ -85,7 +86,6 @@ function RunSteps({ run }: { run: RunDetail }) {
   );
 }
 
-const TASK_DONE = new Set(['DONE', 'COMPLETE', 'COMPLETED']);
 
 export function usePanelsOfRun(wid: string | null, run: RunDetail | undefined, live: boolean) {
   const canvas = useCanvasDoc(wid, live);
@@ -112,7 +112,8 @@ export function InvestigationArtifact({ wid, stage, hl, live }: { wid: string | 
   if (run.isError) return <ApiErrorState error={run.error} onRetry={() => run.refetch()} />;
   const rd = run.data;
   const rows = tasks.data?.tasks ?? [];
-  const doneN = rows.filter((t) => TASK_DONE.has(t.status.toUpperCase())).length;
+  const doneN = rows.filter((t) => agentDisplay(t.status, rd.terminal).state === 'finished').length;
+  const firstRow = firstOfRole(rows.map((t) => t.role));
   const spent = rd.budget?.spent.usd;
   const markers = canvas.data?.markers ?? [];
   return (
@@ -139,15 +140,18 @@ export function InvestigationArtifact({ wid, stage, hl, live }: { wid: string | 
         <RunSteps run={rd} />
         {rows.length > 0 && (
           <ul className="sb-agents">
-            {rows.map((t) => {
-              const done = TASK_DONE.has(t.status.toUpperCase());
-              const failed = /FAIL|CANCEL/i.test(t.status);
+            {rows.map((t, i) => {
+              const disp = agentDisplay(t.status, rd.terminal);
+              const desc = firstRow.has(i) ? agentDescription(t.role) : null;
               return (
-                <li key={t.taskId} data-s={failed ? 'failed' : done ? 'done' : rd.terminal ? 'ended' : 'live'}>
+                <li key={t.taskId} data-s={disp.state === 'finished' ? 'done' : disp.state} data-testid="sb-agent">
                   <span className="sb-dot" aria-hidden="true" />
-                  <span className="sb-agent-role">{t.role}</span>
+                  <span className="sb-agent-who">
+                    <span className="sb-agent-role">{agentLabel(t.role)}</span>
+                    {desc && <span className="sb-agent-desc">{desc}</span>}
+                  </span>
                   <span className="sb-agent-obj">{t.objective}</span>
-                  <span className="mono sb-agent-st">{t.status.toLowerCase()}</span>
+                  <span className="mono sb-agent-st">{disp.word}</span>
                 </li>
               );
             })}

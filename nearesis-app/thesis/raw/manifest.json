@@ -1,18 +1,345 @@
 {
   "schema": "nearesis.thesis.raw.v1",
-  "frozenAt": "2026-11-14T05:56:17.206Z",
+  "kind": "forecast",
+  "frozenAt": "2026-11-14T10:12:49.255Z",
+  "methodFrozenAt": "2026-11-14T10:11:07.566Z",
   "window": {
-    "from": "2026-05-05",
-    "to": "2026-11-11"
+    "from": "2025-11-10",
+    "to": "2026-11-13"
   },
+  "headThreshold": 100,
+  "stablecoinSet": [
+    "DAI",
+    "FRAX",
+    "USD1",
+    "USDC",
+    "USDCX",
+    "USDG",
+    "USDT",
+    "USDT0",
+    "USDe",
+    "USDf"
+  ],
+  "nearTokenSymbols": [
+    "NEAR",
+    "wNEAR"
+  ],
+  "internalChecks": {
+    "organicEqualsHeadPlusTail": {
+      "days": 369,
+      "daysEqual": 369,
+      "daysDifferent": []
+    }
+  },
+  "crossChecks": [
+    {
+      "id": "transactions_daily.tx_total~transactions_signers_daily.tx_count",
+      "local": "transactions_daily.tx_total",
+      "bigquery": "transactions_signers_daily.tx_count",
+      "daysLocal": 369,
+      "daysBigQuery": 369,
+      "daysCompared": 369,
+      "daysEqual": 369,
+      "maxAbsDiff": 0,
+      "maxAbsDiffDay": null
+    },
+    {
+      "id": "transactions_daily.signers_total~transactions_signers_daily.distinct_signers",
+      "local": "transactions_daily.signers_total",
+      "bigquery": "transactions_signers_daily.distinct_signers",
+      "daysLocal": 369,
+      "daysBigQuery": 369,
+      "daysCompared": 369,
+      "daysEqual": 369,
+      "maxAbsDiff": 0,
+      "maxAbsDiffDay": null
+    },
+    {
+      "id": "transactions_daily.tx_total~account_scan_daily.tx_total",
+      "local": "transactions_daily.tx_total",
+      "bigquery": "account_scan_daily.tx_total",
+      "daysLocal": 369,
+      "daysBigQuery": 369,
+      "daysCompared": 369,
+      "daysEqual": 369,
+      "maxAbsDiff": 0,
+      "maxAbsDiffDay": null
+    },
+    {
+      "id": "intents_tx_daily.value~account_scan_daily.tx_intents",
+      "local": "intents_tx_daily.value",
+      "bigquery": "account_scan_daily.tx_intents",
+      "daysLocal": 369,
+      "daysBigQuery": 369,
+      "daysCompared": 369,
+      "daysEqual": 369,
+      "maxAbsDiff": 0,
+      "maxAbsDiffDay": null
+    },
+    {
+      "id": "transactions_daily.tx_organic~account_scan_daily.tx_organic",
+      "local": "transactions_daily.tx_organic",
+      "bigquery": "account_scan_daily.tx_organic",
+      "daysLocal": 369,
+      "daysBigQuery": 369,
+      "daysCompared": 369,
+      "daysEqual": 369,
+      "maxAbsDiff": 0,
+      "maxAbsDiffDay": null
+    },
+    {
+      "id": "transactions_daily.signers_organic~account_scan_daily.signers_organic",
+      "local": "transactions_daily.signers_organic",
+      "bigquery": "account_scan_daily.signers_organic",
+      "daysLocal": 369,
+      "daysBigQuery": 369,
+      "daysCompared": 369,
+      "daysEqual": 369,
+      "maxAbsDiff": 0,
+      "maxAbsDiffDay": null
+    },
+    {
+      "id": "tail_daily.tail_tx~account_scan_daily.tail_tx",
+      "local": "tail_daily.tail_tx",
+      "bigquery": "account_scan_daily.tail_tx",
+      "daysLocal": 369,
+      "daysBigQuery": 369,
+      "daysCompared": 369,
+      "daysEqual": 369,
+      "maxAbsDiff": 0,
+      "maxAbsDiffDay": null
+    },
+    {
+      "id": "tail_daily.tail_signers~account_scan_daily.tail_signers",
+      "local": "tail_daily.tail_signers",
+      "bigquery": "account_scan_daily.tail_signers",
+      "daysLocal": 369,
+      "daysBigQuery": 369,
+      "daysCompared": 369,
+      "daysEqual": 369,
+      "maxAbsDiff": 0,
+      "maxAbsDiffDay": null
+    },
+    {
+      "id": "transactions_daily.tx_head~account_scan_daily.head_tx",
+      "local": "transactions_daily.tx_head",
+      "bigquery": "account_scan_daily.head_tx",
+      "daysLocal": 369,
+      "daysBigQuery": 369,
+      "daysCompared": 369,
+      "daysEqual": 369,
+      "maxAbsDiff": 0,
+      "maxAbsDiffDay": null
+    },
+    {
+      "id": "transactions_daily.tx_top10~account_scan_daily.top10_tx",
+      "local": "transactions_daily.tx_top10",
+      "bigquery": "account_scan_daily.top10_tx",
+      "daysLocal": 369,
+      "daysBigQuery": 369,
+      "daysCompared": 369,
+      "daysEqual": 369,
+      "maxAbsDiff": 0,
+      "maxAbsDiffDay": null
+    }
+  ],
+  "bigQueryQueries": [
+    {
+      "id": "transactions_signers_daily",
+      "title": "Total transactions and distinct signers per day",
+      "sqlBigQuery": "sql/bigquery/transactions_signers_daily.sql",
+      "executed": true,
+      "executedAt": "2026-11-14T10:13:30.443Z",
+      "jobId": "f7eb0511-74dd-4928-a11b-f06ba3c1526d",
+      "location": "us-east1",
+      "dryRunBytes": 19426952894,
+      "bytesBilled": 19426967552,
+      "rows": 369,
+      "resultFile": "raw/bq_transactions_signers_daily.json",
+      "resultSha256": "c0588d9f21767c5890c2456d59ee45d2a56f01010d8d279d6c3798c64521ea03",
+      "querySha256": "2f14abc7860d51e55d3a2677c8b0e9f53ba45cc41fd260ab1e3c866e586bc90e",
+      "note": null
+    },
+    {
+      "id": "account_scan_daily",
+      "title": "Intents, bridge, organic, head and tail transactions per day (the account scan, day level)",
+      "sqlBigQuery": "sql/bigquery/account_scan_daily.sql",
+      "executed": true,
+      "executedAt": "2026-11-14T10:13:27.663Z",
+      "jobId": "97b9e024-a06c-4c31-bccd-6ae3de71da91",
+      "location": "us-east1",
+      "dryRunBytes": 37704956319,
+      "bytesBilled": 37705744384,
+      "rows": 369,
+      "resultFile": "raw/bq_account_scan_daily.json",
+      "resultSha256": "1beeea90bd18768d7ac8900c1ca59b17acafab50054f02ff0602507747bf881a",
+      "querySha256": "977e20f0977e75ec52f73124b6e6b79d9e31b107bff6958d365a3d98bc25173b",
+      "note": null
+    }
+  ],
   "datasets": [
     {
+      "id": "intents_tx_daily",
+      "title": "F1 intents_tx: transactions per day addressed to the Intents contracts",
+      "unit": "transactions",
+      "file": "raw/intents_tx_daily.json",
+      "sha256": "6f12dd6dd4ff8f889e4a99972d0bb7b541a41787c1496b69d8ea623573676247",
+      "rows": 369,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset crypto_near_mainnet_us.transactions (ingested by the account scan into ClickHouse nearesis_live)",
+      "sqlExecuted": "sql/executed/intents_tx_daily.sql",
+      "sqlBigQuery": "sql/bigquery/account_scan_daily.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "37705744384",
+      "definition": "Transactions of the day whose receiver_account_id is one of intents.near, verifier2.near (the Intents verifier contracts; account rule version 1, services/ingestion/src/backfill/account-sql.ts), counted over ALL signers (head and tail). Bridge and omni-token receivers (bridge.near, omft.near, v2_1.omni.hot.tg and *.omft.near) are a separate class (tx_bridge) and are not in this count. A transaction is counted once, by its receiver.",
+      "caveats": [
+        "A transaction that reaches the Intents contracts through another contract (a cross-contract call) has another receiver and is not counted; only direct transactions to the verifier contracts are.",
+        "After 2026-10-27 part of Intents settlement is private and is not visible on chain, so this count can understate Intents activity after that date.",
+        "Successful and failed transactions cannot be told apart in the transactions table."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "All 369 days of the window are present."
+      }
+    },
+    {
+      "id": "tail_daily",
+      "title": "F2 tail_tx and F3 tail_signers: the long tail of ordinary accounts",
+      "unit": "transactions / accounts",
+      "file": "raw/tail_daily.json",
+      "sha256": "1059f110af7df857edcce2efda25f70f866c67707e52bcb72fa1ed2645369533",
+      "rows": 369,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "tail_tx",
+          "type": "integer-string"
+        },
+        {
+          "name": "tail_signers",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset crypto_near_mainnet_us.transactions (ingested by the account scan into ClickHouse nearesis_live)",
+      "sqlExecuted": "sql/executed/tail_daily.sql",
+      "sqlBigQuery": "sql/bigquery/account_scan_daily.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "37705744384",
+      "definition": "Per signer and day, organic transactions n_org = all transactions minus those addressed to the Intents verifier contracts and minus bridge/omni receivers. The head is every signer with n_org >= 100 that day; the tail is every signer with 0 < n_org < 100. tail_tx = sum of n_org over tail signers (organic transactions of accounts outside the heavy head); tail_signers = number of such signers. OVERLAP ANSWER: tail_tx does NOT contain Intents or bridge transactions, because those are removed before the head/tail split (tx_organic = tail_tx + head organic transactions exactly, checked on every day below). F2 therefore does not overlap F1 in transactions. The same accounts can appear in both series as signers (an account can sign an organic transaction and an Intents transaction on the same day); a signer with only Intents transactions on a day (n_org = 0) is in neither tail_signers nor the head.",
+      "caveats": [
+        "Accounts are signers, not people: one person can use several accounts and one account can be shared.",
+        "The head threshold counts organic transactions only, so an account with fewer than 100 organic transactions but many Intents transactions is in the tail for F2/F3.",
+        "The known 2026-04-02 break (two automated head accounts stopped) is outside this series by construction because the head is excluded; the break chart verifies it from the frozen data."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "All 369 days of the window are present."
+      }
+    },
+    {
+      "id": "transactions_daily",
+      "title": "Total, head and top-10 transactions per day",
+      "unit": "transactions",
+      "file": "raw/transactions_daily.json",
+      "sha256": "077c92917dabd3c9cc218ee1f3f2face20af604610a5544832d96818384f551a",
+      "rows": 369,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "tx_total",
+          "type": "integer-string"
+        },
+        {
+          "name": "signers_total",
+          "type": "integer-string"
+        },
+        {
+          "name": "tx_organic",
+          "type": "integer-string"
+        },
+        {
+          "name": "signers_organic",
+          "type": "integer-string"
+        },
+        {
+          "name": "tx_head",
+          "type": "integer-string"
+        },
+        {
+          "name": "tx_top10",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset crypto_near_mainnet_us.transactions (ingested by the account scan into ClickHouse nearesis_live)",
+      "sqlExecuted": "sql/executed/transactions_daily.sql",
+      "sqlBigQuery": "sql/bigquery/account_scan_daily.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "37705744384",
+      "definition": "tx_total = every row of the transactions table for the block_date; signers_total = distinct signers; tx_organic / signers_organic = the same after removing Intents-verifier and bridge/omni receivers; tx_head = organic transactions of signers with n_org >= 100 that day (sum over account_daily_head); tx_top10 = organic transactions of the 10 organic signers with the most organic transactions that day.",
+      "caveats": [
+        "tx_total includes automated and Intents activity; it is not a measure of distinct users.",
+        "Successful and failed transactions cannot be told apart."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "All 369 days of the window are present."
+      }
+    },
+    {
+      "id": "new_signers_daily",
+      "title": "New organic signers per day (first organic day seen since the window start)",
+      "unit": "accounts",
+      "file": "raw/new_signers_daily.json",
+      "sha256": "69f1cc5f8fdb6f6db5536115f7c71f6d6fdc0db4853c6c809bd453d9be503ee5",
+      "rows": 368,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset crypto_near_mainnet_us.transactions (ingested by the account scan into ClickHouse nearesis_live)",
+      "sqlExecuted": "sql/executed/new_signers_daily.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "Organic signers (any size, tail and head) whose first organic transaction since the window start (2025-11-10) falls on that day. \"New\" means first seen SINCE 2025-11-10, not lifetime first-seen, so early days include returning accounts that had been inactive; the window-start day itself (every signer is new by construction) is left out and listed as a missing day. Head signers are a negligible share of the count (see head_accounts_break), so this is read as new long-tail signers.",
+      "caveats": [
+        "Accounts are not people. Because 'new' is relative to the window start, the level is inflated early in the window and falls as the pool of already-seen accounts grows; read it as a trend of newcomers, not a lifetime acquisition count."
+      ],
+      "coverage": {
+        "missingDays": [
+          "2025-11-10"
+        ],
+        "note": "2025-11-10 (the window start) is left out by definition: every signer is new that day."
+      }
+    },
+    {
       "id": "intents_volume_daily",
-      "title": "NEAR Intents swap volume per day (USD)",
+      "title": "F4 intents_usd: USD volume of successful Intents swaps per day",
       "unit": "USD",
       "file": "raw/intents_volume_daily.json",
-      "sha256": "5083fd601b20f447721ade6becf12c9ad480d73d266484cb04347d8780af81d5",
-      "rows": 191,
+      "sha256": "06dc827071cf272121975d4d9187feb1ffddf263ef76497862ca3f1ad5c20bf5",
+      "rows": 343,
       "columns": [
         {
           "name": "d",
@@ -28,194 +355,384 @@
       "sqlBigQuery": null,
       "bigQueryExecuted": false,
       "bigQueryBytesBilled": null,
-      "definition": "Sum of amount_in_usd over swaps with status SUCCESS, by created_day (UTC), NULL USD amounts excluded; same definition as the frozen v3 research snapshot (a day with a SUCCESS swap whose USD is NULL would be null, none are in this window).",
+      "definition": "Sum of amount_in_usd (the provider's USD value of the input amount, exact Decimal(76,18) sum) over swaps with status SUCCESS and a known USD value, by created_day (UTC): the research definition. A day with a SUCCESS swap whose USD is NULL would be null (none is in this window). Days whose swaps are marked partial in source_coverage (provider near-explorer, dataset intents_swaps: 2025-11-09 oldest edge, 2026-01-27/28/30 quarantined pages, 2026-04-02 to 2026-04-23 explorer cursor jump, 2026-07-23 quarantined page) are left out of this series entirely, and so are the two days (2026-02-02 and 2026-02-04) on which a successful swap has no USD value (the day is incomplete by the research definition); they are listed as missing days and never filled with zero or estimated.",
       "caveats": [
-        "Volume counts SUCCESS swaps only. REFUNDED and FAILED swaps are excluded, which also excludes the four refunded swaps whose provider USD values are absurd (quarantined in usd-quarantine.ts).",
-        "Values are sums computed as Float64 by the research definition (toFloat64); each is printed as the shortest round-trip decimal and is exact only as printed, not as an exact decimal sum.",
-        "amount_in_usd is the provider's USD value of the input amount at swap time, not an audited price.",
+        "SUCCESS-only excludes REFUNDED and FAILED swaps, which also excludes the four refunded swaps with absurd provider USD values (quarantined in usd-quarantine.ts).",
+        "amount_in_usd is the provider's USD value at swap time, not an audited price.",
         "1Click swaps are not all NEAR Intents activity, and the Explorer shows only swaps it exposes; after 2026-10-27 private (shielded) settlement is not observed, so lower later values mean unobserved, not zero."
       ],
       "coverage": {
-        "missingDays": [],
-        "note": "All 191 days of the window are present."
+        "missingDays": [
+          "2026-01-27",
+          "2026-01-28",
+          "2026-01-30",
+          "2026-02-02",
+          "2026-02-04",
+          "2026-04-02",
+          "2026-04-03",
+          "2026-04-04",
+          "2026-04-05",
+          "2026-04-06",
+          "2026-04-07",
+          "2026-04-08",
+          "2026-04-09",
+          "2026-04-10",
+          "2026-04-11",
+          "2026-04-12",
+          "2026-04-13",
+          "2026-04-14",
+          "2026-04-15",
+          "2026-04-16",
+          "2026-04-17",
+          "2026-04-18",
+          "2026-04-19",
+          "2026-04-20",
+          "2026-04-21",
+          "2026-04-22",
+          "2026-04-23",
+          "2026-07-23"
+        ],
+        "note": "Partial swap days are excluded and listed as missing (see swaps_coverage)."
       }
     },
     {
-      "id": "intents_swaps_daily",
-      "title": "NEAR Intents swaps per day (count)",
-      "unit": "swaps",
-      "file": "raw/intents_swaps_daily.json",
-      "sha256": "8bee9659143ed8560a6cc0fd18ba757f7b192e559f85fa8b90a3a5fb56f8a275",
-      "rows": 191,
+      "id": "swaps_daily",
+      "title": "Successful Intents swaps per day and the median successful swap (USD)",
+      "unit": "swaps / USD",
+      "file": "raw/swaps_daily.json",
+      "sha256": "9559bf87041ff96d680abb75f74af9646d5bc134e5d14b0543adb8c44371c882",
+      "rows": 343,
       "columns": [
         {
           "name": "d",
           "type": "date"
         },
         {
-          "name": "value",
+          "name": "success_swaps",
           "type": "integer-string"
         },
         {
-          "name": "n_all",
-          "type": "integer-string"
+          "name": "median_usd",
+          "type": "decimal-string|null"
         }
       ],
       "source": "Intents Explorer API (ingested into ClickHouse nearesis_live.intents_swaps)",
-      "sqlExecuted": "sql/executed/intents_swaps_daily.sql",
+      "sqlExecuted": "sql/executed/swaps_daily.sql",
       "sqlBigQuery": null,
       "bigQueryExecuted": false,
       "bigQueryBytesBilled": null,
-      "definition": "value = swaps with status SUCCESS per created_day (UTC); n_all = swaps of every status that day.",
+      "definition": "success_swaps = swaps with status SUCCESS per created_day (UTC); median_usd = the median amount_in_usd of successful swaps with a known USD value (ClickHouse quantileExact(0.5): the value at index floor(n/2) of the sorted amounts). Days whose swaps are marked partial in source_coverage (provider near-explorer, dataset intents_swaps: 2025-11-09 oldest edge, 2026-01-27/28/30 quarantined pages, 2026-04-02 to 2026-04-23 explorer cursor jump, 2026-07-23 quarantined page) are left out of this series entirely, and so are the two days (2026-02-02 and 2026-02-04) on which a successful swap has no USD value (the day is incomplete by the research definition); they are listed as missing days and never filled with zero or estimated.",
       "caveats": [
-        "2026-07-23 is marked partial in source_coverage (intents_swaps): the Explorer fetch for that day was incomplete, so its count is a lower bound. This is why the frozen v3 research status is INSUFFICIENT_DATA.",
-        "1Click swaps are not all NEAR Intents activity; after 2026-10-27 private settlement is unobserved, not zero."
+        "1Click swaps are not all NEAR Intents activity, and the Explorer shows only swaps it exposes; after 2026-10-27 private (shielded) settlement is not observed, so lower later values mean unobserved, not zero."
       ],
       "coverage": {
-        "missingDays": [],
-        "note": "2026-07-23 is partial (see caveats); its row is present and is a lower bound."
+        "missingDays": [
+          "2026-01-27",
+          "2026-01-28",
+          "2026-01-30",
+          "2026-04-02",
+          "2026-04-03",
+          "2026-04-04",
+          "2026-04-05",
+          "2026-04-06",
+          "2026-04-07",
+          "2026-04-08",
+          "2026-04-09",
+          "2026-04-10",
+          "2026-04-11",
+          "2026-04-12",
+          "2026-04-13",
+          "2026-04-14",
+          "2026-04-15",
+          "2026-04-16",
+          "2026-04-17",
+          "2026-04-18",
+          "2026-04-19",
+          "2026-04-20",
+          "2026-04-21",
+          "2026-04-22",
+          "2026-04-23",
+          "2026-07-23"
+        ],
+        "note": "Partial swap days are excluded and listed as missing (see swaps_coverage)."
       }
     },
     {
-      "id": "active_accounts_daily",
-      "title": "Daily active accounts (distinct signers)",
-      "unit": "accounts",
-      "file": "raw/active_accounts_daily.json",
-      "sha256": "c9b9e43bebbf4112246506b8395c86a44ee61cdc8f14569386d5a87b761d5524",
-      "rows": 191,
+      "id": "intents_mix_daily",
+      "title": "What moves through Intents: stable-to-stable, no-NEAR-asset and NEAR-token shares of daily USD volume",
+      "unit": "USD / share",
+      "file": "raw/intents_mix_daily.json",
+      "sha256": "2166838d0c38ce510ca2e746ba9401ebbb6e387cf20cbc8eb23b2faec65fa410",
+      "rows": 341,
       "columns": [
         {
           "name": "d",
           "type": "date"
         },
         {
-          "name": "value",
-          "type": "integer-string"
+          "name": "total_usd",
+          "type": "decimal-string|null"
         },
         {
-          "name": "signers_organic",
-          "type": "integer-string"
+          "name": "stable_usd",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "no_near_usd",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "near_token_usd",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "unknown_usd",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "stable_share",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "no_near_share",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "near_token_share",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "unknown_share",
+          "type": "decimal-string|null"
         }
       ],
-      "source": "BigQuery public dataset crypto_near_mainnet_us.transactions (ingested into ClickHouse nearesis_live.account_daily_activity)",
-      "sqlExecuted": "sql/executed/active_accounts_daily.sql",
-      "sqlBigQuery": "sql/bigquery/active_accounts_daily.sql",
-      "bigQueryExecuted": true,
-      "bigQueryBytesBilled": "4181721088",
-      "definition": "value = COUNT(DISTINCT signer_account_id) over the day's transactions; signers_organic = the same after excluding transactions addressed to the Intents verifier and bridge contracts (documented rule in account-sql.ts).",
+      "source": "Intents Explorer API (ingested into ClickHouse nearesis_live.intents_swaps) joined to the asset registry (nearesis_live.asset_registry)",
+      "sqlExecuted": "sql/executed/intents_mix_daily.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "Volume = successful swaps with a known USD value (the F4 definition), per created_day (UTC). Each swap leg (origin_asset, destination_asset) is joined to nearesis_live.asset_registry on provider_asset_id. F5 stable_share: both legs are a stablecoin, by upper-cased registry symbol_observed in {DAI, FRAX, USD1, USDC, USDCX, USDG, USDT, USDT0, USDe, USDf} (the frozen research snapshot's stablecoinSet; USDT0 and USDCx variants count, a deprecated-suffix symbol does not). F6 no_near_share: both legs mapped and NEITHER leg has registry blockchain 'near' (a stablecoin or token issued on NEAR counts as a NEAR-chain asset). F7 near_token_share: either leg has symbol NEAR or wNEAR (asset ids listed in asset_sets: nep141:wrap.near is wNEAR on NEAR; the NEAR token on BNB chain is also listed; F6 and F7 can overlap only for that BNB-chain leg). unknown_share: a swap with an unmapped leg (no registry row) is counted in unknown_usd only, never in F5, F6 or F7; shares divide by total_usd including unknown. The registry rows are used regardless of valid_from: every row has valid_from 2026-05-01 (the registry load stamp, valid_to is null everywhere), and applying it as a validity start would wrongly unmap every swap before that date. Shares are the share of the day's USD volume, not of swap counts. Days whose swaps are marked partial in source_coverage (provider near-explorer, dataset intents_swaps: 2025-11-09 oldest edge, 2026-01-27/28/30 quarantined pages, 2026-04-02 to 2026-04-23 explorer cursor jump, 2026-07-23 quarantined page) are left out of this series entirely, and so are the two days (2026-02-02 and 2026-02-04) on which a successful swap has no USD value (the day is incomplete by the research definition); they are listed as missing days and never filled with zero or estimated.",
       "caveats": [
-        "Distinct signers are a proxy for active accounts, not people, and are not summable across days (an account active on two days counts twice).",
-        "BigQuery job 3b1c8c6a-aa8e-4fd4-b778-c1d43167e32c (us-east1) ran 2026-11-14T05:54:27.203Z: dry run 4181577863 bytes, 4181721088 bytes billed, 191 rows, result in raw/bq_active_accounts_daily.json (sha256 70f13fcbc1547aa8fa35a94041a4d0a96c66c7aee2c058a6853ea4616e56f7d4).",
-        "Local vs BigQuery (distinct signers): 191 of 191 compared days are exactly equal; max absolute difference 0; local 191 days, BigQuery 191 days."
+        "USD amounts are the provider's value of the input amount and each leg's identity is the registry's: a wrong or missing registry row moves volume between classes. A swap whose two legs are the same asset (for example wNEAR to wNEAR) is counted as is.",
+        "Stable-to-stable swaps include same-stablecoin cross-chain transfers (for example USDT on one chain to USDT on another), so the share measures stablecoin movement through Intents, not stablecoin trading alone.",
+        "1Click swaps are not all NEAR Intents activity, and the Explorer shows only swaps it exposes; after 2026-10-27 private (shielded) settlement is not observed, so lower later values mean unobserved, not zero."
       ],
       "coverage": {
-        "missingDays": [],
-        "note": "All 191 days of the window are present."
+        "missingDays": [
+          "2026-01-27",
+          "2026-01-28",
+          "2026-01-30",
+          "2026-02-02",
+          "2026-02-04",
+          "2026-04-02",
+          "2026-04-03",
+          "2026-04-04",
+          "2026-04-05",
+          "2026-04-06",
+          "2026-04-07",
+          "2026-04-08",
+          "2026-04-09",
+          "2026-04-10",
+          "2026-04-11",
+          "2026-04-12",
+          "2026-04-13",
+          "2026-04-14",
+          "2026-04-15",
+          "2026-04-16",
+          "2026-04-17",
+          "2026-04-18",
+          "2026-04-19",
+          "2026-04-20",
+          "2026-04-21",
+          "2026-04-22",
+          "2026-04-23",
+          "2026-07-23"
+        ],
+        "note": "Partial swap days are excluded and listed as missing (see swaps_coverage)."
       }
     },
     {
-      "id": "transactions_daily",
-      "title": "NEAR transactions per day",
-      "unit": "transactions",
-      "file": "raw/transactions_daily.json",
-      "sha256": "7db994092e8099a13dfe59898ad6c97761a33f058cc9a92a2804eed05652bbbb",
-      "rows": 191,
+      "id": "chain_pairs_monthly",
+      "title": "Monthly USD volume of the top 10 origin-chain to destination-chain pairs",
+      "unit": "USD",
+      "file": "raw/chain_pairs_monthly.json",
+      "sha256": "b743886ca1b3181dea7b77655ecf4ff4791edd9c4c7dc42b07a146604fc176f9",
+      "rows": 130,
       "columns": [
         {
-          "name": "d",
+          "name": "m",
           "type": "date"
         },
         {
-          "name": "value",
-          "type": "integer-string"
-        }
-      ],
-      "source": "BigQuery public dataset crypto_near_mainnet_us.transactions (ingested into ClickHouse nearesis_live.near_daily_tx)",
-      "sqlExecuted": "sql/executed/transactions_daily.sql",
-      "sqlBigQuery": "sql/bigquery/transactions_daily.sql",
-      "bigQueryExecuted": true,
-      "bigQueryBytesBilled": "1160773632",
-      "definition": "Every row of the transactions table for the block_date. Successful and failed transactions cannot be told apart (the status column only carries SUCCESS_RECEIPT_ID).",
-      "caveats": [
-        "Transactions include automated and Intents-generated activity; the count is not a measure of distinct users.",
-        "BigQuery job 36e22020-1183-4e72-9747-dbec1de04d75 (us-east1) ran 2026-11-14T05:54:23.422Z: dry run 1160026096 bytes, 1160773632 bytes billed, 191 rows, result in raw/bq_transactions_daily.json (sha256 9587b499c1bd7e750770f35b1cddd039d050282de3cdf66f2bda041df0ff65a4).",
-        "Local vs BigQuery (tx_count): 191 of 191 compared days are exactly equal; max absolute difference 0; local 191 days, BigQuery 191 days."
-      ],
-      "coverage": {
-        "missingDays": [],
-        "note": "All 191 days of the window are present."
-      }
-    },
-    {
-      "id": "contract_usage_daily",
-      "title": "Contract usage per day (function calls and active contracts)",
-      "unit": "function-call actions",
-      "file": "raw/contract_usage_daily.json",
-      "sha256": "42b0e165123ed25d073772df5deb7f77d3cbc147071ebafc032aa2033eda6da6",
-      "rows": 191,
-      "columns": [
-        {
-          "name": "d",
-          "type": "date"
-        },
-        {
-          "name": "value",
-          "type": "integer-string"
-        },
-        {
-          "name": "active_contracts",
-          "type": "integer-string"
-        }
-      ],
-      "source": "BigQuery public dataset crypto_near_mainnet_us.receipt_actions (ingested into ClickHouse nearesis_live.contract_interactions and the near_daily_usage view)",
-      "sqlExecuted": "sql/executed/contract_usage_daily.sql",
-      "sqlBigQuery": "sql/bigquery/contract_usage_daily.sql",
-      "bigQueryExecuted": true,
-      "bigQueryBytesBilled": "4516216832",
-      "definition": "value = FUNCTION_CALL actions per day; active_contracts = distinct receiver accounts of those actions. Receivers with >= 100 calls that day are held individually; the rest are folded into an exact per-day remainder, so both daily totals are exact.",
-      "caveats": [
-        "contract_interactions only holds receivers with >= 100 calls on a day; the per-receiver detail (and contract_usage_top) therefore omits the long tail, while the daily totals include it.",
-        "The BigQuery source queries (sql/bigquery) count transactions by receiver_account_id, a cheaper and different measure than function-call actions; the comparison is reported but is not like-for-like.",
-        "BigQuery job 90128489-2fe2-491e-b267-deed24f06d80 (us-east1) ran 2026-11-14T05:54:29.675Z: dry run 4515762856 bytes, 4516216832 bytes billed, 191 rows, result in raw/bq_contract_usage_daily.json (sha256 6a5e093cded2fdbb824951b2561d2b2d3f4292d5c8ce949f2540b1f2dcd09c62).",
-        "NOT like-for-like. Local active contracts (receivers of function calls) vs BigQuery distinct transaction receivers: 0 of 191 days equal, max absolute difference 192088 (on 2026-10-04). Local function-call actions vs BigQuery transaction count: 0 of 191 days equal, max absolute difference 11590683 (on 2026-10-11)."
-      ],
-      "coverage": {
-        "missingDays": [],
-        "note": "All 191 days of the window are present."
-      }
-    },
-    {
-      "id": "contract_usage_top",
-      "title": "Top 50 receiver contracts over the window (function calls)",
-      "unit": "function-call actions",
-      "file": "raw/contract_usage_top.json",
-      "sha256": "015d809a1e0486d69eddeceaa42f962d021a0ad7cf04f9abbf12e1efcfe3517a",
-      "rows": 50,
-      "columns": [
-        {
-          "name": "receiver_account_id",
+          "name": "origin_chain",
           "type": "string"
         },
         {
-          "name": "value",
-          "type": "integer-string"
+          "name": "destination_chain",
+          "type": "string"
         },
         {
-          "name": "days_listed",
+          "name": "usd",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "swaps",
           "type": "integer-string"
         }
       ],
-      "source": "BigQuery public dataset crypto_near_mainnet_us.receipt_actions (ingested into ClickHouse nearesis_live.contract_interactions)",
-      "sqlExecuted": "sql/executed/contract_usage_top.sql",
-      "sqlBigQuery": "sql/bigquery/contract_usage_top.sql",
-      "bigQueryExecuted": true,
-      "bigQueryBytesBilled": "4516216832",
-      "definition": "Receivers ranked by FUNCTION_CALL actions summed over the window, counting only the days a receiver had >= 100 calls; days_listed is the number of such days.",
+      "source": "Intents Explorer API (ingested into ClickHouse nearesis_live.intents_swaps) joined to the asset registry",
+      "sqlExecuted": "sql/executed/chain_pairs_monthly.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "USD volume (successful, known-USD swaps, same definition as F4, complete days only) by calendar month (m = first day of the month) and registry blockchain of the origin and destination asset; the ten pairs with the largest volume over the whole window are listed, each with the months where it has volume. 2025-11 starts on 2025-11-10 and 2026-11 ends on 2026-11-13: those two months are partial.",
       "caveats": [
-        "Only receiver-days with >= 100 calls are held, so totals understate receivers that were active below the threshold on some days.",
-        "A ranking over the whole window has no per-day axis (no date column, no missing days).",
-        "BigQuery job 98f3251d-3649-49f2-bf53-b307879a9cad (us-east1) ran 2026-11-14T05:54:36.143Z: dry run 4515762856 bytes, 4516216832 bytes billed, 100 rows, result in raw/bq_contract_usage_top.json (sha256 498d915b0e02efb2d74ad1e7ccc53b143d83c352789893b05e798c039e293efd).",
-        "NOT like-for-like (function-call actions locally, transactions by receiver in BigQuery): top-20 overlap 11 of 20, top-50 overlap 30 of 50 receivers."
+        "A pair is by the blockchain of each asset in the registry (e.g. btc to eth), not by wallet. Months with no volume for a pair have no row (not zero-filled). Days whose swaps are marked partial in source_coverage (provider near-explorer, dataset intents_swaps: 2025-11-09 oldest edge, 2026-01-27/28/30 quarantined pages, 2026-04-02 to 2026-04-23 explorer cursor jump, 2026-07-23 quarantined page) are left out of this series entirely, and so are the two days (2026-02-02 and 2026-02-04) on which a successful swap has no USD value (the day is incomplete by the research definition); they are listed as missing days and never filled with zero or estimated."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": null
+      }
+    },
+    {
+      "id": "excursion_routes",
+      "title": "Routes with a NEAR-token leg, 2026-05-22 to 2026-05-27 (the May 2026 excursion)",
+      "unit": "USD",
+      "file": "raw/excursion_routes.json",
+      "sha256": "075ec1f2e76ea01bb0e67a18b85df4383fdf8e534b684ae53f3560749efc50d0",
+      "rows": 10,
+      "columns": [
+        {
+          "name": "origin_symbol",
+          "type": "string"
+        },
+        {
+          "name": "origin_chain",
+          "type": "string"
+        },
+        {
+          "name": "destination_symbol",
+          "type": "string"
+        },
+        {
+          "name": "destination_chain",
+          "type": "string"
+        },
+        {
+          "name": "swaps",
+          "type": "integer-string"
+        },
+        {
+          "name": "usd",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "median_usd",
+          "type": "decimal-string|null"
+        }
+      ],
+      "source": "Intents Explorer API (ingested into ClickHouse nearesis_live.intents_swaps) joined to the asset registry",
+      "sqlExecuted": "sql/executed/excursion_routes.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "The ten routes (origin asset to destination asset) with the most USD volume among successful known-USD swaps that have a NEAR or wNEAR leg, over 2026-05-22 to 2026-05-27, the days on which the near_token_share series peaks. Used only to explain that excursion.",
+      "caveats": [
+        "A route here is a pair of registry symbols and blockchains. A swap of an asset for the same asset on the same chain shows an input value but a median close to zero when most such swaps are tiny."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": null
+      }
+    },
+    {
+      "id": "asset_sets",
+      "title": "The asset sets used for F5, F6 and F7 (registry rows)",
+      "unit": "assets",
+      "file": "raw/asset_sets.json",
+      "sha256": "2fa260e3b9419b6569182bfc33785cc054e3ebe28b5f3851cb69c216213f2c34",
+      "rows": 50,
+      "columns": [
+        {
+          "name": "set_name",
+          "type": "string"
+        },
+        {
+          "name": "provider_asset_id",
+          "type": "string"
+        },
+        {
+          "name": "symbol",
+          "type": "string"
+        },
+        {
+          "name": "blockchain",
+          "type": "string"
+        },
+        {
+          "name": "verification",
+          "type": "string"
+        }
+      ],
+      "source": "Local asset registry (nearesis_live.asset_registry)",
+      "sqlExecuted": "sql/executed/asset_sets.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "Every registry row whose upper-cased symbol is in the stablecoin set {DAI, FRAX, USD1, USDC, USDCX, USDG, USDT, USDT0, USDe, USDf} (set_name stable) or is NEAR / wNEAR (set_name near_token).",
+      "caveats": [
+        "Some stablecoin rows are 'ambiguous' or 'unverified' in the registry; they are included because the research snapshot's set is by symbol."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": null
+      }
+    },
+    {
+      "id": "head_accounts_break",
+      "title": "Head accounts around 2026-04-02: transactions in the 31 days before and after",
+      "unit": "transactions",
+      "file": "raw/head_accounts_break.json",
+      "sha256": "9fde6db7a0e78e1c8b115ecd2dfdb7341d7a5a31ec83d09a7b9b0cad11a688a2",
+      "rows": 12,
+      "columns": [
+        {
+          "name": "signer_account_id",
+          "type": "string"
+        },
+        {
+          "name": "head_days_before",
+          "type": "integer-string"
+        },
+        {
+          "name": "tx_before",
+          "type": "integer-string"
+        },
+        {
+          "name": "avg_daily_before",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "head_days_after",
+          "type": "integer-string"
+        },
+        {
+          "name": "tx_after",
+          "type": "integer-string"
+        },
+        {
+          "name": "avg_daily_after",
+          "type": "decimal-string|null"
+        }
+      ],
+      "source": "BigQuery public dataset crypto_near_mainnet_us.transactions (ingested by the account scan into ClickHouse nearesis_live)",
+      "sqlExecuted": "sql/executed/head_accounts_break.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "The 12 head accounts (organic transactions >= 100 on a day) with the largest of their before and after totals. Before = 2026-03-02 to 2026-04-01 and after = 2026-04-02 to 2026-05-02, 31 days each. tx_* sums organic transactions on the days the account was in the head; avg_daily_* = that sum divided by 31. On a day below 100 organic transactions the account is not stored, so the averages are lower bounds for accounts that were in the head on fewer days than 31 (head_days_* says how many).",
+      "caveats": [
+        "Organic transactions only (Intents and bridge transactions are excluded by the account rule); automated accounts are identified by behaviour in the data, not by who runs them."
       ],
       "coverage": {
         "missingDays": [],
@@ -224,11 +741,11 @@
     },
     {
       "id": "near_price_daily",
-      "title": "NEAR price per day (USD)",
+      "title": "NEAR daily close (USD)",
       "unit": "USD per NEAR",
       "file": "raw/near_price_daily.json",
-      "sha256": "ad5f2299d569abb9f95488f190bf3db1cd75d7730cd28381f4bbf715ca05cfe2",
-      "rows": 191,
+      "sha256": "355c60d51dc50c4786fc2c19be26e1da00edb9c1c5fcfc7fa0592d4c6e831e98",
+      "rows": 369,
       "columns": [
         {
           "name": "d",
@@ -244,14 +761,48 @@
       "sqlBigQuery": null,
       "bigQueryExecuted": false,
       "bigQueryBytesBilled": null,
-      "definition": "The provider's last price sample of the UTC day (close_raw as received, exact string). The free plan has no daily OHLC history, so the day's candle is built from 24 hourly samples (basis hourly_samples_24_per_day).",
+      "definition": "The provider's last price sample of the UTC day (close_raw as received, exact string). The free plan has no daily OHLC history, so the day's candle is built from 24 hourly samples.",
       "caveats": [
-        "The 'close' is the last hourly sample of the day, not an official daily close; the frozen research used the same value converted with toFloat64.",
-        "Price is an aggregated provider quote, not a trade-weighted VWAP."
+        "The 'close' is the last hourly sample of the day, not an official daily close; it is an aggregated provider quote, not a trade-weighted VWAP."
       ],
       "coverage": {
         "missingDays": [],
-        "note": "All 191 days of the window are present."
+        "note": "All 369 days of the window are present."
+      }
+    },
+    {
+      "id": "swaps_coverage",
+      "title": "Days marked partial or incomplete in the swaps source coverage",
+      "unit": "days",
+      "file": "raw/swaps_coverage.json",
+      "sha256": "7db31bc754d1ca33deaf20a59459015b8e3d6db98e29e2362200d3eb380b16de",
+      "rows": 27,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "state",
+          "type": "string"
+        },
+        {
+          "name": "reason",
+          "type": "string"
+        }
+      ],
+      "source": "Local source coverage (nearesis_live.source_coverage)",
+      "sqlExecuted": "sql/executed/swaps_coverage.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "One row per day (2025-11-09 to the last day) on which the Explorer swap fetch is not complete. These days are excluded from every swap series (F4 to F8) and listed, never filled.",
+      "caveats": [
+        "2026-11-14 (still filling, partial) is outside the window and not a row here."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": null
       }
     }
   ]

@@ -1,152 +1,210 @@
 {
   "schema": "nearesis.thesis.hashes.v1",
-  "version": "v-69055059d3e7",
-  "generatedAt": "2026-11-14T05:56:17.206Z",
+  "version": "v-87666ef9b9e9",
+  "generatedAt": "2026-11-14T10:12:49.255Z",
   "files": [
     {
       "path": "build/THESIS.md",
-      "sha256": "d4755420f205b2903221b1e767605e7d4ad365f9591e63a3d343a26accd0fe88",
-      "bytes": 63413
+      "sha256": "fdc7a447f22a738b4f787dffaa270f689705eafcc9f6e5fb1e1e85dfa566db93",
+      "bytes": 99829
     },
     {
       "path": "build/site/index.html",
-      "sha256": "87990d95c041f4b10a6eaa719ac6a4338795f4c261f985eafb9f4bf806cbf6fd",
-      "bytes": 176153
+      "sha256": "5333eff02e84d339f96721e2fb333e536c783454447000332e3caa9c863f6dbc",
+      "bytes": 580605
+    },
+    {
+      "path": "build/FACTS.md",
+      "sha256": "716a9100cb1af3a7789018cb64e58ecbb0d94b9dfc120cefea28f00f4d8d5872",
+      "bytes": 77906
+    },
+    {
+      "path": "raw/forecast.json",
+      "sha256": "6bbf9c037e0713e227774b7b8e3680e4226b5618a3657ee235a30cf972400a88",
+      "bytes": 636192
     },
     {
       "path": "build/thesis.json",
-      "sha256": "7f0da7a1ad9a7845d8a8815eb981b3bb655000185773ba0a5e21d0d44c85c05b",
-      "bytes": 230053
+      "sha256": "cca221208c0a162541d2ea4d7a1657c73f6eeedf5d11c05a66e4fceba67678d8",
+      "bytes": 1657977
     }
   ],
   "inputs": [
     {
       "path": "thesis/TABLES.md",
-      "sha256": "8200ee5ae7449a16e1637f57fbb9cb1384e0c41aacc326f4e45527d2aef4a093"
+      "sha256": "386053ae7beafeda360897249aebc6f9d46b41a2f60b3de91bf4eec3f6188438"
     },
     {
-      "path": "thesis/raw/active_accounts_daily.json",
-      "sha256": "c9b9e43bebbf4112246506b8395c86a44ee61cdc8f14569386d5a87b761d5524"
+      "path": "thesis/archive/intents-vs-price-v1/build/thesis.json",
+      "sha256": "7f0da7a1ad9a7845d8a8815eb981b3bb655000185773ba0a5e21d0d44c85c05b"
     },
     {
-      "path": "thesis/raw/contract_usage_daily.json",
-      "sha256": "42b0e165123ed25d073772df5deb7f77d3cbc147071ebafc032aa2033eda6da6"
+      "path": "thesis/interpretation.md",
+      "sha256": "699e2fe1f9869e58024a1efec010f74d4b5c0861fb7ba2cc62cb9e488fc5f3db"
     },
     {
-      "path": "thesis/raw/contract_usage_top.json",
-      "sha256": "015d809a1e0486d69eddeceaa42f962d021a0ad7cf04f9abbf12e1efcfe3517a"
+      "path": "thesis/raw/asset_sets.json",
+      "sha256": "2fa260e3b9419b6569182bfc33785cc054e3ebe28b5f3851cb69c216213f2c34"
     },
     {
-      "path": "thesis/raw/intents_swaps_daily.json",
-      "sha256": "8bee9659143ed8560a6cc0fd18ba757f7b192e559f85fa8b90a3a5fb56f8a275"
+      "path": "thesis/raw/bq_account_scan_daily.json",
+      "sha256": "1beeea90bd18768d7ac8900c1ca59b17acafab50054f02ff0602507747bf881a"
+    },
+    {
+      "path": "thesis/raw/bq_transactions_signers_daily.json",
+      "sha256": "c0588d9f21767c5890c2456d59ee45d2a56f01010d8d279d6c3798c64521ea03"
+    },
+    {
+      "path": "thesis/raw/chain_pairs_monthly.json",
+      "sha256": "b743886ca1b3181dea7b77655ecf4ff4791edd9c4c7dc42b07a146604fc176f9"
+    },
+    {
+      "path": "thesis/raw/excursion_routes.json",
+      "sha256": "075ec1f2e76ea01bb0e67a18b85df4383fdf8e534b684ae53f3560749efc50d0"
+    },
+    {
+      "path": "thesis/raw/fees/FEE_MODEL.md",
+      "sha256": "464544955fae9772a7b4bf4ea3a1f8477ac9376105673cd47800ccb258461000"
+    },
+    {
+      "path": "thesis/raw/fees/NOTES.md",
+      "sha256": "9a1138fda1217e1682375b943ef6f23552ca11c0b8563c3a3dbf87a1338de0e2"
+    },
+    {
+      "path": "thesis/raw/fees/fees_by_receiver_top.json",
+      "sha256": "f79e1118bbcd29f4725df402437976b4fbb085f67ffe23d9b74bbbc6e323e4ee"
+    },
+    {
+      "path": "thesis/raw/fees/fees_footprint_discovery.json",
+      "sha256": "a109bb92143d8d8e8f0fde1c74c816ea450aaddc486228029ca7f1e956c6448b"
+    },
+    {
+      "path": "thesis/raw/fees/fees_intents_daily.json",
+      "sha256": "34fef154f814230940b7ef4cda370dd8b8bdec3b416a447ab48b78de558f1a51"
+    },
+    {
+      "path": "thesis/raw/fees/fees_take_rate_gas_daily.json",
+      "sha256": "91054feb0ab66cb6a7ed3a34556b586b03241325cdc7f78b62cd2ec03d9f9c5a"
+    },
+    {
+      "path": "thesis/raw/fees/fees_total_daily.json",
+      "sha256": "e0fa88d8735d2152e4723d484c0f2c985673f614be398841fa4d8623a465e73a"
+    },
+    {
+      "path": "thesis/raw/fees/manifest.json",
+      "sha256": "12bbc01cf67061bda8838d1dff6f71702d4a82b10be602adaf5b79b6860326f2"
+    },
+    {
+      "path": "thesis/raw/fees/toll_daily.json",
+      "sha256": "a206d28eacc7455533e87cca0858deb1b542b40c1de381a06c39c3d3fe0a1650"
+    },
+    {
+      "path": "thesis/raw/fees/tx_fee_intents_daily.json",
+      "sha256": "e3b321a309cb70a84618d4046ceb85a5505d8beeb7f4ea8e01de487280e7fdc1"
+    },
+    {
+      "path": "thesis/raw/head_accounts_break.json",
+      "sha256": "9fde6db7a0e78e1c8b115ecd2dfdb7341d7a5a31ec83d09a7b9b0cad11a688a2"
+    },
+    {
+      "path": "thesis/raw/intents_mix_daily.json",
+      "sha256": "2166838d0c38ce510ca2e746ba9401ebbb6e387cf20cbc8eb23b2faec65fa410"
+    },
+    {
+      "path": "thesis/raw/intents_tx_daily.json",
+      "sha256": "6f12dd6dd4ff8f889e4a99972d0bb7b541a41787c1496b69d8ea623573676247"
     },
     {
       "path": "thesis/raw/intents_volume_daily.json",
-      "sha256": "5083fd601b20f447721ade6becf12c9ad480d73d266484cb04347d8780af81d5"
+      "sha256": "06dc827071cf272121975d4d9187feb1ffddf263ef76497862ca3f1ad5c20bf5"
     },
     {
       "path": "thesis/raw/manifest.json",
-      "sha256": "8db06055d354ce5ba6800bf77535427a4389c8fb3b52b0bb778c3a63cafbc730"
+      "sha256": "72ad1563822526e0987c8abe6babe2da18de586ea579013f8521657c1fc064a0"
     },
     {
       "path": "thesis/raw/near_price_daily.json",
-      "sha256": "ad5f2299d569abb9f95488f190bf3db1cd75d7730cd28381f4bbf715ca05cfe2"
+      "sha256": "355c60d51dc50c4786fc2c19be26e1da00edb9c1c5fcfc7fa0592d4c6e831e98"
+    },
+    {
+      "path": "thesis/raw/new_signers_daily.json",
+      "sha256": "69f1cc5f8fdb6f6db5536115f7c71f6d6fdc0db4853c6c809bd453d9be503ee5"
+    },
+    {
+      "path": "thesis/raw/swaps_coverage.json",
+      "sha256": "7db31bc754d1ca33deaf20a59459015b8e3d6db98e29e2362200d3eb380b16de"
+    },
+    {
+      "path": "thesis/raw/swaps_daily.json",
+      "sha256": "9559bf87041ff96d680abb75f74af9646d5bc134e5d14b0543adb8c44371c882"
+    },
+    {
+      "path": "thesis/raw/tail_daily.json",
+      "sha256": "1059f110af7df857edcce2efda25f70f866c67707e52bcb72fa1ed2645369533"
     },
     {
       "path": "thesis/raw/transactions_daily.json",
-      "sha256": "7db994092e8099a13dfe59898ad6c97761a33f058cc9a92a2804eed05652bbbb"
+      "sha256": "077c92917dabd3c9cc218ee1f3f2face20af604610a5544832d96818384f551a"
     },
     {
-      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/counterevidence.json",
-      "sha256": "4cf47502f411d8995780b171b70f87289ace6ed791336274193d6cbc7e8142f4"
+      "path": "thesis/sql/bigquery/account_scan_daily.sql",
+      "sha256": "bfa8e9a7933fa1455453a70e8e20abc2885a067f897c5f3012e447af9002a0aa"
     },
     {
-      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/estimates.json",
-      "sha256": "f175606a724a5cef50033c1ac4ce0b77cc2efea22893f9b97da46de6f79001b9"
+      "path": "thesis/sql/bigquery/transactions_signers_daily.sql",
+      "sha256": "7c888c0b20e1c6e6f388b2c8abe729728a7e7cd67646726791f624de4a879817"
     },
     {
-      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/falsification.json",
-      "sha256": "c4ee332bc28f7f72c4bf5fefc694f1307211248775a51c2dff0955a4ca6ffd4f"
+      "path": "thesis/sql/executed/asset_sets.sql",
+      "sha256": "491531bc5593c5e985c1aaa59df136346b62974a1354fa51eb40cb18de84264c"
     },
     {
-      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/hypothesis.json",
-      "sha256": "f81131012a7fd84f9d424d4dbf8224c20e3129d897e7a11732d3a44f06f821ca"
+      "path": "thesis/sql/executed/chain_pairs_monthly.sql",
+      "sha256": "684f0c57589e612df0a30166f83bbf73c2a77d9bddc22dfa0a1824f644899e59"
     },
     {
-      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/inputSnapshot.json",
-      "sha256": "436eb9dbb0b4fe462a7e476d07900963cec448c996e442be1e3dc92d446117c4"
+      "path": "thesis/sql/executed/excursion_routes.sql",
+      "sha256": "0e3362891652dbc0c233053fc2e5378545d8ffc4cd3c4d7dc32962760fd1ee72"
     },
     {
-      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/limitations.json",
-      "sha256": "58a906920bab31c4e441f9ba0f93a4f8b405e3253ef6c700f8b165b92f0faabd"
+      "path": "thesis/sql/executed/head_accounts_break.sql",
+      "sha256": "b3824e87258a52e6d5439aa5188fe3c254ad81e1cdfd1a9f38f57ea6a816b942"
     },
     {
-      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/models.json",
-      "sha256": "19ac49da4c17945f3f9e61270673c9f2b2c841dbc02f22b224e132111347a546"
+      "path": "thesis/sql/executed/intents_mix_daily.sql",
+      "sha256": "b085f63a6725e491e57bf4813448d82c9dac7253bc60df0f50096342f5eb2681"
     },
     {
-      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/preregistration.json",
-      "sha256": "fbaf1479107333e6d027691cead41cb710102dc3490a21a285c6616952696cb9"
-    },
-    {
-      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/reproduction.json",
-      "sha256": "898d0c5eb9653ccfe1cccdc9466b97386c891321507f4662390b008943d7fbba"
-    },
-    {
-      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/robustness_matrix.json",
-      "sha256": "d278a64dd56dee7ee09e357e1320505af2e901b1fca8f7e7d616b5c811b07030"
-    },
-    {
-      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/run_summary.json",
-      "sha256": "8b793d03b662eeb99d4c82af5efcfb4baa42a958b77b014bc2048196bd59d771"
-    },
-    {
-      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/windows.json",
-      "sha256": "9a96910ed356bfa8e2f37f8653b7c2920778d39e8089da60381c3c8c1297439b"
-    },
-    {
-      "path": "thesis/sql/bigquery/active_accounts_daily.sql",
-      "sha256": "06b60d4068b5d2d9a1b4f17b51078cd44c233e267fefd5f52640678f0688aa0b"
-    },
-    {
-      "path": "thesis/sql/bigquery/contract_usage_daily.sql",
-      "sha256": "9c27ffe9bf88867870c9a442d01b562809b54ffd1f252695de21b5d7929987ed"
-    },
-    {
-      "path": "thesis/sql/bigquery/contract_usage_top.sql",
-      "sha256": "9da9a57ce849f72a7ddde8164151dee36df5ec5251e2f15e575abb65a48edbbb"
-    },
-    {
-      "path": "thesis/sql/bigquery/transactions_daily.sql",
-      "sha256": "5ec5411dac872184c553ad21e0928147db369d9779e9de45ed9d7c4aa3be3aa6"
-    },
-    {
-      "path": "thesis/sql/executed/active_accounts_daily.sql",
-      "sha256": "bd42ce79b358d224130f3e3351f11c0bb00fa0c697ac89f5943fb432d9a16ef9"
-    },
-    {
-      "path": "thesis/sql/executed/contract_usage_daily.sql",
-      "sha256": "aaa0910bd7b157a001931b87a29225d60205ab251e53d0799f8f8c70d2cb6623"
-    },
-    {
-      "path": "thesis/sql/executed/contract_usage_top.sql",
-      "sha256": "35a84e14f4110ec1e6f3ace76232850e5ec55b16c057b6ee51e17799c91f8015"
-    },
-    {
-      "path": "thesis/sql/executed/intents_swaps_daily.sql",
-      "sha256": "9d67da0c18557ed89f2d5407b512782e2ee3c79a22bc8f5426ccda87764d150d"
+      "path": "thesis/sql/executed/intents_tx_daily.sql",
+      "sha256": "5f673e2e3c438713598a034e7bdab94c751a15d4743845171fa7e0a067d1f453"
     },
     {
       "path": "thesis/sql/executed/intents_volume_daily.sql",
-      "sha256": "f091d5101c86f51a4f37fe3b1609b15de47197c3f95366b8bf108132dbda3d61"
+      "sha256": "9cda0a847cbf7d060e51b18e021d22e47f42276676c4b3b6840e1f553d8a1caa"
     },
     {
       "path": "thesis/sql/executed/near_price_daily.sql",
-      "sha256": "aea73f933c546cca4b2b2864476938e93fa4002be38bcbbc971a99d5a0414564"
+      "sha256": "8f4d41c750930ea2ce1d681b5e59ac4bdc204f60d70707302f0153d00bd5667c"
+    },
+    {
+      "path": "thesis/sql/executed/new_signers_daily.sql",
+      "sha256": "8ec9466e627add1c0fdc3ec651962f1284f12e7c9f924d3a99ab8d63eeca3a5e"
+    },
+    {
+      "path": "thesis/sql/executed/swaps_coverage.sql",
+      "sha256": "43929a0241d78a4896f1dccfc747ca5447aaf6bb8435e0e40e73a518571ff270"
+    },
+    {
+      "path": "thesis/sql/executed/swaps_daily.sql",
+      "sha256": "c3e00bcdd6169d2273c3b2ad80f4aeb1f49ab965c7a76f09ef5abfb66e79fd1f"
+    },
+    {
+      "path": "thesis/sql/executed/tail_daily.sql",
+      "sha256": "a1349e112c8ac957f32a6553f85361509053efc00654b528ac72b009b2b76bb3"
     },
     {
       "path": "thesis/sql/executed/transactions_daily.sql",
-      "sha256": "39616b900da8b949a453ca27ef85d1192e188c682592f99b42e9d92b09326e5f"
+      "sha256": "050f7ce8e9a17755af019ce9c29b5b3dc471603090fb8f3cb7a3c1061aa09b5d"
     }
   ]
 }

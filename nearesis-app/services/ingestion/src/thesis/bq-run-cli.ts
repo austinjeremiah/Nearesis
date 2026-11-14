@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { adcCredentialKind, createBigQueryClient } from "../adapters/bigquery-client.ts";
@@ -29,7 +29,11 @@ const THESIS = join(APP_ROOT, "thesis");
 const MARK = "-- ---- query ----";
 const REC_BEGIN = "-- ==== EXECUTION RECORD BEGIN ====";
 const REC_END = "-- ==== EXECUTION RECORD END ====";
-const ALL_IDS = ["transactions_daily", "active_accounts_daily", "contract_usage_daily", "contract_usage_top"];
+/** Every thesis/sql/bigquery/<id>.sql with the execution-record markers (written by pnpm thesis:data). */
+const ALL_IDS = readdirSync(join(THESIS, "sql", "bigquery"))
+  .filter((f) => f.endsWith(".sql"))
+  .map((f) => f.slice(0, -4))
+  .sort();
 const ids = (values.ids ?? ALL_IDS.join(",")).split(",").filter(Boolean);
 const maxBytes = values["max-bytes"] ? Number(values["max-bytes"]) : 40 * 1024 ** 3;
 

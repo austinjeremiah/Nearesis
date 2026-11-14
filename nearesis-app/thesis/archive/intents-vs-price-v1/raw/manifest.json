@@ -1,0 +1,258 @@
+{
+  "schema": "nearesis.thesis.raw.v1",
+  "frozenAt": "2026-11-14T05:56:17.206Z",
+  "window": {
+    "from": "2026-05-05",
+    "to": "2026-11-11"
+  },
+  "datasets": [
+    {
+      "id": "intents_volume_daily",
+      "title": "NEAR Intents swap volume per day (USD)",
+      "unit": "USD",
+      "file": "raw/intents_volume_daily.json",
+      "sha256": "5083fd601b20f447721ade6becf12c9ad480d73d266484cb04347d8780af81d5",
+      "rows": 191,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "decimal-string|null"
+        }
+      ],
+      "source": "Intents Explorer API (ingested into ClickHouse nearesis_live.intents_swaps)",
+      "sqlExecuted": "sql/executed/intents_volume_daily.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "Sum of amount_in_usd over swaps with status SUCCESS, by created_day (UTC), NULL USD amounts excluded; same definition as the frozen v3 research snapshot (a day with a SUCCESS swap whose USD is NULL would be null, none are in this window).",
+      "caveats": [
+        "Volume counts SUCCESS swaps only. REFUNDED and FAILED swaps are excluded, which also excludes the four refunded swaps whose provider USD values are absurd (quarantined in usd-quarantine.ts).",
+        "Values are sums computed as Float64 by the research definition (toFloat64); each is printed as the shortest round-trip decimal and is exact only as printed, not as an exact decimal sum.",
+        "amount_in_usd is the provider's USD value of the input amount at swap time, not an audited price.",
+        "1Click swaps are not all NEAR Intents activity, and the Explorer shows only swaps it exposes; after 2026-10-27 private (shielded) settlement is not observed, so lower later values mean unobserved, not zero."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "All 191 days of the window are present."
+      }
+    },
+    {
+      "id": "intents_swaps_daily",
+      "title": "NEAR Intents swaps per day (count)",
+      "unit": "swaps",
+      "file": "raw/intents_swaps_daily.json",
+      "sha256": "8bee9659143ed8560a6cc0fd18ba757f7b192e559f85fa8b90a3a5fb56f8a275",
+      "rows": 191,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        },
+        {
+          "name": "n_all",
+          "type": "integer-string"
+        }
+      ],
+      "source": "Intents Explorer API (ingested into ClickHouse nearesis_live.intents_swaps)",
+      "sqlExecuted": "sql/executed/intents_swaps_daily.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "value = swaps with status SUCCESS per created_day (UTC); n_all = swaps of every status that day.",
+      "caveats": [
+        "2026-07-23 is marked partial in source_coverage (intents_swaps): the Explorer fetch for that day was incomplete, so its count is a lower bound. This is why the frozen v3 research status is INSUFFICIENT_DATA.",
+        "1Click swaps are not all NEAR Intents activity; after 2026-10-27 private settlement is unobserved, not zero."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "2026-07-23 is partial (see caveats); its row is present and is a lower bound."
+      }
+    },
+    {
+      "id": "active_accounts_daily",
+      "title": "Daily active accounts (distinct signers)",
+      "unit": "accounts",
+      "file": "raw/active_accounts_daily.json",
+      "sha256": "c9b9e43bebbf4112246506b8395c86a44ee61cdc8f14569386d5a87b761d5524",
+      "rows": 191,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        },
+        {
+          "name": "signers_organic",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset crypto_near_mainnet_us.transactions (ingested into ClickHouse nearesis_live.account_daily_activity)",
+      "sqlExecuted": "sql/executed/active_accounts_daily.sql",
+      "sqlBigQuery": "sql/bigquery/active_accounts_daily.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "4181721088",
+      "definition": "value = COUNT(DISTINCT signer_account_id) over the day's transactions; signers_organic = the same after excluding transactions addressed to the Intents verifier and bridge contracts (documented rule in account-sql.ts).",
+      "caveats": [
+        "Distinct signers are a proxy for active accounts, not people, and are not summable across days (an account active on two days counts twice).",
+        "BigQuery job 3b1c8c6a-aa8e-4fd4-b778-c1d43167e32c (us-east1) ran 2026-11-14T05:54:27.203Z: dry run 4181577863 bytes, 4181721088 bytes billed, 191 rows, result in raw/bq_active_accounts_daily.json (sha256 70f13fcbc1547aa8fa35a94041a4d0a96c66c7aee2c058a6853ea4616e56f7d4).",
+        "Local vs BigQuery (distinct signers): 191 of 191 compared days are exactly equal; max absolute difference 0; local 191 days, BigQuery 191 days."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "All 191 days of the window are present."
+      }
+    },
+    {
+      "id": "transactions_daily",
+      "title": "NEAR transactions per day",
+      "unit": "transactions",
+      "file": "raw/transactions_daily.json",
+      "sha256": "7db994092e8099a13dfe59898ad6c97761a33f058cc9a92a2804eed05652bbbb",
+      "rows": 191,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset crypto_near_mainnet_us.transactions (ingested into ClickHouse nearesis_live.near_daily_tx)",
+      "sqlExecuted": "sql/executed/transactions_daily.sql",
+      "sqlBigQuery": "sql/bigquery/transactions_daily.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "1160773632",
+      "definition": "Every row of the transactions table for the block_date. Successful and failed transactions cannot be told apart (the status column only carries SUCCESS_RECEIPT_ID).",
+      "caveats": [
+        "Transactions include automated and Intents-generated activity; the count is not a measure of distinct users.",
+        "BigQuery job 36e22020-1183-4e72-9747-dbec1de04d75 (us-east1) ran 2026-11-14T05:54:23.422Z: dry run 1160026096 bytes, 1160773632 bytes billed, 191 rows, result in raw/bq_transactions_daily.json (sha256 9587b499c1bd7e750770f35b1cddd039d050282de3cdf66f2bda041df0ff65a4).",
+        "Local vs BigQuery (tx_count): 191 of 191 compared days are exactly equal; max absolute difference 0; local 191 days, BigQuery 191 days."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "All 191 days of the window are present."
+      }
+    },
+    {
+      "id": "contract_usage_daily",
+      "title": "Contract usage per day (function calls and active contracts)",
+      "unit": "function-call actions",
+      "file": "raw/contract_usage_daily.json",
+      "sha256": "42b0e165123ed25d073772df5deb7f77d3cbc147071ebafc032aa2033eda6da6",
+      "rows": 191,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        },
+        {
+          "name": "active_contracts",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset crypto_near_mainnet_us.receipt_actions (ingested into ClickHouse nearesis_live.contract_interactions and the near_daily_usage view)",
+      "sqlExecuted": "sql/executed/contract_usage_daily.sql",
+      "sqlBigQuery": "sql/bigquery/contract_usage_daily.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "4516216832",
+      "definition": "value = FUNCTION_CALL actions per day; active_contracts = distinct receiver accounts of those actions. Receivers with >= 100 calls that day are held individually; the rest are folded into an exact per-day remainder, so both daily totals are exact.",
+      "caveats": [
+        "contract_interactions only holds receivers with >= 100 calls on a day; the per-receiver detail (and contract_usage_top) therefore omits the long tail, while the daily totals include it.",
+        "The BigQuery source queries (sql/bigquery) count transactions by receiver_account_id, a cheaper and different measure than function-call actions; the comparison is reported but is not like-for-like.",
+        "BigQuery job 90128489-2fe2-491e-b267-deed24f06d80 (us-east1) ran 2026-11-14T05:54:29.675Z: dry run 4515762856 bytes, 4516216832 bytes billed, 191 rows, result in raw/bq_contract_usage_daily.json (sha256 6a5e093cded2fdbb824951b2561d2b2d3f4292d5c8ce949f2540b1f2dcd09c62).",
+        "NOT like-for-like. Local active contracts (receivers of function calls) vs BigQuery distinct transaction receivers: 0 of 191 days equal, max absolute difference 192088 (on 2026-10-04). Local function-call actions vs BigQuery transaction count: 0 of 191 days equal, max absolute difference 11590683 (on 2026-10-11)."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "All 191 days of the window are present."
+      }
+    },
+    {
+      "id": "contract_usage_top",
+      "title": "Top 50 receiver contracts over the window (function calls)",
+      "unit": "function-call actions",
+      "file": "raw/contract_usage_top.json",
+      "sha256": "015d809a1e0486d69eddeceaa42f962d021a0ad7cf04f9abbf12e1efcfe3517a",
+      "rows": 50,
+      "columns": [
+        {
+          "name": "receiver_account_id",
+          "type": "string"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        },
+        {
+          "name": "days_listed",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset crypto_near_mainnet_us.receipt_actions (ingested into ClickHouse nearesis_live.contract_interactions)",
+      "sqlExecuted": "sql/executed/contract_usage_top.sql",
+      "sqlBigQuery": "sql/bigquery/contract_usage_top.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "4516216832",
+      "definition": "Receivers ranked by FUNCTION_CALL actions summed over the window, counting only the days a receiver had >= 100 calls; days_listed is the number of such days.",
+      "caveats": [
+        "Only receiver-days with >= 100 calls are held, so totals understate receivers that were active below the threshold on some days.",
+        "A ranking over the whole window has no per-day axis (no date column, no missing days).",
+        "BigQuery job 98f3251d-3649-49f2-bf53-b307879a9cad (us-east1) ran 2026-11-14T05:54:36.143Z: dry run 4515762856 bytes, 4516216832 bytes billed, 100 rows, result in raw/bq_contract_usage_top.json (sha256 498d915b0e02efb2d74ad1e7ccc53b143d83c352789893b05e798c039e293efd).",
+        "NOT like-for-like (function-call actions locally, transactions by receiver in BigQuery): top-20 overlap 11 of 20, top-50 overlap 30 of 50 receivers."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": null
+      }
+    },
+    {
+      "id": "near_price_daily",
+      "title": "NEAR price per day (USD)",
+      "unit": "USD per NEAR",
+      "file": "raw/near_price_daily.json",
+      "sha256": "ad5f2299d569abb9f95488f190bf3db1cd75d7730cd28381f4bbf715ca05cfe2",
+      "rows": 191,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "decimal-string|null"
+        }
+      ],
+      "source": "Price provider (CoinGecko free plan, ingested into ClickHouse nearesis_live.price_candles)",
+      "sqlExecuted": "sql/executed/near_price_daily.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "The provider's last price sample of the UTC day (close_raw as received, exact string). The free plan has no daily OHLC history, so the day's candle is built from 24 hourly samples (basis hourly_samples_24_per_day).",
+      "caveats": [
+        "The 'close' is the last hourly sample of the day, not an official daily close; the frozen research used the same value converted with toFloat64.",
+        "Price is an aggregated provider quote, not a trade-weighted VWAP."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "All 191 days of the window are present."
+      }
+    }
+  ]
+}

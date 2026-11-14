@@ -1,0 +1,3736 @@
+{
+ "note": "app_fee_usd is the integrator-configured appFees (recipient, fee in bps) charged on the input amount; the 1Click or protocol share is NOT listed in appFees and is not in these numbers. SUCCESS swaps only. Days with no SUCCESS swap are listed in missing_days.",
+ "windows": {
+  "first_90_days": [
+   "2025-11-09",
+   "2026-02-06"
+  ],
+  "last_90_days": [
+   "2026-08-16",
+   "2026-11-13"
+  ]
+ },
+ "pages_present": 7220,
+ "pages_referenced_missing_on_disk": 0,
+ "explorer_pages_scanned": 7220,
+ "items_read": 7203005,
+ "distinct_swaps_counted": 7184440,
+ "non_success_swaps_with_app_fee_by_status": {
+  "REFUNDED": 93353,
+  "FAILED": 3712,
+  "PROCESSING": 310
+ },
+ "missing_days": [],
+ "rows": [
+  {
+   "day": "2025-11-09",
+   "swaps_success": 1,
+   "swaps_with_app_fee": 1,
+   "swaps_with_referral": 1,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "3.0617",
+   "input_usd_of_swaps_with_app_fee": "3.0617",
+   "app_fee_usd": "0.0061234"
+  },
+  {
+   "day": "2025-11-10",
+   "swaps_success": 13833,
+   "swaps_with_app_fee": 7608,
+   "swaps_with_referral": 12938,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39737671.04",
+   "input_usd_of_swaps_with_app_fee": "30660738.9714",
+   "app_fee_usd": "176543.08021338"
+  },
+  {
+   "day": "2025-11-11",
+   "swaps_success": 13798,
+   "swaps_with_app_fee": 7961,
+   "swaps_with_referral": 13113,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "34785122.4293",
+   "input_usd_of_swaps_with_app_fee": "28160580.3836",
+   "app_fee_usd": "176194.53340137"
+  },
+  {
+   "day": "2025-11-12",
+   "swaps_success": 14061,
+   "swaps_with_app_fee": 7920,
+   "swaps_with_referral": 13473,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "56521552.3858",
+   "input_usd_of_swaps_with_app_fee": "45129417.3938",
+   "app_fee_usd": "217350.61676881"
+  },
+  {
+   "day": "2025-11-13",
+   "swaps_success": 15737,
+   "swaps_with_app_fee": 8891,
+   "swaps_with_referral": 15120,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "44818204.9367",
+   "input_usd_of_swaps_with_app_fee": "40978855.2574",
+   "app_fee_usd": "237992.78014613"
+  },
+  {
+   "day": "2025-11-14",
+   "swaps_success": 15731,
+   "swaps_with_app_fee": 8336,
+   "swaps_with_referral": 14939,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "56020747.5218",
+   "input_usd_of_swaps_with_app_fee": "46870369.599",
+   "app_fee_usd": "391364.08331387"
+  },
+  {
+   "day": "2025-11-15",
+   "swaps_success": 12024,
+   "swaps_with_app_fee": 6396,
+   "swaps_with_referral": 11347,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "42220464.239",
+   "input_usd_of_swaps_with_app_fee": "34945927.7305",
+   "app_fee_usd": "231160.84997956"
+  },
+  {
+   "day": "2025-11-16",
+   "swaps_success": 11738,
+   "swaps_with_app_fee": 6273,
+   "swaps_with_referral": 11096,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "47174815.5577",
+   "input_usd_of_swaps_with_app_fee": "42889301.295",
+   "app_fee_usd": "280359.338254"
+  },
+  {
+   "day": "2025-11-17",
+   "swaps_success": 13610,
+   "swaps_with_app_fee": 8054,
+   "swaps_with_referral": 12985,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "44474861.4611",
+   "input_usd_of_swaps_with_app_fee": "39827584.874",
+   "app_fee_usd": "324494.69961869"
+  },
+  {
+   "day": "2025-11-18",
+   "swaps_success": 10799,
+   "swaps_with_app_fee": 5639,
+   "swaps_with_referral": 10210,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "43577517.8882",
+   "input_usd_of_swaps_with_app_fee": "39255137.3434",
+   "app_fee_usd": "297790.32833191"
+  },
+  {
+   "day": "2025-11-19",
+   "swaps_success": 18361,
+   "swaps_with_app_fee": 10783,
+   "swaps_with_referral": 17691,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "52063707.489",
+   "input_usd_of_swaps_with_app_fee": "46762441.4384",
+   "app_fee_usd": "329789.98709952"
+  },
+  {
+   "day": "2025-11-20",
+   "swaps_success": 19001,
+   "swaps_with_app_fee": 11047,
+   "swaps_with_referral": 18398,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "68085798.619",
+   "input_usd_of_swaps_with_app_fee": "61690969.2634",
+   "app_fee_usd": "419973.44657389"
+  },
+  {
+   "day": "2025-11-21",
+   "swaps_success": 21100,
+   "swaps_with_app_fee": 12853,
+   "swaps_with_referral": 20293,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "94711716.3794",
+   "input_usd_of_swaps_with_app_fee": "81330350.1697",
+   "app_fee_usd": "589790.73632441"
+  },
+  {
+   "day": "2025-11-22",
+   "swaps_success": 12549,
+   "swaps_with_app_fee": 7113,
+   "swaps_with_referral": 12048,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "42426559.1866",
+   "input_usd_of_swaps_with_app_fee": "37209224.6001",
+   "app_fee_usd": "217933.40006406"
+  },
+  {
+   "day": "2025-11-23",
+   "swaps_success": 11672,
+   "swaps_with_app_fee": 6564,
+   "swaps_with_referral": 11199,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "41608413.2999",
+   "input_usd_of_swaps_with_app_fee": "36580424.3072",
+   "app_fee_usd": "234072.98233126"
+  },
+  {
+   "day": "2025-11-24",
+   "swaps_success": 16970,
+   "swaps_with_app_fee": 11315,
+   "swaps_with_referral": 16407,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "33524002.4905",
+   "input_usd_of_swaps_with_app_fee": "29815507.0212",
+   "app_fee_usd": "192371.84887791"
+  },
+  {
+   "day": "2025-11-25",
+   "swaps_success": 19531,
+   "swaps_with_app_fee": 13709,
+   "swaps_with_referral": 18893,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "33303586.4034",
+   "input_usd_of_swaps_with_app_fee": "28097842.849",
+   "app_fee_usd": "167002.624321"
+  },
+  {
+   "day": "2025-11-26",
+   "swaps_success": 15370,
+   "swaps_with_app_fee": 9363,
+   "swaps_with_referral": 14947,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28059083.8487",
+   "input_usd_of_swaps_with_app_fee": "23761105.2924",
+   "app_fee_usd": "154832.3327011"
+  },
+  {
+   "day": "2025-11-27",
+   "swaps_success": 20531,
+   "swaps_with_app_fee": 13719,
+   "swaps_with_referral": 20197,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27775819.1911",
+   "input_usd_of_swaps_with_app_fee": "24378676.449",
+   "app_fee_usd": "186624.89800306"
+  },
+  {
+   "day": "2025-11-28",
+   "swaps_success": 20148,
+   "swaps_with_app_fee": 13262,
+   "swaps_with_referral": 19597,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "34149239.1105",
+   "input_usd_of_swaps_with_app_fee": "27548405.2667",
+   "app_fee_usd": "190965.00847314"
+  },
+  {
+   "day": "2025-11-29",
+   "swaps_success": 14844,
+   "swaps_with_app_fee": 8143,
+   "swaps_with_referral": 14332,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "18722252.4916",
+   "input_usd_of_swaps_with_app_fee": "13263332.4772",
+   "app_fee_usd": "96804.37396093"
+  },
+  {
+   "day": "2025-11-30",
+   "swaps_success": 12428,
+   "swaps_with_app_fee": 7401,
+   "swaps_with_referral": 11958,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "18329392.6799",
+   "input_usd_of_swaps_with_app_fee": "16734824.3835",
+   "app_fee_usd": "92510.93721581"
+  },
+  {
+   "day": "2025-12-01",
+   "swaps_success": 20050,
+   "swaps_with_app_fee": 12184,
+   "swaps_with_referral": 19550,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "46144867.0418",
+   "input_usd_of_swaps_with_app_fee": "39209682.6749",
+   "app_fee_usd": "257809.89141909"
+  },
+  {
+   "day": "2025-12-02",
+   "swaps_success": 20464,
+   "swaps_with_app_fee": 13104,
+   "swaps_with_referral": 19927,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "41111328.0948",
+   "input_usd_of_swaps_with_app_fee": "32485377.8076",
+   "app_fee_usd": "217779.82459755"
+  },
+  {
+   "day": "2025-12-03",
+   "swaps_success": 15320,
+   "swaps_with_app_fee": 8824,
+   "swaps_with_referral": 14903,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28272290.6118",
+   "input_usd_of_swaps_with_app_fee": "25677139.4724",
+   "app_fee_usd": "177972.40453868"
+  },
+  {
+   "day": "2025-12-04",
+   "swaps_success": 19253,
+   "swaps_with_app_fee": 11657,
+   "swaps_with_referral": 18432,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "17904560.5343",
+   "input_usd_of_swaps_with_app_fee": "14476038.1426",
+   "app_fee_usd": "115594.07604875"
+  },
+  {
+   "day": "2025-12-05",
+   "swaps_success": 14204,
+   "swaps_with_app_fee": 7209,
+   "swaps_with_referral": 13570,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "25942272.5642",
+   "input_usd_of_swaps_with_app_fee": "21542464.491",
+   "app_fee_usd": "153431.18340101"
+  },
+  {
+   "day": "2025-12-06",
+   "swaps_success": 10757,
+   "swaps_with_app_fee": 5644,
+   "swaps_with_referral": 10447,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "17691971.7038",
+   "input_usd_of_swaps_with_app_fee": "15017749.1135",
+   "app_fee_usd": "87827.7442034"
+  },
+  {
+   "day": "2025-12-07",
+   "swaps_success": 10408,
+   "swaps_with_app_fee": 4939,
+   "swaps_with_referral": 9895,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "16150073.0362",
+   "input_usd_of_swaps_with_app_fee": "12928338.5072",
+   "app_fee_usd": "82541.43467403"
+  },
+  {
+   "day": "2025-12-08",
+   "swaps_success": 13420,
+   "swaps_with_app_fee": 6494,
+   "swaps_with_referral": 12888,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "17453892.3",
+   "input_usd_of_swaps_with_app_fee": "14313602.1467",
+   "app_fee_usd": "107719.30429984"
+  },
+  {
+   "day": "2025-12-09",
+   "swaps_success": 14337,
+   "swaps_with_app_fee": 6569,
+   "swaps_with_referral": 13801,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "30616454.5901",
+   "input_usd_of_swaps_with_app_fee": "26483810.7505",
+   "app_fee_usd": "180538.2730797"
+  },
+  {
+   "day": "2025-12-10",
+   "swaps_success": 12390,
+   "swaps_with_app_fee": 5365,
+   "swaps_with_referral": 11828,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21890200.2972",
+   "input_usd_of_swaps_with_app_fee": "19018990.3529",
+   "app_fee_usd": "125943.0808739"
+  },
+  {
+   "day": "2025-12-11",
+   "swaps_success": 14519,
+   "swaps_with_app_fee": 6656,
+   "swaps_with_referral": 13795,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21361154.4034",
+   "input_usd_of_swaps_with_app_fee": "17363759.2656",
+   "app_fee_usd": "133767.62049645"
+  },
+  {
+   "day": "2025-12-12",
+   "swaps_success": 13656,
+   "swaps_with_app_fee": 6664,
+   "swaps_with_referral": 13101,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "18776937.72",
+   "input_usd_of_swaps_with_app_fee": "14980774.7942",
+   "app_fee_usd": "119472.30366589"
+  },
+  {
+   "day": "2025-12-13",
+   "swaps_success": 12075,
+   "swaps_with_app_fee": 5744,
+   "swaps_with_referral": 11692,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "16807781.2219",
+   "input_usd_of_swaps_with_app_fee": "14646540.0114",
+   "app_fee_usd": "97052.8753456"
+  },
+  {
+   "day": "2025-12-14",
+   "swaps_success": 12609,
+   "swaps_with_app_fee": 5838,
+   "swaps_with_referral": 12270,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "17953252.5504",
+   "input_usd_of_swaps_with_app_fee": "16502926.1512",
+   "app_fee_usd": "125849.01975388"
+  },
+  {
+   "day": "2025-12-15",
+   "swaps_success": 16761,
+   "swaps_with_app_fee": 8174,
+   "swaps_with_referral": 16012,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28770678.7392",
+   "input_usd_of_swaps_with_app_fee": "23876489.6237",
+   "app_fee_usd": "171171.98181606"
+  },
+  {
+   "day": "2025-12-16",
+   "swaps_success": 14913,
+   "swaps_with_app_fee": 6881,
+   "swaps_with_referral": 14201,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21370417.8478",
+   "input_usd_of_swaps_with_app_fee": "17617762.0436",
+   "app_fee_usd": "141397.06032467"
+  },
+  {
+   "day": "2025-12-17",
+   "swaps_success": 13006,
+   "swaps_with_app_fee": 5986,
+   "swaps_with_referral": 12578,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27800983.4139",
+   "input_usd_of_swaps_with_app_fee": "24170259.6115",
+   "app_fee_usd": "151462.84874029"
+  },
+  {
+   "day": "2025-12-18",
+   "swaps_success": 12506,
+   "swaps_with_app_fee": 5776,
+   "swaps_with_referral": 12072,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22482133.2246",
+   "input_usd_of_swaps_with_app_fee": "19440313.4116",
+   "app_fee_usd": "138031.93844275"
+  },
+  {
+   "day": "2025-12-19",
+   "swaps_success": 12396,
+   "swaps_with_app_fee": 5875,
+   "swaps_with_referral": 12148,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "35920112.9594",
+   "input_usd_of_swaps_with_app_fee": "31414248.6164",
+   "app_fee_usd": "152418.54912062"
+  },
+  {
+   "day": "2025-12-20",
+   "swaps_success": 11208,
+   "swaps_with_app_fee": 5651,
+   "swaps_with_referral": 11065,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "18236323.1283",
+   "input_usd_of_swaps_with_app_fee": "15670188.3208",
+   "app_fee_usd": "91570.9048829"
+  },
+  {
+   "day": "2025-12-21",
+   "swaps_success": 12357,
+   "swaps_with_app_fee": 5585,
+   "swaps_with_referral": 12100,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "11519744.5057",
+   "input_usd_of_swaps_with_app_fee": "7363575.6033",
+   "app_fee_usd": "57589.29364567"
+  },
+  {
+   "day": "2025-12-22",
+   "swaps_success": 13908,
+   "swaps_with_app_fee": 6480,
+   "swaps_with_referral": 13529,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "26066752.9912",
+   "input_usd_of_swaps_with_app_fee": "20623623.4232",
+   "app_fee_usd": "118488.2081391"
+  },
+  {
+   "day": "2025-12-23",
+   "swaps_success": 10823,
+   "swaps_with_app_fee": 4913,
+   "swaps_with_referral": 10519,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "19821112.5727",
+   "input_usd_of_swaps_with_app_fee": "14424504.5858",
+   "app_fee_usd": "95115.30557424"
+  },
+  {
+   "day": "2025-12-24",
+   "swaps_success": 12628,
+   "swaps_with_app_fee": 5803,
+   "swaps_with_referral": 12411,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "33968997.4474",
+   "input_usd_of_swaps_with_app_fee": "26961104.2177",
+   "app_fee_usd": "108237.67536683"
+  },
+  {
+   "day": "2025-12-25",
+   "swaps_success": 12962,
+   "swaps_with_app_fee": 5814,
+   "swaps_with_referral": 12730,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28557257.0151",
+   "input_usd_of_swaps_with_app_fee": "25067821.101",
+   "app_fee_usd": "76368.85746067"
+  },
+  {
+   "day": "2025-12-26",
+   "swaps_success": 13610,
+   "swaps_with_app_fee": 6112,
+   "swaps_with_referral": 13370,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29871675.9622",
+   "input_usd_of_swaps_with_app_fee": "25297909.6934",
+   "app_fee_usd": "92350.00348878"
+  },
+  {
+   "day": "2025-12-27",
+   "swaps_success": 13832,
+   "swaps_with_app_fee": 6884,
+   "swaps_with_referral": 13607,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29719663.3157",
+   "input_usd_of_swaps_with_app_fee": "24189508.1643",
+   "app_fee_usd": "66217.26453374"
+  },
+  {
+   "day": "2025-12-28",
+   "swaps_success": 12681,
+   "swaps_with_app_fee": 6070,
+   "swaps_with_referral": 12433,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "17267363.621",
+   "input_usd_of_swaps_with_app_fee": "14213196.4291",
+   "app_fee_usd": "63268.29054989"
+  },
+  {
+   "day": "2025-12-29",
+   "swaps_success": 16336,
+   "swaps_with_app_fee": 8819,
+   "swaps_with_referral": 15942,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "25432372.1726",
+   "input_usd_of_swaps_with_app_fee": "19027742.2113",
+   "app_fee_usd": "121413.05418541"
+  },
+  {
+   "day": "2025-12-30",
+   "swaps_success": 17566,
+   "swaps_with_app_fee": 9805,
+   "swaps_with_referral": 17051,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22796035.5041",
+   "input_usd_of_swaps_with_app_fee": "15357821.8328",
+   "app_fee_usd": "106978.28709516"
+  },
+  {
+   "day": "2025-12-31",
+   "swaps_success": 26985,
+   "swaps_with_app_fee": 19791,
+   "swaps_with_referral": 26448,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "18343594.4605",
+   "input_usd_of_swaps_with_app_fee": "14301570.2595",
+   "app_fee_usd": "113312.17752084"
+  },
+  {
+   "day": "2026-01-01",
+   "swaps_success": 18203,
+   "swaps_with_app_fee": 11710,
+   "swaps_with_referral": 17764,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "11930347.9568",
+   "input_usd_of_swaps_with_app_fee": "8173908.4553",
+   "app_fee_usd": "58812.76677119"
+  },
+  {
+   "day": "2026-01-02",
+   "swaps_success": 22706,
+   "swaps_with_app_fee": 14893,
+   "swaps_with_referral": 22380,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22931089.3662",
+   "input_usd_of_swaps_with_app_fee": "17075712.6362",
+   "app_fee_usd": "118189.12269531"
+  },
+  {
+   "day": "2026-01-03",
+   "swaps_success": 17237,
+   "swaps_with_app_fee": 9507,
+   "swaps_with_referral": 16895,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "18048894.5957",
+   "input_usd_of_swaps_with_app_fee": "13720719.7164",
+   "app_fee_usd": "96373.35682075"
+  },
+  {
+   "day": "2026-01-04",
+   "swaps_success": 19794,
+   "swaps_with_app_fee": 12272,
+   "swaps_with_referral": 19453,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "17973386.5508",
+   "input_usd_of_swaps_with_app_fee": "14505856.8725",
+   "app_fee_usd": "108382.68223771"
+  },
+  {
+   "day": "2026-01-05",
+   "swaps_success": 24561,
+   "swaps_with_app_fee": 15899,
+   "swaps_with_referral": 23994,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "37871135.0998",
+   "input_usd_of_swaps_with_app_fee": "29016241.4111",
+   "app_fee_usd": "201413.36754742"
+  },
+  {
+   "day": "2026-01-06",
+   "swaps_success": 25064,
+   "swaps_with_app_fee": 16281,
+   "swaps_with_referral": 24320,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "35273522.0916",
+   "input_usd_of_swaps_with_app_fee": "28397071.5608",
+   "app_fee_usd": "165638.52722483"
+  },
+  {
+   "day": "2026-01-07",
+   "swaps_success": 21682,
+   "swaps_with_app_fee": 14167,
+   "swaps_with_referral": 21126,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "40889480.221",
+   "input_usd_of_swaps_with_app_fee": "35356945.8954",
+   "app_fee_usd": "161044.38758004"
+  },
+  {
+   "day": "2026-01-08",
+   "swaps_success": 32987,
+   "swaps_with_app_fee": 24796,
+   "swaps_with_referral": 32360,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39595187.1303",
+   "input_usd_of_swaps_with_app_fee": "31696978.1721",
+   "app_fee_usd": "177448.94811921"
+  },
+  {
+   "day": "2026-01-09",
+   "swaps_success": 21442,
+   "swaps_with_app_fee": 15477,
+   "swaps_with_referral": 20764,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "35591902.305",
+   "input_usd_of_swaps_with_app_fee": "32723491.9665",
+   "app_fee_usd": "152571.63012713"
+  },
+  {
+   "day": "2026-01-10",
+   "swaps_success": 26155,
+   "swaps_with_app_fee": 20454,
+   "swaps_with_referral": 25589,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "20573033.5956",
+   "input_usd_of_swaps_with_app_fee": "15919458.4646",
+   "app_fee_usd": "98017.64237915"
+  },
+  {
+   "day": "2026-01-11",
+   "swaps_success": 14013,
+   "swaps_with_app_fee": 8137,
+   "swaps_with_referral": 13476,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "12802097.1758",
+   "input_usd_of_swaps_with_app_fee": "10897198.88",
+   "app_fee_usd": "77329.19398112"
+  },
+  {
+   "day": "2026-01-12",
+   "swaps_success": 22379,
+   "swaps_with_app_fee": 15320,
+   "swaps_with_referral": 21590,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31020727.7457",
+   "input_usd_of_swaps_with_app_fee": "26215738.2501",
+   "app_fee_usd": "137107.80887556"
+  },
+  {
+   "day": "2026-01-13",
+   "swaps_success": 21902,
+   "swaps_with_app_fee": 13724,
+   "swaps_with_referral": 20816,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "41400932.4741",
+   "input_usd_of_swaps_with_app_fee": "34505293.7752",
+   "app_fee_usd": "188459.75273374"
+  },
+  {
+   "day": "2026-01-14",
+   "swaps_success": 19858,
+   "swaps_with_app_fee": 12451,
+   "swaps_with_referral": 19121,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "40119889.9068",
+   "input_usd_of_swaps_with_app_fee": "34128591.634",
+   "app_fee_usd": "225692.81343721"
+  },
+  {
+   "day": "2026-01-15",
+   "swaps_success": 10731,
+   "swaps_with_app_fee": 6428,
+   "swaps_with_referral": 10374,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "35440132.1684",
+   "input_usd_of_swaps_with_app_fee": "25121831.1561",
+   "app_fee_usd": "128533.06223427"
+  },
+  {
+   "day": "2026-01-16",
+   "swaps_success": 13401,
+   "swaps_with_app_fee": 7023,
+   "swaps_with_referral": 12733,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39699665.4028",
+   "input_usd_of_swaps_with_app_fee": "31836407.1843",
+   "app_fee_usd": "140566.65829333"
+  },
+  {
+   "day": "2026-01-17",
+   "swaps_success": 13121,
+   "swaps_with_app_fee": 6402,
+   "swaps_with_referral": 12543,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "14934916.7816",
+   "input_usd_of_swaps_with_app_fee": "12055715.1972",
+   "app_fee_usd": "80982.23716"
+  },
+  {
+   "day": "2026-01-18",
+   "swaps_success": 12830,
+   "swaps_with_app_fee": 5885,
+   "swaps_with_referral": 12102,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "15129318.5163",
+   "input_usd_of_swaps_with_app_fee": "12421580.5785",
+   "app_fee_usd": "89959.8926234"
+  },
+  {
+   "day": "2026-01-19",
+   "swaps_success": 25760,
+   "swaps_with_app_fee": 17456,
+   "swaps_with_referral": 24908,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "36204850.515",
+   "input_usd_of_swaps_with_app_fee": "30548866.3329",
+   "app_fee_usd": "173731.59622626"
+  },
+  {
+   "day": "2026-01-20",
+   "swaps_success": 20816,
+   "swaps_with_app_fee": 12850,
+   "swaps_with_referral": 20034,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "43579190.9543",
+   "input_usd_of_swaps_with_app_fee": "37045140.3573",
+   "app_fee_usd": "224725.0065975"
+  },
+  {
+   "day": "2026-01-21",
+   "swaps_success": 19735,
+   "swaps_with_app_fee": 11947,
+   "swaps_with_referral": 18917,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "40266007.5085",
+   "input_usd_of_swaps_with_app_fee": "34039072.9962",
+   "app_fee_usd": "191824.78627051"
+  },
+  {
+   "day": "2026-01-22",
+   "swaps_success": 17993,
+   "swaps_with_app_fee": 11272,
+   "swaps_with_referral": 17312,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "34095822.9529",
+   "input_usd_of_swaps_with_app_fee": "27703208.3635",
+   "app_fee_usd": "130318.34228614"
+  },
+  {
+   "day": "2026-01-23",
+   "swaps_success": 14973,
+   "swaps_with_app_fee": 6651,
+   "swaps_with_referral": 14262,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32914998.3605",
+   "input_usd_of_swaps_with_app_fee": "21775785.0755",
+   "app_fee_usd": "118505.60166343"
+  },
+  {
+   "day": "2026-01-24",
+   "swaps_success": 13987,
+   "swaps_with_app_fee": 6058,
+   "swaps_with_referral": 13581,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "18195029.1591",
+   "input_usd_of_swaps_with_app_fee": "11326824.535",
+   "app_fee_usd": "86244.10406542"
+  },
+  {
+   "day": "2026-01-25",
+   "swaps_success": 15620,
+   "swaps_with_app_fee": 7059,
+   "swaps_with_referral": 14970,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32241814.2086",
+   "input_usd_of_swaps_with_app_fee": "25056960.8693",
+   "app_fee_usd": "201884.73593839"
+  },
+  {
+   "day": "2026-01-26",
+   "swaps_success": 17983,
+   "swaps_with_app_fee": 10733,
+   "swaps_with_referral": 17341,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "38045726.017",
+   "input_usd_of_swaps_with_app_fee": "29191556.8705",
+   "app_fee_usd": "183627.61748626"
+  },
+  {
+   "day": "2026-01-27",
+   "swaps_success": 17423,
+   "swaps_with_app_fee": 9180,
+   "swaps_with_referral": 16698,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28273682.0684",
+   "input_usd_of_swaps_with_app_fee": "16445462.6417",
+   "app_fee_usd": "97160.5635975"
+  },
+  {
+   "day": "2026-01-28",
+   "swaps_success": 20410,
+   "swaps_with_app_fee": 11118,
+   "swaps_with_referral": 19617,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32603515.5184",
+   "input_usd_of_swaps_with_app_fee": "23180016.9248",
+   "app_fee_usd": "107788.43459323"
+  },
+  {
+   "day": "2026-01-29",
+   "swaps_success": 18147,
+   "swaps_with_app_fee": 8213,
+   "swaps_with_referral": 16943,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "34661006.98653525",
+   "input_usd_of_swaps_with_app_fee": "26859637.97243525",
+   "app_fee_usd": "155755.173584784375"
+  },
+  {
+   "day": "2026-01-30",
+   "swaps_success": 16757,
+   "swaps_with_app_fee": 8791,
+   "swaps_with_referral": 15572,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "24591510.3549",
+   "input_usd_of_swaps_with_app_fee": "18995957.3071",
+   "app_fee_usd": "129579.83365155"
+  },
+  {
+   "day": "2026-01-31",
+   "swaps_success": 21262,
+   "swaps_with_app_fee": 12011,
+   "swaps_with_referral": 19594,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "34023551.6306",
+   "input_usd_of_swaps_with_app_fee": "24975205.2902",
+   "app_fee_usd": "206255.25670932"
+  },
+  {
+   "day": "2026-02-01",
+   "swaps_success": 16600,
+   "swaps_with_app_fee": 9216,
+   "swaps_with_referral": 15166,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "25238706.6021",
+   "input_usd_of_swaps_with_app_fee": "20060463.8436",
+   "app_fee_usd": "140356.16184647"
+  },
+  {
+   "day": "2026-02-02",
+   "swaps_success": 23375,
+   "swaps_with_app_fee": 11679,
+   "swaps_with_referral": 21481,
+   "swaps_with_app_fee_but_no_input_usd": 1,
+   "input_usd_success": "49100873.3967",
+   "input_usd_of_swaps_with_app_fee": "33808684.9586",
+   "app_fee_usd": "232684.96554223"
+  },
+  {
+   "day": "2026-02-03",
+   "swaps_success": 28571,
+   "swaps_with_app_fee": 13538,
+   "swaps_with_referral": 27165,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "47607304.6313",
+   "input_usd_of_swaps_with_app_fee": "23736107.9037",
+   "app_fee_usd": "160168.83078663"
+  },
+  {
+   "day": "2026-02-04",
+   "swaps_success": 27869,
+   "swaps_with_app_fee": 13329,
+   "swaps_with_referral": 26519,
+   "swaps_with_app_fee_but_no_input_usd": 1,
+   "input_usd_success": "51556296.9757",
+   "input_usd_of_swaps_with_app_fee": "32172689.6581",
+   "app_fee_usd": "232636.53342317"
+  },
+  {
+   "day": "2026-02-05",
+   "swaps_success": 30723,
+   "swaps_with_app_fee": 12431,
+   "swaps_with_referral": 28795,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "67062055.921",
+   "input_usd_of_swaps_with_app_fee": "41229262.6097",
+   "app_fee_usd": "347338.22379967"
+  },
+  {
+   "day": "2026-02-06",
+   "swaps_success": 31320,
+   "swaps_with_app_fee": 12515,
+   "swaps_with_referral": 29037,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "56074363.9585",
+   "input_usd_of_swaps_with_app_fee": "34265099.8627",
+   "app_fee_usd": "253733.31609778"
+  },
+  {
+   "day": "2026-02-07",
+   "swaps_success": 19851,
+   "swaps_with_app_fee": 8404,
+   "swaps_with_referral": 18367,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31036085.3608",
+   "input_usd_of_swaps_with_app_fee": "18589364.605",
+   "app_fee_usd": "129599.53730869"
+  },
+  {
+   "day": "2026-02-08",
+   "swaps_success": 19692,
+   "swaps_with_app_fee": 8375,
+   "swaps_with_referral": 18754,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22080641.2779",
+   "input_usd_of_swaps_with_app_fee": "14235888.6221",
+   "app_fee_usd": "87179.08913061"
+  },
+  {
+   "day": "2026-02-09",
+   "swaps_success": 19611,
+   "swaps_with_app_fee": 8363,
+   "swaps_with_referral": 18544,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "33436946.8712",
+   "input_usd_of_swaps_with_app_fee": "20620971.0029",
+   "app_fee_usd": "135833.55806132"
+  },
+  {
+   "day": "2026-02-10",
+   "swaps_success": 17522,
+   "swaps_with_app_fee": 7846,
+   "swaps_with_referral": 16399,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29173223.6922",
+   "input_usd_of_swaps_with_app_fee": "16694639.256",
+   "app_fee_usd": "110105.74592425"
+  },
+  {
+   "day": "2026-02-11",
+   "swaps_success": 17154,
+   "swaps_with_app_fee": 8176,
+   "swaps_with_referral": 15489,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "37619282.0144",
+   "input_usd_of_swaps_with_app_fee": "26059864.0656",
+   "app_fee_usd": "160836.1003775"
+  },
+  {
+   "day": "2026-02-12",
+   "swaps_success": 20453,
+   "swaps_with_app_fee": 8651,
+   "swaps_with_referral": 19211,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "30891281.8056",
+   "input_usd_of_swaps_with_app_fee": "19520457.0459",
+   "app_fee_usd": "130188.25030108"
+  },
+  {
+   "day": "2026-02-13",
+   "swaps_success": 18131,
+   "swaps_with_app_fee": 8665,
+   "swaps_with_referral": 16848,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28768464.4801",
+   "input_usd_of_swaps_with_app_fee": "16980746.9982",
+   "app_fee_usd": "127421.22540445"
+  },
+  {
+   "day": "2026-02-14",
+   "swaps_success": 12846,
+   "swaps_with_app_fee": 7961,
+   "swaps_with_referral": 11797,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22192095.4601",
+   "input_usd_of_swaps_with_app_fee": "17601596.2807",
+   "app_fee_usd": "110140.89855045"
+  },
+  {
+   "day": "2026-02-15",
+   "swaps_success": 12958,
+   "swaps_with_app_fee": 8006,
+   "swaps_with_referral": 11815,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "26688188.6455",
+   "input_usd_of_swaps_with_app_fee": "20433092.2404",
+   "app_fee_usd": "147856.59219632"
+  },
+  {
+   "day": "2026-02-16",
+   "swaps_success": 11939,
+   "swaps_with_app_fee": 7054,
+   "swaps_with_referral": 11100,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "14675354.9419",
+   "input_usd_of_swaps_with_app_fee": "10711371.4644",
+   "app_fee_usd": "74110.47930017"
+  },
+  {
+   "day": "2026-02-17",
+   "swaps_success": 13204,
+   "swaps_with_app_fee": 7381,
+   "swaps_with_referral": 12063,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "15103710.1281",
+   "input_usd_of_swaps_with_app_fee": "10982303.9936",
+   "app_fee_usd": "69784.89536432"
+  },
+  {
+   "day": "2026-02-18",
+   "swaps_success": 15491,
+   "swaps_with_app_fee": 8409,
+   "swaps_with_referral": 14680,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27615181.6282",
+   "input_usd_of_swaps_with_app_fee": "15715346.9385",
+   "app_fee_usd": "114688.3019173"
+  },
+  {
+   "day": "2026-02-19",
+   "swaps_success": 14912,
+   "swaps_with_app_fee": 7739,
+   "swaps_with_referral": 14194,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21483737.1146",
+   "input_usd_of_swaps_with_app_fee": "15498610.3758",
+   "app_fee_usd": "108150.78887444"
+  },
+  {
+   "day": "2026-02-20",
+   "swaps_success": 11138,
+   "swaps_with_app_fee": 6357,
+   "swaps_with_referral": 10309,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "17552498.6344",
+   "input_usd_of_swaps_with_app_fee": "12775568.7816",
+   "app_fee_usd": "115096.4518176"
+  },
+  {
+   "day": "2026-02-21",
+   "swaps_success": 11087,
+   "swaps_with_app_fee": 6839,
+   "swaps_with_referral": 10340,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "14079738.5821",
+   "input_usd_of_swaps_with_app_fee": "10338636.2135",
+   "app_fee_usd": "72203.32644597"
+  },
+  {
+   "day": "2026-02-22",
+   "swaps_success": 12489,
+   "swaps_with_app_fee": 6352,
+   "swaps_with_referral": 11785,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "12551309.6228",
+   "input_usd_of_swaps_with_app_fee": "9468214.2697",
+   "app_fee_usd": "70620.74109508"
+  },
+  {
+   "day": "2026-02-23",
+   "swaps_success": 15297,
+   "swaps_with_app_fee": 8227,
+   "swaps_with_referral": 14338,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "24097002.8707",
+   "input_usd_of_swaps_with_app_fee": "19477436.1305",
+   "app_fee_usd": "152646.69653017"
+  },
+  {
+   "day": "2026-02-24",
+   "swaps_success": 16495,
+   "swaps_with_app_fee": 8863,
+   "swaps_with_referral": 15452,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31314881.7194",
+   "input_usd_of_swaps_with_app_fee": "24314135.5895",
+   "app_fee_usd": "192087.40116042"
+  },
+  {
+   "day": "2026-02-25",
+   "swaps_success": 17671,
+   "swaps_with_app_fee": 9610,
+   "swaps_with_referral": 15828,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31492751.2245",
+   "input_usd_of_swaps_with_app_fee": "25757504.3153",
+   "app_fee_usd": "274759.212044"
+  },
+  {
+   "day": "2026-02-26",
+   "swaps_success": 17379,
+   "swaps_with_app_fee": 8696,
+   "swaps_with_referral": 16272,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "33620409.9091",
+   "input_usd_of_swaps_with_app_fee": "22283198.4755",
+   "app_fee_usd": "152282.31145765"
+  },
+  {
+   "day": "2026-02-27",
+   "swaps_success": 18778,
+   "swaps_with_app_fee": 9007,
+   "swaps_with_referral": 17682,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "23574058.3565",
+   "input_usd_of_swaps_with_app_fee": "16070981.9918",
+   "app_fee_usd": "111900.03305622"
+  },
+  {
+   "day": "2026-02-28",
+   "swaps_success": 18376,
+   "swaps_with_app_fee": 8295,
+   "swaps_with_referral": 16851,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "26106334.5125",
+   "input_usd_of_swaps_with_app_fee": "16552084.6225",
+   "app_fee_usd": "129537.45240747"
+  },
+  {
+   "day": "2026-03-01",
+   "swaps_success": 17047,
+   "swaps_with_app_fee": 7652,
+   "swaps_with_referral": 15648,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "19788214.9702",
+   "input_usd_of_swaps_with_app_fee": "14071899.3043",
+   "app_fee_usd": "109602.27021741"
+  },
+  {
+   "day": "2026-03-02",
+   "swaps_success": 20313,
+   "swaps_with_app_fee": 8583,
+   "swaps_with_referral": 17573,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "30177027.597779744",
+   "input_usd_of_swaps_with_app_fee": "19148404.954579744",
+   "app_fee_usd": "157332.901836668208"
+  },
+  {
+   "day": "2026-03-03",
+   "swaps_success": 20162,
+   "swaps_with_app_fee": 8641,
+   "swaps_with_referral": 17405,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27462212.5046",
+   "input_usd_of_swaps_with_app_fee": "15872682.5581",
+   "app_fee_usd": "133567.12849903"
+  },
+  {
+   "day": "2026-03-04",
+   "swaps_success": 20597,
+   "swaps_with_app_fee": 9258,
+   "swaps_with_referral": 18551,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "40160191.3503",
+   "input_usd_of_swaps_with_app_fee": "30541582.8388",
+   "app_fee_usd": "260100.39320712"
+  },
+  {
+   "day": "2026-03-05",
+   "swaps_success": 20186,
+   "swaps_with_app_fee": 8832,
+   "swaps_with_referral": 18387,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29159810.6351",
+   "input_usd_of_swaps_with_app_fee": "16936198.8712",
+   "app_fee_usd": "136950.04438594"
+  },
+  {
+   "day": "2026-03-06",
+   "swaps_success": 18017,
+   "swaps_with_app_fee": 8170,
+   "swaps_with_referral": 16970,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22927443.9373",
+   "input_usd_of_swaps_with_app_fee": "15401029.1628",
+   "app_fee_usd": "115849.15003717"
+  },
+  {
+   "day": "2026-03-07",
+   "swaps_success": 14724,
+   "swaps_with_app_fee": 8281,
+   "swaps_with_referral": 13952,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "17675287.4939",
+   "input_usd_of_swaps_with_app_fee": "13084741.421",
+   "app_fee_usd": "92159.35443805"
+  },
+  {
+   "day": "2026-03-08",
+   "swaps_success": 14200,
+   "swaps_with_app_fee": 7935,
+   "swaps_with_referral": 13171,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "14026471.231",
+   "input_usd_of_swaps_with_app_fee": "8178333.2239",
+   "app_fee_usd": "58769.21610874"
+  },
+  {
+   "day": "2026-03-09",
+   "swaps_success": 17238,
+   "swaps_with_app_fee": 9351,
+   "swaps_with_referral": 15881,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "24480027.8235",
+   "input_usd_of_swaps_with_app_fee": "14643465.6266",
+   "app_fee_usd": "104948.51988886"
+  },
+  {
+   "day": "2026-03-10",
+   "swaps_success": 20138,
+   "swaps_with_app_fee": 12419,
+   "swaps_with_referral": 18926,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "26573276.1652",
+   "input_usd_of_swaps_with_app_fee": "16478737.6054",
+   "app_fee_usd": "115821.30699335"
+  },
+  {
+   "day": "2026-03-11",
+   "swaps_success": 17238,
+   "swaps_with_app_fee": 10304,
+   "swaps_with_referral": 16300,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "25044559.0841",
+   "input_usd_of_swaps_with_app_fee": "14222181.6613",
+   "app_fee_usd": "95783.88750052"
+  },
+  {
+   "day": "2026-03-12",
+   "swaps_success": 17345,
+   "swaps_with_app_fee": 10207,
+   "swaps_with_referral": 16119,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21532212.2904",
+   "input_usd_of_swaps_with_app_fee": "11589864.5717",
+   "app_fee_usd": "77947.3683788"
+  },
+  {
+   "day": "2026-03-13",
+   "swaps_success": 17337,
+   "swaps_with_app_fee": 10126,
+   "swaps_with_referral": 16152,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "26783024.3717",
+   "input_usd_of_swaps_with_app_fee": "18609000.807",
+   "app_fee_usd": "143766.64763737"
+  },
+  {
+   "day": "2026-03-14",
+   "swaps_success": 12528,
+   "swaps_with_app_fee": 7285,
+   "swaps_with_referral": 11978,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "14162592.1724",
+   "input_usd_of_swaps_with_app_fee": "9702857.8995",
+   "app_fee_usd": "65346.77930808"
+  },
+  {
+   "day": "2026-03-15",
+   "swaps_success": 14530,
+   "swaps_with_app_fee": 8128,
+   "swaps_with_referral": 13414,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "17765537.7536",
+   "input_usd_of_swaps_with_app_fee": "10937589.2753",
+   "app_fee_usd": "89035.84445452"
+  },
+  {
+   "day": "2026-03-16",
+   "swaps_success": 20252,
+   "swaps_with_app_fee": 13003,
+   "swaps_with_referral": 18337,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "43934573.6397",
+   "input_usd_of_swaps_with_app_fee": "31271201.806",
+   "app_fee_usd": "236054.37991474"
+  },
+  {
+   "day": "2026-03-17",
+   "swaps_success": 16045,
+   "swaps_with_app_fee": 7105,
+   "swaps_with_referral": 14283,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "18078050.931",
+   "input_usd_of_swaps_with_app_fee": "6417501.3366",
+   "app_fee_usd": "22026.00728391"
+  },
+  {
+   "day": "2026-03-18",
+   "swaps_success": 19764,
+   "swaps_with_app_fee": 13141,
+   "swaps_with_referral": 18580,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31352661.1302",
+   "input_usd_of_swaps_with_app_fee": "19315482.422",
+   "app_fee_usd": "110096.01875278"
+  },
+  {
+   "day": "2026-03-19",
+   "swaps_success": 21269,
+   "swaps_with_app_fee": 15475,
+   "swaps_with_referral": 19641,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "30797032.4563",
+   "input_usd_of_swaps_with_app_fee": "21415162.1844",
+   "app_fee_usd": "121812.62821792"
+  },
+  {
+   "day": "2026-03-20",
+   "swaps_success": 17576,
+   "swaps_with_app_fee": 11955,
+   "swaps_with_referral": 15556,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "25142005.1802",
+   "input_usd_of_swaps_with_app_fee": "17134702.3892",
+   "app_fee_usd": "88795.2644922"
+  },
+  {
+   "day": "2026-03-21",
+   "swaps_success": 15517,
+   "swaps_with_app_fee": 11182,
+   "swaps_with_referral": 14471,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "19816844.0031",
+   "input_usd_of_swaps_with_app_fee": "14492018.5721",
+   "app_fee_usd": "81020.60447855"
+  },
+  {
+   "day": "2026-03-22",
+   "swaps_success": 16513,
+   "swaps_with_app_fee": 11512,
+   "swaps_with_referral": 15335,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "24908652.1486",
+   "input_usd_of_swaps_with_app_fee": "18287612.3185",
+   "app_fee_usd": "133162.52671912"
+  },
+  {
+   "day": "2026-03-23",
+   "swaps_success": 22108,
+   "swaps_with_app_fee": 16311,
+   "swaps_with_referral": 20094,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32254228.2157",
+   "input_usd_of_swaps_with_app_fee": "24163071.0828",
+   "app_fee_usd": "150646.95411693"
+  },
+  {
+   "day": "2026-03-24",
+   "swaps_success": 23986,
+   "swaps_with_app_fee": 17176,
+   "swaps_with_referral": 22277,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "30642973.6559",
+   "input_usd_of_swaps_with_app_fee": "22816642.7988",
+   "app_fee_usd": "131190.06081662"
+  },
+  {
+   "day": "2026-03-25",
+   "swaps_success": 27210,
+   "swaps_with_app_fee": 20286,
+   "swaps_with_referral": 25708,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "34005900.3769",
+   "input_usd_of_swaps_with_app_fee": "27968877.4951",
+   "app_fee_usd": "154925.63010264"
+  },
+  {
+   "day": "2026-03-26",
+   "swaps_success": 21286,
+   "swaps_with_app_fee": 16029,
+   "swaps_with_referral": 20271,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "26641669.7501",
+   "input_usd_of_swaps_with_app_fee": "19035643.3848",
+   "app_fee_usd": "108457.53271197"
+  },
+  {
+   "day": "2026-03-27",
+   "swaps_success": 22521,
+   "swaps_with_app_fee": 17636,
+   "swaps_with_referral": 21370,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29570702.0946",
+   "input_usd_of_swaps_with_app_fee": "25043981.4392",
+   "app_fee_usd": "150316.25547381"
+  },
+  {
+   "day": "2026-03-28",
+   "swaps_success": 16543,
+   "swaps_with_app_fee": 11790,
+   "swaps_with_referral": 15515,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21032630.0795",
+   "input_usd_of_swaps_with_app_fee": "17676411.7318",
+   "app_fee_usd": "114257.52017252"
+  },
+  {
+   "day": "2026-03-29",
+   "swaps_success": 15207,
+   "swaps_with_app_fee": 11259,
+   "swaps_with_referral": 14316,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "15335992.2136",
+   "input_usd_of_swaps_with_app_fee": "11968377.1781",
+   "app_fee_usd": "62579.32862138"
+  },
+  {
+   "day": "2026-03-30",
+   "swaps_success": 23236,
+   "swaps_with_app_fee": 17273,
+   "swaps_with_referral": 21840,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31923822.6068",
+   "input_usd_of_swaps_with_app_fee": "25266479.7951",
+   "app_fee_usd": "119749.92045678"
+  },
+  {
+   "day": "2026-03-31",
+   "swaps_success": 23833,
+   "swaps_with_app_fee": 18728,
+   "swaps_with_referral": 22532,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39224714.5316",
+   "input_usd_of_swaps_with_app_fee": "30725189.3216",
+   "app_fee_usd": "153127.37377402"
+  },
+  {
+   "day": "2026-04-01",
+   "swaps_success": 21865,
+   "swaps_with_app_fee": 14102,
+   "swaps_with_referral": 20538,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "47840459.8736",
+   "input_usd_of_swaps_with_app_fee": "36599701.4151",
+   "app_fee_usd": "196525.0209033"
+  },
+  {
+   "day": "2026-04-02",
+   "swaps_success": 19441,
+   "swaps_with_app_fee": 13524,
+   "swaps_with_referral": 18059,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "36040133.967",
+   "input_usd_of_swaps_with_app_fee": "26863228.3601",
+   "app_fee_usd": "112355.2185151"
+  },
+  {
+   "day": "2026-04-03",
+   "swaps_success": 16654,
+   "swaps_with_app_fee": 10755,
+   "swaps_with_referral": 15167,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "19900167.4255",
+   "input_usd_of_swaps_with_app_fee": "13724726.6789",
+   "app_fee_usd": "97013.00870883"
+  },
+  {
+   "day": "2026-04-04",
+   "swaps_success": 15673,
+   "swaps_with_app_fee": 10092,
+   "swaps_with_referral": 14531,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "10750430.413",
+   "input_usd_of_swaps_with_app_fee": "8058434.9381",
+   "app_fee_usd": "48504.89923622"
+  },
+  {
+   "day": "2026-04-05",
+   "swaps_success": 16205,
+   "swaps_with_app_fee": 11388,
+   "swaps_with_referral": 15060,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "25435463.3943",
+   "input_usd_of_swaps_with_app_fee": "22139205.9599",
+   "app_fee_usd": "93440.39848931"
+  },
+  {
+   "day": "2026-04-06",
+   "swaps_success": 19466,
+   "swaps_with_app_fee": 13876,
+   "swaps_with_referral": 18116,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29025964.1578",
+   "input_usd_of_swaps_with_app_fee": "24295592.7628",
+   "app_fee_usd": "125482.15932643"
+  },
+  {
+   "day": "2026-04-07",
+   "swaps_success": 20021,
+   "swaps_with_app_fee": 13808,
+   "swaps_with_referral": 18365,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "36136569.6089",
+   "input_usd_of_swaps_with_app_fee": "29129530.7404",
+   "app_fee_usd": "148096.77709237"
+  },
+  {
+   "day": "2026-04-08",
+   "swaps_success": 20507,
+   "swaps_with_app_fee": 13683,
+   "swaps_with_referral": 18879,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39641313.6881",
+   "input_usd_of_swaps_with_app_fee": "29087333.4753",
+   "app_fee_usd": "156236.36572086"
+  },
+  {
+   "day": "2026-04-09",
+   "swaps_success": 22896,
+   "swaps_with_app_fee": 14885,
+   "swaps_with_referral": 20017,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32177725.6069",
+   "input_usd_of_swaps_with_app_fee": "23057476.5969",
+   "app_fee_usd": "140365.87815975"
+  },
+  {
+   "day": "2026-04-10",
+   "swaps_success": 21807,
+   "swaps_with_app_fee": 14429,
+   "swaps_with_referral": 19613,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31989052.4287",
+   "input_usd_of_swaps_with_app_fee": "25383472.314",
+   "app_fee_usd": "162756.24741668"
+  },
+  {
+   "day": "2026-04-11",
+   "swaps_success": 18014,
+   "swaps_with_app_fee": 12357,
+   "swaps_with_referral": 16654,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "18684100.2738",
+   "input_usd_of_swaps_with_app_fee": "12482427.8763",
+   "app_fee_usd": "71391.83119051"
+  },
+  {
+   "day": "2026-04-12",
+   "swaps_success": 17051,
+   "swaps_with_app_fee": 11310,
+   "swaps_with_referral": 15816,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "20416110.2617",
+   "input_usd_of_swaps_with_app_fee": "16527156.8598",
+   "app_fee_usd": "122857.3397132"
+  },
+  {
+   "day": "2026-04-13",
+   "swaps_success": 22104,
+   "swaps_with_app_fee": 14761,
+   "swaps_with_referral": 20514,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32580383.6763",
+   "input_usd_of_swaps_with_app_fee": "24764420.1194",
+   "app_fee_usd": "122234.3224505"
+  },
+  {
+   "day": "2026-04-14",
+   "swaps_success": 22414,
+   "swaps_with_app_fee": 15332,
+   "swaps_with_referral": 21121,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "36902486.1848",
+   "input_usd_of_swaps_with_app_fee": "26863920.1902",
+   "app_fee_usd": "157665.82439846"
+  },
+  {
+   "day": "2026-04-15",
+   "swaps_success": 17406,
+   "swaps_with_app_fee": 11903,
+   "swaps_with_referral": 16325,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "25642672.9234",
+   "input_usd_of_swaps_with_app_fee": "19819080.3091",
+   "app_fee_usd": "101781.20985515"
+  },
+  {
+   "day": "2026-04-16",
+   "swaps_success": 7583,
+   "swaps_with_app_fee": 5128,
+   "swaps_with_referral": 6709,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "20350661.6357",
+   "input_usd_of_swaps_with_app_fee": "8197549.2259",
+   "app_fee_usd": "43109.25163141"
+  },
+  {
+   "day": "2026-04-17",
+   "swaps_success": 11947,
+   "swaps_with_app_fee": 8032,
+   "swaps_with_referral": 11470,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21336121.6856",
+   "input_usd_of_swaps_with_app_fee": "16597108.8011",
+   "app_fee_usd": "112622.11895398"
+  },
+  {
+   "day": "2026-04-18",
+   "swaps_success": 19370,
+   "swaps_with_app_fee": 12874,
+   "swaps_with_referral": 18377,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "25016548.966",
+   "input_usd_of_swaps_with_app_fee": "18368780.0496",
+   "app_fee_usd": "98024.13199816"
+  },
+  {
+   "day": "2026-04-19",
+   "swaps_success": 21005,
+   "swaps_with_app_fee": 13295,
+   "swaps_with_referral": 19939,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "23339889.1796",
+   "input_usd_of_swaps_with_app_fee": "16356863.8501",
+   "app_fee_usd": "97231.35603315"
+  },
+  {
+   "day": "2026-04-20",
+   "swaps_success": 22034,
+   "swaps_with_app_fee": 14966,
+   "swaps_with_referral": 20946,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29695168.9216",
+   "input_usd_of_swaps_with_app_fee": "22486643.8751",
+   "app_fee_usd": "129326.86748973"
+  },
+  {
+   "day": "2026-04-21",
+   "swaps_success": 20503,
+   "swaps_with_app_fee": 13404,
+   "swaps_with_referral": 19279,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27672273.6854",
+   "input_usd_of_swaps_with_app_fee": "19473857.0242",
+   "app_fee_usd": "116361.91598246"
+  },
+  {
+   "day": "2026-04-22",
+   "swaps_success": 25787,
+   "swaps_with_app_fee": 16622,
+   "swaps_with_referral": 24411,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28642627.3273",
+   "input_usd_of_swaps_with_app_fee": "22451340.9633",
+   "app_fee_usd": "143502.46854007"
+  },
+  {
+   "day": "2026-04-23",
+   "swaps_success": 23069,
+   "swaps_with_app_fee": 15392,
+   "swaps_with_referral": 21911,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27781701.0819",
+   "input_usd_of_swaps_with_app_fee": "21883439.291",
+   "app_fee_usd": "128432.64888178"
+  },
+  {
+   "day": "2026-04-24",
+   "swaps_success": 20678,
+   "swaps_with_app_fee": 13532,
+   "swaps_with_referral": 19931,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21594686.9646",
+   "input_usd_of_swaps_with_app_fee": "16602421.5997",
+   "app_fee_usd": "90188.02985683"
+  },
+  {
+   "day": "2026-04-25",
+   "swaps_success": 12615,
+   "swaps_with_app_fee": 7652,
+   "swaps_with_referral": 11984,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "11072958.424",
+   "input_usd_of_swaps_with_app_fee": "7549421.3665",
+   "app_fee_usd": "39214.09716627"
+  },
+  {
+   "day": "2026-04-26",
+   "swaps_success": 16742,
+   "swaps_with_app_fee": 10437,
+   "swaps_with_referral": 16289,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "16010393.6054",
+   "input_usd_of_swaps_with_app_fee": "10019935.0256",
+   "app_fee_usd": "69198.87239416"
+  },
+  {
+   "day": "2026-04-27",
+   "swaps_success": 21383,
+   "swaps_with_app_fee": 13890,
+   "swaps_with_referral": 20327,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28286556.2563",
+   "input_usd_of_swaps_with_app_fee": "19076282.3006",
+   "app_fee_usd": "111661.77428666"
+  },
+  {
+   "day": "2026-04-28",
+   "swaps_success": 20675,
+   "swaps_with_app_fee": 13174,
+   "swaps_with_referral": 19462,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "23337478.4935",
+   "input_usd_of_swaps_with_app_fee": "15465238.2563",
+   "app_fee_usd": "97319.69885406"
+  },
+  {
+   "day": "2026-04-29",
+   "swaps_success": 20902,
+   "swaps_with_app_fee": 13363,
+   "swaps_with_referral": 19681,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "26544258.8998",
+   "input_usd_of_swaps_with_app_fee": "17100305.2983",
+   "app_fee_usd": "93148.91098476"
+  },
+  {
+   "day": "2026-04-30",
+   "swaps_success": 20459,
+   "swaps_with_app_fee": 13394,
+   "swaps_with_referral": 19361,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31242046.1731",
+   "input_usd_of_swaps_with_app_fee": "21381647.8551",
+   "app_fee_usd": "129389.47615065"
+  },
+  {
+   "day": "2026-05-01",
+   "swaps_success": 19296,
+   "swaps_with_app_fee": 12441,
+   "swaps_with_referral": 18160,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22907636.2642",
+   "input_usd_of_swaps_with_app_fee": "17567956.878",
+   "app_fee_usd": "108205.08977988"
+  },
+  {
+   "day": "2026-05-02",
+   "swaps_success": 13793,
+   "swaps_with_app_fee": 8656,
+   "swaps_with_referral": 13278,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "13535781.5162",
+   "input_usd_of_swaps_with_app_fee": "8562974.9799",
+   "app_fee_usd": "53433.50227426"
+  },
+  {
+   "day": "2026-05-03",
+   "swaps_success": 15972,
+   "swaps_with_app_fee": 10047,
+   "swaps_with_referral": 15202,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "15716963.6928",
+   "input_usd_of_swaps_with_app_fee": "10896644.4509",
+   "app_fee_usd": "63524.37110071"
+  },
+  {
+   "day": "2026-05-04",
+   "swaps_success": 21645,
+   "swaps_with_app_fee": 14051,
+   "swaps_with_referral": 20556,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28979941.6384",
+   "input_usd_of_swaps_with_app_fee": "18896948.0812",
+   "app_fee_usd": "133565.26655848"
+  },
+  {
+   "day": "2026-05-05",
+   "swaps_success": 18337,
+   "swaps_with_app_fee": 13234,
+   "swaps_with_referral": 17146,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "33225434.8677",
+   "input_usd_of_swaps_with_app_fee": "23920548.4316",
+   "app_fee_usd": "171414.09411094"
+  },
+  {
+   "day": "2026-05-06",
+   "swaps_success": 22120,
+   "swaps_with_app_fee": 14592,
+   "swaps_with_referral": 20350,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32891320.5297",
+   "input_usd_of_swaps_with_app_fee": "26171378.4345",
+   "app_fee_usd": "162929.08012321"
+  },
+  {
+   "day": "2026-05-07",
+   "swaps_success": 19344,
+   "swaps_with_app_fee": 12860,
+   "swaps_with_referral": 18385,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28334424.4162",
+   "input_usd_of_swaps_with_app_fee": "17719950.71",
+   "app_fee_usd": "106444.84123903"
+  },
+  {
+   "day": "2026-05-08",
+   "swaps_success": 18561,
+   "swaps_with_app_fee": 12045,
+   "swaps_with_referral": 17583,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "26613686.7317",
+   "input_usd_of_swaps_with_app_fee": "16249568.8054",
+   "app_fee_usd": "91471.54029725"
+  },
+  {
+   "day": "2026-05-09",
+   "swaps_success": 17276,
+   "swaps_with_app_fee": 12048,
+   "swaps_with_referral": 16236,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "20859869.5732",
+   "input_usd_of_swaps_with_app_fee": "15109119.3707",
+   "app_fee_usd": "89998.04227336"
+  },
+  {
+   "day": "2026-05-10",
+   "swaps_success": 13094,
+   "swaps_with_app_fee": 9157,
+   "swaps_with_referral": 12151,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21592497.6664",
+   "input_usd_of_swaps_with_app_fee": "14557399.292",
+   "app_fee_usd": "87191.58025566"
+  },
+  {
+   "day": "2026-05-11",
+   "swaps_success": 15330,
+   "swaps_with_app_fee": 10718,
+   "swaps_with_referral": 14600,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29101253.8121",
+   "input_usd_of_swaps_with_app_fee": "20281719.2809",
+   "app_fee_usd": "120088.0274623"
+  },
+  {
+   "day": "2026-05-12",
+   "swaps_success": 13154,
+   "swaps_with_app_fee": 8840,
+   "swaps_with_referral": 11953,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27127388.8735",
+   "input_usd_of_swaps_with_app_fee": "17424295.5205",
+   "app_fee_usd": "114154.271564"
+  },
+  {
+   "day": "2026-05-13",
+   "swaps_success": 17415,
+   "swaps_with_app_fee": 11378,
+   "swaps_with_referral": 16171,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "24636466.9966",
+   "input_usd_of_swaps_with_app_fee": "16774293.7795",
+   "app_fee_usd": "96389.97399003"
+  },
+  {
+   "day": "2026-05-14",
+   "swaps_success": 20496,
+   "swaps_with_app_fee": 13120,
+   "swaps_with_referral": 19400,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32142381.3694",
+   "input_usd_of_swaps_with_app_fee": "17578705.964",
+   "app_fee_usd": "115381.03539502"
+  },
+  {
+   "day": "2026-05-15",
+   "swaps_success": 20493,
+   "swaps_with_app_fee": 13513,
+   "swaps_with_referral": 19500,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31185538.6237",
+   "input_usd_of_swaps_with_app_fee": "20524826.0008",
+   "app_fee_usd": "113011.63757296"
+  },
+  {
+   "day": "2026-05-16",
+   "swaps_success": 16865,
+   "swaps_with_app_fee": 11101,
+   "swaps_with_referral": 15984,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21450675.1074",
+   "input_usd_of_swaps_with_app_fee": "13474585.2994",
+   "app_fee_usd": "74168.32589662"
+  },
+  {
+   "day": "2026-05-17",
+   "swaps_success": 15799,
+   "swaps_with_app_fee": 10044,
+   "swaps_with_referral": 14681,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22968181.0954",
+   "input_usd_of_swaps_with_app_fee": "12639716.5532",
+   "app_fee_usd": "67439.93301646"
+  },
+  {
+   "day": "2026-05-18",
+   "swaps_success": 19416,
+   "swaps_with_app_fee": 12569,
+   "swaps_with_referral": 17857,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "34029982.5692",
+   "input_usd_of_swaps_with_app_fee": "20885274.6966",
+   "app_fee_usd": "128859.12461766"
+  },
+  {
+   "day": "2026-05-19",
+   "swaps_success": 21211,
+   "swaps_with_app_fee": 11356,
+   "swaps_with_referral": 15817,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29827649.8398",
+   "input_usd_of_swaps_with_app_fee": "16110865.4372",
+   "app_fee_usd": "88149.00801671"
+  },
+  {
+   "day": "2026-05-20",
+   "swaps_success": 18878,
+   "swaps_with_app_fee": 12027,
+   "swaps_with_referral": 17250,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "36475882.7782",
+   "input_usd_of_swaps_with_app_fee": "22296351.2206",
+   "app_fee_usd": "126901.70860096"
+  },
+  {
+   "day": "2026-05-21",
+   "swaps_success": 19654,
+   "swaps_with_app_fee": 12623,
+   "swaps_with_referral": 18021,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31393328.2502",
+   "input_usd_of_swaps_with_app_fee": "20680353.4315",
+   "app_fee_usd": "101102.14445352"
+  },
+  {
+   "day": "2026-05-22",
+   "swaps_success": 21814,
+   "swaps_with_app_fee": 12860,
+   "swaps_with_referral": 17902,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "41854691.5881",
+   "input_usd_of_swaps_with_app_fee": "24844649.6942",
+   "app_fee_usd": "124880.40574111"
+  },
+  {
+   "day": "2026-05-23",
+   "swaps_success": 20658,
+   "swaps_with_app_fee": 11500,
+   "swaps_with_referral": 16023,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "55978208.2281",
+   "input_usd_of_swaps_with_app_fee": "28365463.8507",
+   "app_fee_usd": "130381.23071148"
+  },
+  {
+   "day": "2026-05-24",
+   "swaps_success": 18440,
+   "swaps_with_app_fee": 10823,
+   "swaps_with_referral": 15384,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "34329117.4895",
+   "input_usd_of_swaps_with_app_fee": "17179943.9405",
+   "app_fee_usd": "72269.971761"
+  },
+  {
+   "day": "2026-05-25",
+   "swaps_success": 20817,
+   "swaps_with_app_fee": 13107,
+   "swaps_with_referral": 18264,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "46905154.4185",
+   "input_usd_of_swaps_with_app_fee": "32638367.497",
+   "app_fee_usd": "133698.15073712"
+  },
+  {
+   "day": "2026-05-26",
+   "swaps_success": 21099,
+   "swaps_with_app_fee": 13489,
+   "swaps_with_referral": 18604,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "60902812.6016",
+   "input_usd_of_swaps_with_app_fee": "34946701.43",
+   "app_fee_usd": "144526.18871201"
+  },
+  {
+   "day": "2026-05-27",
+   "swaps_success": 19685,
+   "swaps_with_app_fee": 12915,
+   "swaps_with_referral": 17957,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "44279893.0061",
+   "input_usd_of_swaps_with_app_fee": "28822789.9267",
+   "app_fee_usd": "134922.71382529"
+  },
+  {
+   "day": "2026-05-28",
+   "swaps_success": 19617,
+   "swaps_with_app_fee": 12729,
+   "swaps_with_referral": 18129,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "42959461.691549510547",
+   "input_usd_of_swaps_with_app_fee": "22131192.548391092771",
+   "app_fee_usd": "108901.0817815975296742"
+  },
+  {
+   "day": "2026-05-29",
+   "swaps_success": 17852,
+   "swaps_with_app_fee": 11252,
+   "swaps_with_referral": 16084,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "25950584.5514",
+   "input_usd_of_swaps_with_app_fee": "17288250.7144",
+   "app_fee_usd": "79413.76855956"
+  },
+  {
+   "day": "2026-05-30",
+   "swaps_success": 15311,
+   "swaps_with_app_fee": 9338,
+   "swaps_with_referral": 14178,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "42359858.4096",
+   "input_usd_of_swaps_with_app_fee": "19438953.9486",
+   "app_fee_usd": "68420.46247546"
+  },
+  {
+   "day": "2026-05-31",
+   "swaps_success": 16224,
+   "swaps_with_app_fee": 9108,
+   "swaps_with_referral": 14282,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "88124821.6538",
+   "input_usd_of_swaps_with_app_fee": "19703235.0676",
+   "app_fee_usd": "81057.71417471"
+  },
+  {
+   "day": "2026-06-01",
+   "swaps_success": 20178,
+   "swaps_with_app_fee": 11500,
+   "swaps_with_referral": 17087,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "47569670.89391",
+   "input_usd_of_swaps_with_app_fee": "32406055.36411",
+   "app_fee_usd": "155558.87447956"
+  },
+  {
+   "day": "2026-06-02",
+   "swaps_success": 21626,
+   "swaps_with_app_fee": 13095,
+   "swaps_with_referral": 18926,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "37703577.503636351328",
+   "input_usd_of_swaps_with_app_fee": "27009266.194",
+   "app_fee_usd": "163463.29182391"
+  },
+  {
+   "day": "2026-06-03",
+   "swaps_success": 22935,
+   "swaps_with_app_fee": 13645,
+   "swaps_with_referral": 19768,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "40733249.0027",
+   "input_usd_of_swaps_with_app_fee": "25661042.0639",
+   "app_fee_usd": "135048.97182221"
+  },
+  {
+   "day": "2026-06-04",
+   "swaps_success": 19622,
+   "swaps_with_app_fee": 11384,
+   "swaps_with_referral": 16264,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "56373469.939382831775",
+   "input_usd_of_swaps_with_app_fee": "37690909.696282831775",
+   "app_fee_usd": "159663.598190926566355"
+  },
+  {
+   "day": "2026-06-05",
+   "swaps_success": 28513,
+   "swaps_with_app_fee": 14864,
+   "swaps_with_referral": 22833,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "86707577.622638694156",
+   "input_usd_of_swaps_with_app_fee": "60812160.795172030067",
+   "app_fee_usd": "277463.954857275034086"
+  },
+  {
+   "day": "2026-06-06",
+   "swaps_success": 17232,
+   "swaps_with_app_fee": 10071,
+   "swaps_with_referral": 15475,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27811922.2518",
+   "input_usd_of_swaps_with_app_fee": "19132484.3482",
+   "app_fee_usd": "96673.57062585"
+  },
+  {
+   "day": "2026-06-07",
+   "swaps_success": 17689,
+   "swaps_with_app_fee": 10315,
+   "swaps_with_referral": 15277,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31573809.5644",
+   "input_usd_of_swaps_with_app_fee": "18619193.5416",
+   "app_fee_usd": "88607.12884787"
+  },
+  {
+   "day": "2026-06-08",
+   "swaps_success": 24252,
+   "swaps_with_app_fee": 11590,
+   "swaps_with_referral": 17512,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "40448273.9726",
+   "input_usd_of_swaps_with_app_fee": "27239325.0792",
+   "app_fee_usd": "120706.15960776"
+  },
+  {
+   "day": "2026-06-09",
+   "swaps_success": 19637,
+   "swaps_with_app_fee": 11888,
+   "swaps_with_referral": 17810,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "36841205.7607",
+   "input_usd_of_swaps_with_app_fee": "24176353.4703",
+   "app_fee_usd": "95497.00474602"
+  },
+  {
+   "day": "2026-06-10",
+   "swaps_success": 20217,
+   "swaps_with_app_fee": 11865,
+   "swaps_with_referral": 17585,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31149377.453",
+   "input_usd_of_swaps_with_app_fee": "18439849.0215",
+   "app_fee_usd": "82260.33033186"
+  },
+  {
+   "day": "2026-06-11",
+   "swaps_success": 19008,
+   "swaps_with_app_fee": 12068,
+   "swaps_with_referral": 17652,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "37160539.1242",
+   "input_usd_of_swaps_with_app_fee": "26144189.6369",
+   "app_fee_usd": "92604.4133953"
+  },
+  {
+   "day": "2026-06-12",
+   "swaps_success": 20416,
+   "swaps_with_app_fee": 11919,
+   "swaps_with_referral": 17548,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "40675220.7444",
+   "input_usd_of_swaps_with_app_fee": "30858937.6702",
+   "app_fee_usd": "123514.66142425"
+  },
+  {
+   "day": "2026-06-13",
+   "swaps_success": 15138,
+   "swaps_with_app_fee": 9403,
+   "swaps_with_referral": 13921,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "16106712.089018949533",
+   "input_usd_of_swaps_with_app_fee": "10577209.881618949533",
+   "app_fee_usd": "42881.1439284573738325"
+  },
+  {
+   "day": "2026-06-14",
+   "swaps_success": 15551,
+   "swaps_with_app_fee": 9276,
+   "swaps_with_referral": 14033,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "17357509.1798",
+   "input_usd_of_swaps_with_app_fee": "13283859.5482",
+   "app_fee_usd": "67726.30024356"
+  },
+  {
+   "day": "2026-06-15",
+   "swaps_success": 22049,
+   "swaps_with_app_fee": 13847,
+   "swaps_with_referral": 19780,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "51433123.836",
+   "input_usd_of_swaps_with_app_fee": "36820589.8507",
+   "app_fee_usd": "160712.11317929"
+  },
+  {
+   "day": "2026-06-16",
+   "swaps_success": 19418,
+   "swaps_with_app_fee": 12348,
+   "swaps_with_referral": 17551,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "38904935.5482",
+   "input_usd_of_swaps_with_app_fee": "23631155.71",
+   "app_fee_usd": "108010.5358122"
+  },
+  {
+   "day": "2026-06-17",
+   "swaps_success": 19996,
+   "swaps_with_app_fee": 12579,
+   "swaps_with_referral": 18511,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31207976.8347",
+   "input_usd_of_swaps_with_app_fee": "20313286.0848",
+   "app_fee_usd": "83228.62136681"
+  },
+  {
+   "day": "2026-06-18",
+   "swaps_success": 20525,
+   "swaps_with_app_fee": 13002,
+   "swaps_with_referral": 18553,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "30357116.4173",
+   "input_usd_of_swaps_with_app_fee": "21091083.3371",
+   "app_fee_usd": "110895.11769163"
+  },
+  {
+   "day": "2026-06-19",
+   "swaps_success": 17109,
+   "swaps_with_app_fee": 9625,
+   "swaps_with_referral": 14233,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22089786.3606",
+   "input_usd_of_swaps_with_app_fee": "13539804.9821",
+   "app_fee_usd": "65361.56068292"
+  },
+  {
+   "day": "2026-06-20",
+   "swaps_success": 17620,
+   "swaps_with_app_fee": 9702,
+   "swaps_with_referral": 14368,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "20046349.6821",
+   "input_usd_of_swaps_with_app_fee": "12304161.5709",
+   "app_fee_usd": "52580.13574985"
+  },
+  {
+   "day": "2026-06-21",
+   "swaps_success": 15648,
+   "swaps_with_app_fee": 9595,
+   "swaps_with_referral": 14488,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "20701317.96575987",
+   "input_usd_of_swaps_with_app_fee": "14441009.3114",
+   "app_fee_usd": "69547.52715131"
+  },
+  {
+   "day": "2026-06-22",
+   "swaps_success": 18546,
+   "swaps_with_app_fee": 11934,
+   "swaps_with_referral": 17090,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "37934071.7005",
+   "input_usd_of_swaps_with_app_fee": "21289145.3165",
+   "app_fee_usd": "91865.182926"
+  },
+  {
+   "day": "2026-06-23",
+   "swaps_success": 17632,
+   "swaps_with_app_fee": 10746,
+   "swaps_with_referral": 15506,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "33344960.24383338361",
+   "input_usd_of_swaps_with_app_fee": "23069851.379317424537",
+   "app_fee_usd": "114041.7766444325902583"
+  },
+  {
+   "day": "2026-06-24",
+   "swaps_success": 21828,
+   "swaps_with_app_fee": 13333,
+   "swaps_with_referral": 18919,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "40098727.227844181799",
+   "input_usd_of_swaps_with_app_fee": "29423793.441872700174",
+   "app_fee_usd": "161869.6259907236298247"
+  },
+  {
+   "day": "2026-06-25",
+   "swaps_success": 19735,
+   "swaps_with_app_fee": 12634,
+   "swaps_with_referral": 17937,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29190988.508674936066",
+   "input_usd_of_swaps_with_app_fee": "18802679.819798640906",
+   "app_fee_usd": "114724.2539791542778896"
+  },
+  {
+   "day": "2026-06-26",
+   "swaps_success": 18092,
+   "swaps_with_app_fee": 11354,
+   "swaps_with_referral": 16605,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27462489.411003655692",
+   "input_usd_of_swaps_with_app_fee": "19057708.362270322969",
+   "app_fee_usd": "103401.3694288218841493"
+  },
+  {
+   "day": "2026-06-27",
+   "swaps_success": 14649,
+   "swaps_with_app_fee": 9306,
+   "swaps_with_referral": 13439,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "16827475.528960145779",
+   "input_usd_of_swaps_with_app_fee": "12790534.861118949921",
+   "app_fee_usd": "69629.9224173569359845"
+  },
+  {
+   "day": "2026-06-28",
+   "swaps_success": 15288,
+   "swaps_with_app_fee": 9365,
+   "swaps_with_referral": 14193,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22703551.815951165275",
+   "input_usd_of_swaps_with_app_fee": "14991568.239775381746",
+   "app_fee_usd": "74883.7920901248592724"
+  },
+  {
+   "day": "2026-06-29",
+   "swaps_success": 18486,
+   "swaps_with_app_fee": 12160,
+   "swaps_with_referral": 17392,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31488861.691639369541",
+   "input_usd_of_swaps_with_app_fee": "22911907.949880461952",
+   "app_fee_usd": "125894.9760264906257045"
+  },
+  {
+   "day": "2026-06-30",
+   "swaps_success": 19787,
+   "swaps_with_app_fee": 12984,
+   "swaps_with_referral": 18602,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "43290765.011133054272",
+   "input_usd_of_swaps_with_app_fee": "32232767.891817915218",
+   "app_fee_usd": "151873.4490454102834124"
+  },
+  {
+   "day": "2026-07-01",
+   "swaps_success": 20246,
+   "swaps_with_app_fee": 12574,
+   "swaps_with_referral": 18216,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "47392102.018839493577",
+   "input_usd_of_swaps_with_app_fee": "33145391.740656030214",
+   "app_fee_usd": "150346.2525476844506868"
+  },
+  {
+   "day": "2026-07-02",
+   "swaps_success": 20055,
+   "swaps_with_app_fee": 12345,
+   "swaps_with_referral": 18402,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "46583253.459181302768",
+   "input_usd_of_swaps_with_app_fee": "34222030.6985097386",
+   "app_fee_usd": "194436.2459088309334854"
+  },
+  {
+   "day": "2026-07-03",
+   "swaps_success": 18413,
+   "swaps_with_app_fee": 10610,
+   "swaps_with_referral": 16168,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "35357324.105109364888",
+   "input_usd_of_swaps_with_app_fee": "25057324.79282821262",
+   "app_fee_usd": "136750.1258961525833262"
+  },
+  {
+   "day": "2026-07-04",
+   "swaps_success": 17238,
+   "swaps_with_app_fee": 9838,
+   "swaps_with_referral": 15845,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "26118320.202432188039",
+   "input_usd_of_swaps_with_app_fee": "16737338.504026018273",
+   "app_fee_usd": "113501.314775240564414"
+  },
+  {
+   "day": "2026-07-05",
+   "swaps_success": 16750,
+   "swaps_with_app_fee": 9326,
+   "swaps_with_referral": 15404,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22247636.891463945353",
+   "input_usd_of_swaps_with_app_fee": "15695185.969949483869",
+   "app_fee_usd": "82902.7519367975968555"
+  },
+  {
+   "day": "2026-07-06",
+   "swaps_success": 20078,
+   "swaps_with_app_fee": 11665,
+   "swaps_with_referral": 18178,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "46925903.814151180564",
+   "input_usd_of_swaps_with_app_fee": "29867921.839813594665",
+   "app_fee_usd": "173391.3839320222626977"
+  },
+  {
+   "day": "2026-07-07",
+   "swaps_success": 19732,
+   "swaps_with_app_fee": 11160,
+   "swaps_with_referral": 17906,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "41615781.186508405431",
+   "input_usd_of_swaps_with_app_fee": "24454996.409292221202",
+   "app_fee_usd": "123110.5724004699015527"
+  },
+  {
+   "day": "2026-07-08",
+   "swaps_success": 20327,
+   "swaps_with_app_fee": 11739,
+   "swaps_with_referral": 18659,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "43163145.656105162414",
+   "input_usd_of_swaps_with_app_fee": "28043192.212184722246",
+   "app_fee_usd": "149271.0548242378448255"
+  },
+  {
+   "day": "2026-07-09",
+   "swaps_success": 17847,
+   "swaps_with_app_fee": 10824,
+   "swaps_with_referral": 16125,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39037560.46530992162",
+   "input_usd_of_swaps_with_app_fee": "26276118.399259100282",
+   "app_fee_usd": "120732.3925677403129276"
+  },
+  {
+   "day": "2026-07-10",
+   "swaps_success": 18564,
+   "swaps_with_app_fee": 10806,
+   "swaps_with_referral": 16474,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39020266.995241100808",
+   "input_usd_of_swaps_with_app_fee": "26837512.942841061494",
+   "app_fee_usd": "102132.6811821471497988"
+  },
+  {
+   "day": "2026-07-11",
+   "swaps_success": 16306,
+   "swaps_with_app_fee": 9348,
+   "swaps_with_referral": 14684,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "20527821.596935079375",
+   "input_usd_of_swaps_with_app_fee": "16250247.68289177797",
+   "app_fee_usd": "80257.8659721068973832"
+  },
+  {
+   "day": "2026-07-12",
+   "swaps_success": 15074,
+   "swaps_with_app_fee": 8425,
+   "swaps_with_referral": 13623,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "20842597.956940725489",
+   "input_usd_of_swaps_with_app_fee": "13660854.100050429821",
+   "app_fee_usd": "60509.3081783816211695"
+  },
+  {
+   "day": "2026-07-13",
+   "swaps_success": 18564,
+   "swaps_with_app_fee": 11153,
+   "swaps_with_referral": 16526,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39695671.059265082882",
+   "input_usd_of_swaps_with_app_fee": "23923157.76940598744",
+   "app_fee_usd": "94319.1015343670653691"
+  },
+  {
+   "day": "2026-07-14",
+   "swaps_success": 19015,
+   "swaps_with_app_fee": 11333,
+   "swaps_with_referral": 16721,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "48475533.691308381021",
+   "input_usd_of_swaps_with_app_fee": "37353796.354884893323",
+   "app_fee_usd": "164319.4013279643505551"
+  },
+  {
+   "day": "2026-07-15",
+   "swaps_success": 20685,
+   "swaps_with_app_fee": 12087,
+   "swaps_with_referral": 18170,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "49883078.407350115702",
+   "input_usd_of_swaps_with_app_fee": "30467173.490674449337",
+   "app_fee_usd": "158847.3627313237855026"
+  },
+  {
+   "day": "2026-07-16",
+   "swaps_success": 19292,
+   "swaps_with_app_fee": 12174,
+   "swaps_with_referral": 17270,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "41050197.63016584912",
+   "input_usd_of_swaps_with_app_fee": "27765444.887791654832",
+   "app_fee_usd": "110766.7095468985010969"
+  },
+  {
+   "day": "2026-07-17",
+   "swaps_success": 17235,
+   "swaps_with_app_fee": 11172,
+   "swaps_with_referral": 15392,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31747941.896176278057",
+   "input_usd_of_swaps_with_app_fee": "16746070.639834542922",
+   "app_fee_usd": "88323.3404035677347427"
+  },
+  {
+   "day": "2026-07-18",
+   "swaps_success": 15797,
+   "swaps_with_app_fee": 11229,
+   "swaps_with_referral": 14124,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27209208.936913238869",
+   "input_usd_of_swaps_with_app_fee": "16848165.564939053178",
+   "app_fee_usd": "58714.3304263325794324"
+  },
+  {
+   "day": "2026-07-19",
+   "swaps_success": 15676,
+   "swaps_with_app_fee": 10292,
+   "swaps_with_referral": 13338,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "20279591.706997031105",
+   "input_usd_of_swaps_with_app_fee": "12894935.819718026417",
+   "app_fee_usd": "56746.4497158161885424"
+  },
+  {
+   "day": "2026-07-20",
+   "swaps_success": 15797,
+   "swaps_with_app_fee": 11530,
+   "swaps_with_referral": 13911,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29377561.364964822181",
+   "input_usd_of_swaps_with_app_fee": "19563147.870744904831",
+   "app_fee_usd": "101140.7626405860232562"
+  },
+  {
+   "day": "2026-07-21",
+   "swaps_success": 18917,
+   "swaps_with_app_fee": 13098,
+   "swaps_with_referral": 16490,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "50784309.941062018882",
+   "input_usd_of_swaps_with_app_fee": "37142350.261210484655",
+   "app_fee_usd": "230095.0421594572210856"
+  },
+  {
+   "day": "2026-07-22",
+   "swaps_success": 19448,
+   "swaps_with_app_fee": 13176,
+   "swaps_with_referral": 16650,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "42111501.733921480819",
+   "input_usd_of_swaps_with_app_fee": "23245969.1722935909",
+   "app_fee_usd": "130238.8337101729553424"
+  },
+  {
+   "day": "2026-07-23",
+   "swaps_success": 19583,
+   "swaps_with_app_fee": 13758,
+   "swaps_with_referral": 17009,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29044140.296492566396",
+   "input_usd_of_swaps_with_app_fee": "18949276.681938207795",
+   "app_fee_usd": "83049.2108914150114302"
+  },
+  {
+   "day": "2026-07-24",
+   "swaps_success": 20469,
+   "swaps_with_app_fee": 13987,
+   "swaps_with_referral": 17245,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28242187.954190365619",
+   "input_usd_of_swaps_with_app_fee": "16167993.093754374288",
+   "app_fee_usd": "75855.6239904753433543"
+  },
+  {
+   "day": "2026-07-25",
+   "swaps_success": 18013,
+   "swaps_with_app_fee": 12563,
+   "swaps_with_referral": 15385,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21855299.24101286606",
+   "input_usd_of_swaps_with_app_fee": "13127842.046887475389",
+   "app_fee_usd": "69902.0429938231446988"
+  },
+  {
+   "day": "2026-07-26",
+   "swaps_success": 17719,
+   "swaps_with_app_fee": 12273,
+   "swaps_with_referral": 15239,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22954342.537848293228",
+   "input_usd_of_swaps_with_app_fee": "13726352.434288925493",
+   "app_fee_usd": "83044.4696066347778783"
+  },
+  {
+   "day": "2026-07-27",
+   "swaps_success": 21010,
+   "swaps_with_app_fee": 14922,
+   "swaps_with_referral": 18000,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29763194.859512094395",
+   "input_usd_of_swaps_with_app_fee": "17853794.588342815426",
+   "app_fee_usd": "91168.4274875298540982"
+  },
+  {
+   "day": "2026-07-28",
+   "swaps_success": 21194,
+   "swaps_with_app_fee": 14582,
+   "swaps_with_referral": 18187,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "33331573.887613097717",
+   "input_usd_of_swaps_with_app_fee": "21761564.397026894832",
+   "app_fee_usd": "101866.8235892490755839"
+  },
+  {
+   "day": "2026-07-29",
+   "swaps_success": 21013,
+   "swaps_with_app_fee": 14463,
+   "swaps_with_referral": 18254,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27562781.283955548764",
+   "input_usd_of_swaps_with_app_fee": "16720890.815521632164",
+   "app_fee_usd": "80749.16844680071105"
+  },
+  {
+   "day": "2026-07-30",
+   "swaps_success": 23503,
+   "swaps_with_app_fee": 15763,
+   "swaps_with_referral": 20490,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "37062205.670960201329",
+   "input_usd_of_swaps_with_app_fee": "23885493.72861497175",
+   "app_fee_usd": "109664.2957133509069758"
+  },
+  {
+   "day": "2026-07-31",
+   "swaps_success": 22604,
+   "swaps_with_app_fee": 15634,
+   "swaps_with_referral": 19785,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32825931.810912444501",
+   "input_usd_of_swaps_with_app_fee": "20685625.276370173032",
+   "app_fee_usd": "99728.3680520896813011"
+  },
+  {
+   "day": "2026-08-01",
+   "swaps_success": 20122,
+   "swaps_with_app_fee": 12966,
+   "swaps_with_referral": 16294,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28052411.513347791068",
+   "input_usd_of_swaps_with_app_fee": "14947024.125471301467",
+   "app_fee_usd": "72512.6251086045948558"
+  },
+  {
+   "day": "2026-08-02",
+   "swaps_success": 18103,
+   "swaps_with_app_fee": 12295,
+   "swaps_with_referral": 15570,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "15802036.412522356791",
+   "input_usd_of_swaps_with_app_fee": "11308025.753336902059",
+   "app_fee_usd": "53193.2991576766886038"
+  },
+  {
+   "day": "2026-08-03",
+   "swaps_success": 21535,
+   "swaps_with_app_fee": 14519,
+   "swaps_with_referral": 18859,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "33217730.450493825745",
+   "input_usd_of_swaps_with_app_fee": "20760697.416795987347",
+   "app_fee_usd": "100477.8055186447150943"
+  },
+  {
+   "day": "2026-08-04",
+   "swaps_success": 21902,
+   "swaps_with_app_fee": 15170,
+   "swaps_with_referral": 19242,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "25543669.01731573998",
+   "input_usd_of_swaps_with_app_fee": "16495296.329544838031",
+   "app_fee_usd": "78665.9663295651345977"
+  },
+  {
+   "day": "2026-08-05",
+   "swaps_success": 22782,
+   "swaps_with_app_fee": 15919,
+   "swaps_with_referral": 19887,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31184648.008854835199",
+   "input_usd_of_swaps_with_app_fee": "20687309.16909304877",
+   "app_fee_usd": "90026.7307788807515811"
+  },
+  {
+   "day": "2026-08-06",
+   "swaps_success": 23172,
+   "swaps_with_app_fee": 16078,
+   "swaps_with_referral": 20157,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "35003078.92258696453",
+   "input_usd_of_swaps_with_app_fee": "19793722.893817839386",
+   "app_fee_usd": "77089.5118449292872289"
+  },
+  {
+   "day": "2026-08-07",
+   "swaps_success": 22835,
+   "swaps_with_app_fee": 15819,
+   "swaps_with_referral": 19940,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32348498.190088248414",
+   "input_usd_of_swaps_with_app_fee": "21064124.252323295281",
+   "app_fee_usd": "103307.910712906356457"
+  },
+  {
+   "day": "2026-08-08",
+   "swaps_success": 21414,
+   "swaps_with_app_fee": 14025,
+   "swaps_with_referral": 18315,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "25150351.773431872237",
+   "input_usd_of_swaps_with_app_fee": "15304920.738152601163",
+   "app_fee_usd": "90508.6046991713826558"
+  },
+  {
+   "day": "2026-08-09",
+   "swaps_success": 20331,
+   "swaps_with_app_fee": 13629,
+   "swaps_with_referral": 17659,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "16947841.622231168282",
+   "input_usd_of_swaps_with_app_fee": "11172717.216231045915",
+   "app_fee_usd": "49580.8448435045623993"
+  },
+  {
+   "day": "2026-08-10",
+   "swaps_success": 24301,
+   "swaps_with_app_fee": 16060,
+   "swaps_with_referral": 20801,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "33013586.029117750938",
+   "input_usd_of_swaps_with_app_fee": "21043133.180907441799",
+   "app_fee_usd": "107139.0615816425057375"
+  },
+  {
+   "day": "2026-08-11",
+   "swaps_success": 24682,
+   "swaps_with_app_fee": 16760,
+   "swaps_with_referral": 21345,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "35091653.701678907463",
+   "input_usd_of_swaps_with_app_fee": "22628442.786737798161",
+   "app_fee_usd": "97076.1910045445888059"
+  },
+  {
+   "day": "2026-08-12",
+   "swaps_success": 24346,
+   "swaps_with_app_fee": 16550,
+   "swaps_with_referral": 20918,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31432072.998437209482",
+   "input_usd_of_swaps_with_app_fee": "20301305.006946294615",
+   "app_fee_usd": "95541.3066304774500916"
+  },
+  {
+   "day": "2026-08-13",
+   "swaps_success": 23971,
+   "swaps_with_app_fee": 16610,
+   "swaps_with_referral": 20351,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "30143456.6304349314",
+   "input_usd_of_swaps_with_app_fee": "18600558.92065564057",
+   "app_fee_usd": "71277.6473449177382111"
+  },
+  {
+   "day": "2026-08-14",
+   "swaps_success": 23753,
+   "swaps_with_app_fee": 15608,
+   "swaps_with_referral": 20021,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "33606555.725906681923",
+   "input_usd_of_swaps_with_app_fee": "19375753.628663931396",
+   "app_fee_usd": "87290.7325373202987197"
+  },
+  {
+   "day": "2026-08-15",
+   "swaps_success": 13830,
+   "swaps_with_app_fee": 6170,
+   "swaps_with_referral": 10855,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "14966074.154102011861",
+   "input_usd_of_swaps_with_app_fee": "6801713.950996418591",
+   "app_fee_usd": "33006.1820580155927801"
+  },
+  {
+   "day": "2026-08-16",
+   "swaps_success": 20081,
+   "swaps_with_app_fee": 11917,
+   "swaps_with_referral": 16677,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22626113.086610238918",
+   "input_usd_of_swaps_with_app_fee": "14565261.335379099062",
+   "app_fee_usd": "51633.2121149899925521"
+  },
+  {
+   "day": "2026-08-17",
+   "swaps_success": 25607,
+   "swaps_with_app_fee": 16221,
+   "swaps_with_referral": 21642,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "38144008.414990631111",
+   "input_usd_of_swaps_with_app_fee": "24617704.192749290022",
+   "app_fee_usd": "99385.1210823673336924"
+  },
+  {
+   "day": "2026-08-18",
+   "swaps_success": 26029,
+   "swaps_with_app_fee": 16684,
+   "swaps_with_referral": 22011,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "38315172.011058661698",
+   "input_usd_of_swaps_with_app_fee": "19371723.454867844265",
+   "app_fee_usd": "84796.1113277839365602"
+  },
+  {
+   "day": "2026-08-19",
+   "swaps_success": 30567,
+   "swaps_with_app_fee": 20397,
+   "swaps_with_referral": 26377,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "59278181.464192218572",
+   "input_usd_of_swaps_with_app_fee": "34918816.927298084627",
+   "app_fee_usd": "185676.846741197810731"
+  },
+  {
+   "day": "2026-08-20",
+   "swaps_success": 34416,
+   "swaps_with_app_fee": 23625,
+   "swaps_with_referral": 30459,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "59252961.418873835882",
+   "input_usd_of_swaps_with_app_fee": "41145726.197766637972",
+   "app_fee_usd": "264504.4884434495783764"
+  },
+  {
+   "day": "2026-08-21",
+   "swaps_success": 38473,
+   "swaps_with_app_fee": 26270,
+   "swaps_with_referral": 33402,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "73022842.979787802466",
+   "input_usd_of_swaps_with_app_fee": "48994219.94350024773",
+   "app_fee_usd": "318709.6988656195819309"
+  },
+  {
+   "day": "2026-08-22",
+   "swaps_success": 30570,
+   "swaps_with_app_fee": 20527,
+   "swaps_with_referral": 25956,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "55704731.280045758816",
+   "input_usd_of_swaps_with_app_fee": "39283272.367723260021",
+   "app_fee_usd": "283498.4994123967490458"
+  },
+  {
+   "day": "2026-08-23",
+   "swaps_success": 29626,
+   "swaps_with_app_fee": 19658,
+   "swaps_with_referral": 25472,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "50137061.200502191326",
+   "input_usd_of_swaps_with_app_fee": "32996735.067798078129",
+   "app_fee_usd": "217141.8518686941376304"
+  },
+  {
+   "day": "2026-08-24",
+   "swaps_success": 35972,
+   "swaps_with_app_fee": 23201,
+   "swaps_with_referral": 30795,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "65443475.550884024169",
+   "input_usd_of_swaps_with_app_fee": "37169900.497875051159",
+   "app_fee_usd": "200367.5153516701644746"
+  },
+  {
+   "day": "2026-08-25",
+   "swaps_success": 36726,
+   "swaps_with_app_fee": 22630,
+   "swaps_with_referral": 30316,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "63733426.770963815193",
+   "input_usd_of_swaps_with_app_fee": "38647238.423582899526",
+   "app_fee_usd": "206480.9666590024323738"
+  },
+  {
+   "day": "2026-08-26",
+   "swaps_success": 29158,
+   "swaps_with_app_fee": 19040,
+   "swaps_with_referral": 25485,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "56905631.689032819836",
+   "input_usd_of_swaps_with_app_fee": "35222775.605052014362",
+   "app_fee_usd": "166676.5740947634394652"
+  },
+  {
+   "day": "2026-08-27",
+   "swaps_success": 30670,
+   "swaps_with_app_fee": 20841,
+   "swaps_with_referral": 27543,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "55531220.448758429266",
+   "input_usd_of_swaps_with_app_fee": "39499519.056536446218",
+   "app_fee_usd": "204700.7145512118059127"
+  },
+  {
+   "day": "2026-08-28",
+   "swaps_success": 27916,
+   "swaps_with_app_fee": 18733,
+   "swaps_with_referral": 25333,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "47419716.07714967055",
+   "input_usd_of_swaps_with_app_fee": "31686817.718176704204",
+   "app_fee_usd": "183562.3893768848502809"
+  },
+  {
+   "day": "2026-08-29",
+   "swaps_success": 22464,
+   "swaps_with_app_fee": 14293,
+   "swaps_with_referral": 19438,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22255667.762140601011",
+   "input_usd_of_swaps_with_app_fee": "15867922.210173760373",
+   "app_fee_usd": "103086.8561829169508104"
+  },
+  {
+   "day": "2026-08-30",
+   "swaps_success": 28291,
+   "swaps_with_app_fee": 16304,
+   "swaps_with_referral": 22466,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "28691898.065330646336",
+   "input_usd_of_swaps_with_app_fee": "19762633.111006048759",
+   "app_fee_usd": "112869.6634258587217596"
+  },
+  {
+   "day": "2026-08-31",
+   "swaps_success": 37821,
+   "swaps_with_app_fee": 20236,
+   "swaps_with_referral": 28967,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "54669105.905482669652",
+   "input_usd_of_swaps_with_app_fee": "24513287.793602663311",
+   "app_fee_usd": "139226.4958161102119644"
+  },
+  {
+   "day": "2026-09-01",
+   "swaps_success": 33479,
+   "swaps_with_app_fee": 18765,
+   "swaps_with_referral": 27107,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "43648548.414212101002",
+   "input_usd_of_swaps_with_app_fee": "24668905.111965583575",
+   "app_fee_usd": "117038.356078601896289"
+  },
+  {
+   "day": "2026-09-02",
+   "swaps_success": 31432,
+   "swaps_with_app_fee": 22717,
+   "swaps_with_referral": 27397,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "50321204.287096368086",
+   "input_usd_of_swaps_with_app_fee": "37375733.144865619302",
+   "app_fee_usd": "186088.5534169038103226"
+  },
+  {
+   "day": "2026-09-03",
+   "swaps_success": 33853,
+   "swaps_with_app_fee": 32756,
+   "swaps_with_referral": 30770,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "56589487.726518659269",
+   "input_usd_of_swaps_with_app_fee": "55797452.922146890135",
+   "app_fee_usd": "196545.4593406514942384"
+  },
+  {
+   "day": "2026-09-04",
+   "swaps_success": 33689,
+   "swaps_with_app_fee": 32470,
+   "swaps_with_referral": 29603,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "42472549.226055706368",
+   "input_usd_of_swaps_with_app_fee": "40480528.190067661458",
+   "app_fee_usd": "169717.0363806850158867"
+  },
+  {
+   "day": "2026-09-05",
+   "swaps_success": 29159,
+   "swaps_with_app_fee": 28239,
+   "swaps_with_referral": 24507,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32276904.229687946751",
+   "input_usd_of_swaps_with_app_fee": "31671862.228403566282",
+   "app_fee_usd": "130031.537390312088924"
+  },
+  {
+   "day": "2026-09-06",
+   "swaps_success": 28891,
+   "swaps_with_app_fee": 27887,
+   "swaps_with_referral": 24581,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39054041.483690485243",
+   "input_usd_of_swaps_with_app_fee": "37854067.879063479699",
+   "app_fee_usd": "183392.3931171587775306"
+  },
+  {
+   "day": "2026-09-07",
+   "swaps_success": 29998,
+   "swaps_with_app_fee": 28927,
+   "swaps_with_referral": 26619,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "41376594.334154863794",
+   "input_usd_of_swaps_with_app_fee": "38567520.755421114102",
+   "app_fee_usd": "145525.8417445329837053"
+  },
+  {
+   "day": "2026-09-08",
+   "swaps_success": 21369,
+   "swaps_with_app_fee": 20403,
+   "swaps_with_referral": 18205,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "35056873.095086675237",
+   "input_usd_of_swaps_with_app_fee": "32753170.595496604444",
+   "app_fee_usd": "121109.7076096456066637"
+  },
+  {
+   "day": "2026-09-09",
+   "swaps_success": 22014,
+   "swaps_with_app_fee": 20908,
+   "swaps_with_referral": 18622,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "64879248.605292966144",
+   "input_usd_of_swaps_with_app_fee": "63347812.554174628728",
+   "app_fee_usd": "315586.135074069880642"
+  },
+  {
+   "day": "2026-09-10",
+   "swaps_success": 19724,
+   "swaps_with_app_fee": 18617,
+   "swaps_with_referral": 16764,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "56004897.827773164648",
+   "input_usd_of_swaps_with_app_fee": "52305253.938974709172",
+   "app_fee_usd": "202858.0587448450438946"
+  },
+  {
+   "day": "2026-09-11",
+   "swaps_success": 19864,
+   "swaps_with_app_fee": 18613,
+   "swaps_with_referral": 17005,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "59198774.507354482603",
+   "input_usd_of_swaps_with_app_fee": "52207811.144708598975",
+   "app_fee_usd": "207409.8634213404881754"
+  },
+  {
+   "day": "2026-09-12",
+   "swaps_success": 14539,
+   "swaps_with_app_fee": 13636,
+   "swaps_with_referral": 12473,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "40360920.393900809943",
+   "input_usd_of_swaps_with_app_fee": "38378136.626925681173",
+   "app_fee_usd": "116918.8820801561630721"
+  },
+  {
+   "day": "2026-09-13",
+   "swaps_success": 12497,
+   "swaps_with_app_fee": 11712,
+   "swaps_with_referral": 10946,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27150825.987111357659",
+   "input_usd_of_swaps_with_app_fee": "26089547.976689974503",
+   "app_fee_usd": "89139.7793165380296403"
+  },
+  {
+   "day": "2026-09-14",
+   "swaps_success": 15304,
+   "swaps_with_app_fee": 14909,
+   "swaps_with_referral": 13417,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "40778271.127117199502",
+   "input_usd_of_swaps_with_app_fee": "39995639.22166578653",
+   "app_fee_usd": "175014.8286814257166149"
+  },
+  {
+   "day": "2026-09-15",
+   "swaps_success": 15972,
+   "swaps_with_app_fee": 14942,
+   "swaps_with_referral": 13307,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "43888152.594367116277",
+   "input_usd_of_swaps_with_app_fee": "42020030.858348496834",
+   "app_fee_usd": "190399.5296701019950305"
+  },
+  {
+   "day": "2026-09-16",
+   "swaps_success": 16224,
+   "swaps_with_app_fee": 14583,
+   "swaps_with_referral": 13263,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "47159976.013625977713",
+   "input_usd_of_swaps_with_app_fee": "43639473.595410186137",
+   "app_fee_usd": "228662.4346173661023174"
+  },
+  {
+   "day": "2026-09-17",
+   "swaps_success": 19458,
+   "swaps_with_app_fee": 17634,
+   "swaps_with_referral": 15865,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "95192792.296325497224",
+   "input_usd_of_swaps_with_app_fee": "93391454.672755061088",
+   "app_fee_usd": "520206.0014554257483582"
+  },
+  {
+   "day": "2026-09-18",
+   "swaps_success": 22262,
+   "swaps_with_app_fee": 19357,
+   "swaps_with_referral": 17807,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "78289876.569972155677",
+   "input_usd_of_swaps_with_app_fee": "72890078.86587707968",
+   "app_fee_usd": "365678.9318379939500036"
+  },
+  {
+   "day": "2026-09-19",
+   "swaps_success": 17694,
+   "swaps_with_app_fee": 16100,
+   "swaps_with_referral": 15195,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "38604167.44835833035",
+   "input_usd_of_swaps_with_app_fee": "37557077.720544323825",
+   "app_fee_usd": "211246.362259141863176"
+  },
+  {
+   "day": "2026-09-20",
+   "swaps_success": 16110,
+   "swaps_with_app_fee": 14478,
+   "swaps_with_referral": 13590,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31324779.829074601375",
+   "input_usd_of_swaps_with_app_fee": "29294962.958122216491",
+   "app_fee_usd": "152263.3906898620253427"
+  },
+  {
+   "day": "2026-09-21",
+   "swaps_success": 27411,
+   "swaps_with_app_fee": 24963,
+   "swaps_with_referral": 22954,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "78150342.658288255705",
+   "input_usd_of_swaps_with_app_fee": "74840341.932639364807",
+   "app_fee_usd": "483278.4257979390095946"
+  },
+  {
+   "day": "2026-09-22",
+   "swaps_success": 23621,
+   "swaps_with_app_fee": 20597,
+   "swaps_with_referral": 18663,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "62746159.551620536789",
+   "input_usd_of_swaps_with_app_fee": "58534105.560847207999",
+   "app_fee_usd": "326649.4272002994421348"
+  },
+  {
+   "day": "2026-09-23",
+   "swaps_success": 22955,
+   "swaps_with_app_fee": 19836,
+   "swaps_with_referral": 18144,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "60867343.343026284245",
+   "input_usd_of_swaps_with_app_fee": "57132893.87737647464",
+   "app_fee_usd": "298419.403820017709267"
+  },
+  {
+   "day": "2026-09-24",
+   "swaps_success": 20980,
+   "swaps_with_app_fee": 18303,
+   "swaps_with_referral": 16743,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "51229468.995318943766",
+   "input_usd_of_swaps_with_app_fee": "48884573.474784250473",
+   "app_fee_usd": "232850.0523864617828039"
+  },
+  {
+   "day": "2026-09-25",
+   "swaps_success": 22119,
+   "swaps_with_app_fee": 19503,
+   "swaps_with_referral": 17921,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "48790118.386825965436",
+   "input_usd_of_swaps_with_app_fee": "46659266.179848478653",
+   "app_fee_usd": "210066.1727615457521487"
+  },
+  {
+   "day": "2026-09-26",
+   "swaps_success": 18532,
+   "swaps_with_app_fee": 16844,
+   "swaps_with_referral": 15574,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "27083517.15522588338",
+   "input_usd_of_swaps_with_app_fee": "25840247.152784812548",
+   "app_fee_usd": "124209.6718583439773105"
+  },
+  {
+   "day": "2026-09-27",
+   "swaps_success": 25029,
+   "swaps_with_app_fee": 22516,
+   "swaps_with_referral": 21608,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "41056857.112563677697",
+   "input_usd_of_swaps_with_app_fee": "36539721.743076616755",
+   "app_fee_usd": "192548.0803395431425091"
+  },
+  {
+   "day": "2026-09-28",
+   "swaps_success": 28765,
+   "swaps_with_app_fee": 26347,
+   "swaps_with_referral": 24662,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "57362879.346458672897",
+   "input_usd_of_swaps_with_app_fee": "49261445.724826522116",
+   "app_fee_usd": "263180.028192731465636"
+  },
+  {
+   "day": "2026-09-29",
+   "swaps_success": 28888,
+   "swaps_with_app_fee": 26492,
+   "swaps_with_referral": 24285,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "69450826.42743051507",
+   "input_usd_of_swaps_with_app_fee": "62989240.98909629637",
+   "app_fee_usd": "320388.1668910882291618"
+  },
+  {
+   "day": "2026-09-30",
+   "swaps_success": 23152,
+   "swaps_with_app_fee": 21725,
+   "swaps_with_referral": 18749,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "53401300.413727063503",
+   "input_usd_of_swaps_with_app_fee": "49851570.217582229292",
+   "app_fee_usd": "234906.3577539136913394"
+  },
+  {
+   "day": "2026-10-01",
+   "swaps_success": 16443,
+   "swaps_with_app_fee": 15707,
+   "swaps_with_referral": 14301,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32611755.043290255561",
+   "input_usd_of_swaps_with_app_fee": "28901781.030271177612",
+   "app_fee_usd": "164180.0803487048853102"
+  },
+  {
+   "day": "2026-10-02",
+   "swaps_success": 17177,
+   "swaps_with_app_fee": 16376,
+   "swaps_with_referral": 14920,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "38177226.683398936093",
+   "input_usd_of_swaps_with_app_fee": "33755482.907344371255",
+   "app_fee_usd": "193922.9832480546462091"
+  },
+  {
+   "day": "2026-10-03",
+   "swaps_success": 14127,
+   "swaps_with_app_fee": 12884,
+   "swaps_with_referral": 11496,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "23788227.843584836211",
+   "input_usd_of_swaps_with_app_fee": "22822510.985057880742",
+   "app_fee_usd": "107598.1713901828812577"
+  },
+  {
+   "day": "2026-10-04",
+   "swaps_success": 13476,
+   "swaps_with_app_fee": 12377,
+   "swaps_with_referral": 11124,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "19818475.609381898858",
+   "input_usd_of_swaps_with_app_fee": "18846518.841221558303",
+   "app_fee_usd": "120420.7441420742641579"
+  },
+  {
+   "day": "2026-10-05",
+   "swaps_success": 17511,
+   "swaps_with_app_fee": 16329,
+   "swaps_with_referral": 14479,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39029159.573576275295",
+   "input_usd_of_swaps_with_app_fee": "37343030.429999482652",
+   "app_fee_usd": "207882.5273132211726741"
+  },
+  {
+   "day": "2026-10-06",
+   "swaps_success": 17004,
+   "swaps_with_app_fee": 16016,
+   "swaps_with_referral": 14537,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "35739915.927008294896",
+   "input_usd_of_swaps_with_app_fee": "32622339.797891548446",
+   "app_fee_usd": "169133.5218648588636683"
+  },
+  {
+   "day": "2026-10-07",
+   "swaps_success": 18114,
+   "swaps_with_app_fee": 16472,
+   "swaps_with_referral": 15248,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "34353083.916170180466",
+   "input_usd_of_swaps_with_app_fee": "30813668.135917533846",
+   "app_fee_usd": "191790.9043672776450461"
+  },
+  {
+   "day": "2026-10-08",
+   "swaps_success": 22537,
+   "swaps_with_app_fee": 20294,
+   "swaps_with_referral": 18419,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "52727053.085959212884",
+   "input_usd_of_swaps_with_app_fee": "47731834.65758175155",
+   "app_fee_usd": "273250.4442164117295925"
+  },
+  {
+   "day": "2026-10-09",
+   "swaps_success": 20099,
+   "swaps_with_app_fee": 18351,
+   "swaps_with_referral": 16111,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "68450887.582449887252",
+   "input_usd_of_swaps_with_app_fee": "64670122.638165875526",
+   "app_fee_usd": "250470.4473445809248435"
+  },
+  {
+   "day": "2026-10-10",
+   "swaps_success": 16023,
+   "swaps_with_app_fee": 14743,
+   "swaps_with_referral": 13013,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39776946.502714716436",
+   "input_usd_of_swaps_with_app_fee": "36937781.709295437017",
+   "app_fee_usd": "182879.7918578880933137"
+  },
+  {
+   "day": "2026-10-11",
+   "swaps_success": 15103,
+   "swaps_with_app_fee": 14017,
+   "swaps_with_referral": 12271,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "34562376.24223810416",
+   "input_usd_of_swaps_with_app_fee": "31684313.65372565226",
+   "app_fee_usd": "123036.7688249037544324"
+  },
+  {
+   "day": "2026-10-12",
+   "swaps_success": 18027,
+   "swaps_with_app_fee": 16657,
+   "swaps_with_referral": 14940,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "38912186.824416416086",
+   "input_usd_of_swaps_with_app_fee": "32887657.156516458026",
+   "app_fee_usd": "152330.9048949123539978"
+  },
+  {
+   "day": "2026-10-13",
+   "swaps_success": 17555,
+   "swaps_with_app_fee": 16108,
+   "swaps_with_referral": 14235,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39477674.980398506845",
+   "input_usd_of_swaps_with_app_fee": "35742751.110700883138",
+   "app_fee_usd": "156282.0706936979673534"
+  },
+  {
+   "day": "2026-10-14",
+   "swaps_success": 18154,
+   "swaps_with_app_fee": 16507,
+   "swaps_with_referral": 14638,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "31397245.796769578548",
+   "input_usd_of_swaps_with_app_fee": "28800598.666646843886",
+   "app_fee_usd": "165584.8057053938386871"
+  },
+  {
+   "day": "2026-10-15",
+   "swaps_success": 15279,
+   "swaps_with_app_fee": 14254,
+   "swaps_with_referral": 12676,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "30002556.689321048762",
+   "input_usd_of_swaps_with_app_fee": "26452362.945212145006",
+   "app_fee_usd": "140819.3933920736444797"
+  },
+  {
+   "day": "2026-10-16",
+   "swaps_success": 14504,
+   "swaps_with_app_fee": 13248,
+   "swaps_with_referral": 11744,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21245935.876392144123",
+   "input_usd_of_swaps_with_app_fee": "20389439.888225482566",
+   "app_fee_usd": "104169.8919556541738285"
+  },
+  {
+   "day": "2026-10-17",
+   "swaps_success": 11831,
+   "swaps_with_app_fee": 11204,
+   "swaps_with_referral": 9883,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "41827416.763929806357",
+   "input_usd_of_swaps_with_app_fee": "40094423.364817222357",
+   "app_fee_usd": "193161.5892198540346093"
+  },
+  {
+   "day": "2026-10-18",
+   "swaps_success": 11906,
+   "swaps_with_app_fee": 11154,
+   "swaps_with_referral": 9885,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "41060558.810858000518",
+   "input_usd_of_swaps_with_app_fee": "40432254.007982762062",
+   "app_fee_usd": "226732.6798020898024512"
+  },
+  {
+   "day": "2026-10-19",
+   "swaps_success": 14388,
+   "swaps_with_app_fee": 13314,
+   "swaps_with_referral": 11552,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "26124477.947908784043",
+   "input_usd_of_swaps_with_app_fee": "25467987.146163762961",
+   "app_fee_usd": "121778.5123228341954018"
+  },
+  {
+   "day": "2026-10-20",
+   "swaps_success": 12559,
+   "swaps_with_app_fee": 11776,
+   "swaps_with_referral": 10310,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "35644353.836147196514",
+   "input_usd_of_swaps_with_app_fee": "33564497.788892852159",
+   "app_fee_usd": "177774.2532143327499729"
+  },
+  {
+   "day": "2026-10-21",
+   "swaps_success": 18636,
+   "swaps_with_app_fee": 14825,
+   "swaps_with_referral": 13174,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "37513624.374511456648",
+   "input_usd_of_swaps_with_app_fee": "33675195.048603705711",
+   "app_fee_usd": "173138.2673530468707641"
+  },
+  {
+   "day": "2026-10-22",
+   "swaps_success": 16071,
+   "swaps_with_app_fee": 14852,
+   "swaps_with_referral": 12848,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "30178146.897504362228",
+   "input_usd_of_swaps_with_app_fee": "29304228.340209995592",
+   "app_fee_usd": "125208.1643930746484955"
+  },
+  {
+   "day": "2026-10-23",
+   "swaps_success": 15898,
+   "swaps_with_app_fee": 14524,
+   "swaps_with_referral": 12901,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "30871191.343326548794",
+   "input_usd_of_swaps_with_app_fee": "28022390.00522237044",
+   "app_fee_usd": "126560.834957165391537"
+  },
+  {
+   "day": "2026-10-24",
+   "swaps_success": 15845,
+   "swaps_with_app_fee": 13858,
+   "swaps_with_referral": 12050,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "22985901.951724937883",
+   "input_usd_of_swaps_with_app_fee": "21578548.676795876265",
+   "app_fee_usd": "137487.850389590629743"
+  },
+  {
+   "day": "2026-10-25",
+   "swaps_success": 13647,
+   "swaps_with_app_fee": 12854,
+   "swaps_with_referral": 11071,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "23091363.677596823626",
+   "input_usd_of_swaps_with_app_fee": "22242303.738791002002",
+   "app_fee_usd": "100555.0377668306359684"
+  },
+  {
+   "day": "2026-10-26",
+   "swaps_success": 17372,
+   "swaps_with_app_fee": 15194,
+   "swaps_with_referral": 13109,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "41526893.843646257318",
+   "input_usd_of_swaps_with_app_fee": "36561380.026861448645",
+   "app_fee_usd": "146669.8356990238914598"
+  },
+  {
+   "day": "2026-10-27",
+   "swaps_success": 17741,
+   "swaps_with_app_fee": 15765,
+   "swaps_with_referral": 12830,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "38112333.621906447712",
+   "input_usd_of_swaps_with_app_fee": "35259452.420610602353",
+   "app_fee_usd": "115627.0573015136514806"
+  },
+  {
+   "day": "2026-10-28",
+   "swaps_success": 15518,
+   "swaps_with_app_fee": 13645,
+   "swaps_with_referral": 11567,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "32621384.635490773576",
+   "input_usd_of_swaps_with_app_fee": "31460160.483561699491",
+   "app_fee_usd": "119102.5744561523758312"
+  },
+  {
+   "day": "2026-10-29",
+   "swaps_success": 15561,
+   "swaps_with_app_fee": 13303,
+   "swaps_with_referral": 11176,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "33835575.555188064117",
+   "input_usd_of_swaps_with_app_fee": "27375161.834843084086",
+   "app_fee_usd": "129047.1244357352998255"
+  },
+  {
+   "day": "2026-10-30",
+   "swaps_success": 23793,
+   "swaps_with_app_fee": 21202,
+   "swaps_with_referral": 18053,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "57942698.925671596978",
+   "input_usd_of_swaps_with_app_fee": "55539223.936678737961",
+   "app_fee_usd": "343169.1847332290117013"
+  },
+  {
+   "day": "2026-10-31",
+   "swaps_success": 13985,
+   "swaps_with_app_fee": 12735,
+   "swaps_with_referral": 10750,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "21945062.603434798537",
+   "input_usd_of_swaps_with_app_fee": "20616282.454734169707",
+   "app_fee_usd": "98699.2907763599083608"
+  },
+  {
+   "day": "2026-11-01",
+   "swaps_success": 16730,
+   "swaps_with_app_fee": 15427,
+   "swaps_with_referral": 12569,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "26473027.549544161687",
+   "input_usd_of_swaps_with_app_fee": "25299706.331430461944",
+   "app_fee_usd": "130924.3803710927552986"
+  },
+  {
+   "day": "2026-11-02",
+   "swaps_success": 13945,
+   "swaps_with_app_fee": 12258,
+   "swaps_with_referral": 9939,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "46402469.005146229144",
+   "input_usd_of_swaps_with_app_fee": "44378331.088631374347",
+   "app_fee_usd": "153443.1578277444579844"
+  },
+  {
+   "day": "2026-11-03",
+   "swaps_success": 20368,
+   "swaps_with_app_fee": 17877,
+   "swaps_with_referral": 14884,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "40824696.933523208696",
+   "input_usd_of_swaps_with_app_fee": "34345857.854560478296",
+   "app_fee_usd": "141230.9427137654944338"
+  },
+  {
+   "day": "2026-11-04",
+   "swaps_success": 20380,
+   "swaps_with_app_fee": 17793,
+   "swaps_with_referral": 13840,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "48328443.13457993699",
+   "input_usd_of_swaps_with_app_fee": "42335703.302684669843",
+   "app_fee_usd": "234745.7001858486292502"
+  },
+  {
+   "day": "2026-11-05",
+   "swaps_success": 21017,
+   "swaps_with_app_fee": 18544,
+   "swaps_with_referral": 14393,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "39343933.940666966662",
+   "input_usd_of_swaps_with_app_fee": "35023085.945874665942",
+   "app_fee_usd": "187826.1903681968970372"
+  },
+  {
+   "day": "2026-11-06",
+   "swaps_success": 20197,
+   "swaps_with_app_fee": 18100,
+   "swaps_with_referral": 14341,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "35818504.685551398074",
+   "input_usd_of_swaps_with_app_fee": "34014576.629178259661",
+   "app_fee_usd": "185554.461570010271782"
+  },
+  {
+   "day": "2026-11-07",
+   "swaps_success": 17300,
+   "swaps_with_app_fee": 15939,
+   "swaps_with_referral": 11816,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "29084781.888028374726",
+   "input_usd_of_swaps_with_app_fee": "27810580.043642896863",
+   "app_fee_usd": "156191.9552124123184654"
+  },
+  {
+   "day": "2026-11-08",
+   "swaps_success": 14649,
+   "swaps_with_app_fee": 13808,
+   "swaps_with_referral": 10900,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "26301037.991115941767",
+   "input_usd_of_swaps_with_app_fee": "25501300.89818000936",
+   "app_fee_usd": "183658.9632913039894023"
+  },
+  {
+   "day": "2026-11-09",
+   "swaps_success": 20234,
+   "swaps_with_app_fee": 17976,
+   "swaps_with_referral": 14264,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "43293339.963622861445",
+   "input_usd_of_swaps_with_app_fee": "41292682.484272052646",
+   "app_fee_usd": "223861.3731759931775815"
+  },
+  {
+   "day": "2026-11-10",
+   "swaps_success": 21947,
+   "swaps_with_app_fee": 20398,
+   "swaps_with_referral": 16060,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "48677353.992507537487",
+   "input_usd_of_swaps_with_app_fee": "46060473.037826454955",
+   "app_fee_usd": "260365.5305870584524836"
+  },
+  {
+   "day": "2026-11-11",
+   "swaps_success": 20462,
+   "swaps_with_app_fee": 19173,
+   "swaps_with_referral": 15274,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "37153586.444115804819",
+   "input_usd_of_swaps_with_app_fee": "35680082.829157044448",
+   "app_fee_usd": "202516.7662444381864923"
+  },
+  {
+   "day": "2026-11-12",
+   "swaps_success": 23153,
+   "swaps_with_app_fee": 22174,
+   "swaps_with_referral": 19549,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "45270935.277096092932",
+   "input_usd_of_swaps_with_app_fee": "42557857.596227891297",
+   "app_fee_usd": "203803.8833642973870214"
+  },
+  {
+   "day": "2026-11-13",
+   "swaps_success": 26537,
+   "swaps_with_app_fee": 25298,
+   "swaps_with_referral": 21436,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "59652042.307760901858",
+   "input_usd_of_swaps_with_app_fee": "56323710.118210682461",
+   "app_fee_usd": "417772.0951760261847314"
+  },
+  {
+   "day": "2026-11-14",
+   "swaps_success": 7233,
+   "swaps_with_app_fee": 6943,
+   "swaps_with_referral": 5894,
+   "swaps_with_app_fee_but_no_input_usd": 0,
+   "input_usd_success": "15604683.421472221202",
+   "input_usd_of_swaps_with_app_fee": "14411257.914992854096",
+   "app_fee_usd": "85284.7775038679409763"
+  }
+ ]
+}

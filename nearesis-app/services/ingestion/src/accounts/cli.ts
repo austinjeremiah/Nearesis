@@ -12,7 +12,7 @@ import { reconcileScan } from "./reconcile.ts";
 import { AccountScanState, runAccountScan, smokeAccountScan } from "./run.ts";
 import { scanRows } from "./rows.ts";
 import { addDays } from "../backfill/plan.ts";
-import { HEAD_THRESHOLD, WINDOW_END_EXCLUSIVE } from "./sql.ts";
+import { HEAD_THRESHOLD, WINDOW_END_EXCLUSIVE, WINDOW_LAST_DAY } from "./sql.ts";
 
 // Billed command. Resumable: a completed scan is checkpointed and never re-run; a budget stop prints the next quota reset.
 await installSpendGateFromEnv();
@@ -21,7 +21,12 @@ const { values } = parseArgs({
   options: { reconcile: { type: "boolean" }, smoke: { type: "string" } },
 });
 const log = (m: string): void => console.log(`[accounts ${new Date().toISOString()}] ${m}`);
-const chunk = { id: "accounts:window", from: WINDOW_FROM, to: WINDOW_END_EXCLUSIVE };
+// A window extended by NEARESIS_ACCOUNTS_LAST_DAY is a new scan with its own checkpoint (the default window keeps its id).
+const chunk = {
+  id: WINDOW_LAST_DAY === "2026-11-11" ? "accounts:window" : `accounts:window:${WINDOW_LAST_DAY}`,
+  from: WINDOW_FROM,
+  to: WINDOW_END_EXCLUSIVE,
+};
 await ensureDatabase();
 const ch = createLiveCh();
 await migrateLive(ch);

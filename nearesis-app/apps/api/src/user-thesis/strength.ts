@@ -8,7 +8,10 @@
  *   workspace thesis:  test.plan { statement, lockedAt, sha256, chosenBy }, test.n, test.coverage.complete,
  *                      test.partOfWhole (true = the predictor is part of the outcome), test.reasons[],
  *                      test.interval { lo, hi } (or loPpm, hiPpm), verdict.status (INVALID_TEST scores 0 on valid_test), verification.capsule.status, verification.outlayer.status
- *   reference thesis:  origin.kind = "reference", claims[0].provenance (preregistration hash), verdict.intentsVsPrice.rows
+ *   forecast reference: origin.kind = "reference" and forecast { methodFrozenAt, daysOfData, coverage, method.config, series[] { skill90,
+ *                      calibration, verdict } }  (plan locked = method frozen before the results; valid test = backtest beats naive;
+ *                      interval = calibrated band; capsule = bundle hashes verify)
+ *   previous reference thesis:  origin.kind = "reference", claims[0].provenance (preregistration hash), verdict.intentsVsPrice.rows
  *                      (origins scored, adjusted p), sections methods (FDR q), charts (window, caveats), reproduce.hashes
  */
 
@@ -45,6 +48,16 @@ export const bandOf = (score: number): StrengthBand =>
   score < 40 ? "thin" : score < 60 ? "fair" : score < 80 ? "solid" : "strong";
 
 const isRef = (doc: Doc): boolean => doc.origin?.kind === "reference";
+/** The forecast reference thesis carries a `forecast` block; the earlier reference thesis does not. */
+const forecastOf = (doc: Doc): Doc | null =>
+  isRef(doc) && doc.forecast && typeof doc.forecast === "object" ? doc.forecast : null;
+const fSeries = (doc: Doc): Array<{ skill90?: unknown; calibration?: unknown; verdict?: unknown }> =>
+  Array.isArray(doc.forecast?.series) ? doc.forecast.series : [];
+const calibrated = (doc: Doc, v: unknown): boolean => {
+  const r = doc.forecast?.method?.config?.calibrationRange;
+  const x = num(v);
+  return x !== null && Array.isArray(r) && x >= Number(r[0]) && x <= Number(r[1]);
+};
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 const num = (v: unknown): number | null => {
   const n = typeof v === "string" && v.trim() !== "" ? Number(v) : v;
@@ -74,6 +87,17 @@ const preregistration = (doc: Doc): string | null => {
 
 function planLocked(doc: Doc): StrengthPart {
   const base = { key: "plan_locked", label: "Plan locked in advance", max: 15 };
+  const fc = forecastOf(doc);
+  if (fc) {
+    const at = str(fc.methodFrozenAt);
+    return at
+      ? {
+          ...base,
+          points: 15,
+          detail: `The method section was fixed at ${at}, before the results were read (methodFrozenAt in the raw manifest).`,
+        }
+      : { ...base, points: 0, detail: "The forecast thesis records no time at which the method was fixed." };
+  }
   if (isRef(doc)) {
     const h = preregistration(doc);
     return h
@@ -117,7 +141,11 @@ function daysOfData(doc: Doc): StrengthPart {
   let n: number | null;
   let one: string;
   let many: string;
-  if (isRef(doc)) {
+  if (forecastOf(doc)) {
+    n = num(doc.forecast.daysOfData);
+    one = "day of data";
+    many = "days of data";
+  } else if (isRef(doc)) {
     // the first "Origins scored" row is the primary horizon
     const row = rowsOf(doc).find((r) => /^origins scored/i.test(String(r.label ?? "")));
     n = num(row?.value);
@@ -144,6 +172,20 @@ function daysOfData(doc: Doc): StrengthPart {
 
 function coverage(doc: Doc): StrengthPart {
   const base = { key: "coverage_complete", label: "Coverage complete", max: 10 };
+  const fc = forecastOf(doc);
+  if (fc) {
+    const c = fc.coverage ?? {};
+    if (c.allComplete === true)
+      return { ...base, points: 10, detail: "Every series has a value for every day of the window." };
+    if (c.primaryComplete === true)
+      return {
+        ...base,
+        points: 5,
+        detail:
+          "The account series have a value for every day; some swap-based series have days marked partial, which are listed and never filled.",
+      };
+    return { ...base, points: 0, detail: "The account series have days with no value in the window." };
+  }
   if (isRef(doc)) {
     const charts = (doc.charts ?? []) as Array<{
       id?: string;
@@ -198,6 +240,22 @@ function coverage(doc: Doc): StrengthPart {
 
 function validTest(doc: Doc): StrengthPart {
   const base = { key: "valid_test", label: "Valid test", max: 10 };
+  if (forecastOf(doc)) {
+    const ss = fSeries(doc).filter((x) => num(x.skill90) !== null);
+    if (!ss.length)
+      return {
+        ...base,
+        points: 0,
+        detail: "No series has a backtest that can be scored against the naive model.",
+      };
+    const beat = ss.filter((x) => (num(x.skill90) ?? 0) >= 0.1).length;
+    const points = beat * 2 >= ss.length ? 10 : beat > 0 ? 5 : 0;
+    return {
+      ...base,
+      points,
+      detail: `${beat} of ${ss.length} series beat the naive model by at least ten percent at the longest scored horizon in a rolling-origin backtest.`,
+    };
+  }
   if (isRef(doc)) {
     const pre = preregistration(doc);
     const excl = /Intents-generated accounts excluded/i.test(sectionText(doc, "methods"));
@@ -260,6 +318,19 @@ function intervalPart(doc: Doc): StrengthPart {
     label: "Interval excludes zero or clear NOT_SUPPORTED",
     max: 10,
   };
+  if (forecastOf(doc)) {
+    const ss = fSeries(doc).filter((x) => num(x.calibration) !== null);
+    if (!ss.length)
+      return { ...base, points: 0, detail: "No series has a scored band, so calibration cannot be read." };
+    const ok = ss.filter((x) => calibrated(doc, x.calibration)).length;
+    const points = ok * 2 >= ss.length ? 10 : ok > 0 ? 5 : 0;
+    return {
+      ...base,
+      label: "Interval calibrated",
+      points,
+      detail: `${ok} of ${ss.length} series have an eighty percent band whose backtest coverage lies in the stated calibration range.`,
+    };
+  }
   if (isRef(doc)) {
     const row = rowsOf(doc).find((r) => /^adjusted p-value/i.test(String(r.label ?? "")));
     const p = num(row?.value);

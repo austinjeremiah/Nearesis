@@ -299,7 +299,8 @@ describe("POST /v1/theses/:id/challenge", () => {
     outputs = { notes: [] };
     const r = await challenge(alice, "reference-near-intents");
     expect(r.statusCode).toBe(200);
-    expect(prompts.at(-1)).toContain("verdict.intentsVsPrice.5 | Origins scored, horizon 1 days | 77");
+    expect(prompts.at(-1)).toContain("verdict.intentsVsPrice.0 | ");
+    expect(prompts.at(-1)).toContain("verdict.headline.");
     expect((await challenge(bob, thesisId)).statusCode).toBe(404);
     expect((await challenge(alice, randomUUID())).statusCode).toBe(404);
     expect((await challenge(alice, "nope")).statusCode).toBe(404);

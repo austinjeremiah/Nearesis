@@ -113,6 +113,11 @@ export class Ledger {
     this.touch(`${file}#${pointer}`, "");
     return `[${file}#${pointer}]`;
   }
+  /** Registers one more accepted rendering of the value at `file#pointer` (used for authored analysis blocks). */
+  derivedText(file: string, pointer: string, text: string): void {
+    this.get(file, pointer);
+    this.touch(`${file}#${pointer}`, text);
+  }
   /** A computed value that is not a number of the file itself (counts of rows): cited by the object it counts. */
   count(file: string, pointer: string, value: number): string {
     this.get(file, pointer);

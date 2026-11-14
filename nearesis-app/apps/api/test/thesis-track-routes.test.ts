@@ -59,6 +59,37 @@ describe("thesis track routes", () => {
     expect((await get("/v1/thesis/files/raw/a.json")).statusCode).toBe(200);
     expect((await get("/v1/thesis/files/TABLES.md")).statusCode).toBe(200);
   });
+  it("serves an archived version under archive/<id>/ and the fee raw files, nothing else under archive", async () => {
+    const a = join(dir, "archive", "intents-vs-price-v1");
+    mkdirSync(join(a, "build", "site"), { recursive: true });
+    mkdirSync(join(a, "raw"), { recursive: true });
+    mkdirSync(join(a, "sql", "bigquery"), { recursive: true });
+    mkdirSync(join(dir, "raw", "fees"), { recursive: true });
+    writeFileSync(join(a, "build", "THESIS.md"), "# old\n");
+    writeFileSync(join(a, "build", "thesis.json"), "{}");
+    writeFileSync(join(a, "build", "site", "index.html"), "<p>old</p>");
+    writeFileSync(join(a, "raw", "x.json"), "{}");
+    writeFileSync(join(a, "sql", "bigquery", "q.sql"), "SELECT 1;");
+    writeFileSync(join(a, "TABLES.md"), "# old tables\n");
+    writeFileSync(join(a, "private.txt"), "no");
+    writeFileSync(join(dir, "raw", "fees", "manifest.json"), "{}");
+    for (const p of [
+      "archive/intents-vs-price-v1/build/THESIS.md",
+      "archive/intents-vs-price-v1/build/thesis.json",
+      "archive/intents-vs-price-v1/build/site/index.html",
+      "archive/intents-vs-price-v1/raw/x.json",
+      "archive/intents-vs-price-v1/sql/bigquery/q.sql",
+      "archive/intents-vs-price-v1/TABLES.md",
+      "raw/fees/manifest.json",
+    ])
+      expect((await get(`/v1/thesis/files/${p}`)).statusCode, p).toBe(200);
+    for (const p of [
+      "archive/intents-vs-price-v1/private.txt",
+      "archive/../secret.txt",
+      "archive/x/../../secret.txt",
+    ])
+      expect((await get(`/v1/thesis/files/${p}`)).statusCode, p).toBe(404);
+  });
   it("rejects traversal and files outside the allowlist", async () => {
     for (const p of [
       "secret.txt",

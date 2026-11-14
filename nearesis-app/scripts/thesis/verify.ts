@@ -1,7 +1,7 @@
 /** `pnpm thesis:verify`: rebuilds into a temp directory and compares every hash with thesis/build/HASHES.json. Exit 0 only if identical. */
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { sha256Hex } from "../../packages/plugin-sdk/src/canonical.ts";
 import { buildBundle, writeBundle } from "./build.ts";
@@ -37,9 +37,12 @@ export function verifyBundle(
     }
     writeBundle(rebuilt, tmp);
     const fresh = new Map([...rebuilt.files].map(([rel, body]) => [rel, sha256Hex(body)]));
+    // files outside build/ (raw/forecast.json of the forecast bundle) are recorded by their thesis-relative path
+    for (const [rel, body] of rebuilt.extra ?? []) fresh.set(`../${rel}`, sha256Hex(body));
     for (const f of recorded.files) {
       checked++;
-      const rel = f.path.replace(/^build\//, "");
+      const outside = !f.path.startsWith("build/");
+      const rel = outside ? `../${f.path}` : f.path.replace(/^build\//, "");
       const onDisk = join(buildDir, rel);
       if (!existsSync(onDisk)) {
         problems.push(`${f.path}: missing on disk`);
@@ -73,9 +76,11 @@ function arg(name: string): string | undefined {
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
+const dirArg = (): string | undefined => arg("dir") ?? arg("thesis");
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const r = verifyBundle({
-    ...(arg("thesis") ? { thesisDir: arg("thesis")! } : {}),
+    ...(dirArg() ? { thesisDir: resolve(dirArg()!) } : {}),
     ...(arg("results") ? { resultsDir: arg("results")! } : {}),
     ...(arg("out") ? { buildDir: arg("out")! } : {}),
   });

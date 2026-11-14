@@ -205,7 +205,7 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
     const ref = loadReference();
     return {
       id: REFERENCE_ID,
-      title: String(ref.doc.hypothesis ?? "NEAR Intents reference thesis"),
+      title: String(ref.doc.title ?? ref.doc.hypothesis ?? "NEAR Intents reference thesis"),
       hypothesis: String(ref.doc.hypothesis ?? ""),
       verdict: verdictOf(ref.doc),
       kind: "reference" as const,

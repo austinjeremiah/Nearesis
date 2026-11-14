@@ -1,50 +1,48 @@
-# Tables and endpoints used by the thesis track
+# Tables and endpoints used by the reference thesis
 
-Window of every chart dataset: block_date / created_day 2026-05-05 .. 2026-11-11 inclusive (the v3 research window, so charts and the frozen research results describe the same period). Frozen files and hashes: `raw/manifest.json`. Rebuild raw data with `pnpm thesis:data` (local databases only; add `--bigquery` to also re-run the billed BigQuery queries).
+Window of every daily dataset: UTC days 2025-11-10 .. 2026-11-13 inclusive (the earliest and the last full day held in every account table). Swap data through 2026-11-14 is partial and is not used. Frozen files and hashes: `raw/manifest.json`. Rebuild raw data with `pnpm thesis:data` (read-only SELECTs on the local database; add `--bigquery` to also re-run the billed BigQuery cross-checks), then `pnpm thesis:build` and `pnpm thesis:verify`.
 
 ## BigQuery public dataset `bigquery-public-data.crypto_near_mainnet_us`
 
-All four queries run against the `transactions` table, always with finite `block_date >= start_date AND block_date < end_date` bounds (DECLAREd date literals, no OR, checked by the static guard before a dry run; the dry run precedes every billed job; `maximumBytesBilled` = ceil(dry-run bytes x 1.1)). Executed 2026-11-14, job location us-east1. Each SQL file's header holds the dry-run bytes, bytes billed, row count and result sha256; the results are in `raw/bq_*.json`.
+Both queries read the `transactions` table only, always with finite `block_date >= start_date AND block_date < end_date` bounds (DECLAREd date literals, no OR, checked by the static guard before a dry run; the dry run precedes every billed job; `maximumBytesBilled` = ceil(dry-run bytes x 1.1)). Each SQL file's header holds the dry-run bytes, bytes billed, row count and result sha256 (or says NOT EXECUTED); results are in `raw/bq_*.json`; the comparison with the local series is in `raw/manifest.json` under `crossChecks`.
 
 | Table | Columns used | Purpose | Query file |
 | --- | --- | --- | --- |
-| `transactions` | `block_date` (row count) | daily transactions | `sql/bigquery/transactions_daily.sql` |
-| `transactions` | `block_date`, `signer_account_id` | daily active accounts (distinct signers) | `sql/bigquery/active_accounts_daily.sql` |
-| `transactions` | `block_date`, `receiver_account_id` | distinct receiver accounts and transactions per day (contract usage) | `sql/bigquery/contract_usage_daily.sql` |
-| `transactions` | `block_date`, `receiver_account_id` | top 100 receivers over the window | `sql/bigquery/contract_usage_top.sql` |
-
-`receipt_actions` (function-call actions) was loaded earlier into ClickHouse by the project backfill and is the source of the local contract-usage series; it was not queried again for the thesis (4-20 GiB per month).
+| `transactions` | `block_date`, `signer_account_id` | daily transactions and distinct signers | `sql/bigquery/transactions_signers_daily.sql` |
+| `transactions` | `block_date`, `signer_account_id`, `receiver_account_id` | Intents, bridge, organic, head and tail transactions and signers per day | `sql/bigquery/account_scan_daily.sql` |
 
 ## NEAR Intents Explorer API (ingested, not queried live here)
 
-`GET <explorer base>/api/v0/transactions` with query `numberOfTransactions`, `direction=next`, cursor `lastDepositAddress` / `lastDepositMemo`, and `startTimestampUnix` / `endTimestampUnix`. Authentication: a Bearer JWT read from the environment variable named `INTENTS_EXPLORER_JWT` (value never stored or printed). Rate limit: one request per 5 seconds. Fields used: swap status, created time, origin/destination asset, USD amounts (`amount_in_usd`). The pulled swaps are stored in the local table `intents_swaps` below; `pnpm thesis:data` makes no Explorer calls.
+The pulled swaps are stored in the local table `intents_swaps`; `pnpm thesis:data` makes no Explorer calls. Fields used: swap status, created time, origin/destination asset, USD amount of the input.
 
 ## Local ClickHouse database `nearesis_live` (read only)
 
-| Table / view | Columns used | Purpose | Dataset |
+| Table | Columns used | Purpose | Dataset |
 | --- | --- | --- | --- |
-| `intents_swaps` (FINAL) | `created_day`, `status`, `amount_in_usd` | Intents volume (SUCCESS only, USD) and swap counts | `intents_volume_daily`, `intents_swaps_daily` |
-| `account_daily_activity` (FINAL) | `block_date`, `signers_total`, `signers_organic` | daily distinct signers (from BigQuery `transactions`) | `active_accounts_daily` |
-| `near_daily_tx` (FINAL) | `block_date`, `tx_count` | daily transactions (from BigQuery `transactions`) | `transactions_daily` |
-| `near_daily_usage` (view over `near_daily_tx`, `contract_interactions`, `contract_interactions_below_threshold`) | `block_date`, `function_call_actions`, `active_contract_count` | daily function calls and active contracts | `contract_usage_daily` |
-| `contract_interactions` (FINAL) | `block_date`, `receiver_account_id`, `interactions` | top receivers (only receiver-days with >= 100 calls are held) | `contract_usage_top` |
-| `price_candles` (FINAL) | `day`, `close_raw`, `bucket_start`, `interval`, `symbol`, `quote_currency` | NEAR price (last hourly sample of the day) | `near_price_daily` |
-| `source_coverage` (FINAL) | `dataset`, `day`, `state` | which days are partial (intents_swaps on 2026-07-23) | caveats |
+| `account_daily_activity` (FINAL) | `block_date`, `tx_total`, `tx_intents`, `tx_organic`, `signers_total`, `signers_organic` | day totals from the account scan | `intents_tx_daily`, `transactions_daily` |
+| `account_daily_tail` (FINAL) | `block_date`, `tail_tx`, `tail_signers` | long tail below the head threshold | `tail_daily` |
+| `account_daily_head` (FINAL) | `block_date`, `signer_account_id`, `tx_organic` | heavy-head accounts | `transactions_daily`, `head_accounts_break` |
+| `account_daily_new_returning` (FINAL) | `block_date`, `new_signers`, `top10_tx` | new signers, top-ten transactions | `new_signers_daily`, `transactions_daily` |
+| `intents_swaps` (FINAL) | `created_day`, `status`, `amount_in_usd`, `origin_asset`, `destination_asset` | settled volume, swap counts, composition | `intents_volume_daily`, `swaps_daily`, `intents_mix_daily`, `chain_pairs_monthly`, `excursion_routes` |
+| `asset_registry` (FINAL) | `provider_asset_id`, `symbol_observed`, `blockchain`, `verification` | which asset is a stablecoin, a NEAR-chain asset or the NEAR token | `intents_mix_daily`, `asset_sets` |
+| `price_candles` (FINAL) | `day`, `close_raw`, `bucket_start`, `interval`, `symbol`, `quote_currency` | NEAR daily close | `near_price_daily` |
+| `source_coverage` (FINAL) | `provider_id`, `dataset`, `day`, `state`, `reason` | days with partial swap data | `swaps_coverage` |
+
+The fee inputs (NEAR burnt, take rate, user-paid spread) are produced separately into `raw/fees/` with their own manifest; the build reads them when they exist.
 
 The exact local query of each dataset is in `sql/executed/<dataset>.sql`.
 
 ## Sample query
 
-Daily active accounts (distinct signers) for the window, exactly as in `sql/bigquery/active_accounts_daily.sql` (BigQuery, executed for this thesis; result `raw/bq_active_accounts_daily.json`):
+Daily transactions and distinct signers (BigQuery; executed for this thesis, result `raw/bq_transactions_signers_daily.json`, equal day for day to the local series):
 
 ```sql
-DECLARE start_date DATE DEFAULT DATE '2026-05-05';
-DECLARE end_date DATE DEFAULT DATE '2026-11-12';
+DECLARE start_date DATE DEFAULT DATE '2025-11-10';
+DECLARE end_date DATE DEFAULT DATE '2026-11-14';
 SELECT t.block_date AS block_date,
+  COUNT(*) AS tx_count,
   COUNT(DISTINCT t.signer_account_id) AS distinct_signers
 FROM `bigquery-public-data.crypto_near_mainnet_us.transactions` t
 WHERE t.block_date >= start_date AND t.block_date < end_date
 GROUP BY block_date ORDER BY block_date
 ```
-
-Local equivalence: the column equals `account_daily_activity.signers_total` day for day (and the BigQuery transaction count equals `near_daily_tx.tx_count`) (see the comparison in `raw/manifest.json` caveats).

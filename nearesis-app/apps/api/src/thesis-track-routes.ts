@@ -19,12 +19,12 @@ const TYPES: Record<string, string> = {
   ".sql": "text/plain; charset=utf-8",
 };
 
-/** Served paths relative to thesis/: build outputs, raw frozen data, SQL and TABLES.md. Nothing else. */
+/** Served paths relative to thesis/: build outputs, raw frozen data (including raw/fees), SQL and TABLES.md, for the current bundle and for each archived version under archive/<id>/. Nothing else. */
 const ALLOW = [
-  /^build\/(THESIS\.md|thesis\.json|HASHES\.json|site\/index\.html)$/,
-  /^raw\/[A-Za-z0-9_.-]+\.json$/,
-  /^sql\/(executed|bigquery)\/[A-Za-z0-9_.-]+\.sql$/,
-  /^TABLES\.md$/,
+  /^(archive\/[a-z0-9-]+\/)?build\/(THESIS\.md|FACTS\.md|thesis\.json|HASHES\.json|site\/index\.html)$/,
+  /^(archive\/[a-z0-9-]+\/)?raw\/(fees\/)?[A-Za-z0-9_.-]+\.(json|md)$/,
+  /^(archive\/[a-z0-9-]+\/)?sql\/(executed|bigquery)\/[A-Za-z0-9_.-]+\.sql$/,
+  /^(archive\/[a-z0-9-]+\/)?TABLES\.md$/,
 ];
 
 const notFound = (): KernelError =>

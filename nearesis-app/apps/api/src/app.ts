@@ -30,6 +30,7 @@ import { frontendRoutes } from "./frontend-routes.ts";
 import { globalRoutes } from "./global-routes.ts";
 import { oidcRoutes } from "./oidc-routes.ts";
 import { nearAuthRoutes } from "./near-auth-routes.ts";
+import { reportRoutes } from "./report-routes.ts";
 import type { OidcClient } from "@nearesis/kernel";
 import type { PanelDataPort } from "./panel-data.ts";
 import type { SourceHealthPort } from "./source-health.ts";
@@ -635,6 +636,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   });
 
   await app.register(nearAuthRoutes, { kernel, authenticate, ...(opts.nearAuth ?? {}) });
+  await app.register(reportRoutes, { kernel });
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.
   void HTTP_STATUS_FOR;

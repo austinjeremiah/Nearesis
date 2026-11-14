@@ -537,8 +537,52 @@ export async function proofRoutes(
       return r.rows[0];
     });
     if (!row) throw nf();
+    // OutLayer sometimes posts the hardware attestation long after the job ran. A proof that ended not_attested is looked
+    // up again in the background (at most once a minute), and becomes verified when the attestation appears.
+    if (row.state === "not_attested" && row.tx_hash && liveEnabled())
+      recheckLater(s, row.id, row.capsule_id, row.tx_hash);
     return rowToProof(row);
   });
+
+  const lastRecheck = new Map<string, number>();
+  function recheckLater(s: Session, proofId: string, capsuleId: string, txHash: string): void {
+    const now = Date.now();
+    if (now - (lastRecheck.get(proofId) ?? 0) < 60_000) return;
+    lastRecheck.set(proofId, now);
+    const dir = dirOf(capsuleId);
+    if (!dir) return;
+    const job = (async () => {
+      try {
+        const doc = await (opts.runProof ?? proveCapsule)({
+          capsuleDir: dir,
+          wasmPath,
+          policy: loadOutlayerLivePolicy(),
+          outDir: join(proofOutRoot(), proofId),
+          // resume: read the paid transaction and its attestation; nothing is submitted or spent
+          live: { chain: makeChain(), budgetYocto: 0n, resume: { txHash }, attestationTimeoutMs: 5_000 },
+        });
+        if (doc?.labels.attestation !== "attested") return;
+        const v = doc.verification ?? null;
+        await kernel.db.tx(ctxOf(s), (tx) =>
+          tx.query(
+            `UPDATE outlayer_proofs SET state='verified', output_sha256=$2, decision=$3, reasons=$4::jsonb, mr_td=$5, rtmr3=$6,
+               error=NULL WHERE id=$1 AND state='not_attested'`,
+            [
+              proofId,
+              doc.attestedOutputSha256 ?? null,
+              v?.decision ?? null,
+              JSON.stringify(v?.reasons ?? []),
+              v?.mrTd ?? null,
+              v?.rtmr3 ?? null,
+            ],
+          ),
+        );
+      } catch {
+        /* still not attested, or the provider is unreachable: the next read tries again */
+      }
+    })().finally(() => inflight.delete(job));
+    inflight.add(job);
+  }
 
   return {
     async estimateFor(ctx, capsuleId) {

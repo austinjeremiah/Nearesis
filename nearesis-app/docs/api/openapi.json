@@ -752,7 +752,7 @@
         "tags": [
           "agent"
         ],
-        "summary": "Model USD and credits per step and per message, with totals",
+        "summary": "Model USD and on-chain (OutLayer / anchor) USD per step and per message, with totals",
         "parameters": [
           {
             "name": "threadId",
@@ -777,7 +777,7 @@
         ],
         "responses": {
           "200": {
-            "description": "{ totals: { modelUsd, modelCalls, creditsChargedYocto }, items: [...] }",
+            "description": "{ totals: { modelUsd, modelCalls, onChainUsd, totalUsd }, items: [{ ..., unit: usd, category: model|onchain, amount, detail? }] }",
             "x-schema-status": "untyped"
           },
           "401": {
@@ -1850,8 +1850,8 @@
         "tags": [
           "assistant"
         ],
-        "summary": "Quick answer with charts and detailed analysis from typed read-only analytics (no workspace); spends model USD against the global ceiling",
-        "description": "A planner call picks up to 4 calls from the typed analytics catalogue (intents, entities, accounts), they run in parallel, charts are built from the result tables, and the interpretation stage (analyst and skeptic) writes findings whose every number is tied to a result cell. `summary` is returned only when every number in it grounds against the returned facts, else null. `cannot_answer` carries a reason and what data exists instead. Unknown values are null, never zero. 402 BUDGET_EXCEEDED when the one global model-spend ceiling is reached; 429 RATE_LIMITED per user.",
+        "summary": "Quick answer with charts and detailed analysis from typed read-only analytics (no workspace); spends model USD that is charged to the caller's USD credits and counts against the global ceiling",
+        "description": "A planner call picks up to 4 calls from the typed analytics catalogue (intents, entities, accounts), they run in parallel, charts are built from the result tables, and the interpretation stage (analyst and skeptic) writes findings whose every number is tied to a result cell. `summary` is returned only when every number in it grounds against the returned facts, else null. `cannot_answer` carries a reason and what data exists instead. Unknown values are null, never zero. 402 BUDGET_EXCEEDED / CREDITS_EXHAUSTED (details { allowanceUsd, spentUsd, availableUsd, requiredUsd, contactEmail }) when the caller has used their USD credits; 402 BUDGET_EXCEEDED when the one global model-spend ceiling is reached; 429 RATE_LIMITED per user. The actual USD of the turn is charged once to the caller.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2588,7 +2588,7 @@
         "tags": [
           "credits"
         ],
-        "summary": "Request a paid OutLayer proof (202 running; 402 INSUFFICIENT_CREDITS; 503 PROOF_PROVIDER_DISABLED; 409 ALREADY_PROVED/TESTNET_CAP_REACHED/PROOF_IN_PROGRESS)",
+        "summary": "Request a paid OutLayer proof (202 running; 402 CREDITS_EXHAUSTED; 503 PROOF_PROVIDER_DISABLED/PRICE_UNAVAILABLE; 409 ALREADY_PROVED/TESTNET_CAP_REACHED/PROOF_IN_PROGRESS)",
         "parameters": [
           {
             "name": "id",
@@ -3180,10 +3180,10 @@
         "tags": [
           "credits"
         ],
-        "summary": "Caller's credits: balance, held, available, deposit account, proof hold estimate, newest 50 entries",
+        "summary": "Caller's USD credits: allowance, spent, held, available, exhausted, per-category totals, NEAR/USD rate, proof hold estimate, newest 100 entries",
         "responses": {
           "200": {
-            "description": "Credits object (proofEstimateYocto is null when OutLayer proofs are disabled or the chain cannot be read; ?capsuleId sizes it for that capsule)",
+            "description": "{ allowanceUsd, spentUsd, heldUsd, availableUsd, exhausted, contactEmail, byCategory: { modelUsd, outlayerUsd, anchorUsd }, nearUsdRate: { rate, date } | null, proofEstimateUsd: string | null, entries: [{ id, kind: grant|hold|charge|release, category: model|outlayer|anchor|grant, amountUsd, refKind, refId, detail, createdAt }] }. The allowance is granted on first use. proofEstimateUsd is null when proofs are disabled, the chain cannot be read or no NEAR/USD close is held; ?capsuleId sizes it for that capsule. Exhausted accounts get 402 BUDGET_EXCEEDED / CREDITS_EXHAUSTED on every paid route, with details { allowanceUsd, spentUsd, availableUsd, requiredUsd | null, contactEmail }.",
             "x-schema-status": "untyped"
           },
           "401": {
@@ -3198,81 +3198,6 @@
           },
           "403": {
             "description": "Forbidden: role, origin or classification denies the action.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/credits/topups": {
-      "post": {
-        "operationId": "postCreditsTopups",
-        "tags": [
-          "credits"
-        ],
-        "summary": "Credit a testnet transfer to the deposit account (422 TX_NOT_FOUND/TX_FAILED/WRONG_SIGNER/WRONG_RECEIVER/NOT_A_TRANSFER; 409 TOPUP_ALREADY_CREDITED/NO_NEAR_ACCOUNT)",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PostCreditsTopupsRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The new credits object",
-            "x-schema-status": "untyped"
-          },
-          "401": {
-            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden: role, origin or classification denies the action.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8341,7 +8266,7 @@
         "tags": [
           "frontend"
         ],
-        "summary": "The caller: principal, organisation, role and workspaces",
+        "summary": "The caller: principal, organisation, role, workspaces and credits ({ availableUsd, allowanceUsd, exhausted }, additive)",
         "responses": {
           "200": {
             "description": "OK",
@@ -9249,7 +9174,7 @@
         "tags": [
           "credits"
         ],
-        "summary": "One proof record (state, job, verification, cost)",
+        "summary": "One proof record (state, job, verification, cost: { heldUsd, chargedUsd, gasUsd, totalUsd, chargedYocto, gasYocto, totalYocto, nearUsdRate, rateDate })",
         "parameters": [
           {
             "name": "proofId",
@@ -9458,7 +9383,7 @@
         "tags": [
           "publication"
         ],
-        "summary": "Export the static publication bundle for a capsule (emits research.published)",
+        "summary": "Export the static publication bundle for a capsule (emits research.published); an anchored publication holds anchor gas in USD from the caller's credits (402 CREDITS_EXHAUSTED; 503 PRICE_UNAVAILABLE)",
         "requestBody": {
           "required": true,
           "content": {
@@ -19485,7 +19410,7 @@
         "tags": [
           "investigation"
         ],
-        "summary": "Submit an analyst question (starts an investigation run)",
+        "summary": "Submit an analyst question (starts an investigation run; 402 BUDGET_EXCEEDED / CREDITS_EXHAUSTED when the caller has used their USD credits; the run's model USD is charged to the caller when it finishes)",
         "parameters": [
           {
             "name": "id",
@@ -27329,6 +27254,28 @@
               ],
               "additionalProperties": false
             }
+          },
+          "credits": {
+            "type": "object",
+            "properties": {
+              "availableUsd": {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{6}$"
+              },
+              "allowanceUsd": {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{6}$"
+              },
+              "exhausted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "availableUsd",
+              "allowanceUsd",
+              "exhausted"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -27338,7 +27285,8 @@
           "role",
           "roles",
           "permissions",
-          "workspaces"
+          "workspaces",
+          "credits"
         ],
         "additionalProperties": false
       },
@@ -29902,19 +29850,6 @@
             }
           }
         },
-        "additionalProperties": false
-      },
-      "PostCreditsTopupsRequest": {
-        "type": "object",
-        "properties": {
-          "txHash": {
-            "type": "string",
-            "description": "base58 NEAR testnet transaction hash"
-          }
-        },
-        "required": [
-          "txHash"
-        ],
         "additionalProperties": false
       },
       "PostDevLoginRequest": {

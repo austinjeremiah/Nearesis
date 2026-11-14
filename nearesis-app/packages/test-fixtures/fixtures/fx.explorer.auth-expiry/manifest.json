@@ -1,0 +1,14 @@
+{
+  "id": "fx.explorer.auth-expiry",
+  "label": "SYNTHETIC",
+  "description": "Five full Explorer pages (25 unique IDs). Script: pages 1-2 return 200; from page 3 the server answers 401 (variant: 403) until restored.",
+  "files": [
+    { "path": "page-1.json", "sha256": "a7e9cc5853d960634111c132b61d28381cea458d9f2eecbbb40052630da20e9f" },
+    { "path": "page-2.json", "sha256": "f96b4dd369d5f6c4f97457833a664544872d9a607e5d69e788ab0cac8c65780e" },
+    { "path": "page-3.json", "sha256": "0719cff5ede5e565d414f496d0dae7c49284d9019323163e3c4b2e28e3837945" },
+    { "path": "page-4.json", "sha256": "81bdd2b9aba5f9068f5226310e470a9e3a4deb2c30cfeeb32076e75e0145aed2" },
+    { "path": "page-5.json", "sha256": "ecbe0f13cc56fa5faefd285095eec391deb2b6572119c2aeb309c20883a8605a" },
+    { "path": "pages.json", "sha256": "aa7efd94738d02f965d4ce0a4ad71cde6013a8871be18ccee1c8c4453f09c33d" },
+    { "path": "script.json", "sha256": "03d160414b3721e8dd504536fea213fa7c2b9c75824dc5fb0b022e163e103420" }
+  ]
+}

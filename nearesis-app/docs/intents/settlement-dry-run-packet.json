@@ -1,0 +1,36 @@
+{
+  "generatedAtUTC": "2026-11-12T19:21:28.120Z",
+  "location": "us-east1",
+  "rows": [
+    {
+      "window": "7d",
+      "swapDays": "2026-10-20..2026-10-26",
+      "partitions": "[2026-10-20, 2026-10-28)",
+      "swaps": 112759,
+      "hashes": 214026,
+      "dryRunBytes": 297155352,
+      "dryRunGiB": 0.277,
+      "approvalSqlSha256": "cc22160d134d10cda02be0187311f45fe53726e094b263c6ca841efd2dd56cea"
+    },
+    {
+      "window": "13d",
+      "swapDays": "2026-10-14..2026-10-26",
+      "partitions": "[2026-10-14, 2026-10-28)",
+      "swaps": 201450,
+      "hashes": 389650,
+      "dryRunBytes": 549448955,
+      "dryRunGiB": 0.512,
+      "approvalSqlSha256": "b0f9c058f4cf5a10d2f8a377ad96b75ce19e5b61bb9fa7032033700c438b060f"
+    },
+    {
+      "window": "30d",
+      "swapDays": "2026-09-27..2026-10-26",
+      "partitions": "[2026-09-27, 2026-10-28)",
+      "swaps": 538447,
+      "hashes": 1063602,
+      "dryRunBytes": 1519064414,
+      "dryRunGiB": 1.415,
+      "approvalSqlSha256": "b8b942dbe5627da66736953710f9c8aebd69caaa83cc8cbdc2e7a6b8bff92021"
+    }
+  ]
+}

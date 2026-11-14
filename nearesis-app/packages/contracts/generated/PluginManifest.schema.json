@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "pluginId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "apiVersion": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "publisher": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifactSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "capabilities": {
+      "minItems": 1,
+      "maxItems": 64,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-zA-Z][a-zA-Z0-9_]*)+@\\d+$"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "data.source",
+              "semantic.metricpack",
+              "agent.role",
+              "research.experiment",
+              "canvas.paneltype",
+              "monitor.rule",
+              "evidence.verifier",
+              "publisher.exporter",
+              "network.adapter",
+              "notification.channel",
+              "tool.provider"
+            ]
+          },
+          "sideEffect": {
+            "type": "string",
+            "enum": [
+              "read_only",
+              "workspace_write",
+              "paid_call",
+              "chain_write"
+            ]
+          },
+          "idempotent": {
+            "type": "boolean"
+          },
+          "providerIdempotencyKey": {
+            "default": false,
+            "type": "boolean"
+          },
+          "latencyClass": {
+            "type": "string",
+            "enum": [
+              "interactive",
+              "batch",
+              "long_running"
+            ]
+          },
+          "inputSchema": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "outputSchema": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "requiredGrants": {
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 900000
+          },
+          "maxOutputBytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 52428800
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "sideEffect",
+          "idempotent",
+          "latencyClass",
+          "inputSchema",
+          "outputSchema",
+          "requiredGrants",
+          "timeoutMs",
+          "maxOutputBytes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "permissions": {
+      "maxItems": 64,
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "networkHosts": {
+      "maxItems": 32,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9.-]+(?::\\d+)?$"
+      }
+    },
+    "resourceLimits": {
+      "type": "object",
+      "properties": {
+        "memoryMb": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cpuMs": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "concurrency": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "memoryMb",
+        "cpuMs",
+        "concurrency"
+      ],
+      "additionalProperties": false
+    },
+    "configurationSchema": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    },
+    "healthCheck": {
+      "type": "object",
+      "properties": {
+        "capability": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-zA-Z][a-zA-Z0-9_]*)+@\\d+$"
+        },
+        "intervalMs": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "intervalMs"
+      ],
+      "additionalProperties": false
+    },
+    "entrypoint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rollbackStrategy": {
+      "type": "string",
+      "enum": [
+        "previous_version",
+        "disable",
+        "migration_down"
+      ]
+    },
+    "requires": {
+      "default": [],
+      "maxItems": 32,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.]*@\\d+$"
+      }
+    }
+  },
+  "required": [
+    "pluginId",
+    "version",
+    "apiVersion",
+    "publisher",
+    "artifactSha256",
+    "capabilities",
+    "permissions",
+    "networkHosts",
+    "resourceLimits",
+    "configurationSchema",
+    "healthCheck",
+    "entrypoint",
+    "rollbackStrategy"
+  ],
+  "additionalProperties": false
+}

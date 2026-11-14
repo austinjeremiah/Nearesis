@@ -1,0 +1,9 @@
+{
+  "traceId": "7f3a9c1e-52d4-4b86-9a07-3c5e8d1f2a64",
+  "retryable": false,
+  "errorCode": "BUDGET_EXCEEDED",
+  "reasonCode": "PRICE_UNKNOWN",
+  "message": "Spend blocked before execution: no price is configured for ai_tokens.",
+  "nextAction": "Set a rate for the dimension in the workspace cost policy.",
+  "state": "budget_exhausted"
+}

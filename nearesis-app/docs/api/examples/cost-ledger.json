@@ -1,0 +1,44 @@
+{
+  "entries": [
+    {
+      "key": "cost:inference:q-0042",
+      "dimension": "ai_tokens",
+      "quantity": 4210,
+      "usd": 0.012,
+      "priceUnknown": false,
+      "state": "settled",
+      "paidOp": "inference",
+      "createdAt": "2026-11-13T09:12:20.000Z"
+    },
+    {
+      "key": "bq:backfill-7",
+      "dimension": "bigquery_bytes_billed",
+      "quantity": 1000000000,
+      "usd": 0.00625,
+      "priceUnknown": false,
+      "state": "reserved",
+      "paidOp": "bigquery",
+      "createdAt": "2026-11-13T09:20:00.000Z"
+    },
+    {
+      "key": "http:quotes-91",
+      "dimension": "external_requests",
+      "quantity": 1,
+      "usd": null,
+      "priceUnknown": true,
+      "state": "settled",
+      "paidOp": null,
+      "createdAt": "2026-11-13T09:21:00.000Z"
+    }
+  ],
+  "blocks": [
+    {
+      "key": "bq:backfill-8",
+      "dimension": "bigquery_bytes_billed",
+      "reason": "PRICE_UNKNOWN",
+      "requestedUsd": null,
+      "ledgerUsd": 1.23,
+      "createdAt": "2026-11-13T09:25:00.000Z"
+    }
+  ]
+}

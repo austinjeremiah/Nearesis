@@ -1,0 +1,7 @@
+{
+  "source": "chapters/16b_TEST_DEFINITIONS_AMENDMENT.md section 8b (owner correction 5), vendored; drift-checked when the Bible exists",
+  "rows": [
+    { "gate": "G09", "testIds": ["V05", "V13", "V09", "V10", "V11"] },
+    { "gate": "G12", "testIds": ["N01", "N03"] }
+  ]
+}

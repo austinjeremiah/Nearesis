@@ -1,0 +1,9 @@
+{
+  "amendmentId": "AMENDMENT-002",
+  "canonicalisation": "crlf_cr_to_lf;unicode_nfc;utf8;trailing_whitespace_preserved",
+  "documentHash": "sha256:d84845f6642369445d734b073ec3a47e0375551fd3b053c0e3851892138e469b",
+  "frozenAt": "2026-11-11T07:48:54.927Z",
+  "label": "post_hoc_methodological_correction",
+  "note": "Frozen before any calibration, applicability or evaluation computation of this amendment. Fixture-evaluation freeze, not a chain commitment.",
+  "schema": "preregistration-amendment-freeze@1"
+}

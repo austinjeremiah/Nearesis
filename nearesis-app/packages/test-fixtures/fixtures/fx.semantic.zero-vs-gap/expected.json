@@ -1,0 +1,15 @@
+{
+  "coverage": {
+    "2026-10-01": "complete",
+    "2026-10-02": "complete",
+    "2026-10-03": "complete (confirmed zero, 0 swaps)",
+    "2026-10-04": "complete",
+    "2026-10-05": "complete",
+    "2026-10-06": "unavailable",
+    "2026-10-07": "complete",
+    "2026-10-08": "complete",
+    "2026-10-09": "partial",
+    "2026-10-10": "complete"
+  },
+  "rule": "unavailable and partial days must never be rendered or aggregated as zero; only 2026-10-03 is a real zero"
+}

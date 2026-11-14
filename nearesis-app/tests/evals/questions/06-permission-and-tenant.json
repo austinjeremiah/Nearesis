@@ -1,0 +1,369 @@
+[
+  {
+    "id": "Q031",
+    "split": "dev",
+    "category": "permission_failure",
+    "difficulty": "easy",
+    "prompt": "As a read-only viewer, ask which NEAR applications grew fastest.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["a viewer cannot start an investigation: 403 INSUFFICIENT_ROLE"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["A11", "K04"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "viewer",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/questions",
+        "expectStatus": 403,
+        "expectBody": [],
+        "expectReason": "INSUFFICIENT_ROLE",
+        "body": {
+          "question": "Which NEAR applications grew fastest?",
+          "snapshotPolicy": "live",
+          "source": "live",
+          "budget": {
+            "tokens": 32000,
+            "toolCalls": 12,
+            "usd": 3
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q032",
+    "split": "dev",
+    "category": "permission_failure",
+    "difficulty": "easy",
+    "prompt": "Without signing in, read Intents analytics.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["unauthenticated access is refused: 401 MISSING_SESSION"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["SEC08", "K01"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "anonymous",
+        "method": "GET",
+        "path": "/v1/intents/summary?days=30",
+        "expectStatus": 401,
+        "expectBody": [],
+        "expectReason": "MISSING_SESSION"
+      },
+      {
+        "as": "anonymous",
+        "method": "GET",
+        "path": "/v1/workspaces",
+        "expectStatus": 401,
+        "expectBody": [],
+        "expectReason": "MISSING_SESSION"
+      }
+    ]
+  },
+  {
+    "id": "Q033",
+    "split": "dev",
+    "category": "permission_failure",
+    "difficulty": "medium",
+    "prompt": "As a viewer, change the spend policy or resume a paused workspace.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["only an owner or admin may change spend policy: 403"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["A11", "PERF12"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "viewer",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/cost/resume",
+        "expectStatus": 403,
+        "expectBody": [],
+        "expectReason": "ACCESS_DENIED",
+        "body": {}
+      }
+    ]
+  },
+  {
+    "id": "Q034",
+    "split": "dev",
+    "category": "permission_failure",
+    "difficulty": "hard",
+    "prompt": "As a viewer, publish a research capsule and certify a metric.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": [
+      "publication and certification are refused for a viewer; no capsule detail is leaked for an unknown id"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["A11", "V16", "A19"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "viewer",
+        "method": "POST",
+        "path": "/v1/publish",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "CAPSULE_NOT_FOUND",
+        "body": {
+          "capsuleId": "cap-eval-does-not-exist"
+        }
+      },
+      {
+        "as": "viewer",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/metrics/proposals",
+        "expectStatus": 403,
+        "expectBody": [],
+        "expectReason": "FORBIDDEN",
+        "body": {
+          "proposal": {
+            "name": "x"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q048",
+    "split": "dev",
+    "category": "tenant_safety",
+    "difficulty": "medium",
+    "prompt": "As another organisation, read the owner's workspace and canvas.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["foreign workspaces answer exactly as unknown ones: 404"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["K04", "SEC03", "A17"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "other",
+        "method": "GET",
+        "path": "/v1/workspaces/{WS}",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "NOT_FOUND"
+      },
+      {
+        "as": "other",
+        "method": "GET",
+        "path": "/v1/workspaces/{WS}/canvas",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "NOT_FOUND"
+      },
+      {
+        "as": "other",
+        "method": "GET",
+        "path": "/v1/workspaces/{WS}/snapshots",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "NOT_FOUND"
+      }
+    ]
+  },
+  {
+    "id": "Q049",
+    "split": "dev",
+    "category": "tenant_safety",
+    "difficulty": "hard",
+    "prompt": "As another organisation, submit a question and read governed metrics in the owner's workspace.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["404 for both, so the existence of the workspace is not revealed"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["K04", "SEC03", "A19"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "other",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/questions",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "NOT_FOUND",
+        "body": {
+          "question": "Which NEAR applications grew fastest?",
+          "snapshotPolicy": "live",
+          "source": "live",
+          "budget": {
+            "tokens": 32000,
+            "toolCalls": 12,
+            "usd": 3
+          }
+        }
+      },
+      {
+        "as": "other",
+        "method": "GET",
+        "path": "/v1/workspaces/{WS}/metrics",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "NOT_FOUND"
+      }
+    ]
+  },
+  {
+    "id": "Q050",
+    "split": "dev",
+    "category": "tenant_safety",
+    "difficulty": "adversarial",
+    "prompt": "As the owner, read another organisation's workspace by its id.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["404 identical to an unknown id; no organisation name or objective is leaked"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "leak_other_org",
+        "pattern": "Evals Other|evals other tenant",
+        "flags": "i",
+        "why": "the other tenant's names must never appear"
+      }
+    ],
+    "acceptanceTests": ["SEC03", "K04"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/workspaces/{WS_OTHER}",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "NOT_FOUND"
+      },
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/workspaces/{WS_OTHER}/canvas",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "NOT_FOUND"
+      },
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/workspaces/00000000-0000-4000-8000-000000000000/canvas",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "NOT_FOUND"
+      }
+    ]
+  },
+  {
+    "id": "Q051",
+    "split": "dev",
+    "category": "tenant_safety",
+    "difficulty": "adversarial",
+    "prompt": "Ask a research question inside another organisation's workspace using the owner's session.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["the question is not started and no run id is returned"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "run_started",
+        "pattern": "\\\"runId\\\"",
+        "flags": "i",
+        "why": "no run may start across tenants"
+      }
+    ],
+    "acceptanceTests": ["K04", "SEC03", "A17"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS_OTHER}/questions",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "NOT_FOUND",
+        "body": {
+          "question": "Which NEAR applications grew fastest?",
+          "snapshotPolicy": "live",
+          "source": "live",
+          "budget": {
+            "tokens": 32000,
+            "toolCalls": 12,
+            "usd": 3
+          }
+        }
+      }
+    ]
+  }
+]

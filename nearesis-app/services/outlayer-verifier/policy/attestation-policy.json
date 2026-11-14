@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "nearesis.attestation-policy.v1",
+  "allowedWasmSha256": ["1034c63ed6fd761fa13977544dec59bddcd30009bb1feb363a3d169ddaee901c"],
+  "allowedSigners": [],
+  "allowedNetworks": ["testnet"],
+  "maxAgeSeconds": 86400,
+  "allowedMeasurements": [],
+  "quoteTrustRootSha256": []
+}

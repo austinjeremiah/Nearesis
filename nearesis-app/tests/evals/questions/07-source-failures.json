@@ -1,0 +1,197 @@
+[
+  {
+    "id": "Q035",
+    "split": "dev",
+    "category": "source_failure",
+    "difficulty": "medium",
+    "prompt": "Report NEAR Intents swap volume for January 2024.",
+    "kind": "http",
+    "requiredSources": ["intents_swaps"],
+    "minAnswerProperties": [
+      "the window has no complete days; zero swaps is reported with completeDays = 0 and the missing days, not as zero activity"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "zero_for_unknown",
+        "pattern": "\\b(no activity|zero activity|nothing happened|0 swaps)\\b",
+        "flags": "i",
+        "why": "a day or field without data is unknown, not zero"
+      }
+    ],
+    "acceptanceTests": ["V14", "B09"],
+    "expect": {
+      "outcome": "answer",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "independent count is also zero",
+        "api": "/v1/intents/summary?from=2024-01-01&to=2024-01-31",
+        "json": "data.swaps",
+        "ch": "SELECT count() FROM intents_swaps FINAL WHERE created_day BETWEEN '2024-01-01' AND '2024-01-31'",
+        "rel": 0
+      }
+    ],
+    "http": [
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/intents/summary?from=2024-01-01&to=2024-01-31",
+        "expectStatus": 200,
+        "expectBody": [
+          {
+            "json": "coverage.completeDays",
+            "equals": 0
+          },
+          {
+            "json": "coverage.missingDays[0]",
+            "equals": "2024-01-01"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "Q036",
+    "split": "dev",
+    "category": "source_failure",
+    "difficulty": "medium",
+    "prompt": "Ask for an Intents window that ends before it starts.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["a typed validation error names the window problem"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["S06", "SEC08"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/intents/summary?from=2026-11-01&to=2026-10-01",
+        "expectStatus": 422,
+        "expectBody": [],
+        "expectReason": "INVALID_WINDOW"
+      }
+    ]
+  },
+  {
+    "id": "Q037",
+    "split": "dev",
+    "category": "source_failure",
+    "difficulty": "hard",
+    "prompt": "What was NEAR Intents swap volume between 2026-04-03 and 2026-04-22?",
+    "kind": "http",
+    "requiredSources": ["intents_swaps", "source_coverage"],
+    "minAnswerProperties": [
+      "days marked partial for EXPLORER_CURSOR_JUMP are reported as incomplete and not as complete zero days"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "zero_for_unknown",
+        "pattern": "\\b(no activity|zero activity|nothing happened|0 swaps)\\b",
+        "flags": "i",
+        "why": "a day or field without data is unknown, not zero"
+      }
+    ],
+    "acceptanceTests": ["V14", "B09", "Q07"],
+    "expect": {
+      "outcome": "answer",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "independent count agrees with the API for the partial window",
+        "api": "/v1/intents/summary?from=2026-04-03&to=2026-04-22",
+        "json": "data.swaps",
+        "ch": "SELECT count() FROM intents_swaps FINAL WHERE created_day BETWEEN '2026-04-03' AND '2026-04-22'",
+        "rel": 0
+      }
+    ],
+    "http": [
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/intents/summary?from=2026-04-03&to=2026-04-22",
+        "expectStatus": 200,
+        "expectBody": [
+          {
+            "json": "coverage.completeDays",
+            "equals": 0
+          },
+          {
+            "json": "coverage.incompleteDays[0].state",
+            "equals": "partial"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "Q038",
+    "split": "dev",
+    "category": "source_failure",
+    "difficulty": "hard",
+    "prompt": "Compute NEAR Intents solver market share for the last 30 days.",
+    "kind": "http",
+    "requiredSources": ["intents_swaps"],
+    "minAnswerProperties": ["status CANNOT_COMPUTE with the missing fields and no numbers"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "invented_solver",
+        "pattern": "\\bsolver [A-Za-z0-9_.-]+ (executed|filled|handled) \\d",
+        "flags": "i",
+        "why": "the source has no solver identity"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/intents/solver-metrics?days=30",
+        "expectStatus": 200,
+        "expectBody": [
+          {
+            "json": "status",
+            "equals": "CANNOT_COMPUTE"
+          },
+          {
+            "json": "missing[0]",
+            "matches": "solver"
+          }
+        ]
+      }
+    ]
+  }
+]

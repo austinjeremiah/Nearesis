@@ -1,0 +1,45 @@
+{
+  "name": "@nearesis/ingestion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run test/unit",
+    "replay": "tsx src/cli/replay.ts",
+    "migrate": "tsx src/cli/migrate.ts",
+    "backfill": "tsx src/backfill/cli.ts",
+    "test:backfill": "vitest run test/backfill",
+    "realtime": "tsx src/realtime/cli.ts",
+    "scheduler": "tsx src/scheduler/cli.ts",
+    "quotes:validate": "tsx src/scheduler/validate-quotes.ts",
+    "test:scheduler": "vitest run test/scheduler",
+    "backfill:replay-raw": "tsx src/backfill/replay-cli.ts",
+    "backfill:skip-quarantined": "tsx src/backfill/skip-quarantined.ts",
+    "backfill:explorer-coverage": "tsx src/backfill/explorer-coverage-cli.ts",
+    "backfill:account": "tsx src/backfill/account-cli.ts",
+    "registry:refresh": "tsx src/registry/refresh-cli.ts",
+    "economics:dry-run": "tsx src/economics/cli.ts",
+    "accounts:dry-run": "tsx src/accounts/dry-cli.ts",
+    "accounts:scan": "tsx src/accounts/cli.ts"
+  },
+  "dependencies": {
+    "@clickhouse/client": "1.25.0",
+    "@google-cloud/bigquery": "9.6.0",
+    "@nearesis/acceptance": "workspace:*",
+    "@nearesis/agent-runtime": "workspace:*",
+    "@nearesis/contracts": "workspace:*",
+    "@nearesis/strict-json": "workspace:*",
+    "@nearesis/test-fixtures": "workspace:*",
+    "ajv": "8.20.0",
+    "ioredis": "6.0.0",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}

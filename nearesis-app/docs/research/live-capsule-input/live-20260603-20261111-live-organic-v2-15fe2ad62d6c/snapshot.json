@@ -1,0 +1,70 @@
+{
+  "schema": "nearesis.snapshot.v1",
+  "snapshotId": "live-20260603-20261111-live-organic-v2-15fe2ad62d6c",
+  "label": "LIVE",
+  "frozenAt": "2026-11-12T10:19:17Z",
+  "dataset": "nearesis_live ClickHouse, pinned snapshot (live-organic-v2)",
+  "claimId": "near:intents-organic-forecast",
+  "analysisCodeCommit": "3b5c4fd",
+  "series": {
+    "file": "raw/daily_series.csv",
+    "x": {
+      "column": "intents_volume_usd_cents",
+      "name": "intents_volume_usd",
+      "unit": "usd_cents"
+    },
+    "y": {
+      "column": "organic_tx",
+      "name": "organic_transactions",
+      "unit": "transactions"
+    }
+  },
+  "metrics": [
+    "lag_pearson:1",
+    "lag_pearson:7",
+    "pearson",
+    "summary"
+  ],
+  "files": [
+    {
+      "path": "raw/daily_series.csv",
+      "sha256": "88c5c482acd32a8c761d998125614bf6105f39564cad81e561e8684ff2403e8e",
+      "bytes": 4743
+    },
+    {
+      "path": "raw/live-snapshot.json",
+      "sha256": "2827dbc2da29173a325fe6e40acacaffa730211cf5cd2fde0bb074f564b36062",
+      "bytes": 3665
+    },
+    {
+      "path": "raw/account_daily_activity.json",
+      "sha256": "3fe2d3a47d42011719d21874f69d77d01a0b731ff985d0936bb586e3fc5139a4",
+      "bytes": 28373
+    },
+    {
+      "path": "raw/near_daily_tx.json",
+      "sha256": "9dfebee29137d066bfde01c4bf8336f0950ac19c44012d5c7602136108af06da",
+      "bytes": 4868
+    },
+    {
+      "path": "raw/price.json",
+      "sha256": "6096abf07a3063d6843f175facaf12709ba6526a4104718b94a9a9df5353a606",
+      "bytes": 6464
+    },
+    {
+      "path": "raw/source_coverage.json",
+      "sha256": "2a278b40552c9e265e90d07588de9c75d0a3e25bddef669060dfb0e066efbdf4",
+      "bytes": 446
+    },
+    {
+      "path": "raw/swaps.json",
+      "sha256": "34ae0956abf295b240d8c3815329cdd7a677145972b208fd18c06e15b695d0ba",
+      "bytes": 15216
+    },
+    {
+      "path": "raw/swaps_by_privacy_era.json",
+      "sha256": "2146d86fafac4a2997af378dd5a4aa48113231ce58542f931de9e6fea16ca6bb",
+      "bytes": 16218
+    }
+  ]
+}

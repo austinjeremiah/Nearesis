@@ -1,0 +1,125 @@
+[
+  {
+    "id": "Q045",
+    "split": "dev",
+    "category": "historical_validity",
+    "difficulty": "medium",
+    "prompt": "Open a historical snapshot that does not exist.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["a typed 404; no data from another time is substituted"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["W05", "Q03"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/workspaces/{WS}/snapshots/00000000-0000-4000-8000-000000000000",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "NOT_FOUND"
+      }
+    ]
+  },
+  {
+    "id": "Q046",
+    "split": "dev",
+    "category": "historical_validity",
+    "difficulty": "hard",
+    "prompt": "Compare two snapshots that do not exist.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["a typed 404 rather than an empty diff"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["W05", "W06"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/workspaces/{WS}/snapshots/compare?a=00000000-0000-4000-8000-000000000000&b=00000000-0000-4000-8000-000000000001",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "NOT_FOUND"
+      }
+    ]
+  },
+  {
+    "id": "Q047",
+    "split": "dev",
+    "category": "historical_validity",
+    "difficulty": "hard",
+    "prompt": "Report NEAR Intents activity for a window that starts before the dataset does, and say what is known.",
+    "kind": "run",
+    "requiredSources": ["intents_swaps", "source_coverage"],
+    "minAnswerProperties": ["the part before the dataset start is reported as unavailable, not as zero"],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "zero_for_unknown",
+        "pattern": "\\b(no activity|zero activity|nothing happened|0 swaps)\\b",
+        "flags": "i",
+        "why": "a day or field without data is unknown, not zero"
+      }
+    ],
+    "acceptanceTests": ["Q03", "V14", "B09"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [
+      {
+        "kind": "api_field",
+        "label": "window before coverage has no complete days",
+        "api": "/v1/intents/summary?from=2025-01-01&to=2025-01-31",
+        "json": "coverage.completeDays",
+        "httpStatus": 200,
+        "equals": 0
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  }
+]

@@ -1,0 +1,33 @@
+{
+  "testId": "C18",
+  "frozenAt": "2026-11-10T12:05:54Z",
+  "frozenBy": "ENGINE_B lead (engine-b-564546)",
+  "note": "Frozen before the first C18 execution (16a §5 C18). Any change to thresholds or to the reference environment requires a reviewed ADR; thresholds must not be adjusted after a failure. A run whose environment fingerprint differs from 'environment' is not PASS/FAIL (recorded as not-run/blocked).",
+  "environment": {
+    "cpuModel": "Apple M2 Pro",
+    "cpuCores": 10,
+    "ramGiB": 16,
+    "os": "Darwin 27.0.0",
+    "arch": "arm64",
+    "node": "v24.22.2",
+    "playwright": "1.65.0",
+    "chromium": "158.0.8127.18",
+    "headless": true,
+    "viewport": { "width": 1440, "height": 900 },
+    "deviceScaleFactor": 1,
+    "cpuThrottling": "none",
+    "networkThrottling": "none",
+    "buildMode": "production (next build + next start)"
+  },
+  "datasets": {
+    "fx.canvas.state-cases/large": "1e08ab0d776d5aae239941ca11db2b2f7fba66ae6b778610d5488de7998d784f",
+    "fx.canvas.state-cases/baseline": "b742f82f4f465781375888534cf5520500fc65b07b05de439311ae53bdb5f9ee"
+  },
+  "thresholds": {
+    "maxDomElementsPerChartPanel": 5000,
+    "maxHeapIncreaseMB_100kPanel": 150,
+    "maxFirstFrameMs_100kSeries": 3000,
+    "maxFirstFrameMs_50kScatter": 3000,
+    "maxMainThreadTaskMs": 250
+  }
+}

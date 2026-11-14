@@ -1,0 +1,29 @@
+{
+  "name": "@nearesis/build-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build --config web/vite.config.ts",
+    "dev": "pnpm build && tsx server/main.ts",
+    "start": "tsx server/main.ts",
+    "test": "vitest run",
+    "test:e2e": "pnpm build && playwright test",
+    "typecheck": "tsc -p tsconfig.json",
+    "screenshot": "tsx scripts/screenshot.ts"
+  },
+  "dependencies": {
+    "@nearesis/contracts": "workspace:*",
+    "chokidar": "6.0.0",
+    "fastify": "5.12.8",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.2.1",
+    "vite": "8.3.6"
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "job": {
+    "kind": "contract_interactions",
+    "estimateBytes": 41943040,
+    "billedBytes": 41943040,
+    "location": "recorded-location",
+    "jobId": "synthetic-job-3"
+  },
+  "rows": [
+    {
+      "block_date": "2026-10-01",
+      "receiver_account_id": "meme-cooking.near",
+      "interactions": "120"
+    },
+    {
+      "block_date": "2026-10-01",
+      "receiver_account_id": "hot.tg",
+      "interactions": "80"
+    },
+    {
+      "block_date": "2026-10-01",
+      "receiver_account_id": "outlayer.unresolved.near",
+      "interactions": "33"
+    },
+    {
+      "block_date": "2026-10-01",
+      "receiver_account_id": "shared-dao.near",
+      "interactions": "20"
+    },
+    {
+      "block_date": "2026-10-01",
+      "receiver_account_id": "unknown.near",
+      "interactions": "7"
+    },
+    {
+      "block_date": "2026-11-10",
+      "receiver_account_id": "meme-cooking.near",
+      "interactions": "121"
+    },
+    {
+      "block_date": "2026-11-10",
+      "receiver_account_id": "hot.tg",
+      "interactions": "81"
+    },
+    {
+      "block_date": "2026-11-10",
+      "receiver_account_id": "outlayer.unresolved.near",
+      "interactions": "34"
+    },
+    {
+      "block_date": "2026-11-10",
+      "receiver_account_id": "shared-dao.near",
+      "interactions": "21"
+    },
+    {
+      "block_date": "2026-11-10",
+      "receiver_account_id": "unknown.near",
+      "interactions": "8"
+    }
+  ]
+}

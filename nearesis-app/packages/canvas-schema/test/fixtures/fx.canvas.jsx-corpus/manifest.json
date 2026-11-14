@@ -1,0 +1,11 @@
+{
+  "id": "fx.canvas.jsx-corpus",
+  "label": "SYNTHETIC",
+  "description": "C02 executable-content corpus",
+  "files": [
+    {
+      "path": "corpus.json",
+      "sha256": "fd626a2f596a33397b6010a3fc4abf3f22d655908add6ce73ac855f76a2a7b8f"
+    }
+  ]
+}

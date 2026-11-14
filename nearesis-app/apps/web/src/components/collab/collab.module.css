@@ -1,0 +1,74 @@
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  margin: 0 0 12px;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--nz-border, #e3e3e3);
+  vertical-align: middle;
+}
+.num {
+  width: 5.5em;
+  font: inherit;
+  padding: 2px 4px;
+}
+.actions {
+  white-space: nowrap;
+}
+.board {
+  position: relative;
+  height: 260px;
+  margin-top: 16px;
+  border: 1px dashed var(--nz-border, #ccc);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.tile {
+  position: absolute;
+  max-width: 9%;
+  min-width: 70px;
+  padding: 2px 4px;
+  font-size: 11px;
+  line-height: 1.2;
+  background: var(--nz-surface-2, #f3f4f6);
+  border: 1px solid var(--nz-border, #ccc);
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tile[data-focus] {
+  outline: 2px solid var(--nz-accent, #2563eb);
+}
+.dl {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 12px 0 20px;
+}
+.dl dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.note {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 6px;
+}
+@media (max-width: 600px) {
+  .table {
+    display: block;
+    overflow-x: auto;
+  }
+}

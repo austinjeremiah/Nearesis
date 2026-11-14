@@ -1,0 +1,10 @@
+{
+  "traceId": "7f3a9c1e-52d4-4b86-9a07-3c5e8d1f2a64",
+  "retryable": true,
+  "errorCode": "RATE_LIMITED",
+  "reasonCode": "TENANT_QUEUE_FULL",
+  "message": "Too many investigations are running for this workspace.",
+  "nextAction": "Wait for Retry-After seconds, then resubmit.",
+  "retryAfterSeconds": 12,
+  "state": "rate_limited"
+}

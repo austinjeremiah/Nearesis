@@ -1,0 +1,161 @@
+{
+  "tenantId": "11111111-2222-4333-8444-555555555555",
+  "workspaceId": "6f1c2d7e-3a4b-4c5d-8e9f-0a1b2c3d4e5f",
+  "period": {
+    "start": "2026-11-01T00:00:00.000Z",
+    "end": "2026-12-01T00:00:00.000Z"
+  },
+  "policy": {
+    "tenantId": "11111111-2222-4333-8444-555555555555",
+    "workspaceId": "6f1c2d7e-3a4b-4c5d-8e9f-0a1b2c3d4e5f",
+    "capUsd": 25,
+    "periodStart": "2026-11-01T00:00:00.000Z",
+    "periodDays": 30,
+    "dimensionLimits": {
+      "bigquery_bytes_billed": 200000000000
+    },
+    "rates": {
+      "bigquery_bytes_billed": 6.25e-12,
+      "ai_tokens": 3e-06
+    },
+    "paidOpsPermitted": [
+      "inference",
+      "bigquery"
+    ],
+    "requirePriceFor": [
+      "bigquery_bytes_billed"
+    ],
+    "inflightAllowanceUsd": 0.5,
+    "alertThresholds": [
+      0.5,
+      0.8,
+      0.95
+    ],
+    "alertMaxPerWindow": 3,
+    "alertWindowSeconds": 3600,
+    "alertCooldownSeconds": 300,
+    "hardStoppedAt": null,
+    "hardStopReason": null
+  },
+  "spentUsd": 1.23,
+  "reservedUsd": 0.05,
+  "capUsd": 25,
+  "burnFraction": 0.0512,
+  "burnRateUsdPerHour": {
+    "last1h": 0.011,
+    "last24h": 0.0046
+  },
+  "hardStopped": false,
+  "hardStopReason": null,
+  "dimensions": [
+    {
+      "dimension": "bigquery_bytes_billed",
+      "unit": "bytes",
+      "quantity": 48000000000,
+      "usd": 0.3,
+      "limit": 200000000000,
+      "limitFraction": 0.24
+    },
+    {
+      "dimension": "external_requests",
+      "unit": "requests",
+      "quantity": 120,
+      "usd": null,
+      "limit": null,
+      "limitFraction": null
+    },
+    {
+      "dimension": "ai_tokens",
+      "unit": "tokens",
+      "quantity": 310000,
+      "usd": 0.93,
+      "limit": null,
+      "limitFraction": null
+    },
+    {
+      "dimension": "outlayer_compute",
+      "unit": "compute_units",
+      "quantity": null,
+      "usd": null,
+      "limit": null,
+      "limitFraction": null
+    },
+    {
+      "dimension": "clickhouse_cpu",
+      "unit": "cpu_microseconds",
+      "quantity": 8400000,
+      "usd": null,
+      "limit": null,
+      "limitFraction": null
+    },
+    {
+      "dimension": "clickhouse_io",
+      "unit": "bytes_read",
+      "quantity": null,
+      "usd": null,
+      "limit": null,
+      "limitFraction": null
+    },
+    {
+      "dimension": "object_storage_gb_month",
+      "unit": "gb_month",
+      "quantity": null,
+      "usd": null,
+      "limit": null,
+      "limitFraction": null
+    },
+    {
+      "dimension": "network_egress_bytes",
+      "unit": "bytes",
+      "quantity": null,
+      "usd": null,
+      "limit": null,
+      "limitFraction": null
+    },
+    {
+      "dimension": "workflow_operations",
+      "unit": "operations",
+      "quantity": null,
+      "usd": null,
+      "limit": null,
+      "limitFraction": null
+    }
+  ],
+  "forecast": {
+    "label": "projection",
+    "method": "linear_to_period_end",
+    "basis": {
+      "elapsedHours": 296.0,
+      "spentUsd": 1.28,
+      "entries": 84
+    },
+    "projectedPeriodUsd": 3.11,
+    "projectedOverCap": false,
+    "projectedExhaustionAt": "2026-12-24T11:30:00.000Z",
+    "confidence": "ok",
+    "assumptions": [
+      "Linear: spend so far (settled plus reserved) is scaled to the whole policy period.",
+      "Exhaustion time assumes the trailing 24 hour spend rate continues unchanged.",
+      "Needs at least 3 settled entries and 1 hour of the period elapsed; otherwise no projection is made.",
+      "2 entries with an unknown price are excluded; the real figure may be higher."
+    ]
+  },
+  "blocks": {
+    "total": 1,
+    "byReason": {
+      "PRICE_UNKNOWN": 1
+    }
+  },
+  "alerts": {
+    "sent": 0,
+    "suppressed": 0
+  },
+  "priceUnknown": {
+    "entries": 2,
+    "byDimension": {
+      "external_requests": 1,
+      "clickhouse_cpu": 1
+    }
+  },
+  "asOf": "2026-11-13T09:30:00.000Z"
+}

@@ -1,0 +1,21 @@
+{
+  "testId": "D16",
+  "frozenAtUTC": "2026-11-10T12:20:00Z",
+  "authorisation": "Owner approval of 2026-11-10 covers this bounded budget only.",
+  "bigquery": {
+    "maximumBytesBilledPerQuery": 1073741824,
+    "totalBytesBilledPerRun": 2147483648,
+    "maxBilledJobs": 3,
+    "plan": [
+      "discover billing project and dataset location at runtime",
+      "dry run",
+      "one 1-day block_date-bounded query"
+    ]
+  },
+  "http": {
+    "maxRequestsPerProvider": 5,
+    "explorerMaxRequestsInFiveSecondWindow": 1,
+    "oneclickAllowedEndpoints": ["GET /v0/tokens", "POST /v0/quote (dry:true)"],
+    "coingecko": "1 daily-candle request (one retry on another host allowed)"
+  }
+}

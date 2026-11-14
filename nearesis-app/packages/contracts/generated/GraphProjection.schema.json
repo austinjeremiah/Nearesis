@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "workspaceId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "nodes": {
+      "maxItems": 20000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "hypothesis",
+              "observation",
+              "query",
+              "model",
+              "source",
+              "marker",
+              "agent",
+              "statistical_result",
+              "claim",
+              "verification_artifact"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "position": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "queryRef": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "support": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "unsupported",
+              "contradicted"
+            ]
+          },
+          "recheckRequired": {
+            "type": "boolean"
+          },
+          "tombstone": {
+            "type": "boolean"
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confidenceTier": {
+            "type": "string"
+          },
+          "evidenceUnavailable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "label"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "edges": {
+      "maxItems": 50000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "supports",
+              "contradicts",
+              "derived_from",
+              "monitors",
+              "references",
+              "reproduces",
+              "supersedes"
+            ]
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "stored",
+              "derived"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "target",
+          "relation",
+          "origin"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "unresolved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "relation": {
+            "type": "string"
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "source",
+                "target"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "reason",
+          "source",
+          "target",
+          "relation",
+          "missing"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "workspaceId",
+    "version",
+    "nodes",
+    "edges",
+    "unresolved"
+  ],
+  "additionalProperties": false
+}

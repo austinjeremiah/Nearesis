@@ -1,0 +1,25 @@
+{
+  "id": "fx.explorer.bad-body",
+  "label": "SYNTHETIC",
+  "description": "Malformed Explorer bodies: invalid JSON, schema-invalid item, and a body whose supplied sha256 does not match.",
+  "files": [
+    { "path": "bad-json.txt", "sha256": "5ef61629c2d1f8fcbe94ffb1e4b93117f3766bd4fddb7c163459f5e7ecb13a7e" },
+    {
+      "path": "bad-schema.json",
+      "sha256": "2254089fd921eb101d58b1c6ac7d993fdfbe3c021b193734ee0c4aa82ef2ddd7"
+    },
+    {
+      "path": "checksum-mismatch.json",
+      "sha256": "bcdb62ce3d35e13be59348c17599afd411ae817261d1e797f3c39cfc945424e0"
+    },
+    {
+      "path": "checksum-mismatch.sha256",
+      "sha256": "3a88ba20a0b75818abc95d8941303e459040b9aa566276d9ed119bc14c8f86e0"
+    },
+    {
+      "path": "checksum-ok.sha256",
+      "sha256": "27a5fba4589cb742caa8f0bcf34d311338b42dba5ae5caf8189bff758f753fcf"
+    },
+    { "path": "good-page.json", "sha256": "bcdb62ce3d35e13be59348c17599afd411ae817261d1e797f3c39cfc945424e0" }
+  ]
+}

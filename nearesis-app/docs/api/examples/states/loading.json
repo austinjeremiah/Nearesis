@@ -1,0 +1,8 @@
+{
+  "state": "loading",
+  "progress": {
+    "done": 0,
+    "total": 4
+  },
+  "nextAction": "Follow the workspace event stream; query.completed frames report each panel."
+}

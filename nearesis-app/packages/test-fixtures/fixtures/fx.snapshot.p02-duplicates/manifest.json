@@ -1,0 +1,22 @@
+{
+  "id": "fx.snapshot.p02-duplicates",
+  "label": "SYNTHETIC",
+  "description": "Re-delivery (page A twice, byte-identical), overlapping pages (A/B share swaps 4,5), and swap 3 moving PENDING_DEPOSIT -> SUCCESS in a later page. 9 unique swaps expected, swap 3 SUCCESS.",
+  "files": [
+    { "path": "expected.json", "sha256": "b30e67f14265ea5df2f90c9a93a556e72c8360456ba1877fc225b55210a59d37" },
+    {
+      "path": "explorer/page-a.json",
+      "sha256": "474b293860d74d3fd0355ba8a103f28b4268d91b01060ed9e6672cb18674129d"
+    },
+    {
+      "path": "explorer/page-b.json",
+      "sha256": "cef1f5676b8811b11586a9d9012345ec57e9abec994ca4920449c729908dde96"
+    },
+    {
+      "path": "explorer/page-c.json",
+      "sha256": "5243616c56968a5c43a481650a823ab094882d9cc6b3fc4d382f3d777004bddc"
+    },
+    { "path": "snapshot.json", "sha256": "e1ff875adf18fd6e9b595865e4aa38d7a9e637c23d6d031533f1680be73523ca" }
+  ],
+  "expectedNormalizedDigest": "96265803dcebf9c3b202cd53678cdc429f44ac42c2b2dfe433121061763a87a3"
+}

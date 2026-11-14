@@ -1,0 +1,11 @@
+{
+  "tool": "trivy",
+  "version": "0.76.1",
+  "binarySha256": { "darwin-arm64": "5c03401caf9d3cc04d9e0c7f3abd102e97518e8237465cce702162b605535e8d" },
+  "releaseTarballSha256": {
+    "Linux-64bit": "c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0",
+    "macOS-64bit": "7aa762eacd582052d053b62dcf972a1ab058abe39a57ccae234ed8894945b6b7",
+    "macOS-ARM64": "11a9b6cd2752011b54f01ea4bd0dbfa9f0c41dc6538d5a3f9d23955f471bf4e5"
+  },
+  "source": "https://github.com/aquasecurity/trivy/releases/download/v0.76.1/trivy_0.76.1_checksums.txt"
+}

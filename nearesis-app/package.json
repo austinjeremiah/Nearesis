@@ -1,0 +1,62 @@
+{
+  "name": "nearesis-app",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=24.22.1"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r --if-present test",
+    "api:openapi": "tsx apps/api/src/openapi-cli.ts",
+    "api:openapi:check": "tsx apps/api/src/openapi-cli.ts --check",
+    "contracts:schemas": "pnpm --filter @nearesis/contracts gen:schemas",
+    "monitor:dev": "pnpm --filter @nearesis/build-monitor dev",
+    "accept": "tsx scripts/accept.ts",
+    "test:deps": "tsx scripts/tests/validate-deps.ts",
+    "conformance": "tsx scripts/conformance.ts",
+    "research:rebuild": "pnpm --filter @nearesis/capsule research:rebuild",
+    "research:verify": "pnpm --filter @nearesis/capsule research:verify",
+    "research:prove": "pnpm --filter @nearesis/capsule research:prove",
+    "research:publish": "pnpm --filter @nearesis/capsule research:publish",
+    "research:publish-key": "pnpm --filter @nearesis/capsule research:publish-key",
+    "research:publish-verify": "pnpm --filter @nearesis/capsule research:publish-verify",
+    "research:live-input": "pnpm --filter @nearesis/capsule research:live-input",
+    "dev:seed": "tsx scripts/dev/seed.ts",
+    "dev:infra": "docker compose -f infrastructure/compose/docker-compose.yml up -d --wait",
+    "dev:infra:down": "docker compose -f infrastructure/compose/docker-compose.yml down",
+    "quality:all": "pnpm typecheck && pnpm lint && pnpm test",
+    "coord": "tsx scripts/coord.ts",
+    "evals:setup": "tsx tests/evals/setup-actors.ts",
+    "evals:run": "tsx tests/evals/run.ts",
+    "security:secrets": "tsx scripts/security/secret-scan.ts",
+    "security:urls": "tsx scripts/security/url-audit.ts",
+    "security:all": "pnpm security:secrets && pnpm security:urls",
+    "demo:milestone": "tsx scripts/demo/milestone.ts",
+    "ci:accept-fixture": "tsx scripts/ci/accept-fixture.ts",
+    "thesis:data": "tsx scripts/thesis/freeze-data.ts",
+    "ci:local": "tsx scripts/ci/local-run.ts",
+    "thesis:build": "tsx scripts/thesis/build.ts",
+    "thesis:verify": "tsx scripts/thesis/verify.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "eslint": "10.14.0",
+    "globals": "17.14.0",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.1.0",
+    "zod": "4.6.7"
+  },
+  "dependencies": {
+    "@nearesis/acceptance": "workspace:*",
+    "@nearesis/contracts": "workspace:*"
+  }
+}

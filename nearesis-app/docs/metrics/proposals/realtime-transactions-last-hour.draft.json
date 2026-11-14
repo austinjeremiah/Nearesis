@@ -1,0 +1,41 @@
+{
+  "_status": "DRAFT proposal (not submitted, not certified). Needs a catalogue entry for nearesis_live.rt_minutes (ReplacingMergeTree, key minute) and a rolling-window time grain (`hour`), neither of which exists in the v1 MetricProposal contract (time grain is day|week|month). Submit only after the owner approves running the opt-in realtime feed continuously.",
+  "schemaVersion": 1,
+  "namespace": "near",
+  "name": "transactions_last_hour",
+  "displayName": "NEAR transactions, last 60 complete minutes (finalized)",
+  "description": "Count of NEAR transactions included in final blocks during the most recent 60 complete UTC minutes, from the forward-only real-time feed. Only minutes whose blocks are all final and whose coverage is complete are summed; an open or partially covered minute is reported separately as provisional and never added.",
+  "sources": ["rt_minutes"],
+  "joins": [],
+  "entityGrain": { "kind": "global" },
+  "timeGrain": { "column": { "table": "rt_minutes", "column": "minute" }, "grain": "day" },
+  "dimensions": [],
+  "filters": [
+    { "column": { "table": "rt_minutes", "column": "state" }, "op": "eq", "values": ["final"] },
+    { "column": { "table": "rt_minutes", "column": "complete" }, "op": "eq", "values": [1] }
+  ],
+  "aggregations": [{ "id": "tx", "fn": "sum", "column": { "table": "rt_minutes", "column": "tx_count" } }],
+  "formula": { "kind": "agg", "id": "tx" },
+  "unit": "tx",
+  "precision": { "decimals": 0, "rounding": "half_even" },
+  "nullSemantics": { "nullInput": "propagate", "emptyBucket": "null" },
+  "dedup": { "strategy": "final" },
+  "historicalValidity": { "validFrom": "2026-11-13", "validTo": null, "restatement": "may_restate" },
+  "costEstimate": { "maxEstimatedRows": 100000 },
+  "dependencies": [],
+  "tests": [
+    {
+      "kind": "reconcile_raw",
+      "name": "sum of minutes equals sum of rt_blocks.tx_count for the same minutes"
+    },
+    { "kind": "non_negative", "name": "transaction count is never negative" }
+  ],
+  "limitations": [
+    "Forward-only: no value exists for any window before the feed's first stored block.",
+    "Fewer than 60 complete final minutes means a lower bound; the API reports PARTIAL with missingMinutes, never a zero-filled total.",
+    "Real-time days are reconciled against the BigQuery daily total (near_daily_tx.tx_count); BigQuery stays authoritative and the live figure may be restated by that reconciliation.",
+    "Served today by GET /v1/realtime/transactions-last-hour; certification is blocked on the rolling-hour grain."
+  ],
+  "version": 1,
+  "author": { "principalId": "worker-A38", "kind": "agent", "tenantId": "nearesis" }
+}

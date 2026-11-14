@@ -1,0 +1,29 @@
+{
+  "snapshotId": "fx.semantic.decimal-edge",
+  "replayNowUTC": "2026-10-16T00:00:00.000Z",
+  "explorer": {
+    "environment": "fixture_synthetic",
+    "pageSize": 10,
+    "streams": [
+      {
+        "kind": "pages",
+        "name": "main",
+        "pages": [
+          {
+            "file": "explorer/page-1.json",
+            "fetchedAtUTC": "2026-10-15T13:00:00.000Z",
+            "status": 200
+          }
+        ]
+      }
+    ]
+  },
+  "oneclick": {
+    "environment": "fixture_synthetic",
+    "tokens": {
+      "file": "oneclick/tokens.json",
+      "fetchedAtUTC": "2026-10-15T13:00:00.000Z"
+    },
+    "attempts": []
+  }
+}

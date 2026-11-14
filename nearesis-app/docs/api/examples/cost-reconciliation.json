@@ -1,0 +1,251 @@
+{
+  "scope": "workspace",
+  "tenantId": "11111111-2222-4333-8444-555555555555",
+  "workspaceId": "6f1c2d7e-3a4b-4c5d-8e9f-0a1b2c3d4e5f",
+  "period": {
+    "start": "2026-11-01T00:00:00.000Z",
+    "end": "2026-12-01T00:00:00.000Z"
+  },
+  "dimensions": [
+    {
+      "dimension": "bigquery_bytes_billed",
+      "reserved": {
+        "entries": 1,
+        "usd": 0.00625
+      },
+      "settled": {
+        "entries": 3,
+        "usd": 0.3
+      },
+      "released": {
+        "entries": 0
+      },
+      "priceUnknown": {
+        "entries": 0
+      },
+      "estimateVsActual": {
+        "estimatedUsd": 0.29,
+        "actualUsd": 0.3,
+        "varianceUsd": 0.01,
+        "comparedEntries": 3
+      }
+    },
+    {
+      "dimension": "external_requests",
+      "reserved": {
+        "entries": 0,
+        "usd": 0
+      },
+      "settled": {
+        "entries": 120,
+        "usd": 0
+      },
+      "released": {
+        "entries": 0
+      },
+      "priceUnknown": {
+        "entries": 1
+      },
+      "estimateVsActual": {
+        "estimatedUsd": 0,
+        "actualUsd": 0,
+        "varianceUsd": 0,
+        "comparedEntries": 0
+      }
+    },
+    {
+      "dimension": "ai_tokens",
+      "reserved": {
+        "entries": 1,
+        "usd": 0.2
+      },
+      "settled": {
+        "entries": 40,
+        "usd": 0.98
+      },
+      "released": {
+        "entries": 2
+      },
+      "priceUnknown": {
+        "entries": 0
+      },
+      "estimateVsActual": {
+        "estimatedUsd": 0.9,
+        "actualUsd": 0.98,
+        "varianceUsd": 0.08,
+        "comparedEntries": 40
+      }
+    },
+    {
+      "dimension": "outlayer_compute",
+      "reserved": {
+        "entries": 0,
+        "usd": 0
+      },
+      "settled": {
+        "entries": 0,
+        "usd": 0
+      },
+      "released": {
+        "entries": 0
+      },
+      "priceUnknown": {
+        "entries": 0
+      },
+      "estimateVsActual": {
+        "estimatedUsd": 0,
+        "actualUsd": 0,
+        "varianceUsd": 0,
+        "comparedEntries": 0
+      }
+    },
+    {
+      "dimension": "clickhouse_cpu",
+      "reserved": {
+        "entries": 0,
+        "usd": 0
+      },
+      "settled": {
+        "entries": 0,
+        "usd": 0
+      },
+      "released": {
+        "entries": 0
+      },
+      "priceUnknown": {
+        "entries": 0
+      },
+      "estimateVsActual": {
+        "estimatedUsd": 0,
+        "actualUsd": 0,
+        "varianceUsd": 0,
+        "comparedEntries": 0
+      }
+    },
+    {
+      "dimension": "clickhouse_io",
+      "reserved": {
+        "entries": 0,
+        "usd": 0
+      },
+      "settled": {
+        "entries": 0,
+        "usd": 0
+      },
+      "released": {
+        "entries": 0
+      },
+      "priceUnknown": {
+        "entries": 0
+      },
+      "estimateVsActual": {
+        "estimatedUsd": 0,
+        "actualUsd": 0,
+        "varianceUsd": 0,
+        "comparedEntries": 0
+      }
+    },
+    {
+      "dimension": "object_storage_gb_month",
+      "reserved": {
+        "entries": 0,
+        "usd": 0
+      },
+      "settled": {
+        "entries": 0,
+        "usd": 0
+      },
+      "released": {
+        "entries": 0
+      },
+      "priceUnknown": {
+        "entries": 0
+      },
+      "estimateVsActual": {
+        "estimatedUsd": 0,
+        "actualUsd": 0,
+        "varianceUsd": 0,
+        "comparedEntries": 0
+      }
+    },
+    {
+      "dimension": "network_egress_bytes",
+      "reserved": {
+        "entries": 0,
+        "usd": 0
+      },
+      "settled": {
+        "entries": 0,
+        "usd": 0
+      },
+      "released": {
+        "entries": 0
+      },
+      "priceUnknown": {
+        "entries": 0
+      },
+      "estimateVsActual": {
+        "estimatedUsd": 0,
+        "actualUsd": 0,
+        "varianceUsd": 0,
+        "comparedEntries": 0
+      }
+    },
+    {
+      "dimension": "workflow_operations",
+      "reserved": {
+        "entries": 0,
+        "usd": 0
+      },
+      "settled": {
+        "entries": 0,
+        "usd": 0
+      },
+      "released": {
+        "entries": 0
+      },
+      "priceUnknown": {
+        "entries": 0
+      },
+      "estimateVsActual": {
+        "estimatedUsd": 0,
+        "actualUsd": 0,
+        "varianceUsd": 0,
+        "comparedEntries": 0
+      }
+    }
+  ],
+  "totals": {
+    "reservedOpenUsd": 0.20625,
+    "settledUsd": 1.28,
+    "overrunUsd": 0.09,
+    "priceUnknownEntries": 1,
+    "blocks": 1
+  },
+  "staleReservations": [
+    {
+      "key": "cost:inference:q-0007",
+      "dimension": "ai_tokens",
+      "usd": 0.2,
+      "ageHours": 31.4
+    }
+  ],
+  "priceUnknownEntries": [
+    {
+      "key": "http:quotes-91",
+      "dimension": "external_requests",
+      "state": "settled",
+      "quantity": 1
+    }
+  ],
+  "globalMirror": {
+    "checked": 42,
+    "mismatches": []
+  },
+  "discrepancies": [
+    "1 reservation(s) older than 24h never settled or released",
+    "1 entr(ies) have an unknown price and are not in any USD total"
+  ],
+  "reconciled": false,
+  "asOf": "2026-11-13T09:30:00.000Z"
+}

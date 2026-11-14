@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RawObservation",
+  "type": "object",
+  "required": [
+    "providerId",
+    "adapterVersion",
+    "fetchedAtUTC",
+    "payloadObjectHash",
+    "privacyVisibility",
+    "completeness"
+  ],
+  "properties": {
+    "providerId": {
+      "type": "string"
+    },
+    "adapterVersion": {
+      "type": "string"
+    },
+    "fetchedAtUTC": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "providerEventAtUTC": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "payloadObjectHash": {
+      "type": "string"
+    },
+    "privacyVisibility": {
+      "enum": [
+        "public",
+        "partner_reported",
+        "private_hidden"
+      ]
+    },
+    "completeness": {
+      "enum": [
+        "complete",
+        "partial",
+        "unknown"
+      ]
+    }
+  }
+}

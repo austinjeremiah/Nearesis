@@ -1,0 +1,227 @@
+{
+  "schema": "nearesis.thesis.raw.v1",
+  "frozenAt": "2026-11-14T00:00:00.000Z",
+  "window": {
+    "from": "2026-05-05",
+    "to": "2026-05-16"
+  },
+  "datasets": [
+    {
+      "id": "intents_volume_daily",
+      "title": "Intents volume",
+      "unit": "USD",
+      "file": "raw/intents_volume_daily.json",
+      "sha256": "ace18085e9b71aada9ef52afe6e59ae7cb302cde690639b7c535d82d8c9b07ad",
+      "rows": 12,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        }
+      ],
+      "source": "local fixture",
+      "sqlExecuted": "sql/executed/intents_volume_daily.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "Fixture series.",
+      "caveats": [
+        "Fixture caveat."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": null
+      }
+    },
+    {
+      "id": "intents_swaps_daily",
+      "title": "Intents swaps",
+      "unit": "swaps",
+      "file": "raw/intents_swaps_daily.json",
+      "sha256": "ce806eb8ef683a3e638e5fe78f6869a0c7d71a35e8b5fbaf535bd27389302f37",
+      "rows": 12,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        }
+      ],
+      "source": "local fixture",
+      "sqlExecuted": "sql/executed/intents_swaps_daily.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "Fixture series.",
+      "caveats": [
+        "Fixture caveat."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": null
+      }
+    },
+    {
+      "id": "active_accounts_daily",
+      "title": "Active accounts",
+      "unit": "accounts",
+      "file": "raw/active_accounts_daily.json",
+      "sha256": "e1417c17fb631cda01d99b357d236d33dfaf739ea8db877bd3424a01dad55acc",
+      "rows": 12,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset (fixture)",
+      "sqlExecuted": "sql/executed/active_accounts_daily.sql",
+      "sqlBigQuery": "sql/bigquery/active_accounts_daily.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "1073741824",
+      "definition": "Fixture series.",
+      "caveats": [
+        "Fixture caveat."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": null
+      }
+    },
+    {
+      "id": "transactions_daily",
+      "title": "Transactions",
+      "unit": "transactions",
+      "file": "raw/transactions_daily.json",
+      "sha256": "b0e7ee3f200fcae2fc5de1e070561b5e549331b54d23121c9a19e9be6bf7c0c2",
+      "rows": 12,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset (fixture)",
+      "sqlExecuted": "sql/executed/transactions_daily.sql",
+      "sqlBigQuery": "sql/bigquery/transactions_daily.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "1073741824",
+      "definition": "Fixture series.",
+      "caveats": [
+        "Fixture caveat."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": null
+      }
+    },
+    {
+      "id": "contract_usage_daily",
+      "title": "Contract usage",
+      "unit": "calls",
+      "file": "raw/contract_usage_daily.json",
+      "sha256": "628baee8ebe8be7b8eae0e33e8123b187d25ebf30ee49d5d4f48523bc0680994",
+      "rows": 12,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset (fixture)",
+      "sqlExecuted": "sql/executed/contract_usage_daily.sql",
+      "sqlBigQuery": "sql/bigquery/contract_usage_daily.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "1073741824",
+      "definition": "Fixture series.",
+      "caveats": [
+        "Fixture caveat."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": null
+      }
+    },
+    {
+      "id": "contract_usage_top",
+      "title": "Top contracts",
+      "unit": "calls",
+      "file": "raw/contract_usage_top.json",
+      "sha256": "d39140b8cb3f8a6836704f26e9fc9c49acc002fcf01b9055d41289c6cd922bf0",
+      "rows": 3,
+      "columns": [
+        {
+          "name": "receiver_account_id",
+          "type": "string"
+        },
+        {
+          "name": "value",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset (fixture)",
+      "sqlExecuted": "sql/executed/contract_usage_top.sql",
+      "sqlBigQuery": "sql/bigquery/contract_usage_top.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "1073741824",
+      "definition": "Fixture series.",
+      "caveats": [
+        "Fixture caveat."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": null
+      }
+    },
+    {
+      "id": "near_price_daily",
+      "title": "NEAR price",
+      "unit": "USD",
+      "file": "raw/near_price_daily.json",
+      "sha256": "fc3a7854ffc8761d926c7cb8808b4761d8a1634f117b056a9d568a8992680c90",
+      "rows": 12,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "value",
+          "type": "decimal-string|null"
+        }
+      ],
+      "source": "local fixture",
+      "sqlExecuted": "sql/executed/near_price_daily.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "Fixture series.",
+      "caveats": [
+        "Fixture caveat."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": null
+      }
+    }
+  ]
+}

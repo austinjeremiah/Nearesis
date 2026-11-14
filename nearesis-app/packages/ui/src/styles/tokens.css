@@ -1,0 +1,211 @@
+/*
+ * Nearesis design tokens. Light is the default; dark applies with prefers-color-scheme or [data-theme="dark"].
+ * Colour carries meaning (state, series, honesty). Surfaces and text stay neutral.
+ */
+:root {
+  /* Type */
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 26px;
+  --lh-tight: 1.25;
+  --lh-base: 1.45;
+  --lh-loose: 1.6;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Space (4px base) */
+  --space-0: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Radius hierarchy: chips < controls < cards < overlays */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* Motion */
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Layout */
+  --sidebar-w: 248px;
+  --sidebar-w-collapsed: 52px;
+  --topbar-h: 48px;
+  --chat-w: 392px;
+  --z-sticky: 10;
+  --z-overlay: 40;
+  --z-toast: 60;
+
+  /* Surfaces */
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-sunken: #eff1f4;
+  --surface-hover: #f1f3f6;
+  --surface-selected: #e8edf7;
+  --border: #dfe3e9;
+  --border-strong: #c7cdd6;
+  --grid: #e9ecf0;
+
+  /* Text */
+  --fg: #14181f;
+  --fg-muted: #4a5565;
+  --fg-subtle: #576272;
+  --fg-on-accent: #ffffff;
+
+  /* Accent: used for focus, selection and the primary action only */
+  --accent: #2456c8;
+  --accent-hover: #1d47a8;
+  --accent-soft: #e6edfb;
+  --focus: #2456c8;
+
+  /* State */
+  --ok: #17703f;
+  --ok-soft: #e3f3ea;
+  --warn: #8a5a00;
+  --warn-soft: #fbf0d9;
+  --bad: #b3261e;
+  --bad-soft: #fbe7e5;
+  --info: #2456c8;
+  --info-soft: #e6edfb;
+  /* Honesty labels (SYNTHETIC, unattested): a distinct hue, always shown, never reused for state */
+  --honesty: #5b4bb5;
+  --honesty-soft: #ece9f9;
+
+  /* Chart (colour-blind safe, 3:1 on --surface) */
+  --s1: #2f62c9;
+  --s2: #b8650c;
+  --s3: #167a6c;
+  --s4: #b13a72;
+  --s5: #6d6a1a;
+  --s6: #5a6472;
+  --gap: rgba(179, 38, 30, 0.07);
+  --marker: #5b4bb5;
+  --up: #17703f;
+  --down: #b3261e;
+
+  --shadow-pop: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px -6px rgba(16, 24, 40, 0.16);
+  --shadow-dock: -1px 0 0 var(--border);
+  --overlay-scrim: rgba(15, 18, 24, 0.32);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1116;
+    --surface: #151a21;
+    --surface-sunken: #11151b;
+    --surface-hover: #1b212a;
+    --surface-selected: #1d2a44;
+    --border: #262d37;
+    --border-strong: #343d4a;
+    --grid: #222932;
+    --fg: #e8ebf0;
+    --fg-muted: #9ba5b4;
+    --fg-subtle: #8792a3;
+    --fg-on-accent: #0b1220;
+    --accent: #7ba3ff;
+    --accent-hover: #98b6ff;
+    --accent-soft: #1b2744;
+    --focus: #8fb1ff;
+    --ok: #5fcf8f;
+    --ok-soft: #14291f;
+    --warn: #e5b659;
+    --warn-soft: #2b2310;
+    --bad: #ff8a80;
+    --bad-soft: #301614;
+    --info: #7ba3ff;
+    --info-soft: #1b2744;
+    --honesty: #aea1f0;
+    --honesty-soft: #241f3f;
+    --s1: #6e9bf2;
+    --s2: #f0a24f;
+    --s3: #4cc2b0;
+    --s4: #ea7fae;
+    --s5: #c8c35a;
+    --s6: #9ba5b4;
+    --gap: rgba(255, 138, 128, 0.09);
+    --marker: #aea1f0;
+    --up: #5fcf8f;
+    --down: #ff8a80;
+    --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 28px -6px rgba(0, 0, 0, 0.6);
+    --overlay-scrim: rgba(0, 0, 0, 0.55);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e1116;
+  --surface: #151a21;
+  --surface-sunken: #11151b;
+  --surface-hover: #1b212a;
+  --surface-selected: #1d2a44;
+  --border: #262d37;
+  --border-strong: #343d4a;
+  --grid: #222932;
+  --fg: #e8ebf0;
+  --fg-muted: #9ba5b4;
+  --fg-subtle: #8792a3;
+  --fg-on-accent: #0b1220;
+  --accent: #7ba3ff;
+  --accent-hover: #98b6ff;
+  --accent-soft: #1b2744;
+  --focus: #8fb1ff;
+  --ok: #5fcf8f;
+  --ok-soft: #14291f;
+  --warn: #e5b659;
+  --warn-soft: #2b2310;
+  --bad: #ff8a80;
+  --bad-soft: #301614;
+  --info: #7ba3ff;
+  --info-soft: #1b2744;
+  --honesty: #aea1f0;
+  --honesty-soft: #241f3f;
+  --s1: #6e9bf2;
+  --s2: #f0a24f;
+  --s3: #4cc2b0;
+  --s4: #ea7fae;
+  --s5: #c8c35a;
+  --s6: #9ba5b4;
+  --gap: rgba(255, 138, 128, 0.09);
+  --marker: #aea1f0;
+  --up: #5fcf8f;
+  --down: #ff8a80;
+  --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 28px -6px rgba(0, 0, 0, 0.6);
+  --overlay-scrim: rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
+/* Reduced motion collapses every duration so transitions become instant state changes. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0.01ms;
+    --dur-fast: 0.01ms;
+    --dur-base: 0.01ms;
+    --dur-slow: 0.01ms;
+  }
+}
+:root[data-motion="reduced"] {
+  --dur-instant: 0.01ms;
+  --dur-fast: 0.01ms;
+  --dur-base: 0.01ms;
+  --dur-slow: 0.01ms;
+}

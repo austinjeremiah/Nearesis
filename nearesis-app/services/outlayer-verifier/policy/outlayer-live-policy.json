@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "nearesis.outlayer-live-policy.v1",
+  "note": "Values taken from a REAL OutLayer testnet job (request 21428, tx 3qqeGLV3DrpEbx5bRMr4PpVAtr5twAEe1bDY1WLkRDVt). Separate from attestation-policy.json, whose empty trust lists are asserted by V09. collateralChecked is false: TCB level, QE identity and CRLs are not checked.",
+  "network": "testnet",
+  "allowedWasmSha256": ["1034c63ed6fd761fa13977544dec59bddcd30009bb1feb363a3d169ddaee901c"],
+  "allowedMeasurements": ["7fe60787222bd394cb516abca2435f22f035ab2cc9c0a4b4b3b148e46297f3d931a237b72f359052c6e657d8c1409173"],
+  "quoteTrustRootSha256": ["44a0196b2b99f889b8e149e95b807a350e7424964399e885a7cbb8ccfab674d3"],
+  "quoteTrustRootSource": "Intel SGX Root CA, https://certificates.trustedservices.intel.com/Intel_SGX_Provisioning_Certification_RootCA.cer; also the root embedded in the live quote chain"
+}

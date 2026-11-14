@@ -1,0 +1,67 @@
+{
+  "name": "fx.agent.bullbear-scripted",
+  "label": "SYNTHETIC",
+  "snapshotManifest": { "snapshotId": "snap.fixture.1", "rows": 440, "datasetHash": "sha256:fixture" },
+  "metricCatalog": { "metrics": ["delta_mae", "relative_improvement_pct", "holdout_n"], "version": "1.0.0" },
+  "results": {
+    "res.primary.delta_mae": 0.0361,
+    "res.primary.relative_improvement_pct": 5.2,
+    "res.holdout.n": 30
+  },
+  "engineVerdict": { "status": "SUPPORTED", "evidenceStrength": "out_of_sample" },
+  "scripts": {
+    "agreement": {
+      "bullStance": "SUPPORTED",
+      "bearStance": "SUPPORTED",
+      "bull": [{ "claim": "development MAE improves", "resultId": "res.primary.delta_mae", "value": 0.0361 }],
+      "bear": [
+        {
+          "claim": "holdout confirms improvement, effect is small",
+          "resultId": "res.primary.relative_improvement_pct",
+          "value": 5.2
+        }
+      ]
+    },
+    "disagreement": {
+      "bullStance": "SUPPORTED",
+      "bearStance": "UNSUPPORTED",
+      "bull": [{ "claim": "development MAE improves", "resultId": "res.primary.delta_mae", "value": 0.0361 }],
+      "bear": [{ "claim": "holdout is only 30 origins", "resultId": "res.holdout.n", "value": 30 }]
+    },
+    "bull_no_result_id": {
+      "bull": [
+        { "claim": "everyone knows this works", "value": 1.0 },
+        { "claim": "valid", "resultId": "res.primary.delta_mae", "value": 0.0361 }
+      ],
+      "bear": [{ "claim": "holdout is only 30 origins", "resultId": "res.holdout.n", "value": 30 }]
+    },
+    "bear_wrong_number": {
+      "bull": [{ "claim": "valid", "resultId": "res.primary.delta_mae", "value": 0.0361 }],
+      "bear": [
+        { "claim": "holdout n", "resultId": "res.holdout.n", "value": 3 },
+        { "claim": "valid", "resultId": "res.holdout.n", "value": 30 }
+      ]
+    },
+    "bull_edits_threshold": {
+      "bull": [
+        { "action": "edit_preregistration", "target": "thresholds.minRelativeImprovement", "value": 0.0 },
+        { "claim": "valid", "resultId": "res.primary.delta_mae", "value": 0.0361 }
+      ],
+      "bear": [{ "claim": "valid", "resultId": "res.holdout.n", "value": 30 }]
+    },
+    "fourth_argument": {
+      "bull": [
+        { "claim": "a", "resultId": "res.primary.delta_mae", "value": 0.0361 },
+        { "claim": "b", "resultId": "res.primary.relative_improvement_pct", "value": 5.2 },
+        { "claim": "c", "resultId": "res.holdout.n", "value": 30 },
+        { "claim": "d", "resultId": "res.holdout.n", "value": 30 }
+      ],
+      "bear": [{ "claim": "valid", "resultId": "res.holdout.n", "value": 30 }]
+    },
+    "bear_dropped": {
+      "bullStance": "SUPPORTED",
+      "bull": [{ "claim": "valid", "resultId": "res.primary.delta_mae", "value": 0.0361 }],
+      "bear": []
+    }
+  }
+}

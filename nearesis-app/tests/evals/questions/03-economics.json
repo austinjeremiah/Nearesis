@@ -1,0 +1,360 @@
+[
+  {
+    "id": "Q013",
+    "split": "dev",
+    "category": "economics",
+    "difficulty": "medium",
+    "prompt": "Are increased NEAR transactions accompanied by increased fee activity?",
+    "kind": "run",
+    "requiredSources": ["near_economics_tx_daily", "near_economics_outcomes_daily"],
+    "minAnswerProperties": [
+      "either a paired comparison of transactions and fee burn or a refusal naming the missing economics tables"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "invented_fee",
+        "pattern": "\\b(gas|fees?) (rose|fell|increased|decreased|totalled?) (by|to) \\d",
+        "flags": "i",
+        "why": "economics tables are not loaded; any fee number is fabricated"
+      },
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [
+      {
+        "kind": "ch_check",
+        "label": "economics outcomes table is empty (gas and fee pilot not approved)",
+        "ch": "SELECT count() FROM near_economics_outcomes_daily",
+        "expect": 0,
+        "precondition": true
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q014",
+    "split": "dev",
+    "category": "economics",
+    "difficulty": "hard",
+    "prompt": "How concentrated are NEAR gas costs across contracts?",
+    "kind": "run",
+    "requiredSources": ["near_economics_outcomes_daily"],
+    "minAnswerProperties": ["concentration computed from executor-level gas burnt, or a refusal"],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "invented_fee",
+        "pattern": "\\b(gas|fees?) (rose|fell|increased|decreased|totalled?) (by|to) \\d",
+        "flags": "i",
+        "why": "economics tables are not loaded; any fee number is fabricated"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [
+      {
+        "kind": "ch_check",
+        "label": "economics outcomes table is empty (gas and fee pilot not approved)",
+        "ch": "SELECT count() FROM near_economics_outcomes_daily",
+        "expect": 0,
+        "precondition": true
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q015",
+    "split": "dev",
+    "category": "economics",
+    "difficulty": "medium",
+    "prompt": "Are higher NEAR activity counts primarily due to high-frequency accounts?",
+    "kind": "run",
+    "requiredSources": ["account_daily_activity", "account_daily_head"],
+    "minAnswerProperties": [
+      "splits organic transactions into head (>= threshold) and tail accounts",
+      "states the head threshold"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "account_as_person",
+        "pattern": "\\b(users|people|humans) (grew|increased|doubled)\\b",
+        "flags": "i",
+        "why": "accounts are not people"
+      },
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "head|high.frequency|signer|account"
+    },
+    "probes": [
+      {
+        "kind": "api_field",
+        "label": "high-frequency view states its threshold",
+        "api": "/v1/accounts/high-frequency?days=30",
+        "json": "meta.headThreshold",
+        "httpStatus": 200,
+        "equals": 100
+      },
+      {
+        "kind": "range",
+        "label": "top-5% share is a proportion",
+        "api": "/v1/accounts/concentration?days=30",
+        "json": "daily[0].top5PctShare",
+        "min": 0,
+        "max": 1
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q016",
+    "split": "dev",
+    "category": "economics",
+    "difficulty": "hard",
+    "prompt": "Which ecosystem segments grew during periods of declining NEAR prices?",
+    "kind": "run",
+    "requiredSources": ["price_candles", "contract_interactions", "entities"],
+    "minAnswerProperties": [
+      "defines declining-price days from daily closes",
+      "reports segment growth only on those days",
+      "reports the number of qualifying days"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      },
+      {
+        "id": "price_causal",
+        "pattern": "\\b(because|as a result of) (the )?price (fell|drop|decline)",
+        "flags": "i",
+        "why": "co-movement is not causation"
+      }
+    ],
+    "acceptanceTests": ["A19", "Q03", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "price|entity|segment|interaction"
+    },
+    "probes": [
+      {
+        "kind": "ch_check",
+        "label": "daily price closes exist for the 90 day window",
+        "ch": "SELECT count() >= 85 FROM price_candles FINAL WHERE day BETWEEN '2026-08-14' AND '2026-11-11'",
+        "expect": 1,
+        "precondition": false
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q017",
+    "split": "dev",
+    "category": "economics",
+    "difficulty": "hard",
+    "prompt": "Is a metric that divides NEAR protocol fees by USD volume semantically valid?",
+    "kind": "http",
+    "requiredSources": ["metric authoring"],
+    "minAnswerProperties": [
+      "the unit of the result is derived, and a ratio of fee tokens to USD volume is rejected or labelled as a mixed-unit ratio, never silently accepted as certified"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["A19", "S05"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/metrics/proposals",
+        "expectStatus": 422,
+        "expectBody": [],
+        "expectReason": "UNIT_MISMATCH",
+        "body": {
+          "proposal": {
+            "schemaVersion": 1,
+            "namespace": "authored",
+            "name": "evalratio_{TAG}",
+            "displayName": "Daily transactions",
+            "description": "Total NEAR transactions per UTC day from the deduplicated daily table.",
+            "sources": ["near_daily_tx"],
+            "joins": [],
+            "entityGrain": {
+              "kind": "global"
+            },
+            "timeGrain": {
+              "column": {
+                "table": "near_daily_tx",
+                "column": "block_date"
+              },
+              "grain": "day"
+            },
+            "dimensions": [],
+            "filters": [],
+            "aggregations": [
+              {
+                "id": "tx",
+                "fn": "sum",
+                "column": {
+                  "table": "near_daily_tx",
+                  "column": "tx_count"
+                }
+              }
+            ],
+            "unit": "usd",
+            "precision": {
+              "decimals": 0,
+              "rounding": "half_even"
+            },
+            "nullSemantics": {
+              "nullInput": "ignore",
+              "emptyBucket": "null"
+            },
+            "dedup": {
+              "strategy": "final"
+            },
+            "historicalValidity": {
+              "validFrom": "2025-11-10",
+              "validTo": null,
+              "restatement": "may_restate"
+            },
+            "costEstimate": {
+              "maxEstimatedRows": 100000
+            },
+            "dependencies": [],
+            "tests": [
+              {
+                "kind": "reconcile_raw",
+                "name": "matches raw"
+              },
+              {
+                "kind": "non_negative",
+                "name": "no negatives"
+              }
+            ],
+            "limitations": [
+              "Counts transactions as delivered by the daily source; later restatements change history."
+            ],
+            "version": 1
+          },
+          "validate": false
+        }
+      }
+    ]
+  }
+]

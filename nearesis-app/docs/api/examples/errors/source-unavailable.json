@@ -1,0 +1,9 @@
+{
+  "traceId": "7f3a9c1e-52d4-4b86-9a07-3c5e8d1f2a64",
+  "retryable": true,
+  "errorCode": "UPSTREAM_DEGRADED",
+  "reasonCode": "SOURCE_UNAVAILABLE_NO_SNAPSHOT",
+  "message": "The source is unavailable and no finalized snapshot exists to serve.",
+  "nextAction": "Retry later; the source breaker is open.",
+  "state": "source_unavailable"
+}

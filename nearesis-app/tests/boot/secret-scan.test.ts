@@ -1,0 +1,114 @@
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { auditUrls } from "../../scripts/security/url-audit.ts";
+import { isSecretCandidate, parseEnv, scanRepo } from "../../scripts/security/secret-scan.ts";
+
+// All canaries are synthetic and assembled at runtime so this file itself never matches a pattern.
+const canaries = {
+  jwt: ["eyJ" + "hbGciOiJIUzI1", "eyJ" + "zdWIiOiJ0ZXN0", "c2lnbmF0dXJl" + "c2lnbmF0dXJl"].join("."),
+  ed: "ed25519" + ":" + "A".repeat(80),
+  pem: "-----BEGIN " + "RSA PRIVATE KEY-----",
+  aws: "AKIA" + "ABCDEFGHIJKLMNOP",
+  sk: "sk" + "-" + "a1B2c3D4e5F6g7H8i9J0k1",
+  google: "AIza" + "B".repeat(35),
+};
+const envValue = "synthetic-env-value-" + "12345678";
+
+let dir = "";
+const git = (...a: string[]) => spawnSync("git", ["-C", dir, ...a], { encoding: "utf8" });
+function repo(files: Record<string, string>, tracked = true) {
+  dir = mkdtempSync(join(tmpdir(), "scan-test-"));
+  git("init", "-q");
+  for (const [f, c] of Object.entries(files)) writeFileSync(join(dir, f), c);
+  if (tracked) git("add", "-A");
+}
+afterEach(() => dir && rmSync(dir, { recursive: true, force: true }));
+
+describe("secret scanner", () => {
+  it("detects every pattern and reports name/file/line only", () => {
+    repo(Object.fromEntries(Object.entries(canaries).map(([k, v]) => [`${k}.txt`, `\nkey = ${v}\n`])));
+    const f = scanRepo(dir);
+    expect(f.map((x) => x.name).sort()).toEqual(
+      [
+        "aws-access-key-id",
+        "ed25519-private-key",
+        "google-api-key",
+        "jwt",
+        "pem-private-key",
+        "sk-api-key",
+      ].sort(),
+    );
+    expect(f.every((x) => x.line === 2)).toBe(true);
+    expect(JSON.stringify(f)).not.toContain("AKIA");
+  });
+  it("detects .env values in tracked files but ignores untracked and short values", () => {
+    repo(
+      {
+        ".env": `SECRET_A=${envValue}\nSHORT=abc\nexport Q="quoted-value-0000"\n`,
+        "a.ts": `const x = "${envValue}";\n`,
+      },
+      false,
+    );
+    git("add", "a.ts");
+    const f = scanRepo(dir);
+    expect(f).toEqual([{ kind: "env-value", name: "SECRET_A", file: "a.ts", line: 1 }]);
+    expect(parseEnv(`A=1234567\nB='12345678'`)).toEqual([{ name: "B", value: "12345678" }]);
+  });
+  it("does not scan untracked files and honours the allowlist", () => {
+    repo({ "t.txt": canaries.aws }, false);
+    expect(scanRepo(dir)).toEqual([]);
+    git("add", "t.txt");
+    expect(scanRepo(dir)).toHaveLength(1);
+    expect(scanRepo(dir, [{ file: "t.txt", line: 1, reason: "synthetic" }])).toEqual([]);
+  });
+  it("passes a clean repo", () => {
+    repo({ "ok.ts": "export const a = 1;\n" });
+    expect(scanRepo(dir)).toEqual([]);
+  });
+});
+
+describe("secret scanner: which .env values count as secrets", () => {
+  it("flags credential-named and high-entropy values but not plain configuration", () => {
+    const highEntropy = "Zq8" + "x2LmP9vT4kR7wN1sB6yH3cJ5";
+    repo({
+      ".gitignore": ".env\n", // as in the real repo: .env is never tracked
+      ".env": `INFERENCE_PROVIDER=openrouter\nOPENROUTER_PRIMARY_MODEL=openai/gpt-5-nano\nAPI_TOKEN=plain-but-named-token\nUNNAMED=${highEntropy}\n`,
+      "README.md": `uses openrouter with openai/gpt-5-nano\ntoken plain-but-named-token\nblob ${highEntropy}\n`,
+    });
+    const names = scanRepo(dir)
+      .map((x) => x.name)
+      .sort();
+    expect(names).toEqual(["API_TOKEN", "UNNAMED"]);
+    expect(isSecretCandidate("INFERENCE_PROVIDER", "openrouter")).toBe(false);
+    expect(isSecretCandidate("OPENROUTER_API_KEY", "short")).toBe(true);
+  });
+});
+
+describe("url auditor", () => {
+  const entry = {
+    id: "x",
+    hosts: ["api.example.com"],
+    officialDocUrl: "https://d",
+    accessedAt: "2026-01-01",
+    version: "1",
+    auth: "-",
+    rateLimits: "-",
+    status: "TO_VERIFY" as const,
+    notes: "-",
+  };
+  it("flags undocumented hosts, allows localhost and registered hosts, skips excluded paths", () => {
+    repo({
+      "a.ts":
+        'fetch("https://api.example.com/x"); fetch("http://127.0.0.1:1"); fetch("https://evil.example.org/y");\n',
+    });
+    spawnSync("mkdir", ["-p", join(dir, "docs"), join(dir, "x", "test")]);
+    writeFileSync(join(dir, "docs", "d.ts"), "https://skipped.example.net\n");
+    writeFileSync(join(dir, "x", "test", "t.ts"), "https://skipped2.example.net\n");
+    git("add", "-A");
+    const r = auditUrls(dir, [entry]);
+    expect(r.undocumented.map((u) => u.host)).toEqual(["evil.example.org"]);
+  });
+});

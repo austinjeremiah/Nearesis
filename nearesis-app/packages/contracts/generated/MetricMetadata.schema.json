@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z_]+\\.[a-z0-9_]+$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "stock",
+        "flow",
+        "count",
+        "rate"
+      ]
+    },
+    "unit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "grain": {
+      "type": "string",
+      "enum": [
+        "day",
+        "week"
+      ]
+    },
+    "aggregationLaw": {
+      "type": "string",
+      "enum": [
+        "sum",
+        "avg",
+        "max",
+        "min",
+        "count_distinct",
+        "non_additive",
+        "ratio"
+      ]
+    },
+    "denominator": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "zeroPolicy": {
+      "type": "string",
+      "enum": [
+        "zero_is_observed",
+        "zero_requires_complete_coverage"
+      ]
+    },
+    "sources": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "transformations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expectedUpdateLag": {
+      "type": "string"
+    },
+    "botProxyDefinition": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "public",
+        "aggregate_only",
+        "restricted"
+      ]
+    },
+    "segmentOverlap": {
+      "type": "string",
+      "enum": [
+        "disjoint",
+        "overlapping",
+        "n/a"
+      ]
+    },
+    "certifiedVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "certified": {
+      "type": "boolean"
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "docUri": {
+      "type": "string",
+      "minLength": 1
+    },
+    "testFixture": {
+      "type": "string",
+      "minLength": 1
+    },
+    "uncertainty": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cubeMember": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+    }
+  },
+  "required": [
+    "id",
+    "displayName",
+    "kind",
+    "unit",
+    "grain",
+    "aggregationLaw",
+    "denominator",
+    "zeroPolicy",
+    "sources",
+    "transformations",
+    "expectedUpdateLag",
+    "botProxyDefinition",
+    "visibility",
+    "segmentOverlap",
+    "certifiedVersion",
+    "certified",
+    "owner",
+    "docUri",
+    "testFixture",
+    "uncertainty",
+    "cubeMember"
+  ],
+  "additionalProperties": false
+}

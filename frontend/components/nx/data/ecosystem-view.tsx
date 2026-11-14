@@ -124,7 +124,7 @@ export default function EcosystemView() {
     { key: 'm', header: 'Mappings', numeric: true, render: (e) => e.mappingCount },
   ];
   return (
-    <div className="col gap3" data-testid="ecosystem-view">
+    <div className="col gap3 dx" data-testid="ecosystem-view" data-no-smooth>
       <div className="row gap3" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <Tabs ariaLabel="Ecosystem" value={tab} options={[{ value: 'registry', label: 'Registry' }, { value: 'coverage', label: 'Coverage' }, { value: 'changes', label: 'Changes' }]} onChange={(t) => { setTab(t); setSel(null); }} />
         {tab !== 'registry' && <WindowControl days={days} onChange={setDays} options={[30, 90]} />}

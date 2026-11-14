@@ -3,7 +3,8 @@
 import './data.css';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { ArrowLeftRight, ArrowRight, Database, Flame, LayoutDashboard, Network, Quote, Radio, Users } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { browserApi } from '@/lib/api/browser';
 import { Badge } from '@/components/nx/evidence';
@@ -11,6 +12,7 @@ import { Card, EmptyState, KeyValues, Notice, Segmented, Skeleton } from '@/comp
 import { ApiErrorState, StatePanel } from '@/components/nx/states';
 import { formatUtc } from '@/lib/format';
 import { fInt, fPct } from '@/lib/data/num';
+import { Sparkline } from './charts';
 
 /* ---------------------------------------------------------------------------
    Response shapes, observed on the wire (the analytics routes are typed
@@ -69,15 +71,233 @@ export function isCannot<T>(e: Envelope<T>): e is EnvelopeCannot {
   return e.status === 'CANNOT_COMPUTE';
 }
 
-/** One GET through the BFF. Every data page reads the API this way; no value is made up client-side. */
-export function useApiGet<T>(path: string, query?: Record<string, string | number | undefined>, enabled = true) {
+/**
+ * One GET through the BFF. Every data page reads the API this way; no value is made up client-side.
+ * `opts.refetchMs` turns the query into a live one (paused while the tab is hidden by React Query).
+ */
+export function useApiGet<T>(path: string, query?: Record<string, string | number | undefined>, enabled = true, opts?: { refetchMs?: number }) {
   return useQuery({
     queryKey: ['data', path, query ?? {}],
     queryFn: ({ signal }) => browserApi.get<T>(path, { query, signal }),
     enabled,
     staleTime: 30_000,
     retry: false,
+    refetchInterval: opts?.refetchMs,
   });
+}
+
+/* ---------------------------------------------------------------------------
+   Live status: a pulse and "updated N s ago". The clock only starts after mount,
+   so server and client markup agree. The pulse stops under reduced motion (CSS).
+   -------------------------------------------------------------------------- */
+
+function useNow(ms = 1000) {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(id);
+  }, [ms]);
+  return now;
+}
+
+export function agoText(updatedAt: number, now: number): string {
+  const s = Math.max(0, Math.round((now - updatedAt) / 1000));
+  if (s < 60) return `${s} s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  return `${Math.floor(s / 3600)} h ago`;
+}
+
+export function LiveStamp({ updatedAt, fetching, failed, everyMs, compact }: { updatedAt: number; fetching?: boolean; failed?: boolean; everyMs?: number; compact?: boolean }) {
+  const now = useNow(1000);
+  const has = updatedAt > 0;
+  const state = failed ? 'stale' : has ? 'live' : 'wait';
+  return (
+    <span className={`dx-live ${compact ? 'compact' : ''}`.trim()} data-state={state} data-testid="live-stamp" role="status" aria-live="off">
+      <span className={`dx-dot ${state === 'live' ? 'on' : state === 'stale' ? 'warn' : ''} ${fetching ? 'busy' : ''}`.trim()} aria-hidden />
+      <span className="dx-live-k">{failed ? 'Refresh failed' : has ? 'Live' : 'Connecting'}</span>
+      {has && now !== null && <span className="dx-live-t">updated {agoText(updatedAt, now)}</span>}
+      {!compact && everyMs && <span className="dx-live-t dim">refreshes every {Math.round(everyMs / 1000)} s</span>}
+    </span>
+  );
+}
+
+/** Latest successful fetch time across several queries (0 when none has returned). */
+export function latestUpdate(qs: { dataUpdatedAt: number }[]): number {
+  return qs.reduce((m, q) => Math.max(m, q.dataUpdatedAt || 0), 0);
+}
+
+/* ---------------------------------------------------------------------------
+   Dashboard parts shared by every page in the data area
+   -------------------------------------------------------------------------- */
+
+/** Change versus the previous period. Shown only when the caller has both periods; otherwise it says so. Neutral colour: a change is not a verdict. */
+export function Delta({ pct, label }: { pct: number | null | undefined; label: string }) {
+  if (pct === null || pct === undefined || !Number.isFinite(pct)) {
+    return <span className="dx-delta none" data-testid="delta-none">no prior-period comparison</span>;
+  }
+  const dir = pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
+  return (
+    <span className={`dx-delta ${dir}`} data-testid="delta">
+      <span aria-hidden>{dir === 'up' ? '▲' : dir === 'down' ? '▼' : '■'}</span>
+      <span className="mono">{pct > 0 ? '+' : ''}{pct.toFixed(1)}%</span>
+      <span className="dim">{label}</span>
+      <span className="sr-only">{dir === 'up' ? 'higher' : dir === 'down' ? 'lower' : 'unchanged'} than the previous period</span>
+    </span>
+  );
+}
+
+export function StatTile({
+  label,
+  value,
+  note,
+  delta,
+  spark,
+  sparkLabel,
+  sparkKind,
+  href,
+  loading,
+  error,
+  testId,
+}: {
+  label: string;
+  value: ReactNode;
+  note?: ReactNode;
+  delta?: ReactNode;
+  spark?: { x: string; y: string | number | null | undefined }[];
+  sparkLabel?: string;
+  sparkKind?: 'line' | 'bar';
+  href?: string;
+  loading?: boolean;
+  error?: boolean;
+  testId?: string;
+}) {
+  const body = (
+    <>
+      <span className="dx-tile-label">{label}</span>
+      {loading ? (
+        <>
+          <span className="skel dx-tile-skel-v" aria-hidden />
+          <span className="skel text" style={{ width: '60%' }} aria-hidden />
+          <span className="sr-only">Loading {label}</span>
+        </>
+      ) : (
+        <>
+          <span className="dx-tile-value">{error ? 'unknown' : value}</span>
+          {delta && !error && <span className="dx-tile-delta">{delta}</span>}
+          {note && <span className="dx-tile-note">{error ? 'This figure could not be loaded.' : note}</span>}
+          {spark && spark.length > 1 && !error && (
+            <span className="dx-tile-spark">
+              <Sparkline points={spark} ariaLabel={sparkLabel ?? `${label} trend`} kind={sparkKind} />
+            </span>
+          )}
+        </>
+      )}
+      {href && <ArrowRight className="dx-tile-go" size={14} aria-hidden />}
+    </>
+  );
+  return href ? (
+    <Link href={href} className="dx-tile surface" data-surface data-testid={testId} aria-label={loading ? `${label}, loading` : undefined}>
+      {body}
+    </Link>
+  ) : (
+    <div className="dx-tile surface" data-surface data-testid={testId}>
+      {body}
+    </div>
+  );
+}
+
+export function StatGrid({ children, cols = 4 }: { children: ReactNode; cols?: 2 | 3 | 4 | 6 }) {
+  return <div className={`dx-stats c${cols}`}>{children}</div>;
+}
+
+export function ChartSkeleton({ height = 220 }: { height?: number }) {
+  return (
+    <div className="dx-chart-skel skel" style={{ height }} aria-busy="true">
+      <span className="sr-only">Loading chart</span>
+    </div>
+  );
+}
+
+type QState = { isPending: boolean; isError: boolean; error: unknown; refetch: () => unknown };
+
+/** A chart card: title, one line of what is plotted, a link to the detail page, and loading / error / empty states. */
+export function ChartCard({
+  title,
+  subtitle,
+  href,
+  hrefLabel = 'Open',
+  state,
+  empty,
+  height = 240,
+  children,
+  footer,
+  testId,
+}: {
+  title: string;
+  subtitle?: ReactNode;
+  href?: string;
+  hrefLabel?: string;
+  state: QState;
+  empty?: { title: string; body: string } | null;
+  height?: number;
+  children: ReactNode;
+  footer?: ReactNode;
+  testId?: string;
+}) {
+  return (
+    <section className="dx-card surface" data-surface data-testid={testId} data-status={state.isPending ? 'loading' : state.isError ? 'error' : empty ? 'empty' : 'ready'}>
+      <header className="dx-card-head">
+        <div className="dx-card-titles">
+          <h2 className="dx-card-title">{title}</h2>
+          {subtitle && <p className="dx-card-sub">{subtitle}</p>}
+        </div>
+        {href && (
+          <Link href={href} className="dx-card-link">
+            {hrefLabel} <ArrowRight size={13} aria-hidden />
+          </Link>
+        )}
+      </header>
+      <div className="dx-card-body">
+        {state.isPending ? (
+          <ChartSkeleton height={height} />
+        ) : state.isError ? (
+          <ApiErrorState error={state.error as never} onRetry={() => void state.refetch()} />
+        ) : empty ? (
+          <EmptyState title={empty.title} body={empty.body} />
+        ) : (
+          children
+        )}
+      </div>
+      {footer && <footer className="dx-card-foot">{footer}</footer>}
+    </section>
+  );
+}
+
+/** A chart card with no query of its own: the parent already holds the data. */
+export function PlotCard({ title, subtitle, children, footer }: { title: string; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode }) {
+  return (
+    <section className="dx-card surface" data-surface>
+      <header className="dx-card-head">
+        <div className="dx-card-titles">
+          <h3 className="dx-card-title">{title}</h3>
+          {subtitle && <p className="dx-card-sub">{subtitle}</p>}
+        </div>
+      </header>
+      <div className="dx-card-body">{children}</div>
+      {footer && <footer className="dx-card-foot">{footer}</footer>}
+    </section>
+  );
+}
+
+/** Description on the left, controls on the right. Used at the top of every sub-page. */
+export function Toolbar({ children, controls }: { children?: ReactNode; controls?: ReactNode }) {
+  return (
+    <div className="dx-toolbar">
+      {children && <p className="dx-toolbar-note">{children}</p>}
+      {controls && <div className="dx-toolbar-controls">{controls}</div>}
+    </div>
+  );
 }
 
 /* ---------------------------------------------------------------------------
@@ -105,28 +325,34 @@ export function WindowControl({ days, onChange, options = [7, 14, 30, 90] }: { d
    -------------------------------------------------------------------------- */
 
 const SECTIONS = [
-  { href: '/data', label: 'Metrics' },
-  { href: '/data/intents', label: 'Intents' },
-  { href: '/data/quotes', label: 'Quotes' },
-  { href: '/data/ecosystem', label: 'Ecosystem' },
-  { href: '/data/accounts', label: 'Accounts' },
-  { href: '/data/economics', label: 'Economics' },
-  { href: '/data/realtime', label: 'Real-time' },
-  { href: '/data/sources', label: 'Sources' },
+  { href: '/data', label: 'Overview', Icon: LayoutDashboard },
+  { href: '/data/intents', label: 'Intents', Icon: ArrowLeftRight },
+  { href: '/data/quotes', label: 'Quotes', Icon: Quote },
+  { href: '/data/ecosystem', label: 'Ecosystem', Icon: Network },
+  { href: '/data/accounts', label: 'Accounts', Icon: Users },
+  { href: '/data/economics', label: 'Economics', Icon: Flame },
+  { href: '/data/realtime', label: 'Real-time', Icon: Radio },
+  { href: '/data/sources', label: 'Sources', Icon: Database },
 ];
 
+/** Sticky pill navigation between the data sections. */
 export function DataNav() {
   const path = usePathname();
   return (
-    <nav className="tabs" aria-label="Data sections" data-testid="data-nav" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
-      {SECTIONS.map((s) => {
-        const active = s.href === '/data' ? path === '/data' || path.startsWith('/data/metrics') : path.startsWith(s.href);
-        return (
-          <Link key={s.href} href={s.href} role="tab" aria-selected={active} aria-current={active ? 'page' : undefined}>
-            {s.label}
-          </Link>
-        );
-      })}
+    <nav className="dx-nav" aria-label="Data sections" data-testid="data-nav">
+      <ul>
+        {SECTIONS.map((s) => {
+          const active = s.href === '/data' ? path === '/data' || path.startsWith('/data/metrics') : path.startsWith(s.href);
+          return (
+            <li key={s.href}>
+              <Link href={s.href} aria-current={active ? 'page' : undefined} className={active ? 'on' : ''}>
+                <s.Icon size={14} aria-hidden />
+                <span>{s.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 }
@@ -236,24 +462,26 @@ export function EnvelopeCard<T>({
   children,
   enabled = true,
   empty,
+  refetchMs,
 }: {
   title: string;
   path: string;
   query?: Record<string, string | number | undefined>;
   id: string;
+  refetchMs?: number;
   actions?: ReactNode;
   enabled?: boolean;
   empty?: ReactNode;
   children: (data: T, env: EnvelopeOk<T>) => ReactNode;
 }) {
-  const q = useApiGet<Envelope<T>>(path, query, enabled);
+  const q = useApiGet<Envelope<T>>(path, query, enabled, { refetchMs });
   return (
-    <Card title={title} actions={actions}>
+    <Card title={title} actions={<>{refetchMs ? <LiveStamp compact updatedAt={q.dataUpdatedAt} fetching={q.isFetching} failed={q.isError && q.dataUpdatedAt > 0} /> : null}{actions}</>}>
       <div data-testid={`card-${id}`} data-status={q.isPending ? 'loading' : q.isError ? 'error' : (q.data?.status ?? '')}>
         {q.isPending ? (
           <Skeleton rows={4} />
-        ) : q.isError ? (
-          <ApiErrorState error={q.error} onRetry={() => q.refetch()} />
+        ) : q.data === undefined ? (
+          <ApiErrorState error={q.error as Error} onRetry={() => q.refetch()} />
         ) : isCannot(q.data) ? (
           <CannotCompute env={q.data} />
         ) : (
@@ -300,25 +528,27 @@ export function ApiCard<T>({
   children,
   enabled = true,
   subtitle,
+  refetchMs,
 }: {
   title: string;
   path: string;
   query?: Record<string, string | number | undefined>;
   id: string;
+  refetchMs?: number;
   actions?: ReactNode;
   subtitle?: ReactNode;
   caveats?: (d: T) => string[] | undefined;
   enabled?: boolean;
   children: (d: T) => ReactNode;
 }) {
-  const q = useApiGet<T>(path, query, enabled);
+  const q = useApiGet<T>(path, query, enabled, { refetchMs });
   return (
-    <Card title={title} subtitle={subtitle} actions={actions}>
+    <Card title={title} subtitle={subtitle} actions={<>{refetchMs ? <LiveStamp compact updatedAt={q.dataUpdatedAt} fetching={q.isFetching} failed={q.isError && q.dataUpdatedAt > 0} /> : null}{actions}</>}>
       <div data-testid={`card-${id}`} data-status={q.isPending ? 'loading' : q.isError ? 'error' : 'ready'}>
         {q.isPending ? (
           <Skeleton rows={4} />
-        ) : q.isError ? (
-          <ApiErrorState error={q.error} onRetry={() => q.refetch()} />
+        ) : q.data === undefined ? (
+          <ApiErrorState error={q.error as Error} onRetry={() => q.refetch()} />
         ) : (
           <>
             {children(q.data)}

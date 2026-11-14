@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/nx/evidence';
 import { DataTable } from '@/components/nx/table';
 import { EmptyState, KeyValues, Notice } from '@/components/nx/ui';
-import { ApiCard, WindowControl } from './kit';
+import { ApiCard, StatGrid, StatTile, Toolbar, WindowControl } from './kit';
 import { fInt, fPct, fSeconds } from '@/lib/data/num';
 import { formatAge, formatUtc } from '@/lib/format';
 
@@ -22,9 +22,16 @@ export const stateTone = (s: string) => (s === 'fresh' || s === 'live' ? 'ok' : 
 
 export function SourcesList() {
   return (
-    <ApiCard<{ sources: SourceRow[]; asOf: string; unavailable?: unknown[] }> id="sources" title="Source health" path="/v1/sources">
+    <div className="dx" data-no-smooth>
+    <ApiCard<{ sources: SourceRow[]; asOf: string; unavailable?: unknown[] }> id="sources" title="Source health" path="/v1/sources" refetchMs={60_000}>
       {(d) => (
-        <div className="col gap2">
+        <div className="col gap3">
+          <StatGrid cols={4}>
+            <StatTile label="Sources" value={fInt(d.sources.length)} note={`As of ${formatUtc(d.asOf)}`} />
+            <StatTile label="Fresh or live" value={fInt(d.sources.filter((s) => s.state === 'fresh' || s.state === 'live').length)} note="Of the sources listed" />
+            <StatTile label="Not fresh" value={fInt(d.sources.filter((s) => s.state !== 'fresh' && s.state !== 'live').length)} note="Late, catching up or down" />
+            <StatTile label="Recorded gaps" value={fInt(d.sources.reduce((n, s) => n + s.gapCount, 0))} note="Summed across sources" />
+          </StatGrid>
           {d.unavailable && d.unavailable.length > 0 && <Notice tone="warn" title="Some sources could not be read">{JSON.stringify(d.unavailable)}</Notice>}
           <DataTable<SourceRow>
             caption={`Sources as of ${formatUtc(d.asOf)}`}
@@ -58,6 +65,7 @@ export function SourcesList() {
         </div>
       )}
     </ApiCard>
+    </div>
   );
 }
 
@@ -108,8 +116,8 @@ export function SourceDetail({ sourceId }: { sourceId: string }) {
   const [days, setDays] = useState(14);
   const id = encodeURIComponent(sourceId);
   return (
-    <div className="col gap3" data-testid="source-detail">
-      <div className="row" style={{ justifyContent: 'flex-end' }}><WindowControl days={days} onChange={setDays} options={[7, 14, 30, 90]} /></div>
+    <div className="col gap3 dx" data-testid="source-detail" data-no-smooth>
+      <Toolbar controls={<WindowControl days={days} onChange={setDays} options={[7, 14, 30, 90]} />}>Watermark, coverage, errors and rate limits for this source.</Toolbar>
       <ApiCard<Health> id="health" title={`${sourceId}: watermark and coverage`} path={`/v1/sources/${id}/health`} query={{ days }}>
         {(d) => (
           <div className="col gap3">

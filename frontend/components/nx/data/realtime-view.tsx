@@ -2,7 +2,7 @@
 
 import { Badge } from '@/components/nx/evidence';
 import { KeyValues, Notice } from '@/components/nx/ui';
-import { ApiCard } from './kit';
+import { ApiCard, LiveStamp, StatGrid, StatTile, Toolbar, latestUpdate, useApiGet } from './kit';
 import { fInt, fSeconds } from '@/lib/data/num';
 import { formatAge, formatUtc } from '@/lib/format';
 
@@ -23,10 +23,27 @@ export type LastHour = {
 
 const stateTone = (s: string) => (s === 'live' ? 'ok' : s === 'catching_up' ? 'warn' : 'bad');
 
+const FAST = 10_000;
+const MID = 15_000;
+
 export default function RealtimeView() {
+  const fresh = useApiGet<Fresh>('/v1/realtime/freshness', undefined, true, { refetchMs: FAST });
+  const hour = useApiGet<LastHour>('/v1/realtime/transactions-last-hour', undefined, true, { refetchMs: MID });
+  const f = fresh.data;
+  const h = hour.data;
+  const perMin = h && h.finalized.minutesCovered > 0 ? h.finalized.transactions / h.finalized.minutesCovered : null;
   return (
-    <div className="col gap3" data-testid="realtime-view">
-      <ApiCard<Fresh> id="freshness" title="Feed freshness" path="/v1/realtime/freshness" caveats={(d) => [...d.partialDayWarnings, ...d.dataVintageLimitations]}>
+    <div className="col gap3 dx" data-testid="realtime-view" data-no-smooth>
+      <Toolbar controls={<LiveStamp updatedAt={latestUpdate([fresh, hour])} fetching={fresh.isFetching || hour.isFetching} failed={(fresh.isError && fresh.dataUpdatedAt > 0) || (hour.isError && hour.dataUpdatedAt > 0)} everyMs={FAST} />}>
+        Finalized blocks from the collector. The page refreshes itself; figures are as of the last successful read, never carried forward as zero.
+      </Toolbar>
+      <StatGrid cols={4}>
+        <StatTile label="Collector" loading={fresh.isPending} error={fresh.isError && !f} value={f ? f.collectorState.replace(/_/g, ' ') : 'unknown'} note={f ? `${f.provider}, finality ${f.finality}` : undefined} />
+        <StatTile label="Last block" loading={fresh.isPending} error={fresh.isError && !f} value={f?.watermark ? `#${fInt(f.watermark.height)}` : 'unknown'} note={f?.watermark ? `Block time ${formatAge(f.watermark.blockTime)}; lag ${fSeconds(f.collectorLagSeconds)}` : undefined} />
+        <StatTile label="Transactions, last hour" loading={hour.isPending} error={hour.isError && !h} value={h && h.finalized.minutesCovered > 0 ? fInt(h.finalized.transactions) : 'unknown'} note={h ? `${h.finalized.minutesCovered} of ${h.window.minutes} finalized minutes${h.status === 'OK' ? '' : ', a lower bound'}` : undefined} />
+        <StatTile label="Per minute" loading={hour.isPending} error={hour.isError && !h} value={perMin === null ? 'unknown' : fInt(Math.round(perMin))} note="Mean over the finalized minutes covered" />
+      </StatGrid>
+      <ApiCard<Fresh> id="freshness" title="Feed freshness" path="/v1/realtime/freshness" refetchMs={FAST} caveats={(d) => [...d.partialDayWarnings, ...d.dataVintageLimitations]}>
         {(d) => (
           <div className="col gap2">
             <div className="row gap2">
@@ -47,7 +64,7 @@ export default function RealtimeView() {
           </div>
         )}
       </ApiCard>
-      <ApiCard<LastHour> id="lasthour" title="Transactions in the last hour" path="/v1/realtime/transactions-last-hour" caveats={(d) => [...(d.caveat ? [d.caveat] : []), ...d.limitations]}>
+      <ApiCard<LastHour> id="lasthour" title="Transactions in the last hour" path="/v1/realtime/transactions-last-hour" refetchMs={MID} caveats={(d) => [...(d.caveat ? [d.caveat] : []), ...d.limitations]}>
         {(d) => (
           <div className="col gap2">
             {d.status !== 'OK' && (

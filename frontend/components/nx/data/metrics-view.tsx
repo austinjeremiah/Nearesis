@@ -50,7 +50,7 @@ export function MetricCatalogue() {
     [q.data, src, status],
   );
   return (
-    <div className="col gap3" data-testid="metric-catalogue">
+    <div className="col gap3 dx" data-testid="metric-catalogue">
       <Card
         title="Metric catalogue"
         subtitle="Platform registry metrics and metrics authored in your workspaces. Anything not certified is exploratory."
@@ -217,7 +217,7 @@ export function MetricDetail({ metricKey, wid }: { metricKey: string; wid: strin
   if (cat.isError) return <ApiErrorState error={cat.error} onRetry={() => cat.refetch()} />;
   if (!row) return <EmptyState title="Metric not found" body="No metric with this key is visible to you." />;
   return (
-    <div className="col gap3" data-testid="metric-detail">
+    <div className="col gap3 dx" data-testid="metric-detail" data-no-smooth>
       <Card title={row.displayName} subtitle={<span className="mono">{row.metricKey}</span>} actions={<StatusBadge status={row.status} exploratory={row.exploratory} />}>
         <KeyValues rows={[
           { k: 'Origin', v: <Badge outline>{row.source}</Badge> },

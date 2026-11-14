@@ -3,7 +3,7 @@
 import { Badge } from '@/components/nx/evidence';
 import { DataTable } from '@/components/nx/table';
 import { KeyValues, Notice } from '@/components/nx/ui';
-import { ApiCard, WindowControl, useWindow } from './kit';
+import { ApiCard, StatGrid, StatTile, Toolbar, WindowControl, useWindow } from './kit';
 import { SeriesChart } from './charts';
 import { fInt, fPct, fDec, toNum } from '@/lib/data/num';
 
@@ -21,15 +21,15 @@ function CoverageLine({ c }: { c: Cov }) {
 export default function AccountsView() {
   const { days, setDays } = useWindow(30);
   return (
-    <div className="col gap3" data-testid="accounts-view">
+    <div className="col gap3 dx" data-testid="accounts-view" data-no-smooth>
       <Notice tone="info" title="Accounts are not people">
         One person can hold many accounts, and one account (a bot, relayer or game contract) can serve many people. "New" means the first organic transaction seen since the scan window start, not lifetime first-seen.
       </Notice>
-      <div className="row" style={{ justifyContent: 'flex-end' }}>
-        <WindowControl days={days} onChange={setDays} options={[7, 14, 30, 90]} />
-      </div>
+      <Toolbar controls={<WindowControl days={days} onChange={setDays} options={[7, 14, 30, 90]} />}>
+        Daily signing accounts and organic transactions from the daily chain tables.
+      </Toolbar>
 
-      <ApiCard<{ coverage: Cov; daily: { date: string; activeAccounts: number; newAccounts: number; returningAccounts: number; newShare: number; isWindowStart: boolean }[]; meta: Meta }>
+      <ApiCard<{ coverage: Cov; daily: { date: string; activeAccounts: number; newAccounts: number; returningAccounts: number; newShare: number; isWindowStart: boolean; organicTransactions?: number | null }[]; meta: Meta }>
         id="daily" title="Daily active accounts, new versus returning" path="/v1/accounts/daily" query={{ days }} caveats={(d) => d.meta.caveats}
       >
         {(d) => {
@@ -37,6 +37,14 @@ export default function AccountsView() {
           const last = d.daily[d.daily.length - 1];
           return (
             <div className="col gap3">
+              {last && (
+                <StatGrid cols={4}>
+                  <StatTile label="Active, latest day" value={fInt(last.activeAccounts)} note={last.date} />
+                  <StatTile label="New, latest day" value={fInt(last.newAccounts)} note={`${fPct(last.newShare)} of active`} />
+                  <StatTile label="Returning, latest day" value={fInt(last.returningAccounts)} note={last.date} />
+                  <StatTile label="Organic transactions" value={fInt(last.organicTransactions)} note={`Latest day, ${last.date}`} />
+                </StatGrid>
+              )}
               <SeriesChart ariaLabel="Daily active accounts" unit="accounts" series={[
                 { name: 'new', points: d.daily.map((x) => ({ x: x.date, y: x.newAccounts })) },
                 { name: 'returning', points: d.daily.map((x) => ({ x: x.date, y: x.returningAccounts })) },

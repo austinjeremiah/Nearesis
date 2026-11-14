@@ -3,7 +3,7 @@
 import { Badge } from '@/components/nx/evidence';
 import { DataTable } from '@/components/nx/table';
 import { EmptyState } from '@/components/nx/ui';
-import { EnvelopeCard, WindowControl, useWindow } from './kit';
+import { EnvelopeCard, Toolbar, WindowControl, useWindow } from './kit';
 import { fInt, fPct, fDec, fMs } from '@/lib/data/num';
 import { formatUtc } from '@/lib/format';
 
@@ -20,11 +20,10 @@ type Row = {
 export default function QuotesView() {
   const { days, setDays } = useWindow(30);
   return (
-    <div className="col gap3" data-testid="quotes-view">
-      <div className="row gap3" style={{ justifyContent: 'space-between' }}>
-        <p className="small dim" style={{ margin: 0 }}>Dry-quote samples only. Nothing here is an executed swap, and there is no execute or swap control.</p>
-        <WindowControl days={days} onChange={setDays} />
-      </div>
+    <div className="col gap3 dx" data-testid="quotes-view" data-no-smooth>
+      <Toolbar controls={<WindowControl days={days} onChange={setDays} />}>
+        Dry-quote samples only. Nothing here is an executed swap, and there is no execute or swap control.
+      </Toolbar>
       <EnvelopeCard<Row[]> id="quotes" empty={<EmptyState title="Not sampled" body="No dry-quote samples exist for this window. Availability is unknown, not 0 percent." />} title="Quote observatory (indicative quotes)" path="/v1/intents/quotes" query={{ days }}>
         {(rows) =>
           rows.length === 0 ? (

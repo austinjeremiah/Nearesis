@@ -17,6 +17,7 @@ export function SeriesChart({
   unit,
   kind = 'line',
   stack = false,
+  area = false,
 }: {
   series: { name: string; points: Pt[] }[];
   height?: number;
@@ -25,6 +26,8 @@ export function SeriesChart({
   kind?: 'line' | 'bar';
   /** Stack the series (bars of parts that add up to a whole). */
   stack?: boolean;
+  /** Soft fill under a line. Gaps stay gaps. */
+  area?: boolean;
 }) {
   const option = useMemo(
     () => (t: ChartTheme) => {
@@ -33,7 +36,15 @@ export function SeriesChart({
       return {
         ...base,
         legend: { ...(base.legend as object), show: series.length > 1, top: 0 },
-        xAxis: { ...(base.xAxis as object), type: 'category', data: series[0]?.points.map((p) => p.x) ?? [] },
+        xAxis: {
+          ...(base.xAxis as object),
+          type: 'category',
+          data: series[0]?.points.map((p) => p.x) ?? [],
+          boundaryGap: kind === 'bar',
+          axisLabel: { ...((base.xAxis as { axisLabel: object }).axisLabel), formatter: (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v.slice(5) : v) },
+        },
+        // room above the plot for the unit label, which otherwise clips against the card edge
+        grid: { ...(base.grid as object), top: unit ? 30 : 18 },
         yAxis: { ...(base.yAxis as object), name: unit, nameTextStyle: { color: t.text3, fontSize: 10 } },
         series: series.map((s, i) => ({
           name: s.name,
@@ -41,13 +52,16 @@ export function SeriesChart({
           ...(stack ? { stack: 'total' } : {}),
           showSymbol: false,
           connectNulls: false,
-          itemStyle: { color: pal[i % pal.length] },
+          itemStyle: { color: pal[i % pal.length], ...(kind === 'bar' ? { borderRadius: [2, 2, 0, 0] } : {}) },
           lineStyle: { color: pal[i % pal.length], width: 2 },
+          ...(kind === 'bar' ? { barMaxWidth: 22 } : {}),
+          ...(kind === 'line' && area && !stack ? { areaStyle: { color: pal[i % pal.length], opacity: 0.08 } } : {}),
+          emphasis: { focus: 'series' },
           data: s.points.map((p) => toNum(p.y)),
         })),
       };
     },
-    [series, unit, kind, stack],
+    [series, unit, kind, stack, area],
   );
   return <Chart option={option} height={height} ariaLabel={ariaLabel} />;
 }
@@ -101,4 +115,39 @@ export function ShareBar({ share }: { share: string | number | null | undefined 
       <span className="dbar" style={{ width: `${Math.min(100, Math.max(0, n * 100))}%` }} />
     </span>
   );
+}
+
+/**
+ * Tiny trend line for a tile. No axes and no tooltip, so it is a shape, not a reading: the tile's number
+ * carries the value. A null point is a gap in the line.
+ */
+export function Sparkline({ points, ariaLabel, height = 40, kind = 'line' }: { points: Pt[]; ariaLabel: string; height?: number; kind?: 'line' | 'bar' }) {
+  const option = useMemo(
+    () => (t: ChartTheme) => {
+      const pal = seriesPalette(t);
+      return {
+        backgroundColor: 'transparent',
+        animation: false,
+        grid: { left: 2, right: 2, top: 4, bottom: 2 },
+        tooltip: { show: false },
+        xAxis: { type: 'category', show: false, boundaryGap: kind === 'bar', data: points.map((p) => p.x) },
+        yAxis: { type: 'value', show: false, scale: kind === 'line' },
+        series: [
+          {
+            type: kind,
+            silent: true,
+            showSymbol: false,
+            connectNulls: false,
+            data: points.map((p) => toNum(p.y)),
+            itemStyle: { color: pal[0] },
+            lineStyle: { color: pal[0], width: 1.5 },
+            areaStyle: kind === 'line' ? { color: pal[0], opacity: 0.08 } : undefined,
+            barMaxWidth: 6,
+          },
+        ],
+      };
+    },
+    [points, kind],
+  );
+  return <Chart option={option} height={height} ariaLabel={ariaLabel} className="dx-spark" />;
 }

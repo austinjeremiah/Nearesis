@@ -4,7 +4,7 @@ import { Badge } from '@/components/nx/evidence';
 import { DataTable } from '@/components/nx/table';
 import { Card, EmptyState, KeyValues, Notice, Skeleton } from '@/components/nx/ui';
 import { ApiErrorState } from '@/components/nx/states';
-import { ApiCard, Caveats, WindowControl, useApiGet, useWindow } from './kit';
+import { ApiCard, Caveats, PlotCard, StatGrid, StatTile, Toolbar, WindowControl, useApiGet, useWindow } from './kit';
 import { SeriesChart } from './charts';
 import { fDec, fInt, fUsd } from '@/lib/data/num';
 import { formatUtc } from '@/lib/format';
@@ -100,15 +100,38 @@ export default function EconomicsView() {
   const pct = useEco<Percentiles>('percentiles', days);
   const cov = useApiGet<EcoCoverage & { window: { from: string; to: string } }>('/v1/economics/coverage', { days });
 
+  const hourQ = useApiGet<LastHour>('/v1/realtime/transactions-last-hour', undefined, true, { refetchMs: 30_000 });
   const meta = totals.data ?? daily.data;
   return (
-    <div className="col gap3" data-testid="economics-view">
-      <div className="row gap3" style={{ justifyContent: 'space-between' }}>
-        <p className="small dim" style={{ margin: 0 }}>
-          Gross execution fee burnt on NEAR, from the loaded economics tables. Not revenue: no burnt versus reward split is made.
-        </p>
-        <WindowControl days={days} onChange={setDays} options={[7, 30, 90]} />
-      </div>
+    <div className="col gap3 dx" data-testid="economics-view" data-no-smooth>
+      <Toolbar controls={<WindowControl days={days} onChange={setDays} options={[7, 30, 90]} />}>
+        Gross execution fee burnt on NEAR, from the loaded economics tables. Not revenue: no burnt versus reward split is made.
+      </Toolbar>
+
+      <StatGrid cols={4}>
+        <StatTile
+          label="Tokens burnt" loading={totals.isPending} error={totals.isError}
+          value={totals.data ? `${shortExact(yoctoToNear(totals.data.data.tokensBurntYocto), 2)} NEAR` : 'unknown'}
+          note={totals.data ? `Over ${fInt(totals.data.data.days)} loaded days` : undefined}
+          spark={(daily.data?.data ?? []).map((x) => ({ x: x.day, y: x.tokensBurntNear }))} sparkKind="bar" sparkLabel="NEAR burnt per day"
+        />
+        <StatTile
+          label="Gas burnt" loading={totals.isPending} error={totals.isError}
+          value={totals.data ? `${tgas(totals.data.data.gasBurnt)} Tgas` : 'unknown'}
+          note="Gas units, window total"
+          spark={(daily.data?.data ?? []).map((x) => ({ x: x.day, y: Number(x.gasBurnt) / 1e12 }))} sparkLabel="Tgas burnt per day"
+        />
+        <StatTile
+          label="USD value" loading={totals.isPending} error={totals.isError}
+          value={totals.data?.data.usd ? fUsd(totals.data.data.usd) : 'unknown'}
+          note={totals.data ? (totals.data.data.usd ? `Priced on ${totals.data.data.pricedDays} of ${totals.data.data.days} days` : 'No timestamped price available') : undefined}
+        />
+        <StatTile
+          label="Gas, last hour" loading={hourQ.isPending} error={hourQ.isError}
+          value={hourQ.data ? `${fDec(Number(hourQ.data.finalized.gasBurnt) / 1e12, 1)} Tgas` : 'unknown'}
+          note={hourQ.data ? `Finalized, ${hourQ.data.finalized.minutesCovered} minutes covered${hourQ.data.status === 'OK' ? '' : ', a lower bound'}` : undefined}
+        />
+      </StatGrid>
 
       {meta && (
         <Notice tone="warn" title="Fee regime">
@@ -117,7 +140,7 @@ export default function EconomicsView() {
         </Notice>
       )}
 
-      <ApiCard<LastHour> id="eco-lasthour" title="Gas burnt in the last hour (real-time, finalized)" path="/v1/realtime/transactions-last-hour" caveats={(d) => (d.caveat ? [d.caveat] : [])}>
+      <ApiCard<LastHour> id="eco-lasthour" title="Gas burnt in the last hour (real-time, finalized)" path="/v1/realtime/transactions-last-hour" refetchMs={30_000} caveats={(d) => (d.caveat ? [d.caveat] : [])}>
         {(d) => (
           <div className="col gap1">
             <div className="h2 mono" data-testid="gas-last-hour">{(Number(d.finalized.gasBurnt) / 1e12).toLocaleString('en-US', { maximumFractionDigits: 1 })} Tgas</div>
@@ -159,23 +182,19 @@ export default function EconomicsView() {
             <EmptyState title="No days loaded" body="No economics days are loaded for this window. Nothing is filled in." />
           ) : (
             <div className="col gap3">
-              <div className="grid-2" style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-                <div>
-                  <div className="small strong">Gas burnt (Tgas)</div>
+              <div className="dx-grid">
+                <PlotCard title="Gas burnt" subtitle="Teragas per UTC day">
                   <SeriesChart ariaLabel="Gas burnt per day in Tgas" unit="Tgas" kind="bar" series={[{ name: 'Gas burnt', points: d.data.map((x) => ({ x: x.day, y: Number(x.gasBurnt) / 1e12 })) }]} />
-                </div>
-                <div>
-                  <div className="small strong">Tokens burnt (NEAR)</div>
+                </PlotCard>
+                <PlotCard title="Tokens burnt" subtitle="NEAR per UTC day">
                   <SeriesChart ariaLabel="Tokens burnt per day in NEAR" unit="NEAR" kind="bar" series={[{ name: 'Tokens burnt', points: d.data.map((x) => ({ x: x.day, y: x.tokensBurntNear })) }]} />
-                </div>
-                <div>
-                  <div className="small strong">Gas price (yoctoNEAR per gas)</div>
-                  <SeriesChart ariaLabel="Mean gas price per day" unit="yocto/gas" series={[{ name: 'Mean gas price', points: d.data.map((x) => ({ x: x.day, y: x.gasPrice?.meanYoctoPerGas ?? null })) }]} />
-                </div>
-                <div>
-                  <div className="small strong">Execution intensity (Ggas per transaction)</div>
-                  <SeriesChart ariaLabel="Gas per transaction per day" unit="Ggas/tx" series={[{ name: 'Gas per tx', points: d.data.map((x) => ({ x: x.day, y: x.executionIntensity?.gasPerTx ? Number(x.executionIntensity.gasPerTx) / 1e9 : null })) }]} />
-                </div>
+                </PlotCard>
+                <PlotCard title="Gas price" subtitle="Mean yoctoNEAR per gas; a day with no price is a gap">
+                  <SeriesChart ariaLabel="Mean gas price per day" unit="yocto/gas" area series={[{ name: 'Mean gas price', points: d.data.map((x) => ({ x: x.day, y: x.gasPrice?.meanYoctoPerGas ?? null })) }]} />
+                </PlotCard>
+                <PlotCard title="Execution intensity" subtitle="Gigagas per transaction; a day with no figure is a gap">
+                  <SeriesChart ariaLabel="Gas per transaction per day" unit="Ggas/tx" area series={[{ name: 'Gas per tx', points: d.data.map((x) => ({ x: x.day, y: x.executionIntensity?.gasPerTx ? Number(x.executionIntensity.gasPerTx) / 1e9 : null })) }]} />
+                </PlotCard>
               </div>
               <DataTable<Day>
                 caption="Per UTC day (exact values)"

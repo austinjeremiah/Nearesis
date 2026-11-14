@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Band } from '@/components/nx/band';
 import { Badge } from '@/components/nx/evidence';
 import { DataTable, type Column } from '@/components/nx/table';
 import { Tabs } from '@/components/nx/ui';
-import { EnvelopeCard, WindowControl, useWindow } from './kit';
+import { EnvelopeCard, StatGrid, StatTile, WindowControl, useApiGet, useWindow, isCannot, type Envelope } from './kit';
 import { MatrixHeatmap, SeriesChart, ShareBar } from './charts';
 import { fInt, fPct, fPctPoints, fUsd, fMs, toNum } from '@/lib/data/num';
 
@@ -45,8 +44,10 @@ export default function IntentsView() {
   const { days, setDays } = useWindow(30);
   const [tab, setTab] = useState<Tab>('overview');
   const q = { days };
+  const trendQ = useApiGet<Envelope<{ period: string; swaps: number; volumeUsdKnown: string | null }[]>>('/v1/intents/trend', { ...q, granularity: 'day' });
+  const spark = trendQ.data && !isCannot(trendQ.data) ? trendQ.data.data : [];
   return (
-    <div className="col gap3" data-testid="intents-view">
+    <div className="col gap3 dx" data-testid="intents-view" data-no-smooth>
       <div className="row gap3" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <Tabs ariaLabel="Intents analysis" value={tab} options={TABS} onChange={setTab} />
         <WindowControl days={days} onChange={setDays} />
@@ -57,16 +58,12 @@ export default function IntentsView() {
           <EnvelopeCard<Summary> id="summary" title="Summary" path="/v1/intents/summary" query={q}>
             {(d) => (
               <>
-                <Band
-                  eyebrow={`Last ${days} days`}
-                  lead="NEAR Intents 1Click swaps from the provider Explorer."
-                  stats={[
-                    { value: fInt(d.swaps), detail: 'swaps in the window', lead: true },
-                    { value: fUsd(d.settledVolumeUsdKnown), detail: 'settled volume, known USD only' },
-                    { value: fPct(d.successRate), detail: 'success rate over terminal swaps' },
-                    { value: fPct(d.refundRate), detail: 'refund rate over terminal swaps' },
-                  ]}
-                />
+                <StatGrid cols={4}>
+                  <StatTile label={`Swaps, last ${days} days`} value={fInt(d.swaps)} note="NEAR Intents 1Click swaps from the provider Explorer" spark={spark.map((r) => ({ x: String(r.period), y: r.swaps }))} sparkKind="bar" sparkLabel="Swaps per day" />
+                  <StatTile label="Settled volume" value={fUsd(d.settledVolumeUsdKnown)} note="Known USD only" spark={spark.map((r) => ({ x: String(r.period), y: r.volumeUsdKnown }))} sparkLabel="Known USD volume per day" />
+                  <StatTile label="Success rate" value={fPct(d.successRate)} note="Over terminal swaps" />
+                  <StatTile label="Refund rate" value={fPct(d.refundRate)} note="Over terminal swaps" />
+                </StatGrid>
                 <p className="small" data-testid="usd-unknown" style={{ marginTop: 10 }}>
                   <strong>{fInt(d.settledSwapsWithUnknownUsd)}</strong> successful swaps have no USD value and are excluded from volume (counted, not zeroed).{' '}
                   {fInt(d.swapsWithUnmappedAsset)} swaps involve an unmapped asset; {fInt(d.swapsWithUnresolvedChain)} have an unresolved chain. {UNKNOWN_USD}

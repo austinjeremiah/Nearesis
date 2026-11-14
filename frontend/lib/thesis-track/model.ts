@@ -146,6 +146,12 @@ export function formatBytes(v: string | number | null | undefined): string {
 /** Bytes billed for a chart: the explicit field, else the figure recorded in the SQL header comment. */
 export function bytesBilledOf(chart: Pick<ThesisChart, 'bigQueryBytesBilled' | 'sqlBigQuery' | 'sqlExecuted'>): string | null {
   if (chart.bigQueryBytesBilled !== undefined && chart.bigQueryBytesBilled !== null && chart.bigQueryBytesBilled !== '') return String(chart.bigQueryBytesBilled);
+  // per-dataset query records: the chart's figure is the sum over the BigQuery jobs that fed it
+  const q = (chart as { queries?: Array<{ bigQueryExecuted?: boolean; bigQueryBytesBilled?: string | number | null }> }).queries;
+  if (Array.isArray(q)) {
+    const billed = q.filter((x) => x?.bigQueryExecuted && /^\d+$/.test(String(x.bigQueryBytesBilled ?? '')));
+    if (billed.length) return billed.reduce((a, x) => a + BigInt(String(x.bigQueryBytesBilled)), 0n).toString();
+  }
   for (const sql of [chart.sqlBigQuery, chart.sqlExecuted]) {
     const m = sql?.match(/bytes[ _]billed\D{0,12}(\d[\d,]*)/i);
     if (m) return m[1]!.replace(/,/g, '');

@@ -1,11 +1,33 @@
 import type { ReactNode } from 'react';
 import { parseMarkdown, type Block, type Inline } from '@/lib/thesis-track/markdown';
 
+/** A provenance pointer such as [results/estimates.json#/a/b] is shown as a small marker; the full pointer is its tooltip. */
+const REF = /\[((?:results|raw|sql|build)\/[^\]\s]+)\]/g;
+function withRefs(text: string, key: number): ReactNode {
+  if (!text.includes('[')) return text;
+  const out: ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(REF)) {
+    const at = m.index ?? 0;
+    if (at > last) out.push(text.slice(last, at));
+    const file = m[1]!.split('#')[0]!.split('/').pop();
+    out.push(
+      <code key={`${key}-${at}`} className="tt-ref" title={m[1]}>
+        [{file}]
+      </code>,
+    );
+    last = at + m[0].length;
+  }
+  if (!out.length) return text;
+  if (last < text.length) out.push(text.slice(last));
+  return <span key={key}>{out}</span>;
+}
+
 function inline(nodes: Inline[]): ReactNode[] {
   return nodes.map((n, i) => {
     switch (n.t) {
       case 'text':
-        return n.v;
+        return withRefs(n.v, i);
       case 'code':
         return <code key={i}>{n.v}</code>;
       case 'strong':

@@ -9,6 +9,10 @@ Blocks appear at the top of their section, labelled Analysis, above the computed
 
 ## executive-claim
 
+NEAR Intents now settles about 36.4 million dollars of public flow a day [raw/forecast.json#/series/intents_usd/last30], and 93.1% of that value [raw/forecast.json#/series/no_near_share/last30] moves between assets that do not live on NEAR. The people who move it pay a real toll: over the last thirty days the measured user-paid spread was 59.4 cents for every hundred dollars settled [raw/forecast.json#/derived/toll_split/rows/2/centsPer100Usd/last30], and integrator app fees alone were 47.8 cents [raw/forecast.json#/derived/toll_split/rows/1/centsPer100Usd/last30] of it. NEAR's own cut, the gas its Intents contracts burn, was 0.0918 cents [raw/forecast.json#/derived/toll_split/rows/0/centsPer100Usd/last30] per hundred dollars: less than a fifth of one percent of what users pay to cross the booth.
+
+The forecast says the gap stays open. A year out, the spread users pay is forecast at 64.5 cents per hundred dollars [raw/forecast.json#/derived/toll_split/rows/2/centsPer100Usd/plus365/central], while the gas NEAR keeps is forecast flat at 0.0808 cents [raw/forecast.json#/derived/toll_split/rows/0/centsPer100Usd/plus365/central]. Volume can keep growing and the network can keep shrinking as a consumer chain, and NEAR the token will still be paid almost nothing per dollar settled, unless the fee switch the protocol announced turns into a visible, growing flow back to NEAR. That is the toll booth problem, and it is the number to watch.
+
 <!-- Executive claim. Pointers used by the computed text of this section (24):
   raw/forecast.json#/series/intents_usd/last30
   raw/forecast.json#/series/intents_usd/horizons/2/central
@@ -37,6 +41,10 @@ Blocks appear at the top of their section, labelled Analysis, above the computed
 -->
 
 ## what-would-change-our-mind
+
+- If NEAR's gas take rises above 0.187 cents per hundred dollars settled [raw/forecast.json#/series/take_rate_gas/checkpoints/0/band80/1] at the first checkpoint, the claim that NEAR's cut stays flat is wrong.
+- If the share of settled value that touches no NEAR asset falls below 89.1% [raw/forecast.json#/series/no_near_share/horizons/0/band80/0] within ninety days, NEAR assets are being used again and the "booth for other chains" framing weakens.
+- If the fee switch starts routing a visible and growing share of the toll to NEAR-aligned recipients (buybacks, the treasury, stakers), the problem is being solved and the thesis should be rewritten around how fast. Our swap records show such a recipient only in the second half of the year and only under one account name, so this is the outcome most likely to prove us wrong.
 
 <!-- What would change our mind. Pointers used by the computed text of this section (15):
   raw/forecast.json#/series/intents_tx/checkpoints/0/against/bound
@@ -180,6 +188,11 @@ Blocks appear at the top of their section, labelled Analysis, above the computed
 
 ## evidence-for
 
+- NEAR's cut is tiny next to the toll: 0.0918 cents of gas [raw/forecast.json#/derived/toll_split/rows/0/centsPer100Usd/last30] against 59.4 cents of spread [raw/forecast.json#/derived/toll_split/rows/2/centsPer100Usd/last30] per hundred dollars over the last thirty days.
+- The NEAR token is a leg of only 2.46% of settled value [raw/forecast.json#/series/near_token_share/last30], forecast at 1.85% [raw/forecast.json#/series/near_token_share/horizons/0/central] in ninety days; the flow does not need the token.
+- The flow is turning into a dollar rail: stablecoin-to-stablecoin swaps were 7.22% of value [raw/forecast.json#/facts/monthly/0/stable_share] in the first month of the data and 35.7% [raw/forecast.json#/facts/monthly/12/stable_share] in the latest.
+- The consumer chain underneath is shrinking: long-tail signers averaged 240 thousand a day [raw/forecast.json#/facts/monthly/0/tail_signers] in the first month and 64.6 thousand [raw/forecast.json#/series/tail_signers/last30] over the last thirty days; the trend model forecasts 41.7 thousand [raw/forecast.json#/series/tail_signers/horizons/0/central] in ninety days and beat a naive forecast by 72.0% [raw/forecast.json#/series/tail_signers/skill90] at that horizon in the backtest.
+
 <!-- Evidence for. Pointers used by the computed text of this section (32):
   raw/forecast.json#/series/intents_tx/last30
   raw/forecast.json#/series/intents_tx/horizons/0/horizon
@@ -216,6 +229,12 @@ Blocks appear at the top of their section, labelled Analysis, above the computed
 -->
 
 ## evidence-against
+
+- The forecasts are uncertain. In the time-ordered backtest only 50.0% [raw/forecast.json#/series/intents_tx/calibration/pooledForward80] of realised Intents transaction values fell inside the eighty percent band, so the bands are too narrow and every series is labelled low skill. The gas take rate itself has no skill over a naive forecast ([raw/forecast.json#/series/take_rate_gas/skill90] skill): its central path is simply the latest level held flat.
+- Gas is only one toll. The protocol's fee switch sends part of the front-end and protocol fees to NEAR buybacks, and our swap data sees that flow only partly (raw/fees/FEE_MODEL.md). If most of it travels outside the public records, NEAR's real cut is larger than this thesis measures.
+- A small rate on a large base is still money: the forecast twelve-month gas burn by the Intents contracts is 33.2 thousand NEAR [raw/forecast.json#/derived/intents_burn_near_12m/centralTotal], about 113 thousand dollars [raw/forecast.json#/derived/intents_burn_near_12m/usdAtLastClose/central] at the last close, with the price held fixed. Whether that is "almost nothing" depends on what NEAR needs to earn.
+- Volume is the least predictable input: a year out, the eighty percent band for daily settled value runs from 22.8 million [raw/forecast.json#/series/intents_usd/horizons/2/band80/0] to 75.1 million dollars [raw/forecast.json#/series/intents_usd/horizons/2/band80/1].
+- Part of the flow is now private and invisible to us, and every figure here describes the public flow only.
 
 <!-- Evidence against. Pointers used by the computed text of this section (35):
   raw/forecast.json#/derived/lastClose/usdPerNear
@@ -281,6 +300,8 @@ Blocks appear at the top of their section, labelled Analysis, above the computed
 -->
 
 ## long-term-economic-mechanisms
+
+Interpretation. A booth that charges almost nothing can be a moat: if NEAR is the cheapest place to settle cross-chain intents, volume concentrates there, and a later, modest fee could be worth more than a high fee today. It can also be a leak: wallets and apps on top collect the toll, solvers collect the spread, and the network that provides finality is reduced to a utility whose token is optional for every swap. The fee switch is the hinge between the two readings. The thesis does not claim which one wins; it claims that, on the evidence so far, the value is flowing around the token rather than through it, and it names the checkpoints at which that will be visible either way.
 
 <!-- Long-term economic mechanisms. Pointers used by the computed text of this section (0):
 -->

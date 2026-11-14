@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +15,8 @@ const REAL = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "thesis")
 function copyThesis(): string {
   const dir = mkdtempSync(join(tmpdir(), "thesis-forecast-"));
   cpSync(join(REAL, "raw"), join(dir, "raw"), { recursive: true });
+  // the real fee inputs are not part of these cases: each test adds synthetic ones when it needs them
+  rmSync(join(dir, "raw", "fees"), { recursive: true, force: true });
   cpSync(join(REAL, "sql"), join(dir, "sql"), { recursive: true });
   cpSync(join(REAL, "TABLES.md"), join(dir, "TABLES.md"));
   const ap = "archive/intents-vs-price-v1/build/thesis.json";

@@ -17,7 +17,7 @@ export const FEE_BINDINGS: FeeBinding[] = [
     label: "Take rate by gas: NEAR burnt by the Intents contracts per dollar settled (basis points)",
     unit: "basis points of settled USD",
     transform: "log",
-    columns: ["take_rate_gas_bps", "take_rate_gas", "take_rate_bps"],
+    columns: ["take_rate_gas_bps_narrow", "take_rate_gas_bps", "take_rate_gas", "take_rate_bps"],
   },
   {
     id: "intents_burn_near",
@@ -25,6 +25,7 @@ export const FEE_BINDINGS: FeeBinding[] = [
     unit: "NEAR",
     transform: "log1p",
     columns: [
+      "narrow_tokens_burnt_near",
       "intents_burnt_near_narrow",
       "intents_burnt_near",
       "burnt_near_intents_narrow",
@@ -36,7 +37,7 @@ export const FEE_BINDINGS: FeeBinding[] = [
     label: "NEAR burnt per day in total",
     unit: "NEAR",
     transform: "log1p",
-    columns: ["total_burnt_near", "burnt_near_total", "near_burnt_total", "total_near_burnt"],
+    columns: ["tokens_burnt_near", "total_burnt_near", "burnt_near_total", "near_burnt_total", "total_near_burnt"],
   },
   {
     id: "intents_burn_share",
@@ -51,12 +52,29 @@ export const FEE_BINDINGS: FeeBinding[] = [
     unit: "basis points of swapped USD",
     transform: "log",
     columns: [
+      "spread_bps_stable",
       "spread_bps_stable_to_stable",
       "stable_to_stable_spread_bps",
       "user_spread_bps_s2s",
       "spread_bps_s2s",
     ],
   },
+  {
+    id: "spread_bps_all",
+    label: "User-paid spread, all routes (basis points)",
+    unit: "basis points of swapped USD",
+    transform: "log",
+    columns: ["spread_bps_all"],
+  },
+  {
+    id: "app_fee_bps",
+    label: "Integrator app fees per dollar settled (basis points)",
+    unit: "basis points of settled USD",
+    transform: "log",
+    columns: ["app_fee_bps"],
+  },
 ];
 /** Datasets of the fee manifest read as a ranked table (top fee payers): id matches this pattern. */
-export const TOP_PAYERS_ID = /payer/i;
+export const TOP_PAYERS_ID = /payer|by_receiver/i;
+/** Ranked tables with a `scope` column keep only this scope (the whole window). */
+export const TOP_PAYERS_SCOPE = "window";

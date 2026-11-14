@@ -197,23 +197,27 @@ export function buildForecastBundle(thesisDir: string): ForecastBuildOutput {
   const split: any[] = [];
   for (const [key, id, label] of [
     ["burn", "take_rate_gas", "NEAR burnt as gas by the Intents contracts"],
-    ["spread", "spread_bps_stable", "user-paid spread, stablecoin to stablecoin"],
+    ["app_fees", "app_fee_bps", "integrator app fees (part of the spread)"],
+    ["spread", "spread_bps_all", "user-paid spread, all routes (includes the app fees)"],
   ] as const) {
-    const s = fc.series[id];
+    // without the all-routes spread, the stablecoin-to-stablecoin spread stands in for it (labelled as such)
+    const fallback = key === "spread" && !fc.series[id] && fc.series.spread_bps_stable;
+    const s = fallback ? fc.series.spread_bps_stable : fc.series[id];
     if (!s) continue;
     split.push({
       key,
-      series: id,
-      label,
+      series: fallback ? "spread_bps_stable" : id,
+      label: fallback ? "user-paid spread, stablecoin to stablecoin" : label,
       centsPer100Usd: { last30: s.last30, plus90: s.horizons[0], plus365: s.horizons[2] },
     });
   }
   fc.derived.toll_split = {
     unit: "cents per 100 USD settled (one basis point is one cent per 100 USD)",
     rows: split,
+    // the spread already contains the app fees, so the total paid is burn + spread (app fees are shown as a part of it)
     last30Total: split.length
       ? round(
-          split.reduce((a, r) => a + (r.centsPer100Usd.last30 ?? 0), 0),
+          split.filter((r) => r.key !== "app_fees").reduce((a, r) => a + (r.centsPer100Usd.last30 ?? 0), 0),
           4,
         )
       : null,

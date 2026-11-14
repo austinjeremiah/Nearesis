@@ -43,7 +43,8 @@
     "thesis:build": "tsx scripts/thesis/build.ts",
     "thesis:verify": "tsx scripts/thesis/verify.ts",
     "thesis:fees": "pnpm --filter @nearesis/ingestion exec tsx src/thesis/fees-cli.ts",
-    "thesis:spread": "node --max-old-space-size=6000 --import tsx services/ingestion/src/thesis/spread-cli.ts"
+    "thesis:spread": "node --max-old-space-size=6000 --import tsx services/ingestion/src/thesis/spread-cli.ts",
+    "thesis:toll": "tsx scripts/thesis/fees-toll.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

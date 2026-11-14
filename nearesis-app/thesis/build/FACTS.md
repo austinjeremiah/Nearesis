@@ -5,6 +5,150 @@ Write analysis in thesis/interpretation.md (`## <section-id>` headings). Cite a 
 Last full day 2026-11-13; forecasts are thirty-day averages ending on the stated date; horizons beyond 90 days are extrapolations the backtest cannot score.
 
 
+## Take rate by gas: NEAR burnt by the Intents contracts per dollar settled (basis points) (take_rate_gas; unit: basis points of settled USD)
+
+- `raw/forecast.json#/series/take_rate_gas/last30` = 0.0918: last thirty-day average (30 observed days)
+- model used: naive (lowest mean absolute error at 90 days over 10 origins (ties go to the simpler model)); verdict FORECAST_LOW_SKILL
+- `raw/forecast.json#/series/take_rate_gas/skill90` = 0: skill against naive at the longest scored horizon (fraction; 0.1 = ten percent better)
+- `raw/forecast.json#/series/take_rate_gas/calibration/pooledLeaveOneOut80` = 0.750: share of backtest points inside the eighty percent band when each origin is left out (rank-driven, near three quarters by construction)
+- `raw/forecast.json#/series/take_rate_gas/calibration/pooledForward80` = 0.417: share inside the eighty percent band in the time-ordered check that uses only earlier origins (used for the verdict)
+- `raw/forecast.json#/series/take_rate_gas/calibration/pooledInSample80` = 0.778: the same, in sample
+- `raw/forecast.json#/series/take_rate_gas/backtest/table/0/mae` = 0.198: error of naive at 30 days over 14 origins (skill 0)
+- `raw/forecast.json#/series/take_rate_gas/backtest/table/1/mae` = 0.349: error of naive at 60 days over 12 origins (skill 0)
+- `raw/forecast.json#/series/take_rate_gas/backtest/table/2/mae` = 0.462: error of naive at 90 days over 10 origins (skill 0)
+- `raw/forecast.json#/series/take_rate_gas/horizons/0/central` = 0.0808: forecast at +90 days (2027-02-11)
+- `raw/forecast.json#/series/take_rate_gas/horizons/0/band80/0` = 0.0352: eighty percent band, lower
+- `raw/forecast.json#/series/take_rate_gas/horizons/0/band80/1` = 0.185: eighty percent band, upper
+- `raw/forecast.json#/series/take_rate_gas/horizons/0/band50/0` = 0.0549: fifty percent band, lower
+- `raw/forecast.json#/series/take_rate_gas/horizons/0/band50/1` = 0.119: fifty percent band, upper
+- `raw/forecast.json#/series/take_rate_gas/horizons/1/central` = 0.0808: forecast at +180 days (2027-05-12), extrapolation
+- `raw/forecast.json#/series/take_rate_gas/horizons/1/band80/0` = 0.0250: eighty percent band, lower
+- `raw/forecast.json#/series/take_rate_gas/horizons/1/band80/1` = 0.261: eighty percent band, upper
+- `raw/forecast.json#/series/take_rate_gas/horizons/1/band50/0` = 0.0468: fifty percent band, lower
+- `raw/forecast.json#/series/take_rate_gas/horizons/1/band50/1` = 0.140: fifty percent band, upper
+- `raw/forecast.json#/series/take_rate_gas/horizons/2/central` = 0.0808: forecast at +365 days (2027-11-13), extrapolation
+- `raw/forecast.json#/series/take_rate_gas/horizons/2/band80/0` = 0.0152: eighty percent band, lower
+- `raw/forecast.json#/series/take_rate_gas/horizons/2/band80/1` = 0.430: eighty percent band, upper
+- `raw/forecast.json#/series/take_rate_gas/horizons/2/band50/0` = 0.0371: fifty percent band, lower
+- `raw/forecast.json#/series/take_rate_gas/horizons/2/band50/1` = 0.176: fifty percent band, upper
+- `raw/forecast.json#/series/take_rate_gas/checkpoints/0/central` = 0.0808: checkpoint 2027-02-13: forecast
+- `raw/forecast.json#/series/take_rate_gas/checkpoints/0/band80/0` = 0.0349: checkpoint 2027-02-13: eighty percent lower
+- `raw/forecast.json#/series/take_rate_gas/checkpoints/0/band80/1` = 0.187: checkpoint 2027-02-13: eighty percent upper
+- `raw/forecast.json#/series/take_rate_gas/checkpoints/1/central` = 0.0808: checkpoint 2027-05-13: forecast
+- `raw/forecast.json#/series/take_rate_gas/checkpoints/1/band80/0` = 0.0249: checkpoint 2027-05-13: eighty percent lower
+- `raw/forecast.json#/series/take_rate_gas/checkpoints/1/band80/1` = 0.262: checkpoint 2027-05-13: eighty percent upper
+- `raw/forecast.json#/series/take_rate_gas/checkpoints/2/central` = 0.0808: checkpoint 2027-11-13: forecast
+- `raw/forecast.json#/series/take_rate_gas/checkpoints/2/band80/0` = 0.0152: checkpoint 2027-11-13: eighty percent lower
+- `raw/forecast.json#/series/take_rate_gas/checkpoints/2/band80/1` = 0.430: checkpoint 2027-11-13: eighty percent upper
+
+## Intents' share of all NEAR burnt (intents_burn_share; unit: share of NEAR burnt)
+
+- `raw/forecast.json#/series/intents_burn_share/last30` = 0.0914: last thirty-day average (30 observed days)
+- model used: naive (lowest mean absolute error at 90 days over 10 origins (ties go to the simpler model)); verdict FORECAST_LOW_SKILL
+- `raw/forecast.json#/series/intents_burn_share/skill90` = 0: skill against naive at the longest scored horizon (fraction; 0.1 = ten percent better)
+- `raw/forecast.json#/series/intents_burn_share/calibration/pooledLeaveOneOut80` = 0.778: share of backtest points inside the eighty percent band when each origin is left out (rank-driven, near three quarters by construction)
+- `raw/forecast.json#/series/intents_burn_share/calibration/pooledForward80` = 0.667: share inside the eighty percent band in the time-ordered check that uses only earlier origins (used for the verdict)
+- `raw/forecast.json#/series/intents_burn_share/calibration/pooledInSample80` = 0.778: the same, in sample
+- `raw/forecast.json#/series/intents_burn_share/backtest/table/0/mae` = 0.171: error of naive at 30 days over 14 origins (skill 0)
+- `raw/forecast.json#/series/intents_burn_share/backtest/table/1/mae` = 0.295: error of naive at 60 days over 12 origins (skill 0)
+- `raw/forecast.json#/series/intents_burn_share/backtest/table/2/mae` = 0.264: error of naive at 90 days over 10 origins (skill 0)
+- `raw/forecast.json#/series/intents_burn_share/horizons/0/central` = 0.105: forecast at +90 days (2027-02-11)
+- `raw/forecast.json#/series/intents_burn_share/horizons/0/band80/0` = 0.0718: eighty percent band, lower
+- `raw/forecast.json#/series/intents_burn_share/horizons/0/band80/1` = 0.151: eighty percent band, upper
+- `raw/forecast.json#/series/intents_burn_share/horizons/0/band50/0` = 0.0794: fifty percent band, lower
+- `raw/forecast.json#/series/intents_burn_share/horizons/0/band50/1` = 0.138: fifty percent band, upper
+- `raw/forecast.json#/series/intents_burn_share/horizons/1/central` = 0.105: forecast at +180 days (2027-05-12), extrapolation
+- `raw/forecast.json#/series/intents_burn_share/horizons/1/band80/0` = 0.0640: eighty percent band, lower
+- `raw/forecast.json#/series/intents_burn_share/horizons/1/band80/1` = 0.168: eighty percent band, upper
+- `raw/forecast.json#/series/intents_burn_share/horizons/1/band50/0` = 0.0769: fifty percent band, lower
+- `raw/forecast.json#/series/intents_burn_share/horizons/1/band50/1` = 0.142: fifty percent band, upper
+- `raw/forecast.json#/series/intents_burn_share/horizons/2/central` = 0.105: forecast at +365 days (2027-11-13), extrapolation
+- `raw/forecast.json#/series/intents_burn_share/horizons/2/band80/0` = 0.0515: eighty percent band, lower
+- `raw/forecast.json#/series/intents_burn_share/horizons/2/band80/1` = 0.203: eighty percent band, upper
+- `raw/forecast.json#/series/intents_burn_share/horizons/2/band50/0` = 0.0671: fifty percent band, lower
+- `raw/forecast.json#/series/intents_burn_share/horizons/2/band50/1` = 0.161: fifty percent band, upper
+- `raw/forecast.json#/series/intents_burn_share/checkpoints/0/central` = 0.105: checkpoint 2027-02-13: forecast
+- `raw/forecast.json#/series/intents_burn_share/checkpoints/0/band80/0` = 0.0718: checkpoint 2027-02-13: eighty percent lower
+- `raw/forecast.json#/series/intents_burn_share/checkpoints/0/band80/1` = 0.151: checkpoint 2027-02-13: eighty percent upper
+- `raw/forecast.json#/series/intents_burn_share/checkpoints/1/central` = 0.105: checkpoint 2027-05-13: forecast
+- `raw/forecast.json#/series/intents_burn_share/checkpoints/1/band80/0` = 0.0639: checkpoint 2027-05-13: eighty percent lower
+- `raw/forecast.json#/series/intents_burn_share/checkpoints/1/band80/1` = 0.168: checkpoint 2027-05-13: eighty percent upper
+- `raw/forecast.json#/series/intents_burn_share/checkpoints/2/central` = 0.105: checkpoint 2027-11-13: forecast
+- `raw/forecast.json#/series/intents_burn_share/checkpoints/2/band80/0` = 0.0515: checkpoint 2027-11-13: eighty percent lower
+- `raw/forecast.json#/series/intents_burn_share/checkpoints/2/band80/1` = 0.203: checkpoint 2027-11-13: eighty percent upper
+
+## User-paid spread, stablecoin to stablecoin (basis points) (spread_bps_stable; unit: basis points of swapped USD)
+
+- `raw/forecast.json#/series/spread_bps_stable/last30` = 13.0: last thirty-day average (30 observed days)
+- model used: naive (lowest mean absolute error at 90 days over 10 origins (ties go to the simpler model)); verdict FORECAST_LOW_SKILL
+- `raw/forecast.json#/series/spread_bps_stable/skill90` = 0: skill against naive at the longest scored horizon (fraction; 0.1 = ten percent better)
+- `raw/forecast.json#/series/spread_bps_stable/calibration/pooledLeaveOneOut80` = 0.722: share of backtest points inside the eighty percent band when each origin is left out (rank-driven, near three quarters by construction)
+- `raw/forecast.json#/series/spread_bps_stable/calibration/pooledForward80` = 0.833: share inside the eighty percent band in the time-ordered check that uses only earlier origins (used for the verdict)
+- `raw/forecast.json#/series/spread_bps_stable/calibration/pooledInSample80` = 0.778: the same, in sample
+- `raw/forecast.json#/series/spread_bps_stable/backtest/table/0/mae` = 0.0988: error of naive at 30 days over 14 origins (skill 0)
+- `raw/forecast.json#/series/spread_bps_stable/backtest/table/1/mae` = 0.154: error of naive at 60 days over 12 origins (skill 0)
+- `raw/forecast.json#/series/spread_bps_stable/backtest/table/2/mae` = 0.116: error of naive at 90 days over 10 origins (skill 0)
+- `raw/forecast.json#/series/spread_bps_stable/horizons/0/central` = 11.2: forecast at +90 days (2027-02-11)
+- `raw/forecast.json#/series/spread_bps_stable/horizons/0/band80/0` = 8.99: eighty percent band, lower
+- `raw/forecast.json#/series/spread_bps_stable/horizons/0/band80/1` = 13.9: eighty percent band, upper
+- `raw/forecast.json#/series/spread_bps_stable/horizons/0/band50/0` = 9.75: fifty percent band, lower
+- `raw/forecast.json#/series/spread_bps_stable/horizons/0/band50/1` = 12.8: fifty percent band, upper
+- `raw/forecast.json#/series/spread_bps_stable/horizons/1/central` = 11.2: forecast at +180 days (2027-05-12), extrapolation
+- `raw/forecast.json#/series/spread_bps_stable/horizons/1/band80/0` = 8.66: eighty percent band, lower
+- `raw/forecast.json#/series/spread_bps_stable/horizons/1/band80/1` = 14.4: eighty percent band, upper
+- `raw/forecast.json#/series/spread_bps_stable/horizons/1/band50/0` = 9.75: fifty percent band, lower
+- `raw/forecast.json#/series/spread_bps_stable/horizons/1/band50/1` = 12.8: fifty percent band, upper
+- `raw/forecast.json#/series/spread_bps_stable/horizons/2/central` = 11.2: forecast at +365 days (2027-11-13), extrapolation
+- `raw/forecast.json#/series/spread_bps_stable/horizons/2/band80/0` = 7.77: eighty percent band, lower
+- `raw/forecast.json#/series/spread_bps_stable/horizons/2/band80/1` = 16.1: eighty percent band, upper
+- `raw/forecast.json#/series/spread_bps_stable/horizons/2/band50/0` = 9.42: fifty percent band, lower
+- `raw/forecast.json#/series/spread_bps_stable/horizons/2/band50/1` = 13.2: fifty percent band, upper
+- `raw/forecast.json#/series/spread_bps_stable/checkpoints/0/central` = 11.2: checkpoint 2027-02-13: forecast
+- `raw/forecast.json#/series/spread_bps_stable/checkpoints/0/band80/0` = 8.99: checkpoint 2027-02-13: eighty percent lower
+- `raw/forecast.json#/series/spread_bps_stable/checkpoints/0/band80/1` = 13.9: checkpoint 2027-02-13: eighty percent upper
+- `raw/forecast.json#/series/spread_bps_stable/checkpoints/1/central` = 11.2: checkpoint 2027-05-13: forecast
+- `raw/forecast.json#/series/spread_bps_stable/checkpoints/1/band80/0` = 8.65: checkpoint 2027-05-13: eighty percent lower
+- `raw/forecast.json#/series/spread_bps_stable/checkpoints/1/band80/1` = 14.4: checkpoint 2027-05-13: eighty percent upper
+- `raw/forecast.json#/series/spread_bps_stable/checkpoints/2/central` = 11.2: checkpoint 2027-11-13: forecast
+- `raw/forecast.json#/series/spread_bps_stable/checkpoints/2/band80/0` = 7.77: checkpoint 2027-11-13: eighty percent lower
+- `raw/forecast.json#/series/spread_bps_stable/checkpoints/2/band80/1` = 16.1: checkpoint 2027-11-13: eighty percent upper
+
+## NEAR burnt per day by the Intents contracts (narrow contract set) (intents_burn_near; unit: NEAR)
+
+- `raw/forecast.json#/series/intents_burn_near/last30` = 76.5: last thirty-day average (30 observed days)
+- model used: naive (lowest mean absolute error at 90 days over 10 origins (ties go to the simpler model)); verdict FORECAST_LOW_SKILL
+- `raw/forecast.json#/series/intents_burn_near/skill90` = 0: skill against naive at the longest scored horizon (fraction; 0.1 = ten percent better)
+- `raw/forecast.json#/series/intents_burn_near/calibration/pooledLeaveOneOut80` = 0.750: share of backtest points inside the eighty percent band when each origin is left out (rank-driven, near three quarters by construction)
+- `raw/forecast.json#/series/intents_burn_near/calibration/pooledForward80` = 0.333: share inside the eighty percent band in the time-ordered check that uses only earlier origins (used for the verdict)
+- `raw/forecast.json#/series/intents_burn_near/calibration/pooledInSample80` = 0.778: the same, in sample
+- `raw/forecast.json#/series/intents_burn_near/backtest/table/0/mae` = 0.107: error of naive at 30 days over 14 origins (skill 0)
+- `raw/forecast.json#/series/intents_burn_near/backtest/table/1/mae` = 0.178: error of naive at 60 days over 12 origins (skill 0)
+- `raw/forecast.json#/series/intents_burn_near/backtest/table/2/mae` = 0.210: error of naive at 90 days over 10 origins (skill 0)
+- `raw/forecast.json#/series/intents_burn_near/horizons/0/central` = 90.9: forecast at +90 days (2027-02-11)
+- `raw/forecast.json#/series/intents_burn_near/horizons/0/band80/0` = 61.0: eighty percent band, lower
+- `raw/forecast.json#/series/intents_burn_near/horizons/0/band80/1` = 135: eighty percent band, upper
+- `raw/forecast.json#/series/intents_burn_near/horizons/0/band50/0` = 76.4: fifty percent band, lower
+- `raw/forecast.json#/series/intents_burn_near/horizons/0/band50/1` = 108: fifty percent band, upper
+- `raw/forecast.json#/series/intents_burn_near/horizons/1/central` = 90.9: forecast at +180 days (2027-05-12), extrapolation
+- `raw/forecast.json#/series/intents_burn_near/horizons/1/band80/0` = 51.7: eighty percent band, lower
+- `raw/forecast.json#/series/intents_burn_near/horizons/1/band80/1` = 159: eighty percent band, upper
+- `raw/forecast.json#/series/intents_burn_near/horizons/1/band50/0` = 72.3: fifty percent band, lower
+- `raw/forecast.json#/series/intents_burn_near/horizons/1/band50/1` = 114: fifty percent band, upper
+- `raw/forecast.json#/series/intents_burn_near/horizons/2/central` = 90.9: forecast at +365 days (2027-11-13), extrapolation
+- `raw/forecast.json#/series/intents_burn_near/horizons/2/band80/0` = 40.6: eighty percent band, lower
+- `raw/forecast.json#/series/intents_burn_near/horizons/2/band80/1` = 202: eighty percent band, upper
+- `raw/forecast.json#/series/intents_burn_near/horizons/2/band50/0` = 65.6: fifty percent band, lower
+- `raw/forecast.json#/series/intents_burn_near/horizons/2/band50/1` = 126: fifty percent band, upper
+- `raw/forecast.json#/series/intents_burn_near/checkpoints/0/central` = 90.9: checkpoint 2027-02-13: forecast
+- `raw/forecast.json#/series/intents_burn_near/checkpoints/0/band80/0` = 60.7: checkpoint 2027-02-13: eighty percent lower
+- `raw/forecast.json#/series/intents_burn_near/checkpoints/0/band80/1` = 136: checkpoint 2027-02-13: eighty percent upper
+- `raw/forecast.json#/series/intents_burn_near/checkpoints/1/central` = 90.9: checkpoint 2027-05-13: forecast
+- `raw/forecast.json#/series/intents_burn_near/checkpoints/1/band80/0` = 51.6: checkpoint 2027-05-13: eighty percent lower
+- `raw/forecast.json#/series/intents_burn_near/checkpoints/1/band80/1` = 160: checkpoint 2027-05-13: eighty percent upper
+- `raw/forecast.json#/series/intents_burn_near/checkpoints/2/central` = 90.9: checkpoint 2027-11-13: forecast
+- `raw/forecast.json#/series/intents_burn_near/checkpoints/2/band80/0` = 40.6: checkpoint 2027-11-13: eighty percent lower
+- `raw/forecast.json#/series/intents_burn_near/checkpoints/2/band80/1` = 202: checkpoint 2027-11-13: eighty percent upper
+
 ## F1 Intents transactions per day (intents_tx; unit: transactions)
 
 - `raw/forecast.json#/series/intents_tx/last30` = 90,244: last thirty-day average (30 observed days)
@@ -317,23 +461,23 @@ Last full day 2026-11-13; forecasts are thirty-day averages ending on the stated
 - `raw/forecast.json#/derived/crossover/last30B` = 100,345: last30B
 - `raw/forecast.json#/derived/crossover/centralHorizon` = 297: centralHorizon
 - `raw/forecast.json#/derived/crossover/within6Months` = 0.675: within6Months
-- `raw/forecast.json#/derived/crossover/within12Months` = 0.815: within12Months
-- `raw/forecast.json#/derived/crossover/aboveAt6Months` = 0.487: aboveAt6Months
-- `raw/forecast.json#/derived/crossover/aboveAt12Months` = 0.597: aboveAt12Months
+- `raw/forecast.json#/derived/crossover/within12Months` = 0.821: within12Months
+- `raw/forecast.json#/derived/crossover/aboveAt6Months` = 0.502: aboveAt6Months
+- `raw/forecast.json#/derived/crossover/aboveAt12Months` = 0.602: aboveAt12Months
 - `raw/forecast.json#/derived/crossover/centralDate` = 2027-09-06: centralDate
-- `raw/forecast.json#/derived/crossover/medianDate` = 2027-01-31: medianDate
+- `raw/forecast.json#/derived/crossover/medianDate` = 2027-01-29: medianDate
 - `raw/forecast.json#/derived/crossover/p10Date` = 2026-11-22: p10Date
-- `raw/forecast.json#/derived/crossover/p90Date` = 2027-07-10: p90Date
+- `raw/forecast.json#/derived/crossover/p90Date` = 2027-07-06: p90Date
 - already above at the last day: false
 
 ## Derived: settled volume over the next twelve months (USD)
 
 - `raw/forecast.json#/derived/intents_usd_12m/centralTotal` = 15,091,856,744: centralTotal
-- `raw/forecast.json#/derived/intents_usd_12m/p10` = 6,164,583,159: p10
-- `raw/forecast.json#/derived/intents_usd_12m/p25` = 9,467,636,611: p25
-- `raw/forecast.json#/derived/intents_usd_12m/p50` = 16,146,849,602: p50
-- `raw/forecast.json#/derived/intents_usd_12m/p75` = 31,359,906,103: p75
-- `raw/forecast.json#/derived/intents_usd_12m/p90` = 56,022,881,787: p90
+- `raw/forecast.json#/derived/intents_usd_12m/p10` = 6,168,170,912: p10
+- `raw/forecast.json#/derived/intents_usd_12m/p25` = 9,413,858,843: p25
+- `raw/forecast.json#/derived/intents_usd_12m/p50` = 16,230,525,895: p50
+- `raw/forecast.json#/derived/intents_usd_12m/p75` = 29,387,899,879: p75
+- `raw/forecast.json#/derived/intents_usd_12m/p90` = 53,280,602,963: p90
 - `raw/forecast.json#/derived/intents_usd_12m/observedTotalLast365` = 11,592,507,973: observedTotalLast365
 - `raw/forecast.json#/derived/intents_usd_12m/observedDaysLast365` = 337: observedDaysLast365
 - `raw/forecast.json#/derived/intents_usd_12m/missingDaysLast365` = 28: missingDaysLast365
@@ -343,15 +487,25 @@ Last full day 2026-11-13; forecasts are thirty-day averages ending on the stated
 ## Derived: stable-to-stable share crossing one half
 
 - `raw/forecast.json#/derived/stable_share_threshold/last30` = 0.327: last30
-- `raw/forecast.json#/derived/stable_share_threshold/within6Months` = 0.472: within6Months
-- `raw/forecast.json#/derived/stable_share_threshold/within12Months` = 0.625: within12Months
-- `raw/forecast.json#/derived/stable_share_threshold/medianDate` = 2027-02-16: median simulated crossing date
+- `raw/forecast.json#/derived/stable_share_threshold/within6Months` = 0.501: within6Months
+- `raw/forecast.json#/derived/stable_share_threshold/within12Months` = 0.631: within12Months
+- `raw/forecast.json#/derived/stable_share_threshold/medianDate` = 2027-02-07: median simulated crossing date
 
 ## Derived: NEAR burnt by the Intents contracts (needs the fee inputs) and the toll split
 
-- not computed: the fee inputs do not provide the NEAR burnt by the Intents contracts yet
+- `raw/forecast.json#/derived/intents_burn_near_12m/centralTotal` = 33,183: centralTotal (NEAR)
+- `raw/forecast.json#/derived/intents_burn_near_12m/p10` = 17,400: p10 (NEAR)
+- `raw/forecast.json#/derived/intents_burn_near_12m/p90` = 98,319: p90 (NEAR)
+- `raw/forecast.json#/derived/intents_burn_near_12m/usdAtLastClose/central` = 113,476: central (USD at the fixed last close)
+- `raw/forecast.json#/derived/intents_burn_near_12m/usdAtLastClose/p10` = 59,502: p10 (USD at the fixed last close)
+- `raw/forecast.json#/derived/intents_burn_near_12m/usdAtLastClose/p90` = 336,222: p90 (USD at the fixed last close)
 - `raw/forecast.json#/derived/lastClose/usdPerNear` = 3.42: last NEAR close used for every USD figure of NEAR burnt (price held fixed, not a forecast)
-- not computed: no take-rate or spread series from the fee inputs
+- `raw/forecast.json#/derived/toll_split/rows/0/centsPer100Usd/last30` = 0.0918: cents per 100 USD settled to: NEAR burnt as gas by the Intents contracts (last thirty days)
+- `raw/forecast.json#/derived/toll_split/rows/0/centsPer100Usd/plus365/central` = 0.0808: the same, forecast in 365 days
+- `raw/forecast.json#/derived/toll_split/rows/1/centsPer100Usd/last30` = 47.8: cents per 100 USD settled to: integrator app fees (part of the spread) (last thirty days)
+- `raw/forecast.json#/derived/toll_split/rows/1/centsPer100Usd/plus365/central` = 56.9: the same, forecast in 365 days
+- `raw/forecast.json#/derived/toll_split/rows/2/centsPer100Usd/last30` = 59.4: cents per 100 USD settled to: user-paid spread, all routes (includes the app fees) (last thirty days)
+- `raw/forecast.json#/derived/toll_split/rows/2/centsPer100Usd/plus365/central` = 64.5: the same, forecast in 365 days
 
 ## Break on 2026-04-02 and the head accounts
 
@@ -559,6 +713,11 @@ Last full day 2026-11-13; forecasts are thirty-day averages ending on the stated
 - `raw/manifest.json#/bigQueryQueries/1/bytesBilled` = 37,705,744,384: account_scan_daily: bytes billed
 - `raw/manifest.json#/internalChecks/organicEqualsHeadPlusTail/daysEqual` = 369: days on which organic = head + tail exactly
 
-## Fee inputs
+## Fee inputs found
 
-- thesis/raw/fees/manifest.json does not exist yet: no toll-booth number is available; rebuild when it appears.
+- series take_rate_gas bound from fees/fees_take_rate_gas_daily
+- series intents_burn_near bound from fees/fees_intents_daily
+- series total_burn_near bound from fees/fees_total_daily
+- series spread_bps_stable bound from fees/toll_daily
+- series spread_bps_all bound from fees/toll_daily
+- series app_fee_bps bound from fees/toll_daily

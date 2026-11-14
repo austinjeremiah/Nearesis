@@ -1,32 +1,32 @@
 {
   "schema": "nearesis.thesis.hashes.v1",
-  "version": "v-382a7fb1735a",
+  "version": "v-bb9e31a06bb9",
   "generatedAt": "2026-11-14T10:12:49.255Z",
   "files": [
     {
       "path": "build/THESIS.md",
-      "sha256": "7ba06d2bf39d6be8af13bcc31086517822ca98871a177fdebeae463e9a887c75",
-      "bytes": 75099
+      "sha256": "3286331f838ec92dfa0bec6377a35a10db45ff2d147181484f548370d64f4c2e",
+      "bytes": 99831
     },
     {
       "path": "build/site/index.html",
-      "sha256": "2125b9ae239db207bf1363a85019ba3784b631d3ddcbb0276661a1e1bf7f53ce",
-      "bytes": 465820
+      "sha256": "ce9ba842147e333d954bf089b582ff99a934d3826cab36583772269b83628860",
+      "bytes": 580607
     },
     {
       "path": "build/FACTS.md",
-      "sha256": "67d2f35b036c46579672cc312435d3e4b36d07c37e98334a3f0435b1021f9038",
-      "bytes": 60040
+      "sha256": "716a9100cb1af3a7789018cb64e58ecbb0d94b9dfc120cefea28f00f4d8d5872",
+      "bytes": 77906
     },
     {
       "path": "raw/forecast.json",
-      "sha256": "27c5b851ea433ce9095da15093cce33a34350ddf9a099ce1a421ce22df701feb",
-      "bytes": 358745
+      "sha256": "6bbf9c037e0713e227774b7b8e3680e4226b5618a3657ee235a30cf972400a88",
+      "bytes": 636192
     },
     {
       "path": "build/thesis.json",
-      "sha256": "5873dcd39ca25b6323aaa0c458c7a2f57b9425d1fd72a3ee6e669462cabeb9f7",
-      "bytes": 1370481
+      "sha256": "83f852299a380d62001ed78324be1cee555e0f20b1ba6cb48ae68a2a059971be",
+      "bytes": 1657979
     }
   ],
   "inputs": [
@@ -40,7 +40,7 @@
     },
     {
       "path": "thesis/interpretation.md",
-      "sha256": "1b9b5ee8f0fd34b6ad71a9494cb9088df933ddd9d884cce91261c4260078ac22"
+      "sha256": "3e4727c32afb632346fbf4b94411ae14dbfafbc6154b2fa8e76f77cfd5d4c227"
     },
     {
       "path": "thesis/raw/asset_sets.json",
@@ -61,6 +61,46 @@
     {
       "path": "thesis/raw/excursion_routes.json",
       "sha256": "075ec1f2e76ea01bb0e67a18b85df4383fdf8e534b684ae53f3560749efc50d0"
+    },
+    {
+      "path": "thesis/raw/fees/FEE_MODEL.md",
+      "sha256": "464544955fae9772a7b4bf4ea3a1f8477ac9376105673cd47800ccb258461000"
+    },
+    {
+      "path": "thesis/raw/fees/NOTES.md",
+      "sha256": "9a1138fda1217e1682375b943ef6f23552ca11c0b8563c3a3dbf87a1338de0e2"
+    },
+    {
+      "path": "thesis/raw/fees/fees_by_receiver_top.json",
+      "sha256": "f79e1118bbcd29f4725df402437976b4fbb085f67ffe23d9b74bbbc6e323e4ee"
+    },
+    {
+      "path": "thesis/raw/fees/fees_footprint_discovery.json",
+      "sha256": "a109bb92143d8d8e8f0fde1c74c816ea450aaddc486228029ca7f1e956c6448b"
+    },
+    {
+      "path": "thesis/raw/fees/fees_intents_daily.json",
+      "sha256": "34fef154f814230940b7ef4cda370dd8b8bdec3b416a447ab48b78de558f1a51"
+    },
+    {
+      "path": "thesis/raw/fees/fees_take_rate_gas_daily.json",
+      "sha256": "91054feb0ab66cb6a7ed3a34556b586b03241325cdc7f78b62cd2ec03d9f9c5a"
+    },
+    {
+      "path": "thesis/raw/fees/fees_total_daily.json",
+      "sha256": "e0fa88d8735d2152e4723d484c0f2c985673f614be398841fa4d8623a465e73a"
+    },
+    {
+      "path": "thesis/raw/fees/manifest.json",
+      "sha256": "12bbc01cf67061bda8838d1dff6f71702d4a82b10be602adaf5b79b6860326f2"
+    },
+    {
+      "path": "thesis/raw/fees/toll_daily.json",
+      "sha256": "a206d28eacc7455533e87cca0858deb1b542b40c1de381a06c39c3d3fe0a1650"
+    },
+    {
+      "path": "thesis/raw/fees/tx_fee_intents_daily.json",
+      "sha256": "e3b321a309cb70a84618d4046ceb85a5505d8beeb7f4ea8e01de487280e7fdc1"
     },
     {
       "path": "thesis/raw/head_accounts_break.json",

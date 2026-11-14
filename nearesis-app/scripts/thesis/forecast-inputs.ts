@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { sha256Hex } from "../../packages/plugin-sdk/src/canonical.ts";
 import { eachDay } from "./data-lib.ts";
-import { FEE_BINDINGS, TOP_PAYERS_ID } from "./fees-bindings.ts";
+import { FEE_BINDINGS, TOP_PAYERS_ID, TOP_PAYERS_SCOPE } from "./fees-bindings.ts";
 import type { SeriesInput, Transform } from "./forecast.ts";
 import type { Json } from "./ground.ts";
 import type { InputFile, Manifest, ManifestDataset, RawFile } from "./inputs.ts";
@@ -345,16 +345,24 @@ export function loadForecastInputs(thesisDir: string): ForecastInputs {
     }
     for (const [ds, r] of fees.datasets) {
       if (!TOP_PAYERS_ID.test(ds) || fees.topPayers) continue;
-      const strCol = r.columns.findIndex((c) => c.type === "string");
-      const numCol = r.columns.findIndex((c, i) => i !== strCol && c.type !== "date" && c.type !== "string");
-      if (strCol >= 0 && numCol >= 0)
+      // a ranked table: the account column and its NEAR amount; a table with a scope column keeps the whole-window rows
+      const scopeCol = r.columns.findIndex((c) => c.name === "scope");
+      const named = r.columns.findIndex((c) => c.name === "account");
+      const strCol = named >= 0 ? named : r.columns.findIndex((c, i) => i !== scopeCol && c.type === "string");
+      const nearCol = r.columns.findIndex((c) => c.name === "tokens_burnt_near");
+      const numCol =
+        nearCol >= 0
+          ? nearCol
+          : r.columns.findIndex((c, i) => i !== strCol && i !== scopeCol && c.type !== "date" && c.type !== "string");
+      const rows = scopeCol >= 0 ? r.rows.filter((x) => String(x[scopeCol]) === TOP_PAYERS_SCOPE) : r.rows;
+      if (strCol >= 0 && numCol >= 0 && rows.length)
         fees.topPayers = {
           id: ds,
           file: `raw/fees/${ds}.json`,
           nameCol: strCol,
           valueCol: numCol,
-          names: r.rows.map((x) => String(x[strCol])),
-          values: r.rows.map((x) => String(x[numCol])),
+          names: rows.map((x) => String(x[strCol])),
+          values: rows.map((x) => String(x[numCol])),
         };
     }
   } else {

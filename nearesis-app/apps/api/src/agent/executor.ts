@@ -1,5 +1,9 @@
-import { KernelError } from "@nearesis/kernel";
+import { CreditsExhausted, KernelError, exhaustedDetails, usdNumberToMicro } from "@nearesis/kernel";
 import type { Db, Tx } from "@nearesis/kernel";
+import type { AssistantModelPort } from "@nearesis/workflow";
+import { chargeModelUsd, usdCreditsOf } from "../usd-credits-api.ts";
+import { lockPlan } from "./test-plan.ts";
+import type { TaskTestPlan } from "./test-plan.ts";
 import { ApiError, call } from "./api-client.ts";
 import type { AgentApi, AgentUser } from "./api-client.ts";
 import { AgentStore } from "./store.ts";
@@ -15,6 +19,8 @@ export interface ExecutorDeps {
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
   limits?: Partial<Limits>;
+  /** The model a step may call (one call, to resolve the two series of the test plan); charged to the user's credits. */
+  model?: (user: AgentUser) => Promise<AssistantModelPort>;
   /** Called when a task finishes `completed`: post the summary message into the thread. */
   onCompleted?: (
     user: AgentUser,
@@ -34,6 +40,13 @@ const stepErrorOf = (e: unknown): StepError => {
       ...(e.details ? { details: e.details } : {}),
     };
   if (e instanceof ApiError) return e.toStepError();
+  if (e instanceof CreditsExhausted)
+    return {
+      reasonCode: e.reasonCode,
+      message: e.message,
+      retryable: false,
+      details: exhaustedDetails(e.facts),
+    };
   if (e instanceof KernelError)
     return {
       reasonCode: e.reasonCode,
@@ -91,6 +104,7 @@ export class Executor {
     step: StepRow,
     ctx: TaskCtx,
     startedAtMs: number,
+    testPlan: TaskTestPlan | null = null,
   ): Env {
     const ctxU = userOf(user);
     const store = this.d.store;
@@ -114,6 +128,7 @@ export class Executor {
       attempt: Number((step.params as { _attempt?: number })._attempt ?? 0),
       params: Object.fromEntries(Object.entries(step.params).filter(([k]) => !k.startsWith("_"))),
       ctx,
+      testPlan,
       startedAtMs,
       now: this.now,
       sleep: this.sleep,
@@ -178,6 +193,18 @@ export class Executor {
           add(tx, onChain ? "0" : c.amount, onChain ? 0 : (c.calls ?? 0), onChain ? c.amount : "0"),
         );
       },
+      model: this.d.model ? async () => this.d.model!(user) : null,
+      chargeModel: async (usd, calls, label) => {
+        if (!(usd > 0) || usdNumberToMicro(usd) <= 0n) return;
+        await chargeModelUsd(this.d.db, ctxU, usd, {
+          refKind: "agent_step",
+          refId: `${taskId}:${step.idx}:${label}`,
+          detail: { step: step.key, label, modelCalls: calls },
+        });
+      },
+      requireCredits: async () => {
+        await usdCreditsOf(this.d.db).require(ctxU);
+      },
       setHeld: async (usd) => {
         await store.inTx(ctxU, (tx) =>
           tx.query("UPDATE agent_tasks SET credits_held_usd = $2 WHERE id = $1", [taskId, usd]),
@@ -217,7 +244,15 @@ export class Executor {
       });
       if (!ok) return;
       const ctx: TaskCtx = { ...(raw.task.ctx ?? {}) };
-      const env = this.makeEnv(user, taskId, raw.task.thread_id, step, ctx, startedAtMs);
+      const env = this.makeEnv(
+        user,
+        taskId,
+        raw.task.thread_id,
+        step,
+        ctx,
+        startedAtMs,
+        raw.task.test_plan ?? null,
+      );
       const handler = HANDLERS[step.key];
       let outcome: Outcome;
       try {
@@ -296,11 +331,16 @@ export class Executor {
     title: string,
     steps: StepRow[],
   ): Promise<void> {
-    const items = steps.flatMap((s) =>
+    // the thesis leads: its links come first and its own summary is part of the finished message
+    const lead = [...steps].reverse().find((s) => s.key === "thesis.build" && s.state === "done");
+    const ordered = lead ? [lead, ...steps.filter((s) => s !== lead)] : steps;
+    const items = ordered.flatMap((s) =>
       (s.result?.items ?? []).map((i) => ({ ...i, label: `${s.title}: ${i.label}` })),
     );
     const result: StepResult = {
-      summary: `Finished "${title}": ${steps.filter((s) => s.state === "done").length} of ${steps.length} steps done.`,
+      summary:
+        `Finished "${title}": ${steps.filter((s) => s.state === "done").length} of ${steps.length} steps done.` +
+        (lead?.result?.summary ? ` ${lead.result.summary}` : ""),
       items: items.slice(0, 60),
     };
     const done = await this.d.store.inTx(userOf(user), async (tx) => {
@@ -318,10 +358,11 @@ export class Executor {
     const ctxU = userOf(user);
     try {
       await this.d.store.inTx(ctxU, async (tx) => {
-        const t = await tx.query<{ state: string; consent_required: Array<{ key: ConsentKey }> }>(
-          "SELECT state, consent_required FROM agent_tasks WHERE id=$1 FOR UPDATE",
-          [taskId],
-        );
+        const t = await tx.query<{
+          state: string;
+          consent_required: Array<{ key: ConsentKey }>;
+          test_plan: TaskTestPlan | null;
+        }>("SELECT state, consent_required, test_plan FROM agent_tasks WHERE id=$1 FOR UPDATE", [taskId]);
         const row = t.rows[0];
         if (!row) throw new KernelError("NOT_FOUND", "TASK_NOT_FOUND", "Task not found.");
         if (row.state !== "proposed")
@@ -336,9 +377,11 @@ export class Executor {
               details: missing.map((issue) => ({ path: "consent", issue })),
             },
           );
+        // Start locks a written test plan: the time and the hash of its canonical fields, before anything runs
+        const locked = row.test_plan ? lockPlan(row.test_plan, new Date(this.now())) : null;
         await tx.query(
-          "UPDATE agent_tasks SET state='running', consent_given=$2::jsonb, started_at=now(), current_step=0 WHERE id=$1",
-          [taskId, JSON.stringify(consent)],
+          "UPDATE agent_tasks SET state='running', consent_given=$2::jsonb, started_at=now(), current_step=0, test_plan=$3::jsonb WHERE id=$1",
+          [taskId, JSON.stringify(consent), locked ? JSON.stringify(locked) : null],
         );
       });
     } catch (e) {
@@ -515,7 +558,15 @@ export class Executor {
       const raw = await this.d.store.loadRaw(userOf(user), taskId);
       const step = raw?.steps.find((s) => s.idx === idx);
       if (!raw || !step) return;
-      const env = this.makeEnv(user, taskId, threadId, step, { ...raw.task.ctx }, this.now());
+      const env = this.makeEnv(
+        user,
+        taskId,
+        threadId,
+        step,
+        { ...raw.task.ctx },
+        this.now(),
+        raw.task.test_plan ?? null,
+      );
       env.cancelled = async () => false;
       try {
         const proof = await awaitProof(env, proofId);

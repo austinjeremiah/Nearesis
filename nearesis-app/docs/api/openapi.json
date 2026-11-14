@@ -819,7 +819,7 @@
         "tags": [
           "agent"
         ],
-        "summary": "A task with its steps, consent, estimate, costs and links",
+        "summary": "A task with its steps (each with a one-line `why`), test plan (`testPlan`, null when the plan has no investigation), consent, estimate, costs and links",
         "parameters": [
           {
             "name": "id",
@@ -1191,6 +1191,101 @@
         "responses": {
           "200": {
             "description": "Task",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agent/tasks/{id}/test-plan": {
+      "patch": {
+        "operationId": "patchAgentTasksByIdTestPlan",
+        "tags": [
+          "agent"
+        ],
+        "summary": "Edit the test plan of a PROPOSED task (owner only). Any of statement, xLabel, yLabel, relation, lagDays, expectedSign, windowDays, wouldCountAsWrong; each is validated (plain text, no numbers in the sentences, no causal or bullish wording, the two labels name different series) and a bad field is a 422 INVALID_TEST_PLAN with details [{ path, issue }]. `statement: null` clears the plan. editedByUser becomes true. 409 TEST_PLAN_LOCKED once the task has started (Start locks the plan: lockedAt and sha256 are set and never change)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchAgentTasksByIdTestPlanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task (testPlan: { statement, xLabel, yLabel, relation, lagDays, expectedSign, windowDays, wouldCountAsWrong, editedByUser, lockedAt, sha256 })",
             "x-schema-status": "untyped"
           },
           "401": {
@@ -10579,6 +10674,262 @@
         }
       }
     },
+    "/v1/theses/{id}/challenge": {
+      "post": {
+        "operationId": "postThesesByIdChallenge",
+        "tags": [
+          "thesis"
+        ],
+        "summary": "Challenge a thesis: one skeptic model call over its claim, test numbers and chart facts (uses credits)",
+        "description": "No body. Gate before the call: 402 CREDITS_EXHAUSTED when the caller's USD credits are used up, 402 GLOBAL_CEILING when the global model-spend ceiling is reached (nothing is stored then). The model's notes are untrusted: a note is kept only if every number in it matches a listed fact, it passes the wording rules and carries no advice; failing notes are dropped and counted in `droppedNotes`. The outcome is computed from the kept notes: no material note -> holds; three or more material notes, or a material alternative/measurement note about the test -> unsupported; other material notes -> weakened; a failed model call, or every note dropped -> unavailable (nothing stored as a note). The actual USD is charged once. The thesis document and its hash never change. Errors: 404 THESIS_NOT_FOUND, 429 TOO_MANY_CHALLENGES, 503 MODEL_NOT_CONFIGURED.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ challengeId, outcome: 'holds'|'weakened'|'unsupported'|'unavailable', notes: [{ text, group: 'coverage'|'window'|'measurement'|'causation'|'alternative', severity: 'minor'|'material', refs: [string] }], droppedNotes, cost: { usd, modelCalls }, by, createdAt, answer: string|null, answeredAt: ISO|null }",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/theses/{id}/challenges": {
+      "get": {
+        "operationId": "getThesesByIdChallenges",
+        "tags": [
+          "thesis"
+        ],
+        "summary": "The challenges of a thesis the caller can open (newest first)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ challenges: [{ challengeId, outcome: 'holds'|'weakened'|'unsupported'|'unavailable', notes: [{ text, group: 'coverage'|'window'|'measurement'|'causation'|'alternative', severity: 'minor'|'material', refs: [string] }], droppedNotes, cost: { usd, modelCalls }, by, createdAt, answer: string|null, answeredAt: ISO|null }] }",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/theses/{id}/challenges/{cid}/answer": {
+      "post": {
+        "operationId": "postThesesByIdChallengesByCidAnswer",
+        "tags": [
+          "thesis"
+        ],
+        "summary": "Answer a challenge as the thesis owner (editor or above; once per challenge)",
+        "description": "Only the organisation that owns the thesis (404 otherwise); the reference thesis has no owner (422 THESIS_IS_REFERENCE). A challenge with outcome `unavailable` cannot be answered (422 CHALLENGE_NOT_ANSWERABLE); an answered one cannot be answered again (422 CHALLENGE_ALREADY_ANSWERED). The wording rules apply (422 ANSWER_WORDING_REJECTED). An answer to every challenge with material notes restores the strength part `challenges_answered`.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostThesesByIdChallengesByCidAnswerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "{ challengeId, outcome: 'holds'|'weakened'|'unsupported'|'unavailable', notes: [{ text, group: 'coverage'|'window'|'measurement'|'causation'|'alternative', severity: 'minor'|'material', refs: [string] }], droppedNotes, cost: { usd, modelCalls }, by, createdAt, answer: string|null, answeredAt: ISO|null }",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-min-role": "writer"
+      }
+    },
     "/v1/theses/{id}/compare": {
       "post": {
         "operationId": "postThesesByIdCompare",
@@ -10991,7 +11342,7 @@
           "thesis"
         ],
         "summary": "Reproduce a thesis by re-executing its stored queries (deterministic; no model call, no chain call, nothing charged)",
-        "description": "Re-executes, as the caller and read-only, every stored panel query of the thesis's capsule snapshot with the SAME query definition and the SAME absolute window (never relative to today), through the same data service that produced them, under the caller's own organisation and a scope that names no workspace (the caller needs no access to the original workspace; a workspace-private source is reported as unavailable). The two verifier series are rebuilt from the SAME panels and columns the original used (no re-picking), `relationship-v1` and every chart's first, last and peak are recomputed and compared with the stored document. `match`: every compared value equal. `drift`: same verdict, n and window but some value differs. `different`: verdict, n or window differ. `incomplete`: at least one query could not be re-executed (listed in `unavailable` with the reason); the rows cover only what could be compared and nothing is guessed. Records a `reproduce` receipt on the thesis. 404 THESIS_NOT_FOUND when the thesis is not visible; 422 REFERENCE_THESIS_OFFLINE (details.commands) for the reference thesis; 503 THESIS_SNAPSHOT_UNAVAILABLE when this server does not hold the capsule.",
+        "description": "Re-executes, as the caller and read-only, every stored panel query of the thesis's capsule snapshot with the SAME query definition and the SAME absolute window (never relative to today), through the same data service that produced them, under the caller's own organisation and a scope that names no workspace (the caller needs no access to the original workspace; a workspace-private source is reported as unavailable). The two verifier series are rebuilt from the SAME panels and columns the original used (no re-picking), `relationship-v1` or `relationship-v2` (as the thesis states; v2 also recomputes the change, rank and interval numbers and the mechanical-relation check) and every chart's first, last and peak are recomputed and compared with the stored document. `match`: every compared value equal. `drift`: same verdict, n and window but some value differs. `different`: verdict, n or window differ. `incomplete`: at least one query could not be re-executed (listed in `unavailable` with the reason); the rows cover only what could be compared and nothing is guessed. Records a `reproduce` receipt on the thesis. 404 THESIS_NOT_FOUND when the thesis is not visible; 422 REFERENCE_THESIS_OFFLINE (details.commands) for the reference thesis; 503 THESIS_SNAPSHOT_UNAVAILABLE when this server does not hold the capsule.",
         "parameters": [
           {
             "name": "id",
@@ -12692,7 +13043,7 @@
           "publication"
         ],
         "summary": "Build a verifiable capsule from a COMPLETE workspace run (editor or above)",
-        "description": "Builds a real research capsule with the capsule builder from the run's panel result tables exactly as `GET /v1/workspaces/:id/panels/:hash/data` returns them (each file hashed in the snapshot, with source ids, metric versions, window and coverage). The verifier input is two aligned daily series chosen by a fixed rule: the pair of daily numeric panel columns (panel order, then column order) with the longest run of strictly consecutive shared days that have a value in both (at most the latest 4096 days; pairs with identical values are skipped), scaled exactly to integers (`unit` states the scale, for example `usd x10^6`). Metrics: `lag_pearson:7` when there are at least 9 days, `pearson`, `summary`. The capsule notes restate only the run's grounded findings whose numbers tie to cited result cells. The capsule id is deterministic from workspace and run, so a repeat returns the same capsule (200 instead of 201). `verification.wasm` is `crosschecked` only when a local wasmtime re-ran the pinned WASM, else `skipped_wasmtime_unavailable`. Errors: 404 RUN_NOT_IN_WORKSPACE, 403 INSUFFICIENT_ROLE, 422 RUN_NOT_COMPLETE, INTERPRETATION_NOT_READY, RUN_NOT_CAPSULABLE (fewer than two daily series, fewer than two shared consecutive days, or a scaled value above 1e15; the reason says which), 503 PANEL_DATA_UNAVAILABLE.",
+        "description": "Builds a real research capsule with the capsule builder from the run's panel result tables exactly as `GET /v1/workspaces/:id/panels/:hash/data` returns them (each file hashed in the snapshot, with source ids, metric versions, window and coverage). The verifier input is two aligned daily series. They are the pair named by `test` when given; otherwise the pair the question asks about (the deterministic chooser matches the words of the workspace objective against panel titles and column names, skipping pairs that are part of a whole, duplicates or ratios of each other, with at least 30 shared days); and only when neither applies the original rule (the first pair of daily numeric panel columns, panel order then column order, with the longest run of strictly consecutive shared days that have a value in both, at most the latest 4096 days, identical pairs skipped). The selection record (`run-panels.json#/selection`) holds `chosenBy`, `namedForQuestion` and the test plan; a capsule chosen by the original rule records neither. Values are scaled exactly to integers (`unit` states the scale, for example `usd_x1e6`, an id the pinned WASM verifier accepts); a series that needs more than six decimal places AND does not fit exactly (above 1e15 after scaling) is rounded half-even to six decimals first, and the rounding (decimals kept, largest absolute difference) is recorded per series in the selection record. Capsules built before these rules keep their hashes. Metrics: `lag_pearson:7` when there are at least 9 days, `pearson`, `summary`. The capsule notes restate only the run's grounded findings whose numbers tie to cited result cells. The capsule id is deterministic from workspace and run, so a repeat returns the same capsule (200 instead of 201). `verification.wasm` is `crosschecked` only when a local wasmtime re-ran the pinned WASM, else `skipped_wasmtime_unavailable`. Errors: 404 RUN_NOT_IN_WORKSPACE, 403 INSUFFICIENT_ROLE, 422 RUN_NOT_COMPLETE, INTERPRETATION_NOT_READY, TEST_PAIR_UNAVAILABLE (a named series is not a daily numeric column of the run), RUN_NOT_CAPSULABLE (fewer than two daily series, fewer than two shared consecutive days, or a scaled value above 1e15; the reason says which), 503 PANEL_DATA_UNAVAILABLE.",
         "parameters": [
           {
             "name": "id",
@@ -12728,7 +13079,7 @@
             "x-schema-status": "untyped"
           },
           "201": {
-            "description": "{ capsuleId, capsuleHash, label, title, runId, created, verifier: { x: {name, unit, points}, y: {name, unit, points}, window: {from, to}, metrics }, verification: { local, wasm, checks, notes }, selection: { rule } }",
+            "description": "{ capsuleId, capsuleHash, label, title, runId, created, verifier: { x: {name, unit, points}, y: {name, unit, points}, window: {from, to}, metrics }, verification: { local, wasm, checks, notes }, selection: { rule, chosenBy: 'planner'|'user'|'rule'|'legacy', namedForQuestion, plan: TestPlan|null, rounding } }",
             "x-schema-status": "untyped"
           },
           "401": {
@@ -21008,6 +21359,80 @@
         "x-capability": "investigation progress"
       }
     },
+    "/v1/workspaces/{id}/runs/{runId}/query-notes": {
+      "get": {
+        "operationId": "getWorkspacesByIdRunsByRunIdQueryNotes",
+        "tags": [
+          "publication"
+        ],
+        "summary": "Why each panel of a run was drawn, as the run recorded it (empty when it recorded none)",
+        "description": "Reads the composer's plan of the run: a panel has a note only when the plan entry of that panel carries a reason. Nothing is invented. `complete` is true only when every panel has one.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ runId, panels: number, notes: [{ panelTitle, why }], complete: boolean }",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/workspaces/{id}/settings": {
       "get": {
         "operationId": "getWorkspacesByIdSettings",
@@ -22056,6 +22481,102 @@
         }
       }
     },
+    "/v1/workspaces/{id}/test-plan/resolve": {
+      "post": {
+        "operationId": "postWorkspacesByIdTestPlanResolve",
+        "tags": [
+          "publication"
+        ],
+        "summary": "Find the two series a test plan names among a finished run's real daily series (no model, nothing written)",
+        "description": "Matches xLabel and yLabel against the daily numeric columns of the COMPLETE run's panels by name only: every concept word of a label (stemmed; generic words such as daily, count, total dropped) must be found in the column name or panel title and at least one in the column name; an exact match of the column wins. `resolved` (by: name) when each label matches exactly one series and the two share at least two days; `ambiguous` otherwise, with the candidate series (ids and names only, best matches first, at most 40) so the caller can propose a pair by id; `missing` when the run has no daily series or the pair shares fewer than two days. With `proposal` ({ x, y } as panel hash and column) the pair is validated against the real candidates (both exist, are different series, share days and are not mechanically related) and answered `resolved` (by: model) or `rejected` with the reason. Errors: 404 workspace or RUN_NOT_IN_WORKSPACE, 422 RUN_NOT_COMPLETE or RUN_NOT_CAPSULABLE (no result panels), 503 PANEL_DATA_UNAVAILABLE.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostWorkspacesByIdTestPlanResolveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "{ status: 'resolved', by: 'name'|'model', x: Series, y: Series } | { status: 'ambiguous', matches: { x: 'one'|'many'|'none', y }, candidates: Series[] } | { status: 'missing', missing: 'x'|'y', label, reason } | { status: 'rejected', reason }; Series = { panelHash, panelTitle, column, unit, days }",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/workspaces/{id}/theses": {
       "post": {
         "operationId": "postWorkspacesByIdTheses",
@@ -22063,7 +22584,7 @@
           "thesis"
         ],
         "summary": "Build a thesis from a COMPLETE workspace run (editor or above; deterministic, no model call)",
-        "description": "Builds a `nearesis.thesis.v1` document with the fixed `relationship-v1` rule from the run's capsule (built first when absent, idempotent) and the workspace's hypothesis, monitors, markers and OutLayer proof state. `runId` defaults to the newest COMPLETE run with a ready interpretation. A repeat with unchanged inputs returns the same thesis and version. Errors: 404 workspace, 403 INSUFFICIENT_ROLE, 422 NO_COMPLETE_RUN / RUN_NOT_COMPLETE / INTERPRETATION_NOT_READY / RUN_NOT_CAPSULABLE, 500 THESIS_BUILD_FAILED (a number without a pointer, or causal / bullish / significance wording).",
+        "description": "Builds a `nearesis.thesis.v1` document with the fixed `relationship-v2` rule from the run's capsule (built first when absent, idempotent) and the workspace's hypothesis, monitors, markers and OutLayer proof state. The pair that is tested is, in this order: `test` of the request (chosenBy user), the test plan stored with the workspace's hypothesis, the question-matching chooser (for a run whose capsule was built before tests were named), and only then the original longest-overlap rule, which the document labels \"pair chosen by rule, not named for the question\". The claim under test is the plan's sentence (`doc.hypothesis`); the older descriptive hypothesis is `doc.context.draftHypothesis`. Verdicts: SUPPORTED, MIXED, NOT_SUPPORTED, INSUFFICIENT_DATA and INVALID_TEST (the two series are mechanically related: part of a whole, duplicates, or the outcome is a ratio whose numerator is the predictor; heuristic detection). `doc.test` carries plan, pairSelection, level, change, spearman, interval {lo, hi, loPpm, hiPpm, method, blockDays, resamples, seed}, relatedness, rounding, attestation (which numbers the verifier attests and which the API recomputes) and partOfWhole; every section has `references` (the exact pointers behind its [n] markers). `runId` defaults to the newest COMPLETE run with a ready interpretation. A repeat with unchanged inputs returns the same thesis and version. Errors: 404 workspace, 403 INSUFFICIENT_ROLE, 422 NO_COMPLETE_RUN / RUN_NOT_COMPLETE / INTERPRETATION_NOT_READY / RUN_NOT_CAPSULABLE / TEST_PAIR_UNAVAILABLE, 500 THESIS_BUILD_FAILED (a number without a pointer, or causal / bullish / significance wording).",
         "parameters": [
           {
             "name": "id",
@@ -30212,6 +30733,48 @@
         ],
         "additionalProperties": false
       },
+      "PatchAgentTasksByIdTestPlanRequest": {
+        "type": "object",
+        "properties": {
+          "statement": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "xLabel": {
+            "type": "string"
+          },
+          "yLabel": {
+            "type": "string"
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "moves_with",
+              "leads"
+            ]
+          },
+          "lagDays": {
+            "type": "number"
+          },
+          "expectedSign": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "negative",
+              "either"
+            ]
+          },
+          "windowDays": {
+            "type": "number"
+          },
+          "wouldCountAsWrong": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "PatchAgentThreadsByIdRequest": {
         "type": "object",
         "properties": {
@@ -30981,6 +31544,20 @@
         ],
         "additionalProperties": false
       },
+      "PostThesesByIdChallengesByCidAnswerRequest": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      },
       "PostThesesByIdCompareRequest": {
         "type": "object",
         "properties": {
@@ -31130,12 +31707,16 @@
                 },
                 "reason": {
                   "type": "string"
+                },
+                "thresholdFrom": {
+                  "type": "string"
                 }
               },
               "required": [
                 "id",
                 "title",
-                "reason"
+                "reason",
+                "thresholdFrom"
               ],
               "additionalProperties": false
             }
@@ -31150,6 +31731,18 @@
                   },
                   "title": {
                     "type": "string"
+                  },
+                  "testPlan": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -31223,6 +31816,86 @@
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
             "description": "A COMPLETE run of this workspace with a ready interpretation"
+          },
+          "test": {
+            "description": "The two daily series to test, named by panel query hash and column (x predictor, y outcome, optional lagDays 0 to 30 meaning x leads y, optional expectedSign and statement). Used instead of the rule; the selection record says who chose it (user unless chosenBy says otherwise). A different test of the same run is a different capsule.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "object",
+                "properties": {
+                  "panelHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "column": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "panelHash",
+                  "column"
+                ],
+                "additionalProperties": false
+              },
+              "y": {
+                "type": "object",
+                "properties": {
+                  "panelHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "column": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "panelHash",
+                  "column"
+                ],
+                "additionalProperties": false
+              },
+              "lagDays": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 30
+              },
+              "expectedSign": {
+                "type": "string",
+                "enum": [
+                  "positive",
+                  "negative",
+                  "either"
+                ]
+              },
+              "chosenBy": {
+                "type": "string",
+                "enum": [
+                  "user",
+                  "planner",
+                  "rule"
+                ]
+              },
+              "statement": {
+                "type": "string",
+                "maxLength": 300,
+                "pattern": "^[\\x20-\\x7e]*$"
+              },
+              "why": {
+                "type": "string",
+                "maxLength": 600,
+                "pattern": "^[\\x20-\\x7e]*$"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -31782,6 +32455,80 @@
         ],
         "additionalProperties": false
       },
+      "PostWorkspacesByIdTestPlanResolveRequest": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "xLabel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "yLabel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "proposal": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "object",
+                "properties": {
+                  "panelHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "column": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "panelHash",
+                  "column"
+                ],
+                "additionalProperties": false
+              },
+              "y": {
+                "type": "object",
+                "properties": {
+                  "panelHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "column": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "panelHash",
+                  "column"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "runId",
+          "xLabel",
+          "yLabel"
+        ],
+        "additionalProperties": false
+      },
       "PostWorkspacesByIdThesesRequest": {
         "type": "object",
         "properties": {
@@ -31789,6 +32536,100 @@
             "type": "string",
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "test": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "object",
+                "properties": {
+                  "panelHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "column": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "panelHash",
+                  "column"
+                ],
+                "additionalProperties": false
+              },
+              "y": {
+                "type": "object",
+                "properties": {
+                  "panelHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "column": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "panelHash",
+                  "column"
+                ],
+                "additionalProperties": false
+              },
+              "lagDays": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 30
+              },
+              "expectedSign": {
+                "type": "string",
+                "enum": [
+                  "positive",
+                  "negative",
+                  "either"
+                ]
+              },
+              "chosenBy": {
+                "type": "string",
+                "enum": [
+                  "user",
+                  "planner",
+                  "rule"
+                ]
+              },
+              "statement": {
+                "type": "string",
+                "maxLength": 300,
+                "pattern": "^[\\x20-\\x7e]*$"
+              },
+              "why": {
+                "type": "string",
+                "maxLength": 600,
+                "pattern": "^[\\x20-\\x7e]*$"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "planLock": {
+            "description": "An agent task of the caller whose locked test plan this thesis tests (needs test and runId). The server reads the plan from the task and checks it: locked, hash of its canonical fields, same workspace, the task started this run, and test.statement is the plan's sentence; then doc.test.plan carries lockedAt, sha256, editedByUser and wouldCountAsWrong of the plan and Methods says it was locked before the investigation ran. 422 TEST_PLAN_LOCK_INVALID otherwise. Without planLock the plan is chosen at build and lockedAt is null.",
+            "type": "object",
+            "properties": {
+              "taskId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              }
+            },
+            "required": [
+              "taskId"
+            ],
+            "additionalProperties": false
           }
         },
         "additionalProperties": false

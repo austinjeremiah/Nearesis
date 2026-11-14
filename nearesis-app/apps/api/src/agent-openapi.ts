@@ -57,9 +57,32 @@ export const AGENT_ROUTES: RouteSpec[] = [
       ok: "{ userMessage: Message, reply: Message }",
     },
   ),
-  R("get", "/v1/agent/tasks/:id", "A task with its steps, consent, estimate, costs and links", {
-    ok: "Task",
-  }),
+  R(
+    "get",
+    "/v1/agent/tasks/:id",
+    "A task with its steps (each with a one-line `why`), test plan (`testPlan`, null when the plan has no investigation), consent, estimate, costs and links",
+    {
+      ok: "Task",
+    },
+  ),
+  R(
+    "patch",
+    "/v1/agent/tasks/:id/test-plan",
+    "Edit the test plan of a PROPOSED task (owner only). Any of statement, xLabel, yLabel, relation, lagDays, expectedSign, windowDays, wouldCountAsWrong; each is validated (plain text, no numbers in the sentences, no causal or bullish wording, the two labels name different series) and a bad field is a 422 INVALID_TEST_PLAN with details [{ path, issue }]. `statement: null` clears the plan. editedByUser becomes true. 409 TEST_PLAN_LOCKED once the task has started (Start locks the plan: lockedAt and sha256 are set and never change)",
+    {
+      body: z.strictObject({
+        statement: z.string().nullable().optional(),
+        xLabel: z.string().optional(),
+        yLabel: z.string().optional(),
+        relation: z.enum(["moves_with", "leads"]).optional(),
+        lagDays: z.number().optional(),
+        expectedSign: z.enum(["positive", "negative", "either"]).optional(),
+        windowDays: z.number().optional(),
+        wouldCountAsWrong: z.string().optional(),
+      }),
+      ok: "Task (testPlan: { statement, xLabel, yLabel, relation, lagDays, expectedSign, windowDays, wouldCountAsWrong, editedByUser, lockedAt, sha256 })",
+    },
+  ),
   R(
     "post",
     "/v1/agent/tasks/:id/start",

@@ -6,9 +6,16 @@ import { apiFixture, bearer, login, seedOrg } from "./helpers.ts";
 import type { ApiFixture } from "./helpers.ts";
 import { injectApi } from "../src/agent/api-client.ts";
 import type { AgentApi, AgentUser } from "../src/agent/api-client.ts";
-import { consentFor, validateOrder, validateStep } from "../src/agent/catalog.ts";
+import {
+  CATALOG_DOC,
+  PLAYBOOKS,
+  consentFor,
+  titleOf,
+  validateOrder,
+  validateStep,
+} from "../src/agent/catalog.ts";
 import type { PlannedStep } from "../src/agent/catalog.ts";
-import { PlannerOutput, interpret } from "../src/agent/planner.ts";
+import { AGENT_PLANNER_SYSTEM, PlannerOutput, interpret } from "../src/agent/planner.ts";
 import type { AgentService } from "../src/agent/service.ts";
 
 // ---------------------------------------------------------------- pure: plan validation and consent
@@ -43,6 +50,9 @@ describe("plan validation against the catalog", () => {
         "question.ask",
         "run.await",
         "setup.auto",
+        // every investigation ends with a thesis; the server adds the capsule it is built from
+        "capsule.build",
+        "thesis.build",
       ]);
   });
   it("turns an unknown key, an unknown param, bad JSON and a broken order into a text reply", () => {
@@ -259,7 +269,8 @@ describe("messages and planning", () => {
     expect(task).toMatchObject({ state: "proposed", consent: { given: [] } });
     expect(task.consent.required.map((c: any) => c.key)).toEqual(["spend_credits"]);
     expect(task.estimate.modelUsdMax).toBe("3.000000");
-    expect(task.steps).toHaveLength(5);
+    expect(task.steps).toHaveLength(6);
+    expect(task.steps.map((x: any) => x.key).at(-1)).toBe("thesis.build");
     const bad = await call(alice, "POST", `/v1/agent/tasks/${task.id}/start`, { consent: [] });
     expect(bad.statusCode).toBe(422);
     expect(bad.json<any>().reasonCode).toBe("CONSENT_MISSING");
@@ -943,6 +954,46 @@ describe("thesis steps: plan rules", () => {
   });
 });
 
+describe("every report is a thesis", () => {
+  it("an investigation plan without a thesis gets capsule.build and thesis.build at its end; report.build stays available", () => {
+    const d = interpret(
+      out({ steps: [step("workspace.create", { objective: "o" }), step("question.ask"), step("run.await")] }),
+      {},
+    );
+    expect(d.kind).toBe("plan");
+    if (d.kind === "plan")
+      expect(d.steps.map((s) => s.key)).toEqual([
+        "workspace.create",
+        "question.ask",
+        "run.await",
+        "capsule.build",
+        "thesis.build",
+      ]);
+    expect(CATALOG_DOC["report.build"]).toMatch(/^Workspace summary \(older format\)/);
+    expect(titleOf(S("report.build"))).toBe("Workspace summary (older format)");
+    expect(titleOf(S("thesis.build"))).toBe("Build the thesis");
+    const [investigate, fullFlow] = PLAYBOOKS.split("\n");
+    expect(investigate).toMatch(/capsule\.build, thesis\.build/);
+    expect(fullFlow).toMatch(
+      /capsule\.build, capsule\.prove \(only when asked.*thesis\.build, thesis\.publish \(only when asked/,
+    );
+    expect(`${investigate}${fullFlow}`).not.toMatch(/report\.build/);
+  });
+  it("the planner prompt says every report is a thesis that tests the asked relationship, and routes challenges", () => {
+    expect(AGENT_PLANNER_SYSTEM).toMatch(/Every report is a thesis/);
+    expect(AGENT_PLANNER_SYSTEM).toMatch(/tests the relationship the user asked about/);
+    expect(AGENT_PLANNER_SYSTEM).toMatch(/literally asks for the old workspace summary PDF/);
+    expect(AGENT_PLANNER_SYSTEM).toMatch(/workspace\.use then thesis\.challenge/);
+  });
+  it("thesis.challenge takes the thesis from context or the workspace's newest, and refuses a plan with neither", () => {
+    expect(() => validateOrder([S("thesis.challenge")], {})).toThrow();
+    expect(() =>
+      validateOrder([S("workspace.use", { workspaceId: crypto.randomUUID() }), S("thesis.challenge")], {}),
+    ).not.toThrow();
+    expect(consentFor([S("thesis.challenge")], "1")).toEqual([]);
+  });
+});
+
 describe("thesis steps: executor", () => {
   const thesisId = "thesis-aaa";
   let wsId = "";
@@ -1026,9 +1077,10 @@ describe("thesis steps: executor", () => {
     expect(bodies[`POST /v1/workspaces/${wsId}/theses`]).toEqual({});
     expect(bodies[`POST /v1/theses/${thesisId}/compare`]).toEqual({ against: "thesis-orig" });
     expect(t.steps[2].result).toMatchObject({
-      summary: expect.stringContaining("MIXED"),
+      summary: expect.stringMatching(/^The thesis is ready\. Verdict MIXED/),
       items: [
         { label: "Thesis", value: thesisId, href: `/thesis/${thesisId}` },
+        { label: "PDF", value: "Download the thesis PDF", href: `/api/thesis/${thesisId}/pdf` },
         { label: "Verdict", value: "MIXED: Same-day link is weak", href: null },
         { label: "Version", value: "v-1", href: null },
       ],
@@ -1047,6 +1099,198 @@ describe("thesis steps: executor", () => {
     ]);
     expect(t.links.thesisId).toBe(thesisId);
     expect(log).toContain(`POST /v1/theses/${thesisId}/publish`);
+    stub = null;
+  });
+
+  it("INVALID_TEST is a completed step with a clear summary, not a failed one; the finished task message leads with the thesis", async () => {
+    stub = stubWith([
+      runsStub,
+      capsuleStub,
+      (p) =>
+        is("POST", new RegExp(`/v1/workspaces/${wsId}/theses$`))(p)
+          ? {
+              status: 201,
+              body: {
+                thesisId,
+                version: "v-2",
+                status: "draft",
+                verdict: { status: "INVALID_TEST", headline: "The series are mechanically related" },
+              },
+            }
+          : null,
+    ]);
+    const id = await propose(
+      [S("workspace.use", { workspaceId: wsId }), S("capsule.build"), S("thesis.build")],
+      undefined,
+      null,
+    );
+    await call(alice, "POST", `/v1/agent/tasks/${id}/start`, { consent: [] });
+    const t = await settle(id, ["completed", "failed"]);
+    expect(t.state).toBe("completed");
+    expect(t.steps[2].state).toBe("done");
+    expect(t.steps[2].result.summary).toMatch(/^The thesis is ready\. Verdict INVALID_TEST/);
+    expect(t.steps[2].result.summary).toMatch(/mechanically related/);
+    expect(t.steps[2].title).toBe("Build the thesis");
+    stub = null;
+  });
+
+  it("a run that cannot become a capsule ends the task completed, and the thesis step says why there is no thesis", async () => {
+    stub = stubWith([
+      runsStub,
+      (p) =>
+        is("POST", /\/capsules$/)(p)
+          ? {
+              status: 422,
+              body: {
+                reasonCode: "RUN_NOT_CAPSULABLE",
+                message: "The run has fewer than two daily numeric series in its panels (found 1).",
+                retryable: false,
+              },
+            }
+          : null,
+    ]);
+    const id = await propose(
+      [S("workspace.use", { workspaceId: wsId }), S("capsule.build"), S("thesis.build")],
+      undefined,
+      null,
+    );
+    await call(alice, "POST", `/v1/agent/tasks/${id}/start`, { consent: [] });
+    const t = await settle(id, ["completed", "failed"]);
+    expect(t.state).toBe("completed");
+    expect(t.steps[1].state).toBe("done");
+    expect(t.steps[2].state).toBe("done");
+    expect(t.steps[2].result.summary).toMatch(
+      /There is no thesis for this run: .*fewer than two daily numeric series/,
+    );
+    expect(t.steps[2].result.summary).toMatch(/two daily series over the same days/);
+    expect(t.links.thesisId).toBeNull();
+    stub = null;
+  });
+
+  it("thesis.build passes the test plan the setup step drafted, as ids only", async () => {
+    const bodies: any[] = [];
+    stub = stubWith([
+      runsStub,
+      (p) =>
+        is("POST", /\/assistant\/setup$/)(p)
+          ? {
+              status: 200,
+              body: {
+                markers: [],
+                monitors: [],
+                skipped: [],
+                cost: { usd: 0, modelCalls: 0 },
+                hypothesis: {
+                  id: "5c9d5f90-4709-4c0c-8709-d9b671c1e1e4",
+                  title: "Days with higher swaps have higher refund rate.",
+                  testPlan: {
+                    x: { panel: "a".repeat(64), panelTitle: "P", column: "swaps", label: "P: swaps" },
+                    y: {
+                      panel: "a".repeat(64),
+                      panelTitle: "P",
+                      column: "refundRate",
+                      label: "P: refundRate",
+                    },
+                    relation: "moves_with",
+                    lagDays: 0,
+                    expectedSign: "positive",
+                    statement: "Days with higher swaps have higher refund rate.",
+                    chosenBy: "rule",
+                    why: "w",
+                  },
+                },
+              },
+            }
+          : null,
+      (p) =>
+        is("POST", /\/theses$/)(p)
+          ? (bodies.push(p.body),
+            {
+              status: 201,
+              body: {
+                thesisId,
+                version: "v",
+                status: "draft",
+                verdict: { status: "SUPPORTED", headline: "h" },
+              },
+            })
+          : null,
+    ]);
+    const id = await propose(
+      [
+        S("workspace.use", { workspaceId: wsId }),
+        S("setup.auto", { runId: run0 }),
+        S("thesis.build", { runId: run0 }),
+      ],
+      undefined,
+      null,
+    );
+    await call(alice, "POST", `/v1/agent/tasks/${id}/start`, { consent: [] });
+    expect((await settle(id, ["completed", "failed"])).state).toBe("completed");
+    expect(bodies).toEqual([
+      {
+        runId: run0,
+        test: {
+          x: { panelHash: "a".repeat(64), column: "swaps" },
+          y: { panelHash: "a".repeat(64), column: "refundRate" },
+          lagDays: 0,
+          expectedSign: "positive",
+          chosenBy: "rule",
+        },
+      },
+    ]);
+    stub = null;
+  });
+
+  it("thesis.challenge needs no consent, posts with no body, and reports the outcome in plain words with the kept notes", async () => {
+    const bodies: unknown[] = [];
+    stub = stubWith([
+      (p) =>
+        is("POST", new RegExp(`/v1/theses/${thesisId}/challenge$`))(p)
+          ? (bodies.push(p.body),
+            {
+              status: 200,
+              body: {
+                challengeId: "c1",
+                outcome: "weakened",
+                notes: [{ text: "The pair may share a trend.", group: "alternative", severity: "material" }],
+                droppedNotes: 0,
+              },
+            })
+          : null,
+    ]);
+    const id = await propose([S("thesis.challenge", { thesisId })], undefined, null);
+    expect((await taskOf(id)).consent.required).toEqual([]);
+    await call(alice, "POST", `/v1/agent/tasks/${id}/start`, { consent: [] });
+    const t = await settle(id, ["completed", "failed"]);
+    expect(t.state).toBe("completed");
+    expect(bodies).toEqual([undefined]);
+    expect(t.steps[0].result.summary).toBe("The thesis is weakened by the challenge.");
+    expect(t.steps[0].result.items).toEqual([
+      { label: "Thesis", value: thesisId, href: `/thesis/${thesisId}` },
+      { label: "alternative (material)", value: "The pair may share a trend.", href: null },
+    ]);
+    stub = null;
+  });
+
+  it("a challenge refused for credits is a non-retryable failed step", async () => {
+    stub = stubWith([
+      (p) =>
+        is("POST", new RegExp(`/v1/theses/${thesisId}/challenge$`))(p)
+          ? {
+              status: 402,
+              body: { reasonCode: "CREDITS_EXHAUSTED", message: "No credits left.", retryable: false },
+            }
+          : null,
+    ]);
+    const id = await propose([S("thesis.challenge", { thesisId })], undefined, null);
+    await call(alice, "POST", `/v1/agent/tasks/${id}/start`, { consent: [] });
+    const t = await settle(id, ["completed", "failed"]);
+    expect(t.state).toBe("failed");
+    expect(t.steps[0]).toMatchObject({
+      state: "failed",
+      error: { reasonCode: "CREDITS_EXHAUSTED", retryable: false },
+    });
     stub = null;
   });
 

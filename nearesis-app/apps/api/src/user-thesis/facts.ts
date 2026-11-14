@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readManifest } from "@nearesis/capsule";
+import type { TestPlan } from "@nearesis/capsule";
 
 /** Everything a thesis reads from a stored capsule: its own files only (the frozen panel results, findings, verifier input and results). */
 export interface PanelIndexEntry {
@@ -16,6 +17,8 @@ export interface PanelIndexEntry {
   window: { from: string; to: string } | null;
   coverage: Record<string, unknown> | null;
   caveats: string[];
+  /** The column the canvas panel encodes as its first y, when the run recorded it. */
+  primaryColumn?: string;
 }
 export interface RunPanelsIndex {
   schema: string;
@@ -33,6 +36,15 @@ export interface RunPanelsIndex {
     truncatedToLatest: boolean;
     candidates: { panelHash: string; column: string; days: number }[];
     skippedPanels: string[];
+    /** Absent in capsules chosen by the original longest-overlap rule. */
+    chosenBy?: "planner" | "user" | "rule";
+    namedForQuestion?: boolean;
+    plan?: TestPlan | null;
+    rounding?: {
+      x?: { decimalsKept: number; maxAbsRoundingDifference: string };
+      y?: { decimalsKept: number; maxAbsRoundingDifference: string };
+      rule: string;
+    };
   };
 }
 export interface FindingFact {

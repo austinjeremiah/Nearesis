@@ -32,3 +32,4 @@ export * from "./outlayer-chain.ts";
 export * from "./outlayer-prove.ts";
 export * from "./prove-support.ts";
 export * from "./workspace-run.ts";
+export * from "./test-plan.ts";

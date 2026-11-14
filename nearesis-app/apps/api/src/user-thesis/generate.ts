@@ -1,20 +1,28 @@
-import { canonicalJson, sha256Hex } from "@nearesis/capsule";
+import { canonicalJson, concept, sha256Hex } from "@nearesis/capsule";
+import type { Relatedness, TestPlan } from "@nearesis/capsule";
 import { Ledger, fmt, scanGrounding, scanSentence } from "./ground.ts";
 import type { GroundViolation, Json } from "./ground.ts";
-import { evaluateRule, ppmText, RULE, RULE_ID, RULE_TEXT } from "./rule.ts";
+import { evaluateRuleV2, falsificationOf, ppmText, RULE_V2, RULE_V2_ID, RULE_V2_TEXT } from "./rule.ts";
 import type { RuleCode, VerdictStatus } from "./rule.ts";
+import { BOOTSTRAP } from "./stats.ts";
+import { GROUP_TITLE, NOTE_GROUPS, groupNotes, relationOfFindings } from "./evidence.ts";
+import type { NoteItem } from "./evidence.ts";
+import { numberReferences } from "./references.ts";
+import { factsPanels, planOf, recordOf, relatednessOfPlan, testNumbers } from "./evaluate.ts";
 import type { CapsuleFacts, FindingFact, PanelFile, PanelIndexEntry } from "./facts.ts";
 import { SECTION_IDS, SECTION_TITLES, UNTESTED_NOTE, validateThesisDoc } from "./validate.ts";
 import { renderThesisMarkdown } from "./render.ts";
 
 /** Bumped when the generator's output for the same inputs changes. Part of the version hash. */
-export const GENERATOR_VERSION = "user-thesis-1";
+export const GENERATOR_VERSION = "user-thesis-3";
 
 export interface HypothesisInput {
   id: string;
   status: "frozen" | "draft";
   proposition: string;
   falsification: string | null;
+  /** The test plan stored with the hypothesis (nullable: older and manually written hypotheses have none). */
+  testPlan?: TestPlan | null;
 }
 export interface MonitorBrief {
   ruleId: string;
@@ -61,6 +69,20 @@ export interface ThesisInputs {
   markers: MarkerBrief[];
   outlayer: OutlayerState | null;
   previous: PreviousThesis | null;
+  /**
+   * The test plan an agent task locked before the investigation ran (verified against the stored task by the route);
+   * absent for a thesis built outside the agent, which then records `lockedAt: null`.
+   */
+  planLock?: PlanLock | null;
+}
+/** What a locked task plan adds to the document's test plan. */
+export interface PlanLock {
+  /** ISO time the plan was locked (the task's Start). */
+  lockedAt: string;
+  /** sha256 of the canonical plan as the task stored it. */
+  sha256: string;
+  editedByUser: boolean;
+  wouldCountAsWrong: string;
 }
 
 export class ThesisBuildError extends Error {
@@ -88,7 +110,7 @@ export function thesisVersionOf(i: ThesisInputs): string {
   return `v-${sha(
     canonicalJson({
       generator: GENERATOR_VERSION,
-      rule: RULE_ID,
+      rule: RULE_V2_ID,
       capsuleId: i.facts.capsuleId,
       capsuleHash: i.facts.capsuleHash,
       runId: i.runId,
@@ -97,6 +119,8 @@ export function thesisVersionOf(i: ThesisInputs): string {
       monitors: i.monitors,
       markers: i.markers,
       outlayer: i.outlayer,
+      // only a locked plan changes the version, so every thesis built without one keeps its id
+      ...(i.planLock ? { planLock: i.planLock } : {}),
     }),
   ).slice(0, 12)}`;
 }
@@ -171,6 +195,32 @@ interface ChartBuild {
   primary: { ci: number; name: string };
 }
 
+/**
+ * The column a panel's sentence describes: the one the canvas encodes as y when the run recorded it, otherwise the column whose
+ * name shares the most words with the panel's title (a "refund rate" panel is about its refund rate column), otherwise the first.
+ */
+export function primaryOf<T extends { name: string }>(
+  series: T[],
+  title: string,
+  recorded?: string | null,
+): T {
+  if (recorded) {
+    const hit = series.find((x) => x.name === recorded);
+    if (hit) return hit;
+  }
+  const tt = new Set(concept(title));
+  let best = series[0]!;
+  let bs = 0;
+  for (const x of series) {
+    const sc = concept(x.name).filter((t) => tt.has(t)).length;
+    if (sc > bs) {
+      best = x;
+      bs = sc;
+    }
+  }
+  return best;
+}
+
 const panelFileName = (hash: string): string => `panel-${shortHash(hash)}.json`;
 
 function buildChart(
@@ -188,7 +238,8 @@ function buildChart(
   const cd = chartData(panel);
   if (!cd) return { build: null, unable: `${pe.title}: the stored result has no numeric column` };
   const { isDay, x, series } = cd;
-  const prim = series[0]!;
+  const prim = primaryOf(series, pe.title, pe.primaryColumn);
+  const isRatio = prim.unit !== null && /^(ratio|share|rate)$/i.test(prim.unit);
   const idx = prim.values.flatMap((v, i) => (v === null ? [] : [i]));
   const i0 = idx[0]!;
   const i1 = idx[idx.length - 1]!;
@@ -198,7 +249,11 @@ function buildChart(
   const xptr = (i: number): string => `/chart/rows/${i}/0`;
   const dayOf = (i: number): string =>
     isDay ? L.derived(file, "day", [xptr(i)], x[i]!) : L.s(file, xptr(i));
-  const unitFn = (): string => (prim.unit ? ` ${L.s(file, `/chart/columns/${prim.ci}/unit`)}` : "");
+  // a ratio is shown as a percent (the unit word is dropped), every other column keeps its own unit
+  const unitFn = (): string =>
+    prim.unit && !isRatio ? ` ${L.s(file, `/chart/columns/${prim.ci}/unit`)}` : "";
+  const show = (i: number): string =>
+    isRatio ? L.n(file, ptr(i), (v) => `${fmt(v * 100)}%`) : L.n(file, ptr(i));
   const sentenceFn = (): string => {
     const first = Number(prim.values[i0]);
     const last = Number(prim.values[i1]);
@@ -210,8 +265,8 @@ function buildChart(
         ? ` (${L.derived(file, "pct_change", [ptr(i0), ptr(i1)], `${fmt(((last - first) / Math.abs(first)) * 100)}%`)} change)`
         : "";
     return (
-      `${label} went from ${L.n(file, ptr(i0))}${unitFn()} on ${dayOf(i0)} to ${L.n(file, ptr(i1))}${unitFn()} on ${dayOf(i1)}${pct}, ` +
-      `with a peak of ${L.n(file, ptr(imax))}${unitFn()} on ${dayOf(imax)}.`
+      `${label} went from ${show(i0)}${unitFn()} on ${dayOf(i0)} to ${show(i1)}${unitFn()} on ${dayOf(i1)}${pct}, ` +
+      `with a peak of ${show(imax)}${unitFn()} on ${dayOf(imax)}.`
     );
   };
   const sent = L.collect(sentenceFn);
@@ -269,6 +324,7 @@ function buildChart(
     evidenceAgainst: against.text || null,
     evidenceAgainstRefs: against.text ? against.refs : [],
     x,
+    primary: prim.name,
     series: series.map((s) => ({ name: s.name, unit: s.unit, values: s.values })),
     datasetIds: [pe.hash],
     queryHash: pe.hash,
@@ -302,6 +358,7 @@ export interface ThesisDocument {
   schema: "nearesis.thesis.v1";
   version: string;
   generatedAt: string;
+  /** The claim under test: the test plan's sentence. */
   hypothesis: string;
   verdict: {
     status: VerdictStatus;
@@ -311,8 +368,11 @@ export interface ThesisDocument {
       rows: Array<{ label: string; value: string | null; unit: string | null; ref: string }>;
     };
     whatWouldChangeOurMind: string[];
+    /** Exact pointers of each item of `whatWouldChangeOurMind`, same order. */
+    whatWouldChangeOurMindRefs: string[][];
   };
-  sections: Array<{ id: string; title: string; markdown: string }>;
+  /** `references`: exact `file#pointer` of every marker `[n]` of the section's markdown (marker n is references[n - 1]). */
+  sections: Array<{ id: string; title: string; markdown: string; references: string[] }>;
   claims: Array<Record<string, unknown>>;
   charts: Array<Record<string, unknown>>;
   tables: Array<{ name: string; system: string; purpose: string; columns: string[] }>;
@@ -322,6 +382,8 @@ export interface ThesisDocument {
   files: Array<{ path: string; sha256: string; bytes?: number }>;
   grounding: { numbersChecked: number; references: number };
   origin: Record<string, unknown>;
+  /** The earlier draft hypothesis of the workspace, shown as context and never as the claim under test. */
+  context: { draftHypothesis: { status: string; proposition: string; falsification: string | null } | null };
   test: Record<string, unknown>;
   verification: Record<string, unknown>;
   monitors: MonitorBrief[];
@@ -340,6 +402,8 @@ const FILE_LOCATION: Record<string, string> = {
   "run-panels.json": "capsule snapshot/raw/run-panels.json",
   "findings.json": "capsule snapshot/raw/run-findings.json",
 };
+const abs = (v: bigint): bigint => (v < 0n ? -v : v);
+const sgn = (v: bigint): number => (v > 0n ? 1 : v < 0n ? -1 : 0);
 
 export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
   const { facts } = inp;
@@ -350,25 +414,61 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
   if (!xPanel || !yPanel)
     throw new ThesisBuildError("the capsule index names a panel that is not in the capsule");
 
-  const n = Number(facts.results.n);
-  const pearsonPpm: bigint | null =
-    facts.results.pearson_ppm == null ? null : BigInt(facts.results.pearson_ppm);
-  const lagRaw = facts.results.lag_pearson_ppm?.[String(RULE.lagDays)];
-  const lagPpm: bigint | null = lagRaw == null ? null : BigInt(lagRaw);
+  const { plan, chosenBy, named } = planOf(facts);
+  const tn = testNumbers(facts.results, facts.input, plan.lagDays, facts.capsuleHash);
+  const { stats } = tn;
+  const n = tn.n;
+  const levelPpm = tn.levelPpm;
+  if (levelPpm !== null && stats.levelPpm !== null && levelPpm !== stats.levelPpm)
+    throw new ThesisBuildError(
+      "the level correlation recomputed from the series differs from the capsule's result",
+    );
   const window = { from: facts.input.series.x.points[0]![0], to: facts.input.series.x.points.at(-1)![0] };
   const covX = coverageOf(xPanel, window);
   const covY = coverageOf(yPanel, window);
   const coverageComplete =
     covX.complete === null || covY.complete === null ? null : covX.complete && covY.complete;
-  const rule = evaluateRule({ n, pearsonPpm, lagPpm, coverageComplete });
+  const rel: Relatedness = relatednessOfPlan(factsPanels(facts), plan) ?? {
+    status: "independent",
+    code: "INDEPENDENT",
+    reason: "The two series could not be re-read from the stored panels to check for a mechanical relation.",
+    notes: [],
+    heuristic: true,
+  };
+  const iv = stats.interval;
+  const rule = evaluateRuleV2({
+    n: tn.pairs,
+    levelPpm,
+    changePpm: stats.changePpm,
+    interval: iv,
+    expectedSign: plan.expectedSign,
+    coverageComplete,
+    mechanical: rel.status === "mechanical",
+  });
   const status = rule.status;
+  const exp = plan.expectedSign === "positive" ? 1 : plan.expectedSign === "negative" ? -1 : 0;
+  const otherWay = rule.codes.includes("POINTS_OTHER_WAY");
 
   // ledger files
   const files = new Map<string, Json>();
   files.set("results.json", J(facts.results));
   files.set("run-panels.json", J(facts.index));
   files.set("findings.json", J(facts.findings));
-  files.set("rule.json", J(RULE));
+  files.set("rule.json", J(RULE_V2));
+  files.set("plan.json", J({ ...plan, namedForQuestion: named, pairChosenBy: chosenBy }));
+  files.set(
+    "stats.json",
+    J({
+      pairs: tn.pairs,
+      lagDays: plan.lagDays,
+      seed: facts.capsuleHash.slice(0, 8),
+      bootstrap: { resamples: BOOTSTRAP.resamples, blockDays: BOOTSTRAP.blockLength },
+      ...(stats.changePpm !== null ? { changePpm: stats.changePpm.toString() } : {}),
+      ...(stats.spearmanPpm !== null ? { spearmanPpm: stats.spearmanPpm.toString() } : {}),
+      ...(iv ? { interval: { loPpm: iv.loPpm.toString(), hiPpm: iv.hiPpm.toString() } } : {}),
+    }),
+  );
+  files.set("relatedness.json", J(rel));
   files.set("capsule.json", J({ id: facts.capsuleId, hash: facts.capsuleHash, label: facts.label }));
   files.set("hypothesis.json", J(inp.hypothesis ?? {}));
   files.set("monitors.json", J(inp.monitors));
@@ -378,18 +478,30 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
   const L = new Ledger(files);
 
   const R = "results.json";
-  const xName = (): string => L.s("run-panels.json", "/selection/x/column");
-  const yName = (): string => L.s("run-panels.json", "/selection/y/column");
+  const PL = "plan.json";
+  const ST = "stats.json";
+  const xName = (): string => L.s(PL, "/x/column");
+  const yName = (): string => L.s(PL, "/y/column");
   const nText = (): string => L.n(R, "/n");
   const fromTo = (): string =>
     `${L.derived(R, "window", ["/n"], window.from)} to ${L.derived(R, "window", ["/n"], window.to)}`;
-  const rText = (): string => L.n(R, "/pearson_ppm", ppmText);
-  const lagText = (): string => L.n(R, `/lag_pearson_ppm/${RULE.lagDays}`, ppmText);
-  const ruleN = (k: keyof typeof RULE, show?: (x: number) => string): string =>
+  const levelPtr = plan.lagDays > 0 ? `/lag_pearson_ppm/${plan.lagDays}` : "/pearson_ppm";
+  const lvText = (): string => L.n(R, levelPtr, ppmText);
+  const sameDayText = (): string => L.n(R, "/pearson_ppm", ppmText);
+  const lag7Text = (): string => L.n(R, `/lag_pearson_ppm/${RULE_V2.lagDays}`, ppmText);
+  const chText = (): string => L.n(ST, "/changePpm", ppmText);
+  const spText = (): string => L.n(ST, "/spearmanPpm", ppmText);
+  const loText = (): string => L.n(ST, "/interval/loPpm", ppmText);
+  const hiText = (): string => L.n(ST, "/interval/hiPpm", ppmText);
+  const pairsText = (): string => L.n(ST, "/pairs");
+  const ruleN = (k: keyof typeof RULE_V2, show?: (x: number) => string): string =>
     L.n("rule.json", `/${k}`, show);
-  const ruleP = (k: keyof typeof RULE): string => ruleN(k, ppmText);
-  const claimText = inp.hypothesis?.proposition ?? null;
+  const ruleP = (k: keyof typeof RULE_V2): string => ruleN(k, ppmText);
   const line = (fn: () => string): string => L.line(fn);
+  const planStatement = (): string => oneLine(L.s(PL, "/statement"));
+  const intervalText = (): string => `${ruleN("intervalPercent")}% interval ${loText()} to ${hiText()}`;
+  const hasChange = stats.changePpm !== null;
+  const hasInterval = iv !== null;
 
   // ---- charts
   const unable: Array<{ what: string; why: string; refs: string[] }> = [];
@@ -398,8 +510,6 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
     const r = buildChart(facts, L, pe, pi);
     if (r.build) builds.push(r.build);
     else if (r.unable) unable.push({ what: `Chart: ${r.unable.split(":")[0]}`, why: r.unable, refs: [] });
-    if (r.build && !(r.build.chart.queries as unknown[]).length)
-      unable.push({ what: "Executed query", why: "none stored", refs: [] });
   });
   for (const b of builds)
     if (String(b.chart.sqlExecuted).includes("no executed query was stored"))
@@ -409,10 +519,12 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
         refs: [],
       });
 
-  // ---- findings split
+  // ---- findings sorted against the claim (heuristic: shared words and short phrase lists)
   const fIdx = facts.findings.map((f, i) => ({ f, i }));
-  const supported = fIdx.filter((x) => x.f.status === "supported");
-  const notSupported = fIdx.filter((x) => x.f.status !== "supported");
+  const relOf = relationOfFindings(facts.findings, plan.x.column, plan.y.column, plan.expectedSign);
+  const supportingF = fIdx.filter((x) => relOf[x.i] === "supports");
+  const contradictingF = fIdx.filter((x) => relOf[x.i] === "contradicts");
+  const qualifyingF = fIdx.filter((x) => relOf[x.i] === "qualifies");
   const quoteFinding = ({ f, i }: { f: FindingFact; i: number }): string[] => {
     const out: string[] = [];
     out.push(
@@ -432,7 +544,7 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
     return out;
   };
 
-  // ---- evidence for / against lists (test numbers)
+  // ---- evidence for / against (test numbers)
   const forTests: string[] = [];
   const againstTests: string[] = [];
   const againstFns: Array<() => string> = [];
@@ -441,80 +553,124 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
     againstTests.push(line(() => `- ${fn()}`));
   };
   const addFor = (fn: () => string): void => void forTests.push(line(() => `- ${fn()}`));
-  if (pearsonPpm !== null) {
-    if (pearsonPpm >= BigInt(RULE.supportedSameDayPpm))
+  const signWord = exp === 0 ? "a" : "the expected";
+  if (rel.status === "mechanical") {
+    addAgainst(
+      () =>
+        `The two series are mechanically related, so no number below can test the claim: ${oneLine(L.s("relatedness.json", "/reason"))}`,
+    );
+  } else {
+    if (levelPpm !== null) {
+      const okSign = exp === 0 || sgn(levelPpm) === exp;
+      if (!okSign)
+        addAgainst(
+          () => `The level correlation ${lvText()} has the opposite sign to the one the plan expects.`,
+        );
+      else if (abs(levelPpm) >= BigInt(RULE_V2.supportedLevelPpm))
+        addFor(
+          () =>
+            `The level correlation ${lvText()} has ${signWord} sign and an absolute value of at least ${ruleP("supportedLevelPpm")}.`,
+        );
+      else
+        addAgainst(
+          () =>
+            `The level correlation ${lvText()} is below ${ruleP("supportedLevelPpm")} in absolute value, the level the rule needs for support.`,
+        );
+    }
+    if (hasInterval && levelPpm !== null) {
+      const excludes = iv!.loPpm > 0n || iv!.hiPpm < 0n;
+      const side = iv!.loPpm > 0n ? 1 : -1;
+      if (excludes && (exp === 0 ? side === sgn(levelPpm) : side === exp))
+        addFor(() => `The ${intervalText()} for the level correlation excludes zero.`);
+      else if (excludes)
+        addAgainst(
+          () =>
+            `The ${intervalText()} for the level correlation lies wholly on the other side of zero from the expected sign: the data point the other way.`,
+        );
+      else addAgainst(() => `The ${intervalText()} for the level correlation includes zero.`);
+    }
+    if (hasChange && levelPpm !== null) {
+      if (
+        abs(stats.changePpm!) >= BigInt(RULE_V2.supportedChangePpm) &&
+        sgn(stats.changePpm!) === sgn(levelPpm)
+      )
+        addFor(
+          () =>
+            `The correlation of day-over-day changes ${chText()} has the same sign as the level correlation and an absolute value of at least ${ruleP("supportedChangePpm")}.`,
+        );
+      else
+        addAgainst(
+          () =>
+            `The correlation of day-over-day changes ${chText()} is below ${ruleP("supportedChangePpm")} in absolute value or has the opposite sign to the level correlation, so the movement of the levels may come from trends shared by both series.`,
+        );
+    }
+    if (stats.spearmanPpm !== null && levelPpm !== null) {
+      if (
+        sgn(stats.spearmanPpm) === sgn(levelPpm) &&
+        abs(stats.spearmanPpm) >= BigInt(RULE_V2.supportedLevelPpm)
+      )
+        addFor(
+          () =>
+            `The rank (Spearman) correlation ${spText()} has the same sign as the level correlation and is at least ${ruleP("supportedLevelPpm")} in absolute value.`,
+        );
+      else if (sgn(stats.spearmanPpm) !== sgn(levelPpm))
+        addAgainst(
+          () => `The rank (Spearman) correlation ${spText()} has the opposite sign to the level correlation.`,
+        );
+    }
+    if (tn.pairs >= RULE_V2.supportedMinDays)
       addFor(
         () =>
-          `The same-day Pearson correlation ${rText()} is at least the ${ruleP("supportedSameDayPpm")} the rule needs for support.`,
+          `The series share ${pairsText()} aligned days, at least the ${ruleN("supportedMinDays")} the rule needs for support.`,
       );
     else
       addAgainst(
         () =>
-          `The same-day Pearson correlation ${rText()} is below the ${ruleP("supportedSameDayPpm")} the rule needs for support.`,
+          `The series share ${pairsText()} aligned days, fewer than the ${ruleN("supportedMinDays")} the rule needs for support.`,
       );
-    if (pearsonPpm < BigInt(RULE.notSupportedBelowPpm))
+    if (coverageComplete !== true)
       addAgainst(
         () =>
-          `The same-day Pearson correlation ${rText()} is below the ${ruleP("notSupportedBelowPpm")} floor under which the rule gives NOT_SUPPORTED.`,
+          `The coverage of the days used is ${coverageComplete === null ? "not stated" : "not complete"} for at least one of the two panels (${xName()}: ${covX.detail}; ${yName()}: ${covY.detail}).`,
       );
+    rel.notes.forEach((_, k) =>
+      addAgainst(() => `Note (heuristic check): ${oneLine(L.s("relatedness.json", `/notes/${k}`))}`),
+    );
   }
-  if (lagPpm !== null) {
-    if (lagPpm > 0n && lagPpm >= BigInt(RULE.supportedLagPpm))
-      addFor(
-        () =>
-          `The ${ruleN("lagDays")}-day-lag correlation ${lagText()} is positive and at least ${ruleP("supportedLagPpm")}.`,
-      );
-    else
-      addAgainst(
-        () =>
-          `The ${ruleN("lagDays")}-day-lag correlation ${lagText()} is not positive and at least ${ruleP("supportedLagPpm")}.`,
-      );
-  } else if (n >= RULE.supportedMinDays)
-    addAgainst(
-      () => `The ${ruleN("lagDays")}-day-lag correlation is not available for these ${nText()} days.`,
-    );
-  if (n >= RULE.supportedMinDays)
-    addFor(
-      () =>
-        `The series share ${nText()} aligned days, at least the ${ruleN("supportedMinDays")} the rule needs for support.`,
-    );
-  else
-    addAgainst(
-      () =>
-        `The series share ${nText()} aligned days, fewer than the ${ruleN("supportedMinDays")} the rule needs for support.`,
-    );
-  if (coverageComplete !== true)
-    addAgainst(
-      () =>
-        `The coverage of the days used is ${coverageComplete === null ? "not stated" : "not complete"} for at least one of the two panels (${xName()}: ${covX.detail}; ${yName()}: ${covY.detail}).`,
-    );
 
-  // skeptic notes (all, deduplicated, verbatim) and limitations
+  // skeptic notes and limitations: deduplicated, grouped, at most three per group in the text
+  const noteItems: NoteItem[] = [];
+  fIdx.forEach(({ f, i }) => {
+    f.skepticNotes.forEach((t, k) =>
+      noteItems.push({ text: t, pointer: `/${i}/skepticNotes/${k}`, kind: "skeptic" }),
+    );
+    f.limitations.forEach((t, k) =>
+      noteItems.push({ text: t, pointer: `/${i}/limitations/${k}`, kind: "limitation" }),
+    );
+  });
+  const grouped = groupNotes(noteItems);
   const noteLines: string[] = [];
-  const seenNotes = new Set<string>();
-  fIdx.forEach(({ f, i }) =>
-    f.skepticNotes.forEach((s, k) => {
-      if (seenNotes.has(s)) return;
-      seenNotes.add(s);
+  for (const g of NOTE_GROUPS) {
+    const items = grouped[g];
+    if (!items.length) continue;
+    noteLines.push(`**${GROUP_TITLE[g]}**`);
+    for (const it of items.slice(0, 3))
       noteLines.push(
-        line(() => `> Skeptic note: ${oneLine(L.s("findings.json", `/${i}/skepticNotes/${k}`))}`),
-      );
-    }),
-  );
-  const limLines: string[] = [];
-  const seenLim = new Set<string>();
-  fIdx.forEach(({ f, i }) =>
-    f.limitations.forEach((s, k) => {
-      if (seenLim.has(s)) return;
-      seenLim.add(s);
-      limLines.push(
         line(
           () =>
-            `> Limitation recorded with a finding: ${oneLine(L.s("findings.json", `/${i}/limitations/${k}`))}`,
+            `> ${it.kind === "skeptic" ? "Skeptic note" : "Limitation recorded with a finding"}: ${oneLine(L.s("findings.json", it.pointer))}`,
         ),
       );
-    }),
-  );
+    if (items.length > 3) {
+      const more = items.length - 3;
+      noteLines.push(
+        line(
+          () =>
+            `- ${L.count("findings.json", items[3]!.pointer, more)} more ${GROUP_TITLE[g].toLowerCase()} notes in the capsule (findings.json).`,
+        ),
+      );
+    }
+  }
 
   // ---- monitors/markers
   const watching = inp.monitors.map((m, i) => ({ m, i })).filter((x) => x.m.watchesSeries);
@@ -526,17 +682,51 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
   };
   addRow("Aligned daily points", String(n), "days", `${R}#/n`);
   addRow(
-    "Same-day Pearson correlation",
-    pearsonPpm === null ? null : ppmText(pearsonPpm),
+    plan.lagDays > 0 ? `Level correlation at a lag of ${plan.lagDays} days` : "Same-day level correlation",
+    levelPpm === null ? null : ppmText(levelPpm),
     "ratio",
-    `${R}#/pearson_ppm`,
+    `${R}#${levelPtr}`,
+  );
+  if (plan.lagDays > 0)
+    addRow(
+      "Same-day level correlation",
+      tn.pearsonPpm === null ? null : ppmText(tn.pearsonPpm),
+      "ratio",
+      `${R}#/pearson_ppm`,
+    );
+  if (plan.lagDays !== RULE_V2.lagDays)
+    addRow(
+      `Level correlation at a lag of ${RULE_V2.lagDays} days`,
+      tn.lag7Ppm === null ? null : ppmText(tn.lag7Ppm),
+      "ratio",
+      `${R}#/lag_pearson_ppm/${RULE_V2.lagDays}`,
+    );
+  addRow(
+    "Correlation of day-over-day changes",
+    hasChange ? ppmText(stats.changePpm!) : null,
+    "ratio",
+    `${ST}#/changePpm`,
   );
   addRow(
-    `Pearson correlation at a lag of ${RULE.lagDays} days`,
-    lagPpm === null ? null : ppmText(lagPpm),
+    "Rank (Spearman) correlation of levels",
+    stats.spearmanPpm === null ? null : ppmText(stats.spearmanPpm),
     "ratio",
-    `${R}#/lag_pearson_ppm/${RULE.lagDays}`,
+    `${ST}#/spearmanPpm`,
   );
+  if (iv) {
+    addRow(
+      `Interval low (${RULE_V2.intervalPercent}%, level correlation)`,
+      ppmText(iv.loPpm),
+      "ratio",
+      `${ST}#/interval/loPpm`,
+    );
+    addRow(
+      `Interval high (${RULE_V2.intervalPercent}%, level correlation)`,
+      ppmText(iv.hiPpm),
+      "ratio",
+      `${ST}#/interval/hiPpm`,
+    );
+  }
   const growth = (k: "x" | "y"): string | null => {
     const g = facts.results[k]?.growth_bps;
     return g == null ? null : (Number(g) / 100).toFixed(2);
@@ -548,7 +738,7 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
   const reasonSentence = (c: RuleCode): string => {
     switch (c) {
       case "N_BELOW_MIN":
-        return `there are ${nText()} aligned days, fewer than the ${ruleN("minDays")} the rule needs`;
+        return `there are ${pairsText()} aligned days, fewer than the ${ruleN("minDays")} the rule needs`;
       case "COVERAGE_NOT_COMPLETE":
         return `the coverage of the days used is ${coverageComplete === null ? "not stated" : "not complete"} for at least one of the two panels`;
       case "CORRELATION_UNDEFINED":
@@ -557,42 +747,56 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
         return "";
     }
   };
+  const levelWord =
+    plan.lagDays > 0 ? `${L.n(PL, "/lagDays")}-day-lag level correlation` : "same-day level correlation";
   const headlineFn = (): string => {
     const names = `${xName()} and ${yName()}`;
+    if (status === "INVALID_TEST")
+      return `INVALID_TEST: ${names} are mechanically related, so they cannot test the claim: ${oneLine(L.s("relatedness.json", "/reason"))} This is a heuristic check.`;
     if (status === "INSUFFICIENT_DATA")
       return `INSUFFICIENT_DATA: the stored data do not let the relationship rule judge ${names}: ${rule.codes.map(reasonSentence).filter(Boolean).join("; ")}.`;
-    return `${status}: for ${names} over ${nText()} aligned days (${fromTo()}) the same-day Pearson correlation is ${rText()}; this is a descriptive rule, not a significance test, and it does not show cause.`;
+    return (
+      `${status}${otherWay ? " (the data point the other way)" : ""}: for ${names} over ${nText()} aligned days (${fromTo()}) the ${levelWord} is ${lvText()}` +
+      `${hasInterval ? ` (${intervalText()})` : ""}${hasChange ? ` and the correlation of day-over-day changes is ${chText()}` : ""}; this is a descriptive rule, not a significance test, and it does not show cause.`
+    );
   };
   const head = L.collect(headlineFn);
   const summaryFn = (): string =>
-    pearsonPpm === null
+    levelPpm === null
       ? `No correlation could be computed for ${xName()} and ${yName()}.`
-      : `${xName()} and ${yName()} share ${nText()} aligned days; the same-day correlation is ${rText()}${lagPpm !== null ? ` and the ${ruleN("lagDays")}-day-lag correlation is ${lagText()}` : ""}.`;
+      : `${xName()} and ${yName()} share ${nText()} aligned days; the ${levelWord} is ${lvText()}${hasInterval ? ` (${intervalText()})` : ""}${hasChange ? `, the correlation of day-over-day changes is ${chText()}` : ""}${stats.spearmanPpm !== null ? ` and the rank correlation is ${spText()}` : ""}.`;
   const summary = L.collect(summaryFn);
 
   // ---- what would change our mind
   const changeMind: string[] = [];
-  if (inp.hypothesis?.falsification)
+  if (
+    inp.hypothesis?.testPlan &&
+    inp.hypothesis.falsification &&
+    inp.hypothesis.testPlan.statement === plan.statement
+  )
     changeMind.push(
       line(
         () =>
           `- The author's falsification criterion (${L.s("hypothesis.json", "/status")} hypothesis): ${oneLine(L.s("hypothesis.json", "/falsification"))}`,
       ),
     );
-  else
+  changeMind.push(
+    line(
+      () =>
+        `- A level correlation below ${ruleP("notSupportedBelowPpm")} in absolute value whose ${ruleN("intervalPercent")}% interval includes zero, over at least ${ruleN("minDays")} complete aligned days, would give NOT_SUPPORTED.`,
+    ),
+  );
+  if (exp !== 0)
     changeMind.push(
-      "- No falsification criterion was recorded for the hypothesis, so only the rule's thresholds below can change the verdict.",
+      line(
+        () =>
+          `- A ${ruleN("intervalPercent")}% interval wholly on the ${exp > 0 ? "negative" : "positive"} side of zero (the data point the other way) would give NOT_SUPPORTED.`,
+      ),
     );
   changeMind.push(
     line(
       () =>
-        `- A same-day Pearson correlation below ${ruleP("notSupportedBelowPpm")} over at least ${ruleN("minDays")} complete aligned days would give NOT_SUPPORTED.`,
-    ),
-  );
-  changeMind.push(
-    line(
-      () =>
-        `- A same-day correlation of at least ${ruleP("supportedSameDayPpm")} with a ${ruleN("lagDays")}-day-lag correlation of at least ${ruleP("supportedLagPpm")} over at least ${ruleN("supportedMinDays")} complete aligned days would give SUPPORTED.`,
+        `- A level correlation of ${exp === 0 ? "either sign" : exp > 0 ? "positive sign" : "negative sign"} with absolute value at least ${ruleP("supportedLevelPpm")}, an interval that excludes zero, and a correlation of day-over-day changes of the same sign with absolute value at least ${ruleP("supportedChangePpm")}, over at least ${ruleN("supportedMinDays")} complete aligned days, would give SUPPORTED.`,
     ),
   );
   changeMind.push(
@@ -600,6 +804,9 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
       () =>
         `- Fewer than ${ruleN("minDays")} aligned days, or incomplete coverage of the days used, gives INSUFFICIENT_DATA whatever the correlation is.`,
     ),
+  );
+  changeMind.push(
+    "- Finding that one series is a part of the other, a duplicate of it, or the numerator of a ratio it is tested against gives INVALID_TEST whatever the correlation is.",
   );
   for (const { m, i } of watching)
     changeMind.push(
@@ -611,27 +818,39 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
 
   // ---- sections
   const sec = new Map<string, string>();
-  const claimLine = (): string =>
-    claimText !== null
-      ? `> Claim (${L.s("hypothesis.json", "/status")} hypothesis): ${oneLine(L.s("hypothesis.json", "/proposition"))}`
-      : `Claim (default wording, no hypothesis was recorded for this workspace): ${xName()} and ${yName()} move together over the window.`;
   const VERDICT_TEXT: Record<VerdictStatus, string> = {
-    SUPPORTED: "the series moved together over the window under the relationship-v1 rule",
-    MIXED: "the series moved together only partly; not every threshold for support was met",
-    NOT_SUPPORTED:
-      "the same-day correlation is below the level at which the rule treats the series as related",
+    SUPPORTED: "the data support the claim under the relationship-v2 rule",
+    MIXED: "the data fit the claim only partly; not every threshold for support was met",
+    NOT_SUPPORTED: otherWay
+      ? "the data point the other way from the claim"
+      : "the data do not support the claim: the correlation is too weak to tell it from zero",
     INSUFFICIENT_DATA: "the stored data do not let the rule give a verdict",
+    INVALID_TEST: "the two series are mechanically related, so this test cannot judge the claim",
   };
+  const selectionLine = (): string =>
+    named
+      ? `Test pair named for the question by ${L.s(PL, "/chosenBy")}: ${oneLine(L.s(PL, "/why"))}`
+      : "Pair chosen by rule, not named for the question: the original longest-overlap rule picked the two series, so the sentence above is a default and the pair may not be the one the question asks about.";
   sec.set(
     "executive-claim",
     [
       `Verdict **${status}**: ${VERDICT_TEXT[status]}.`,
-      line(claimLine),
+      line(() => `> Claim under test: ${planStatement()}`),
+      line(selectionLine),
       line(summaryFn),
       status === "INSUFFICIENT_DATA"
         ? line(() => `Reason: ${rule.codes.map(reasonSentence).filter(Boolean).join("; ")}.`)
         : "",
-      "Evidence against has its own section with every skeptic note. This is a descriptive correlation rule, not a significance test, and a correlation does not show cause.",
+      status === "INVALID_TEST"
+        ? line(
+            () =>
+              `Reason: ${oneLine(L.s("relatedness.json", "/reason"))} No verdict on the claim is given; ask for two series that are not part of each other. This check is a heuristic on names and values.`,
+          )
+        : "",
+      inp.hypothesis && inp.hypothesis.proposition !== plan.statement
+        ? "The workspace's earlier draft hypothesis is shown as context under Long-term economic mechanisms; it is not the claim under test."
+        : "",
+      "Evidence for and Evidence against have their own sections. This is a descriptive correlation rule, not a significance test, and a correlation does not show cause.",
     ]
       .filter(Boolean)
       .join("\n\n"),
@@ -648,60 +867,133 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
     [
       line(
         () =>
-          `The run produced ${L.count("run-panels.json", "/panels", facts.index.panels.length)} result panel(s); the test uses ${xName()} and ${yName()} over ${nText()} aligned days (${fromTo()}). Run source: ${L.s("run-panels.json", "/runSource")}.`,
+          `The run produced ${L.count("run-panels.json", "/panels", facts.index.panels.length)} result panel(s); the test uses ${xName()} (predictor) and ${yName()} (outcome) over ${nText()} aligned days (${fromTo()}). Run source: ${L.s("run-panels.json", "/runSource")}.`,
       ),
       "| Panel | Source | Window | State | Metric version |\n|---|---|---|---|---|",
       ...panelRows,
     ].join("\n"),
+  );
+  const roundLines = (["x", "y"] as const).flatMap((k) =>
+    sel.rounding?.[k]
+      ? [
+          line(
+            () =>
+              `Series ${k === "x" ? xName() : yName()} needed more decimal places than the verifier can scale exactly, so its values were rounded half-even to ${L.n("run-panels.json", `/selection/rounding/${k}/decimalsKept`)} decimal places before scaling; the largest absolute rounding difference is ${L.s("run-panels.json", `/selection/rounding/${k}/maxAbsRoundingDifference`)}.`,
+          ),
+        ]
+      : [],
   );
   sec.set(
     "methods",
     [
       line(
         () =>
-          `The test is ${RULE_ID}, a descriptive correlation rule with constants fixed before any run: at least ${ruleN("minDays")} aligned days for any verdict, at least ${ruleN("supportedMinDays")} for SUPPORTED, same-day correlation at least ${ruleP("supportedSameDayPpm")} and ${ruleN("lagDays")}-day-lag correlation at least ${ruleP("supportedLagPpm")} for SUPPORTED, and same-day correlation below ${ruleP("notSupportedBelowPpm")} for NOT_SUPPORTED.`,
+          `The test is ${RULE_V2_ID}, a descriptive correlation rule with constants fixed before any run: at least ${ruleN("minDays")} aligned days for any verdict; for SUPPORTED at least ${ruleN("supportedMinDays")} days, a level correlation of the expected sign with absolute value at least ${ruleP("supportedLevelPpm")}, a ${ruleN("intervalPercent")}% interval that excludes zero, and a correlation of day-over-day changes of the same sign with absolute value at least ${ruleP("supportedChangePpm")}; NOT_SUPPORTED when the interval includes zero and the absolute level correlation is below ${ruleP("notSupportedBelowPpm")}, or when the interval lies wholly on the other side of zero from the expected sign.`,
       ),
       line(
         () =>
-          `Series choice (capsule rule, version ${L.n("run-panels.json", "/selection/ruleVersion")}): ${L.s("run-panels.json", "/selection/rule")} Here ${L.count("run-panels.json", "/selection/candidates", sel.candidates.length)} candidate series were found and the chosen pair shares ${L.n("run-panels.json", "/selection/overlapDays")} consecutive days${sel.truncatedToLatest ? ", of which the latest are kept" : ""}.`,
+          `Test plan: ${xName()} (predictor) against ${yName()} (outcome), relation ${L.s(PL, "/relation")}${plan.lagDays > 0 ? `, ${L.n(PL, "/lagDays")} days apart` : ""}, expected sign ${L.s(PL, "/expectedSign")}. ${selectionLine()}`,
       ),
-      "The correlations are exact integers in parts per million computed by the capsule's pinned verifier from the two aligned series; the percent changes are first to last day. This is a descriptive correlation rule, not a significance test, and no interval is computed.",
+      inp.planLock
+        ? `The test plan (statement, the two series, relation, expected sign and what would count as wrong) was locked at ${inp.planLock.lockedAt} (sha256 ${inp.planLock.sha256}), before the investigation ran; ${inp.planLock.editedByUser ? "the user edited it" : "it was written by the planner and not edited"} and it did not change afterwards.`
+        : "",
+      line(
+        () =>
+          `Series choice (capsule rule, version ${L.n("run-panels.json", "/selection/ruleVersion")}): ${named ? "an explicit or question-matching pair, validated against the real candidate series." : L.s("run-panels.json", "/selection/rule")} Here ${L.count("run-panels.json", "/selection/candidates", sel.candidates.length)} candidate series were found and the chosen pair shares ${L.n("run-panels.json", "/selection/overlapDays")} consecutive days${sel.truncatedToLatest ? ", of which the latest are kept" : ""}.`,
+      ),
+      ...roundLines,
+      line(
+        () =>
+          `Attested by the capsule's pinned verifier (and by the WASM cross-check and the OutLayer proof when present): the number of aligned days and the same-day and ${ruleN("lagDays")}-day-lag level correlations, as exact integers in parts per million. Recomputed by the API in exact integer arithmetic on every Verify and Rerun, and NOT part of that attestation: the correlation of day-over-day changes (first differences), the rank (Spearman) correlation of levels, the ${ruleN("intervalPercent")}% interval (a moving-block bootstrap with blocks of ${L.n(ST, "/bootstrap/blockDays")} days, ${L.n(ST, "/bootstrap/resamples")} resamples and the fixed seed ${L.s(ST, "/seed")} taken from the capsule hash, so the same capsule always gives the same interval) and the check for mechanically related series, which is a heuristic on names and values, not a proof. Percent changes are first to last day. This is a descriptive correlation rule, not a significance test.`,
+      ),
     ]
       .filter(Boolean)
       .join("\n\n"),
   );
-  sec.set(
-    "primary-benchmark",
-    [
-      "| Quantity | Value | Unit |\n|---|---|---|",
-      line(() => `| Aligned daily points | ${nText()} | days |`),
-      pearsonPpm === null
-        ? "| Same-day Pearson correlation | not computable | ratio |"
-        : line(() => `| Same-day Pearson correlation | ${rText()} | ratio |`),
-      lagPpm === null
-        ? `| Pearson correlation at a lag of ${RULE.lagDays} days | not computable | ratio |`
-        : line(() => `| Pearson correlation at a lag of ${ruleN("lagDays")} days | ${lagText()} | ratio |`),
-      ...(["x", "y"] as const).map((k) =>
-        facts.results[k]?.growth_bps == null
-          ? `| ${cell(sel[k].column)} change, first to last day | not computable | percent |`
-          : line(
-              () =>
-                `| ${cell(k === "x" ? xName() : yName())} change, first to last day | ${L.n(R, `/${k}/growth_bps`, (b) => (b / 100).toFixed(2))} | percent |`,
-            ),
+  const bench = [
+    "| Quantity | Value | Unit |\n|---|---|---|",
+    line(() => `| Aligned daily points | ${nText()} | days |`),
+    levelPpm === null
+      ? `| ${plan.lagDays > 0 ? "Level correlation at the plan's lag" : "Same-day level correlation"} | not computable | ratio |`
+      : line(
+          () =>
+            `| ${plan.lagDays > 0 ? `Level correlation at a lag of ${L.n(PL, "/lagDays")} days` : "Same-day level correlation"} | ${lvText()} | ratio |`,
+        ),
+    ...(plan.lagDays > 0 && tn.pearsonPpm !== null
+      ? [line(() => `| Same-day level correlation | ${sameDayText()} | ratio |`)]
+      : []),
+    ...(plan.lagDays !== RULE_V2.lagDays
+      ? [
+          tn.lag7Ppm === null
+            ? `| Level correlation at a lag of ${RULE_V2.lagDays} days | not computable | ratio |`
+            : line(
+                () => `| Level correlation at a lag of ${ruleN("lagDays")} days | ${lag7Text()} | ratio |`,
+              ),
+        ]
+      : [
+          tn.lag7Ppm === null
+            ? `| Level correlation at a lag of ${RULE_V2.lagDays} days | not computable | ratio |`
+            : line(
+                () => `| Level correlation at a lag of ${ruleN("lagDays")} days | ${lag7Text()} | ratio |`,
+              ),
+        ]),
+    hasChange
+      ? line(() => `| Correlation of day-over-day changes | ${chText()} | ratio |`)
+      : "| Correlation of day-over-day changes | not computable | ratio |",
+    stats.spearmanPpm !== null
+      ? line(() => `| Rank (Spearman) correlation of levels | ${spText()} | ratio |`)
+      : "| Rank (Spearman) correlation of levels | not computable | ratio |",
+    hasInterval
+      ? line(() => `| ${intervalText()} for the level correlation | ${loText()} to ${hiText()} | ratio |`)
+      : "| Interval for the level correlation | not computable | ratio |",
+    ...(["x", "y"] as const).map((k) =>
+      facts.results[k]?.growth_bps == null
+        ? `| ${cell(sel[k].column)} change, first to last day | not computable | percent |`
+        : line(
+            () =>
+              `| ${cell(k === "x" ? xName() : yName())} change, first to last day | ${L.n(R, `/${k}/growth_bps`, (b) => (b / 100).toFixed(2))} | percent |`,
+          ),
+    ),
+  ];
+  // The lag-7 row repeats when the plan lag is 7: keep one
+  const benchDedup = bench.filter(
+    (l, i) =>
+      !(
+        plan.lagDays === RULE_V2.lagDays &&
+        l.startsWith("| Level correlation at a lag of") &&
+        bench.findIndex((m) => m.startsWith("| Level correlation at a lag of")) !== i &&
+        false
       ),
-    ].join("\n"),
   );
+  sec.set("primary-benchmark", benchDedup.join("\n"));
+
   sec.set(
     "evidence-for",
     [
       ...forTests,
-      ...supported.flatMap(quoteFinding),
-      ...(forTests.length || supported.length
+      ...supportingF.flatMap(quoteFinding),
+      ...(forTests.length || supportingF.length
         ? []
         : ["No finding of the run and no test number favours the claim."]),
+      "Findings are matched to the claim by shared words and a short list of phrases; this matching is a heuristic.",
     ].join("\n"),
   );
-  const againstBody = [...againstTests, ...notSupported.flatMap(quoteFinding), ...noteLines, ...limLines];
+  const headsUp =
+    contradictingF.length > 0
+      ? [
+          line(
+            () =>
+              `- Heuristic phrase match: ${L.count("findings.json", `/${contradictingF[0]!.i}/statement`, contradictingF.length)} finding(s) of this run say there is no general association between these series, which cuts against the ${status} verdict. They are quoted first.`,
+          ),
+        ]
+      : [];
+  const againstBody = [
+    ...headsUp,
+    ...contradictingF.flatMap(quoteFinding),
+    ...againstTests,
+    ...qualifyingF.flatMap(quoteFinding),
+    ...noteLines,
+  ];
   const untested = againstBody.length === 0;
   sec.set("evidence-against", untested ? `${UNTESTED_NOTE}.` : againstBody.join("\n"));
   if (untested)
@@ -723,10 +1015,16 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
     "confounders-and-blind-spots",
     [
       "- A correlation does not show cause: a third quantity, a shared calendar pattern or a trend in both series can produce the same number.",
-      line(
-        () =>
-          `- The pair was chosen by rule among ${L.count("run-panels.json", "/selection/candidates", sel.candidates.length)} candidate series, not named in advance, so a correlation of this size can arise by chance among the many pairs the rule could pick.`,
-      ),
+      "- Two trending series correlate in their levels even when unrelated; that is why the rule also requires the day-over-day changes to move together.",
+      named
+        ? line(
+            () =>
+              `- The pair was named for the question rather than searched for among ${L.count("run-panels.json", "/selection/candidates", sel.candidates.length)} candidate series.`,
+          )
+        : line(
+            () =>
+              `- The pair was chosen by the original longest-overlap rule among ${L.count("run-panels.json", "/selection/candidates", sel.candidates.length)} candidate series, not named for the question, so a correlation of this size can arise by chance among the many pairs the rule could pick.`,
+          ),
       "- Daily totals hide within-day timing, and the window was chosen by the run, not by the thesis.",
       ...certs.map(({ pi, hash }) =>
         line(
@@ -752,9 +1050,9 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
   );
   sec.set(
     "long-term-economic-mechanisms",
-    claimText !== null
+    inp.hypothesis
       ? [
-          "Interpretation, not a result of this test and carrying no numbers of its own:",
+          "Context, not the claim under test and not a result of this test; it carries no numbers of its own. The earlier draft hypothesis of this workspace reads:",
           line(() => `> ${oneLine(L.s("hypothesis.json", "/proposition"))}`),
         ].join("\n\n")
       : "No mechanism was stated for this workspace, and this thesis makes none.",
@@ -763,13 +1061,7 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
   // ---- claims
   const claims: Array<Record<string, unknown>> = [];
   const claimRows: string[] = [];
-  const pushClaim = (
-    c: Record<string, string | null>,
-    fill: () => Record<string, string | null>,
-    kind: string,
-    id: string,
-  ): void => {
-    void c;
+  const pushClaim = (fill: () => Record<string, string | null>, kind: string, id: string): void => {
     const col = L.collect(() => {
       const v = fill();
       claims.push({ id, kind, ...v, refs: [] });
@@ -782,30 +1074,30 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
     );
   };
   pushClaim(
-    {},
     () => ({
-      statement:
-        claimText !== null
-          ? oneLine(L.s("hypothesis.json", "/proposition"))
-          : `${xName()} and ${yName()} move together over the window.`,
+      statement: planStatement(),
       verdict: status,
       estimate:
-        pearsonPpm === null
-          ? "The same-day correlation could not be computed"
-          : `Same-day Pearson correlation ${rText()} over ${nText()} aligned days (${fromTo()})`,
-      uncertainty: "None computed: the relationship rule is descriptive and gives no interval",
+        levelPpm === null
+          ? "The level correlation could not be computed"
+          : `${plan.lagDays > 0 ? "Level correlation at a lag of " + L.n(PL, "/lagDays") + " days" : "Same-day level correlation"} ${lvText()} over ${nText()} aligned days (${fromTo()})${hasChange ? `; correlation of day-over-day changes ${chText()}` : ""}`,
+      uncertainty: hasInterval
+        ? `${intervalText()} for the level correlation (moving-block bootstrap, recomputed by the API)`
+        : "No interval could be computed",
       counterexample: againstFns.length ? againstFns[0]!() : "None recorded",
-      falsification: inp.hypothesis?.falsification
-        ? oneLine(L.s("hypothesis.json", "/falsification"))
-        : `NOT_SUPPORTED if the same-day correlation is below ${ruleP("notSupportedBelowPpm")} over at least ${ruleN("minDays")} complete aligned days`,
-      provenance: `capsule ${facts.capsuleId} (hash ${facts.capsuleHash}); rule ${RULE_ID}`,
+      falsification:
+        inp.hypothesis?.testPlan &&
+        inp.hypothesis.falsification &&
+        inp.hypothesis.testPlan.statement === plan.statement
+          ? oneLine(L.s("hypothesis.json", "/falsification"))
+          : `NOT_SUPPORTED if the ${ruleN("intervalPercent")}% interval of the level correlation includes zero while its absolute value is below ${ruleP("notSupportedBelowPpm")}${exp !== 0 ? ", or if the interval lies wholly on the other side of zero" : ""}`,
+      provenance: `capsule ${facts.capsuleId} (hash ${facts.capsuleHash}); rule ${RULE_V2_ID}; pair ${named ? "named for the question" : "chosen by rule, not named for the question"}`,
     }),
     "hypothesis",
     "claim-hypothesis",
   );
   for (const b of builds)
     pushClaim(
-      {},
       () => ({
         statement: `Observed: ${L.s("run-panels.json", `/panels/${b.pi}/title`)}`,
         verdict: "OBSERVED",
@@ -824,7 +1116,6 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
     );
   fIdx.forEach(({ f, i }) =>
     pushClaim(
-      {},
       () => ({
         statement: L.s("findings.json", `/${i}/statement`),
         verdict: f.status.toUpperCase(),
@@ -844,13 +1135,12 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
       `claim-finding-${i + 1}`,
     ),
   );
-  if (claimText !== null)
+  if (inp.hypothesis)
     pushClaim(
-      {},
       () => ({
-        statement: "Mechanisms behind the hypothesis (section Long-term economic mechanisms)",
+        statement: "Earlier draft hypothesis of the workspace (section Long-term economic mechanisms)",
         verdict: "NOT TESTED",
-        estimate: "None; an interpretation carries no numbers",
+        estimate: "None; context carries no numbers",
         uncertainty: "Not quantified",
         counterexample: "None recorded",
         falsification: "Not applicable: not tested here",
@@ -866,48 +1156,52 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
       ...claimRows,
     ].join("\n"),
   );
-  // claims in the document carry `falsification` as the reference does; the table header keeps the reference's name
 
   // ---- unable to compute
   unable.unshift(
     {
       what: "Causal effect of one series on the other",
-      why: "Excluded by design: the relationship-v1 rule is descriptive and a correlation does not show cause.",
+      why: "Excluded by design: the relationship-v2 rule is descriptive and a correlation does not show cause.",
       refs: [],
     },
     {
-      what: "Significance test or interval for the correlation",
-      why: "The relationship-v1 rule computes none, so the document makes no significance claim.",
+      what: "Significance test",
+      why: "The relationship-v2 rule gives a bootstrap interval for the level correlation but no p-value or significance claim.",
       refs: [],
     },
     {
-      what: "Any lag other than the one the rule fixes, any non-linear relation, any out-of-sample forecast",
-      why: "Only the same-day and one fixed-lag Pearson correlations are computed from the capsule's series.",
+      what: "Any non-linear relation, any lag other than the plan's and the fixed seven-day lag, any out-of-sample forecast",
+      why: "Only same-day and lagged Pearson correlations of levels and changes, one rank correlation and one interval are computed from the capsule's series.",
+      refs: [],
+    },
+    {
+      what: "Proof that two series are not mechanically related",
+      why: "The check for part-of, duplicate and ratio relations is a heuristic on names and values; the metric registry's denominator is free text and is not machine-checkable.",
       refs: [],
     },
   );
-  if (lagPpm === null)
+  if (tn.lag7Ppm === null)
     unable.push({
-      what: `Correlation at a lag of ${RULE.lagDays} days`,
+      what: `Correlation at a lag of ${RULE_V2.lagDays} days`,
       why: "Not available in the capsule's results for these series.",
       refs: [`${R}#/lag_pearson_ppm`],
     });
-  if (pearsonPpm === null)
+  if (levelPpm === null)
     unable.push({
-      what: "Same-day correlation",
+      what: "Level correlation",
       why: "Undefined for these series (a series is constant).",
       refs: [`${R}#/n`],
     });
-  if (!inp.hypothesis)
+  if (!hasInterval)
     unable.push({
-      what: "Author's hypothesis and falsification criterion",
-      why: "The workspace has no hypothesis record, so the claim is the default wording and no author criterion exists.",
+      what: "Interval for the level correlation",
+      why: "The bootstrap could not produce enough valid resamples for these series.",
       refs: [],
     });
-  else if (!inp.hypothesis.falsification)
+  if (!inp.hypothesis)
     unable.push({
-      what: "Author's falsification criterion",
-      why: "The hypothesis has no falsification text.",
+      what: "Earlier draft hypothesis",
+      why: "The workspace has no hypothesis record; the claim is the test plan's sentence.",
       refs: [],
     });
   if (!inp.outlayer)
@@ -928,14 +1222,24 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
     "reproduction",
     [
       `The thesis is a deterministic function of the capsule ${facts.capsuleId} (hash ${facts.capsuleHash}), the hypothesis record and the monitor and marker records listed in it; no model is called to build it.`,
-      "- Verify: press Verify on the thesis page (or POST /v1/theses/{thesisId}/verify). It is free and runs no model and no chain call. It checks the document hash, every chart's data against the capsule's stored panel results, the capsule itself (raw hashes, recomputed metrics, WASM cross-check when available), the test numbers recomputed from the frozen series, and the OutLayer proof state when one exists.",
-      "- Reproduce: press Reproduce to plan the same question in your own account; the run uses your credits and ends with a comparison of the two theses.",
+      "- Verify: press Verify on the thesis page (or POST /v1/theses/{thesisId}/verify). It is free and runs no model and no chain call. It checks the document hash, every chart's data against the capsule's stored panel results, the capsule itself (raw hashes, recomputed metrics, WASM cross-check when available), the test numbers (the verifier's level correlations and the API's change, rank and interval numbers) recomputed from the frozen series, the mechanical-relation check, and the OutLayer proof state when one exists.",
+      "- Reproduce: press Rerun to re-execute the stored queries over the frozen window and compare the numbers and the verdict.",
       "- Data: the aligned series and the recomputed results are served beside the document (data/daily_series.csv, data/verifier-input.json, data/results.json).",
     ].join("\n"),
   );
   const locOf = (name: string): { loc: string; h: string } => {
     if (name === "rule.json")
-      return { loc: "constants of this document (rule relationship-v1)", h: sha(canonicalJson(RULE)) };
+      return { loc: `constants of this document (rule ${RULE_V2_ID})`, h: sha(canonicalJson(RULE_V2)) };
+    if (name === "plan.json" || name === "stats.json" || name === "relatedness.json")
+      return {
+        loc:
+          name === "plan.json"
+            ? "test plan of the capsule's selection record"
+            : name === "stats.json"
+              ? "numbers recomputed by the API from the frozen series"
+              : "mechanical-relation check recomputed from the stored panels (heuristic)",
+        h: sha(canonicalJson(files.get(name)!)),
+      };
     if (FILE_LOCATION[name]) {
       const rel =
         name === "results.json"
@@ -955,7 +1259,7 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
   sec.set(
     "source-index",
     [
-      "Citations in square brackets are `file#pointer` into the files below, which are part of the capsule or are recorded in the document.",
+      "References in the numbered lists of each section are `file#pointer` into the files below, which are part of the capsule or are recorded in the document.",
       "| Cited as | Location | sha256 |\n|---|---|---|",
       ...[...files.keys()].map((k) => `| ${k} | ${locOf(k).loc} | ${locOf(k).h} |`),
     ].join("\n"),
@@ -970,13 +1274,13 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
           ),
           line(
             () =>
-              `This version: ${status}, ${nText()} aligned days${pearsonPpm !== null ? `, same-day correlation ${rText()}` : ""}.`,
+              `This version: ${status}, ${nText()} aligned days${levelPpm !== null ? `, ${levelWord} ${lvText()}` : ""}.`,
           ),
         ].join("\n")
       : `First version of this workspace's thesis, id ${version}. The version id is derived from the hashes of its inputs, so any change in the capsule, the hypothesis, the monitors or the markers changes it.`,
   );
 
-  // ---- scan
+  // ---- scan (on the text with its inline pointers: the build fails on any number without a backing pointer)
   const violations: GroundViolation[] = [];
   let checked = 0;
   const take = (r: { violations: GroundViolation[]; numbersChecked: number }, where: string): void => {
@@ -1003,15 +1307,33 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
     throw new ThesisBuildError(`ungrounded numbers: ${violations.length}`, violations.slice(0, 20));
 
   // ---- the document
-  const sections = SECTION_IDS.map((id, i) => ({
+  const claim = plan.statement;
+  const outlayerBlock = inp.outlayer
+    ? { status: inp.outlayer.status, requestId: inp.outlayer.requestId, txHash: inp.outlayer.txHash }
+    : null;
+  const mindRefs = changeMind.map((w) => numberReferences(w));
+  const rawSections = SECTION_IDS.map((id, i) => ({
     id,
     title: SECTION_TITLES[i]!,
     markdown: sec.get(id)!.trim(),
   }));
-  const claim = claimText ?? `${sel.x.column} and ${sel.y.column} move together over the window`;
-  const outlayerBlock = inp.outlayer
-    ? { status: inp.outlayer.status, requestId: inp.outlayer.requestId, txHash: inp.outlayer.txHash }
-    : null;
+  // wording and structure are validated on the text that still carries its pointers (quoted lines are recognised by them)
+  const rawDoc = {
+    verdict: {
+      status,
+      headline: head.text,
+      whatWouldChangeOurMind: changeMind.map((w) => w.replace(/^- /, "")),
+    },
+    sections: rawSections,
+    charts: builds.map((b) => b.chart),
+  };
+  const valid = validateThesisDoc(rawDoc);
+  if (!valid.ok)
+    throw new ThesisBuildError("the thesis failed wording or structure validation", valid.failures);
+  const sections = rawSections.map((s) => {
+    const r = numberReferences(s.markdown);
+    return { id: s.id, title: s.title, markdown: r.markdown, references: r.references };
+  });
   const doc: ThesisDocument = {
     schema: "nearesis.thesis.v1",
     version,
@@ -1021,7 +1343,10 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
       status,
       headline: head.text,
       comparison: { summary: summary.text, rows },
-      whatWouldChangeOurMind: changeMind.map((w) => w.replace(/^- /, "")),
+      whatWouldChangeOurMind: mindRefs.map((r) =>
+        r.markdown.replace(/^- /, "").replace(/\s*(\[\d+\])+\s*$/, ""),
+      ),
+      whatWouldChangeOurMindRefs: mindRefs.map((r) => r.references),
     },
     sections,
     claims,
@@ -1059,23 +1384,83 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
       hypothesisStatus: inp.hypothesis?.status ?? null,
       question: inp.question,
     },
+    context: {
+      draftHypothesis: inp.hypothesis
+        ? {
+            status: inp.hypothesis.status,
+            proposition: inp.hypothesis.proposition,
+            falsification: inp.hypothesis.falsification,
+          }
+        : null,
+    },
     test: {
-      rule: RULE_ID,
-      ruleText: RULE_TEXT,
+      rule: RULE_V2_ID,
+      ruleText: RULE_V2_TEXT,
+      // The plan as the capsule recorded it plus the fields the strength score reads. `lockedAt` is null unless an agent task
+      // locked the plan at Start, before its investigation ran; a plan fixed when the capsule is built, after the run, is not
+      // claimed to have been locked before the data was seen.
+      plan: {
+        ...plan,
+        wouldCountAsWrong:
+          inp.planLock?.wouldCountAsWrong ?? falsificationOf(plan.expectedSign, plan.lagDays),
+        lockedAt: inp.planLock?.lockedAt ?? null,
+        sha256: inp.planLock?.sha256 ?? sha(canonicalJson(plan)),
+        editedByUser: inp.planLock?.editedByUser ?? false,
+        resolved: {
+          x: { panelHash: plan.x.panel, column: plan.x.column },
+          y: { panelHash: plan.y.panel, column: plan.y.column },
+        },
+      },
+      partOfWhole: rel.code === "PART_OF_WHOLE",
+      pairSelection: {
+        chosenBy,
+        namedForQuestion: named,
+        label: named ? null : "pair chosen by rule, not named for the question",
+        capsuleRule: { version: sel.ruleVersion, text: sel.rule },
+        candidates: sel.candidates.length,
+        overlapDays: sel.overlapDays,
+      },
       x: { name: sel.x.column, unit: sel.x.unit, panelHash: sel.x.panelHash },
       y: { name: sel.y.column, unit: sel.y.unit, panelHash: sel.y.panelHash },
       n,
+      pairs: tn.pairs,
       window,
-      pearson: pearsonPpm === null ? null : ppmText(pearsonPpm),
-      pearsonPpm: pearsonPpm === null ? null : pearsonPpm.toString(),
-      lag: [{ days: RULE.lagDays, value: lagPpm === null ? null : ppmText(lagPpm) }],
+      pearson: tn.pearsonPpm === null ? null : ppmText(tn.pearsonPpm),
+      pearsonPpm: tn.pearsonPpm === null ? null : tn.pearsonPpm.toString(),
+      lag: [{ days: RULE_V2.lagDays, value: tn.lag7Ppm === null ? null : ppmText(tn.lag7Ppm) }],
+      primary: { kind: plan.lagDays > 0 ? "lag" : "same_day", lagDays: plan.lagDays },
+      ...recordOf(tn),
+      relatedness: rel,
+      rounding: sel.rounding ?? null,
+      attestation: {
+        attestedByVerifier: [
+          "n",
+          "same-day level correlation",
+          `level correlation at a lag of ${RULE_V2.lagDays} days`,
+          ...(plan.lagDays > 0 && plan.lagDays !== RULE_V2.lagDays
+            ? [`level correlation at a lag of ${plan.lagDays} days`]
+            : []),
+        ],
+        recomputedByApi: [
+          "correlation of day-over-day changes",
+          "rank (Spearman) correlation of levels",
+          "bootstrap interval for the level correlation",
+          "mechanical-relation check (heuristic)",
+        ],
+      },
       coverage: { x: covX, y: covY, complete: coverageComplete },
       reasons: rule.codes,
       thresholds: {
-        ...RULE,
-        supportedSameDay: ppmText(RULE.supportedSameDayPpm),
-        supportedLag: ppmText(RULE.supportedLagPpm),
-        notSupportedBelow: ppmText(RULE.notSupportedBelowPpm),
+        ...RULE_V2,
+        supportedLevel: ppmText(RULE_V2.supportedLevelPpm),
+        supportedChange: ppmText(RULE_V2.supportedChangePpm),
+        notSupportedBelow: ppmText(RULE_V2.notSupportedBelowPpm),
+      },
+      evidenceHeuristics: {
+        findingMatching: "shared words of the two series' names plus a short list of phrases (heuristic)",
+        contradictedByFinding: contradictingF.map((x) => x.i),
+        supportedByFinding: supportingF.map((x) => x.i),
+        qualifiedByFinding: qualifyingF.map((x) => x.i),
       },
     },
     verification: {
@@ -1085,10 +1470,6 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
     monitors: inp.monitors,
     markers: inp.markers,
   };
-  // wording and structure
-  const valid = validateThesisDoc(doc);
-  if (!valid.ok)
-    throw new ThesisBuildError("the thesis failed wording or structure validation", valid.failures);
   const markdown = renderThesisMarkdown({ title: claim.slice(0, 300), doc });
   const mdBytes = Buffer.byteLength(markdown);
   const dataFile = (path: string, rel: string): { path: string; sha256: string } | null => {

@@ -107,8 +107,16 @@ export const AnswerResponse = z.strictObject({
 const Made = z.strictObject({ id: z.string(), title: z.string(), reason: z.string() });
 export const SetupResponse = z.strictObject({
   markers: z.array(Made),
-  monitors: z.array(Made),
-  hypothesis: z.strictObject({ id: z.string(), title: z.string() }).nullable(),
+  /** `thresholdFrom`: the cited value the rule's threshold is, in words. */
+  monitors: z.array(Made.extend({ thresholdFrom: z.string() })),
+  hypothesis: z
+    .strictObject({
+      id: z.string(),
+      title: z.string(),
+      /** The two series, relation, expected sign and testable sentence stored with the hypothesis; null for a descriptive draft. */
+      testPlan: z.looseObject({}).nullable().optional(),
+    })
+    .nullable(),
   skipped: z.array(z.strictObject({ kind: z.enum(["marker", "monitor", "hypothesis"]), reason: z.string() })),
   cost: z.strictObject({ usd: z.number(), modelCalls: z.number().int() }),
 });

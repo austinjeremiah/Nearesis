@@ -10,8 +10,9 @@ import {
   verifyCapsule,
 } from "@nearesis/capsule";
 import { readCapsuleFacts } from "./facts.ts";
-import { chartData, chartDataSha } from "./generate.ts";
-import { ppmText } from "./rule.ts";
+import { chartData, chartDataSha, coverageOf } from "./generate.ts";
+import { evaluateRuleV2, ppmText, RULE_V2_ID } from "./rule.ts";
+import { factsPanels, planOf, recordOf, relatednessOfPlan, testNumbers } from "./evaluate.ts";
 
 export interface Check {
   name: string;
@@ -170,6 +171,59 @@ export async function verifyWorkspaceThesis(
       problems.length === 0,
       problems.length === 0
         ? `n, same-day and lag correlations and window recomputed from the frozen series equal the document (n ${String(t.n)})`
+        : problems.join("; "),
+    );
+  }
+
+  // relationship-v2: the numbers the verifier does not attest, recomputed here; v1 documents have none of this
+  if (recomputed && doc.test?.rule === RULE_V2_ID) {
+    const t = doc.test as Doc;
+    const problems: string[] = [];
+    const plan = planOf(facts).plan;
+    const planKeys = [
+      "x",
+      "y",
+      "relation",
+      "lagDays",
+      "expectedSign",
+      "statement",
+      "chosenBy",
+      "why",
+    ] as const;
+    const core = (o: Doc | undefined): unknown => planKeys.map((k) => o?.[k] ?? null);
+    if (docHash(core(plan as Doc)) !== docHash(core(t.plan)))
+      problems.push("the test plan differs from the capsule's selection record");
+    const tn = testNumbers(recomputed, facts.input, plan.lagDays, facts.capsuleHash);
+    const rec = recordOf(tn) as Doc;
+    for (const k of ["level", "change", "spearman"] as const)
+      if ((rec[k]?.value ?? null) !== (t[k]?.value ?? null))
+        problems.push(`${k} ${String(rec[k]?.value ?? null)} vs ${String(t[k]?.value ?? null)}`);
+    if (docHash(rec.interval ?? null) !== docHash(t.interval ?? null))
+      problems.push("bootstrap interval differs");
+    const rel = relatednessOfPlan(factsPanels(facts), plan);
+    if (rel && (rel.code !== t.relatedness?.code || rel.status !== t.relatedness?.status))
+      problems.push(`mechanical-relation check ${rel.code} vs ${String(t.relatedness?.code)}`);
+    const window = { from: facts.input.series.x.points[0]![0], to: facts.input.series.x.points.at(-1)![0] };
+    const px = facts.panels.get(facts.index.selection.x.panelHash);
+    const py = facts.panels.get(facts.index.selection.y.panelHash);
+    const cx = px ? coverageOf(px, window).complete : null;
+    const cy = py ? coverageOf(py, window).complete : null;
+    const verdict = evaluateRuleV2({
+      n: tn.pairs,
+      levelPpm: tn.levelPpm,
+      changePpm: tn.stats.changePpm,
+      interval: tn.stats.interval,
+      expectedSign: plan.expectedSign,
+      coverageComplete: cx === null || cy === null ? null : cx && cy,
+      mechanical: (rel?.status ?? "independent") === "mechanical",
+    }).status;
+    if (verdict !== doc.verdict?.status)
+      problems.push(`verdict ${verdict} vs ${String(doc.verdict?.status)}`);
+    add(
+      "relationshipV2",
+      problems.length === 0,
+      problems.length === 0
+        ? "change, rank and interval numbers, the mechanical-relation check and the verdict recomputed by the API equal the document (these are not part of the verifier's attestation)"
         : problems.join("; "),
     );
   }

@@ -47,6 +47,7 @@ export const STEP_PARAMS = {
   "thesis.build": z.strictObject({ runId: Uuid.optional() }),
   "thesis.publish": z.strictObject({ thesisId: Text(1, 200).optional() }),
   "thesis.compare": z.strictObject({ against: Text(1, 200), thesisId: Text(1, 200).optional() }),
+  "thesis.challenge": z.strictObject({ thesisId: Text(1, 200).optional() }),
 } as const;
 export type StepKey = keyof typeof STEP_PARAMS;
 export const STEP_KEYS = Object.keys(STEP_PARAMS) as StepKey[];
@@ -86,26 +87,32 @@ export const CATALOG_DOC: Record<StepKey, string> = {
   "capsule.publish":
     'publish the capsule publicly (needs consent). params {"capsuleId"?: string, "acknowledge"?: string[]}',
   "report.build":
-    'check the workspace report is ready and link the page and PDF. params {"workspaceId"?: uuid}; use it only when the user explicitly asks for the PDF report',
+    'Workspace summary (older format): check the older workspace summary is ready and link the page and PDF. params {"workspaceId"?: uuid}; use it only when the user literally asks for the old workspace summary PDF; every other request for a report, a PDF, a write-up or the final result is thesis.build',
   "thesis.build":
-    'build the workspace thesis (the report of the workspace: claim, evidence for and against, charts with their queries, verdict) from a finished run and its capsule. params {"runId"?: uuid} (default: the run just asked, else the newest finished run)',
+    'build the workspace thesis (every report, PDF, write-up or final result is a thesis: it tests the relationship between two daily series that the user asked about, with evidence for and against, charts with their queries and a verdict) from a finished run and its capsule. params {"runId"?: uuid} (default: the run just asked, else the newest finished run)',
   "thesis.publish":
     'publish a thesis at a public link (needs consent). params {"thesisId"?: string} (default: the thesis just built)',
   "thesis.compare":
     'compare a thesis with another one (for example a reproduction with the original). params {"against": string (the thesis id to compare with), "thesisId"?: string} (default thesis: the one just built)',
+  "thesis.challenge":
+    "have a skeptic challenge a thesis (one model call charged to the user's credits; the thesis is not changed). params {\"thesisId\"?: string} (default: the thesis just built, else the newest thesis of the workspace); use it when the user asks to challenge a thesis or to play devil's advocate",
 };
 
 export const PLAYBOOKS = [
-  "investigate: workspace.create (or workspace.use), question.ask, run.await, setup.auto",
-  "full flow: workspace.create|use, question.ask, run.await, setup.auto, capsule.build, capsule.prove, capsule.publish, thesis.build (the flow ends with thesis.build, after capsule.build and capsule.prove)",
-  'thesis or report: a request for a "report" or a "thesis" plans thesis.build (on an existing workspace with a finished run it is the only step needed; capsule.build is added by the server when missing); use report.build only when the user explicitly asks for the PDF report',
+  "investigate: workspace.create (or workspace.use), question.ask, run.await, setup.auto, capsule.build, thesis.build (every investigation ends with a thesis)",
+  "full publish flow: workspace.create|use, question.ask, run.await, setup.auto, capsule.build, capsule.prove (only when asked to verify on OutLayer), thesis.build, thesis.publish (only when asked to publish or share)",
+  "thesis: any request for a report, a PDF, a write-up or the final result plans thesis.build (on an existing workspace with a finished run it is the only step needed; capsule.build is added by the server when missing); plan report.build only when the user literally asks for the old workspace summary PDF",
   "publish a thesis: thesis.publish (after thesis.build, or alone when the thesis id is known)",
+  'challenge a thesis ("challenge this thesis", "play devil\'s advocate"): workspace.use, thesis.challenge (the thesis from context or the workspace\'s newest)',
+  'follow-up on a finding (a message that starts with "In this workspace, investigate what happened around", "In this workspace, look for evidence against:" or "In this workspace, repeat this over the last 365 days:", in a workspace that already holds a finished run): workspace.use, question.ask, run.await, capsule.build, thesis.build (a new thesis version of that workspace; no setup.auto)',
   "single actions: one step on an existing workspace (for example hypothesis.create or workspace.archive)",
 ].join("\n");
 
 export interface PlannedStep {
   key: StepKey;
   params: Record<string, unknown>;
+  /** The planner's reason for the step, already sanitised; absent means the fixed sentence of the step key. */
+  why?: string | null;
 }
 export class PlanRejected extends Error {}
 
@@ -196,6 +203,14 @@ export function validateOrder(steps: PlannedStep[], ambient: TaskCtx): void {
         need(p.thesisId || have.thesisId, `${at} needs a thesis (build one first or name its id).`);
         if (p.thesisId) have.thesisId = p.thesisId;
         break;
+      case "thesis.challenge":
+        // an existing workspace may already hold a thesis: the step then takes its newest one
+        need(
+          p.thesisId || have.thesisId || (have.workspaceId && have.workspaceId !== "<new>"),
+          `${at} needs a thesis (build one first, name its id or use a workspace that has one).`,
+        );
+        if (p.thesisId) have.thesisId = p.thesisId;
+        break;
     }
   });
 }
@@ -205,6 +220,9 @@ export function validateOrder(steps: PlannedStep[], ambient: TaskCtx): void {
  * has no capsule.build before a thesis.build and no capsule exists in context, one is inserted right before it.
  */
 export function withAutoSteps(steps: PlannedStep[], ambient: TaskCtx): PlannedStep[] {
+  // every investigation ends with a thesis: a plan that starts one and never builds a thesis gets one at its end
+  if (steps.some((s) => s.key === "question.ask") && !steps.some((s) => s.key === "thesis.build"))
+    steps = [...steps, { key: "thesis.build", params: {} }];
   const out: PlannedStep[] = [];
   let hasCapsule = Boolean(ambient.capsuleId);
   for (const s of steps) {
@@ -265,13 +283,15 @@ export function titleOf(step: PlannedStep): string {
     case "capsule.publish":
       return "Publish the capsule";
     case "report.build":
-      return "Prepare the workspace report";
+      return "Workspace summary (older format)";
     case "thesis.build":
       return "Build the thesis";
     case "thesis.publish":
       return "Publish the thesis";
     case "thesis.compare":
       return "Compare with the original thesis";
+    case "thesis.challenge":
+      return "Challenge the thesis";
   }
 }
 
@@ -306,13 +326,15 @@ export function detailOf(step: PlannedStep): string {
     case "capsule.publish":
       return "Publishes the capsule to the public gateway with its verification badge; a testnet anchor may burn gas charged to your credits.";
     case "report.build":
-      return "Checks the report data for the workspace and links the report page and the PDF.";
+      return "Checks the older workspace summary and links its page and PDF. The thesis is the report of a workspace; this is only the older format.";
     case "thesis.build":
-      return "Builds the thesis from the run's panel results and its capsule with a fixed, descriptive rule (no model call; nothing is invented). The thesis stays a private draft.";
+      return "Builds the thesis from the run's panel results and its capsule: it tests the relationship you asked about between two daily series with a fixed, descriptive rule (no model call; nothing is invented). The thesis stays a private draft.";
     case "thesis.publish":
       return "Publishes the thesis at a public link anyone can open without signing in.";
     case "thesis.compare":
       return `Compares the thesis with ${String(p.against).slice(0, 80)} (verdict, sample size, window, test numbers, charts) and reports match, drift or different.`;
+    case "thesis.challenge":
+      return "Asks a skeptic to challenge the thesis. The challenge is one model call charged to your credits; it is stored beside the thesis and never changes it.";
   }
 }
 

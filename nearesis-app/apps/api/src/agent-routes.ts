@@ -35,6 +35,17 @@ const PostMessage = z.strictObject({
 const StartBody = z.strictObject({ consent: z.array(z.enum(CONSENT_KEYS as [string, ...string[]])).max(8) });
 const RetryBody = z.strictObject({ acknowledge: z.array(z.string().min(1).max(100)).max(20).optional() });
 const ApprovalBody = z.strictObject({ decision: z.enum(["approve", "reject"]) });
+/** Any of the plan fields; each is validated field by field (422 names the field). `statement: null` clears the plan. */
+const TestPlanPatch = z.strictObject({
+  statement: z.string().nullable().optional(),
+  xLabel: z.string().optional(),
+  yLabel: z.string().optional(),
+  relation: z.enum(["moves_with", "leads"]).optional(),
+  lagDays: z.number().optional(),
+  expectedSign: z.enum(["positive", "negative", "either"]).optional(),
+  windowDays: z.number().optional(),
+  wouldCountAsWrong: z.string().optional(),
+});
 const CostsQuery = z.strictObject({
   threadId: Uuid.optional(),
   limit: z.coerce.number().int().min(1).max(500).default(100),
@@ -162,6 +173,13 @@ export const agentRoutes: FastifyPluginAsync<AgentRoutesOptions> = async (app, o
   app.get<{ Params: { id: string } }>("/v1/agent/tasks/:id", async (req) =>
     taskOr404(await authenticate(req), req.params.id),
   );
+  /** The owner edits the test plan of a PROPOSED task; Start locks it. */
+  app.patch<{ Params: { id: string } }>("/v1/agent/tasks/:id/test-plan", async (req) => {
+    const s = await authenticate(req);
+    await taskOr404(s, req.params.id);
+    const b = parse(TestPlanPatch, req.body);
+    return svc.patchTestPlan(userOf(s), req.params.id, b);
+  });
   app.post<{ Params: { id: string } }>("/v1/agent/tasks/:id/start", async (req) => {
     const s = await authenticate(req);
     await taskOr404(s, req.params.id);

@@ -94,6 +94,9 @@ const PANELS: Record<string, AnalyticsPanelData> = {
     idx(12).map((i) => [day(i), 100 + i]),
   ),
 };
+// per-test overrides of what the "data service" answers now (a correction, another series, an outage)
+const NOW: Record<string, AnalyticsPanelData> = {};
+const DOWN = new Set<string>();
 const fakePort: PanelDataPort = {
   async stored(hash): Promise<StoredQuery | null> {
     return PANELS[hash] ? { kind: "analytics", ast: { kind: "analytics_call" } } : null;
@@ -108,7 +111,9 @@ const fakePort: PanelDataPort = {
     throw new Error("not used");
   },
   async analytics(hash) {
-    return { status: 200, body: PANELS[hash]! };
+    if (DOWN.has(hash))
+      return { status: 503, body: { reasonCode: "SOURCE_UNAVAILABLE", message: "down" } } as never;
+    return { status: 200, body: NOW[hash] ?? PANELS[hash]! };
   },
   async close() {},
 };
@@ -433,7 +438,14 @@ describe("publish, public read, import", () => {
       shareSlug: slug,
     });
     expect(b.doc.origin).toMatchObject({ workspaceId: null, runId: null, hypothesisId: null });
-    expect(b.receipts).toEqual({ verified: 0, reproduced: 0, drift: 0 });
+    expect(b.receipts).toEqual({
+      verified: 0,
+      reproduced: 0,
+      drift: 0,
+      different: 0,
+      incomplete: 0,
+      mismatch: 0,
+    });
     const text = r.body;
     for (const id of [orgA, wsA, aliceId, runSupported]) expect(text).not.toContain(id);
     expect(text).not.toContain("ownerUserId");
@@ -679,5 +691,119 @@ describe("compare and the reference thesis", () => {
     const c = await post(alice, `/v1/theses/${thesisId}/compare`, { against: "reference-near-intents" });
     expect(c.statusCode, c.body).toBe(200);
     expect(c.json().outcome).toBe("different");
+  });
+});
+
+describe("rerun: reproduction by re-executing the stored queries", () => {
+  const rerun = (tok: string | null, id: string) => post(tok, `/v1/theses/${id}/rerun`);
+  const asHash = (src: string, hash: string): AnalyticsPanelData => {
+    const p = JSON.parse(JSON.stringify(PANELS[src])) as AnalyticsPanelData;
+    (p.chart as { queryHash: string }).queryHash = hash;
+    return p;
+  };
+  const clear = () => {
+    for (const k of Object.keys(NOW)) delete NOW[k];
+    DOWN.clear();
+  };
+  afterAll(clear);
+
+  it("unchanged data is a match with the stored window, and nothing about the original workspace is needed", async () => {
+    const r = await rerun(alice, thesisId);
+    expect(r.statusCode, r.body).toBe(200);
+    const b = r.json();
+    expect(
+      b.outcome,
+      JSON.stringify(
+        b.rows.filter((x: { original: string; reproduced: string }) => x.original !== x.reproduced),
+      ),
+    ).toBe("match");
+    expect(b.unavailable).toEqual([]);
+    expect(b.reran).toMatchObject({ charts: 2, queries: 2, window: { from: day(0), to: day(69) } });
+    expect(Date.parse(b.reran.at)).not.toBeNaN();
+    expect(b.rows.find((x: { what: string }) => x.what === "verdict")).toMatchObject({
+      original: "SUPPORTED",
+      reproduced: "SUPPORTED",
+    });
+    expect(b.receiptId).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("a corrected value is drift (same verdict and n)", async () => {
+    NOW[H("b")] = asHash(H("c"), H("b"));
+    const b = (await rerun(alice, thesisId)).json();
+    clear();
+    expect(b.outcome).toBe("drift");
+    expect(b.rows.some((x: { delta: string | null }) => x.delta !== null && Number(x.delta) !== 0)).toBe(
+      true,
+    );
+  });
+
+  it("another verdict is different", async () => {
+    // another series under the same column name: the verdict moves
+    NOW[H("b")] = {
+      ...asHash(H("d"), H("b")),
+      chart: {
+        ...PANELS[H("d")]!.chart,
+        queryHash: H("b"),
+        columns: PANELS[H("b")]!.chart.columns,
+      },
+    } as AnalyticsPanelData;
+    const b = (await rerun(alice, thesisId)).json();
+    clear();
+    expect(b.outcome).toBe("different");
+    expect(b.rows.find((x: { what: string }) => x.what === "verdict").reproduced).not.toBe("SUPPORTED");
+  });
+
+  it("a query that cannot run makes the outcome incomplete, with the reason, and nothing is guessed", async () => {
+    DOWN.add(H("b"));
+    const b = (await rerun(alice, thesisId)).json();
+    clear();
+    expect(b.outcome).toBe("incomplete");
+    expect(b.unavailable).toEqual(
+      expect.arrayContaining([{ chart: "Panel 1", reason: "SOURCE_UNAVAILABLE" }]),
+    );
+    expect(b.rows.every((x: { what: string }) => x.what !== "verdict")).toBe(true);
+    expect(b.rows.some((x: { what: string }) => x.what.startsWith("Panel 0"))).toBe(true);
+  });
+
+  it("the reference thesis is offline (422 with the commands); an invisible thesis is a 404; no session is 401", async () => {
+    const ref = await rerun(alice, "reference-near-intents");
+    expect(ref.statusCode).toBe(422);
+    expect(ref.json().reasonCode).toBe("REFERENCE_THESIS_OFFLINE");
+    expect(ref.json().details.commands.length).toBeGreaterThan(0);
+    const hidden = (await get(alice, "/v1/theses"))
+      .json()
+      .items.find((x: { workspaceId: string }) => x.workspaceId === wsC);
+    expect((await rerun(bob, hidden.id)).statusCode).toBe(404);
+    expect((await rerun(alice, "not-a-uuid")).statusCode).toBe(404);
+    expect((await rerun(null, thesisId)).statusCode).toBe(401);
+  });
+
+  it("an importer in another organisation can rerun a published thesis, and the receipts are counted per outcome", async () => {
+    const b = await rerun(bob, thesisId);
+    expect(b.statusCode, b.body).toBe(200);
+    expect(b.json().outcome).toBe("match");
+    const rec = (await get(alice, `/v1/theses/${thesisId}/receipts`)).json();
+    const count = (kind: string, outcome: string): number =>
+      rec.receipts.filter((x: { kind: string; outcome: string }) => x.kind === kind && x.outcome === outcome)
+        .length;
+    expect(rec.counts).toEqual({
+      verified: count("verify", "verified"),
+      reproduced: count("reproduce", "match"),
+      drift: count("reproduce", "drift"),
+      different: count("reproduce", "different"),
+      incomplete: count("reproduce", "incomplete"),
+      mismatch: count("verify", "mismatch"),
+    });
+    expect(rec.counts.incomplete).toBe(1);
+    expect(rec.counts.different).toBeGreaterThanOrEqual(1);
+    expect(rec.counts.reproduced).toBeGreaterThanOrEqual(3);
+    const detail = rec.receipts.find(
+      (x: { outcome: string; detail: { method?: string } }) => x.detail.method === "rerun",
+    );
+    expect(detail.detail).toMatchObject({ method: "rerun", queries: 2 });
+    const pub = (await get(null, `/v1/public/theses/${slug}`)).json();
+    expect(pub.receipts).toEqual(rec.counts);
+    const list = (await get(bob, "/v1/theses")).json().items.find((x: { id: string }) => x.id === thesisId);
+    expect(list.receipts).toEqual(rec.counts);
   });
 });

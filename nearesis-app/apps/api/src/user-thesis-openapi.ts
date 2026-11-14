@@ -3,7 +3,7 @@ import type { RouteSpec } from "@nearesis/contracts";
 
 const REFERENCE = "reference-near-intents";
 const SUMMARY =
-  "{ id, title, hypothesis, verdict: { status, headline }, kind: 'reference'|'workspace'|'imported', workspaceId|null, version, status: 'draft'|'published'|'unpublished', shareSlug|null, sourceThesisId|null, updatedAt, receipts: { verified, reproduced, drift } }";
+  "{ id, title, hypothesis, verdict: { status, headline }, kind: 'reference'|'workspace'|'imported', workspaceId|null, version, status: 'draft'|'published'|'unpublished', shareSlug|null, sourceThesisId|null, updatedAt, receipts: { verified, reproduced, drift, different, incomplete, mismatch } }";
 
 /**
  * User theses (apps/api/src/user-thesis-routes.ts; document in apps/api/src/user-thesis/generate.ts). Spread into ROUTES by
@@ -102,7 +102,7 @@ export const USER_THESIS_ROUTES: RouteSpec[] = [
     responses: {
       "200": {
         description:
-          "{ thesis: { id, title, hypothesis, verdict, kind, version, status, shareSlug, ownerDisplay, updatedAt }, doc, receipts: { verified, reproduced, drift } }",
+          "{ thesis: { id, title, hypothesis, verdict, kind, version, status, shareSlug, ownerDisplay, updatedAt }, doc, receipts: { verified, reproduced, drift, different, incomplete, mismatch } }",
         untyped: true,
       },
     },
@@ -127,6 +127,23 @@ export const USER_THESIS_ROUTES: RouteSpec[] = [
     responses: {
       "200": {
         description: "{ outcome: 'verified'|'mismatch', checks: [{ name, ok, detail }], receiptId }",
+        untyped: true,
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/v1/theses/:id/rerun",
+    tag: "thesis",
+    summary:
+      "Reproduce a thesis by re-executing its stored queries (deterministic; no model call, no chain call, nothing charged)",
+    description:
+      "Re-executes, as the caller and read-only, every stored panel query of the thesis's capsule snapshot with the SAME query definition and the SAME absolute window (never relative to today), through the same data service that produced them, under the caller's own organisation and a scope that names no workspace (the caller needs no access to the original workspace; a workspace-private source is reported as unavailable). The two verifier series are rebuilt from the SAME panels and columns the original used (no re-picking), `relationship-v1` and every chart's first, last and peak are recomputed and compared with the stored document. `match`: every compared value equal. `drift`: same verdict, n and window but some value differs. `different`: verdict, n or window differ. `incomplete`: at least one query could not be re-executed (listed in `unavailable` with the reason); the rows cover only what could be compared and nothing is guessed. Records a `reproduce` receipt on the thesis. 404 THESIS_NOT_FOUND when the thesis is not visible; 422 REFERENCE_THESIS_OFFLINE (details.commands) for the reference thesis; 503 THESIS_SNAPSHOT_UNAVAILABLE when this server does not hold the capsule.",
+    auth: "bearer",
+    responses: {
+      "200": {
+        description:
+          "{ outcome: 'match'|'drift'|'different'|'incomplete', rows: [{ what, original, reproduced, delta }], reran: { charts, queries, at, window: { from, to } }, unavailable: [{ chart, reason }], receiptId }",
         untyped: true,
       },
     },
@@ -158,7 +175,7 @@ export const USER_THESIS_ROUTES: RouteSpec[] = [
     responses: {
       "200": {
         description:
-          "{ receipts: [{ id, kind, outcome, userDisplay, createdAt, detail }], counts: { verified, reproduced, drift } }",
+          "{ receipts: [{ id, kind, outcome, userDisplay, createdAt, detail }], counts: { verified, reproduced, drift, different, incomplete, mismatch } }",
         untyped: true,
       },
     },

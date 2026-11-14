@@ -102,7 +102,7 @@ export function thesisVersionOf(i: ThesisInputs): string {
 }
 
 // ---------------------------------------------------------------------------------------------------------------- coverage
-function coverageOf(
+export function coverageOf(
   p: PanelFile,
   window: { from: string; to: string },
 ): { complete: boolean | null; detail: string } {

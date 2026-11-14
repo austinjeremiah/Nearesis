@@ -8,6 +8,7 @@ import type { Session, Tx } from "@nearesis/kernel";
 import { APP_ROOT, readCapsuleOwnership } from "@nearesis/capsule";
 import { resolveCapsuleDir } from "./capsule-resolve.ts";
 import { createWorkspaceCapsule } from "./workspace-capsule-routes.ts";
+import { rerunThesis } from "./user-thesis/rerun.ts";
 import { createPanelDataPort } from "./panel-data.ts";
 import type { PanelDataPort } from "./panel-data.ts";
 import { Uuid, audit, ctxOf, iso, parseBody } from "./product-common.ts";
@@ -79,12 +80,19 @@ interface Row {
 const COLS =
   "id, org_id, workspace_id, owner_user_id, run_id, capsule_id, version, status, share_slug, title, doc, doc_sha256, kind, source_thesis_id, created_at, published_at";
 
+/**
+ * `reproduced` counts reproductions that matched; `drift`, `different` and `incomplete` count the other reproduction outcomes;
+ * `mismatch` counts verifications that failed.
+ */
 interface Counts {
   verified: number;
   reproduced: number;
   drift: number;
+  different: number;
+  incomplete: number;
+  mismatch: number;
 }
-const noCounts: Counts = { verified: 0, reproduced: 0, drift: 0 };
+const noCounts: Counts = { verified: 0, reproduced: 0, drift: 0, different: 0, incomplete: 0, mismatch: 0 };
 
 const notFound = (): KernelError => new KernelError("NOT_FOUND", "THESIS_NOT_FOUND", "Thesis not found.");
 const fileNotFound = (): KernelError =>
@@ -136,7 +144,7 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
   const counts = async (tx: Tx, ids: string[]): Promise<Map<string, Counts>> => {
     const m = new Map<string, Counts>();
     for (const id of ids) {
-      const r = await tx.query<Counts>("SELECT * FROM thesis_receipt_counts($1)", [id]);
+      const r = await tx.query<Counts>("SELECT * FROM thesis_receipt_counts_v2($1)", [id]);
       m.set(id, r.rows[0] ?? noCounts);
     }
     return m;
@@ -642,6 +650,70 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
     return { outcome, checks, receiptId };
   });
 
+  // rerun: reproduction by RE-EXECUTION of the stored queries (no model call, no chain call, nothing charged) --------------
+  app.post<{ Params: { id: string } }>("/v1/theses/:id/rerun", async (req) => {
+    const s = await authenticate(req);
+    const id = req.params.id;
+    if (id === REFERENCE_ID) {
+      const rep = (loadReference().doc.reproduce ?? {}) as Record<string, unknown>;
+      const text = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
+      const commands = [
+        text(rep.command) ?? "pnpm thesis:build",
+        text(rep.check) ?? "pnpm thesis:verify",
+        "pnpm thesis:data",
+      ];
+      throw new KernelError(
+        "DOMAIN_INVARIANT",
+        "REFERENCE_THESIS_OFFLINE",
+        "The reference thesis is rebuilt offline from its frozen data, not through the agent.",
+        {
+          retryable: false,
+          nextAction: `From the repository root nearesis-app run: ${commands.join(" ; ")}`,
+          detailsObject: { commands, folder: "nearesis-app" },
+        },
+      );
+    }
+    // visible to the caller or 404 (row-level security: own organisation, or imported)
+    const row = await kernel.db.tx(ctxOf(s), (tx) => rowOf(tx, id));
+    const dir = resolveCapsuleDir(root(), row.capsule_id);
+    const facts = ((): ReturnType<typeof readCapsuleFacts> => {
+      try {
+        return dir ? readCapsuleFacts(dir) : null;
+      } catch {
+        return null;
+      }
+    })();
+    if (!facts)
+      throw new KernelError(
+        "UPSTREAM_DEGRADED",
+        "THESIS_SNAPSHOT_UNAVAILABLE",
+        "The stored snapshot of this thesis is not available on this server, so its queries cannot be re-executed.",
+        { retryable: true },
+      );
+    // The caller's own identity, read-only, against the shared sources. No workspace of the caller (or of the owner) is used:
+    // the scope id names the thesis, so nothing is created and nothing of the owner's workspace is reachable.
+    const session = {
+      tenantId: s.principal.orgId,
+      workspaceId: `thesis-rerun:${row.id}`,
+      principalId: s.userId,
+      aclClasses: ["human"],
+    };
+    const r = await rerunThesis(row.doc, facts, data(), session, new Date());
+    const receiptId = await kernel.db.tx(ctxOf(s), async (tx) =>
+      recordReceipt(tx, s, id, "reproduce", r.outcome, {
+        method: "rerun",
+        charts: r.reran.charts,
+        queries: r.reran.queries,
+        window: r.reran.window,
+        compared: r.rows.length,
+        differing: r.rows.filter((x) => x.original !== x.reproduced).length,
+        unavailable: r.unavailable.length,
+        by: await displayOf(tx, s),
+      }),
+    );
+    return { outcome: r.outcome, rows: r.rows, reran: r.reran, unavailable: r.unavailable, receiptId };
+  });
+
   // compare: :id is the REPRODUCED thesis, `against` the ORIGINAL ----------------------------------------------------
   app.post<{ Params: { id: string } }>("/v1/theses/:id/compare", async (req) => {
     const s = await authenticate(req);
@@ -800,7 +872,7 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
       const row = (await tx.query<PublicRow>("SELECT * FROM thesis_public_get($1)", [slug])).rows[0];
       if (!row) throw notFound();
       const c =
-        (await tx.query<Counts>("SELECT * FROM thesis_receipt_counts($1)", [row.id])).rows[0] ?? noCounts;
+        (await tx.query<Counts>("SELECT * FROM thesis_receipt_counts_v2($1)", [row.id])).rows[0] ?? noCounts;
       return { row, c };
     });
   };

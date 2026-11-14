@@ -1,6 +1,6 @@
-# The Toll Booth Problem
+# Volume Without Value Capture
 
-Version v-87666ef9b9e9; generated from frozen data only (frozen at 2026-11-14T10:12:49.255Z).
+Version v-772d7d6dbdf6; generated from frozen data only (frozen at 2026-11-14T10:12:49.255Z).
 
 ## Executive claim
 
@@ -314,7 +314,7 @@ Citations in square brackets are `file#pointer`. `raw/` is thesis/raw (raw/forec
 | raw/chain_pairs_monthly.json | thesis/raw/chain_pairs_monthly.json | b743886ca1b3181dea7b77655ecf4ff4791edd9c4c7dc42b07a146604fc176f9 |
 | raw/excursion_routes.json | thesis/raw/excursion_routes.json | 075ec1f2e76ea01bb0e67a18b85df4383fdf8e534b684ae53f3560749efc50d0 |
 | raw/fees/FEE_MODEL.md | thesis/raw/fees/FEE_MODEL.md | 464544955fae9772a7b4bf4ea3a1f8477ac9376105673cd47800ccb258461000 |
-| raw/fees/NOTES.md | thesis/raw/fees/NOTES.md | 9a1138fda1217e1682375b943ef6f23552ca11c0b8563c3a3dbf87a1338de0e2 |
+| raw/fees/NOTES.md | thesis/raw/fees/NOTES.md | 110140f0743153f2a93e29d5936b076cc23f7fba4789c1bd250e917635284785 |
 | raw/fees/fees_by_receiver_top.json | thesis/raw/fees/fees_by_receiver_top.json | f79e1118bbcd29f4725df402437976b4fbb085f67ffe23d9b74bbbc6e323e4ee |
 | raw/fees/fees_footprint_discovery.json | thesis/raw/fees/fees_footprint_discovery.json | a109bb92143d8d8e8f0fde1c74c816ea450aaddc486228029ca7f1e956c6448b |
 | raw/fees/fees_intents_daily.json | thesis/raw/fees/fees_intents_daily.json | 34fef154f814230940b7ef4cda370dd8b8bdec3b416a447ab48b78de558f1a51 |
@@ -354,6 +354,6 @@ raw/forecast.json is generated: its sha256 is in thesis/build/HASHES.json and it
 
 ## Changes since previous version
 
-First generated version of this forecast bundle, id v-87666ef9b9e9. The version id is derived from the input hashes and the forecast file, so any change in the frozen data changes it.
+First generated version of this forecast bundle, id v-772d7d6dbdf6. The version id is derived from the input hashes and the forecast file, so any change in the frozen data changes it.
 
 - The previous reference thesis (Cross-chain volume through NEAR Intents is a better leading indicator of real network usage than token price.) is archived at thesis/archive/intents-vs-price-v1 with its verdict INSUFFICIENT_DATA (version v-69055059d3e7). It stays verifiable with `pnpm thesis:verify --dir thesis/archive/intents-vs-price-v1` and its files are served under /v1/thesis/files/archive/intents-vs-price-v1/. [archive/thesis.json#/hypothesis][archive/thesis.json#/verdict/status][archive/thesis.json#/version]

@@ -1,0 +1,8 @@
+-- thesis dataset: fees_take_rate_gas_daily (Gas take rate of NEAR Intents: NEAR burnt on Intents contracts, in basis points of settled USD value)
+-- derived locally from frozen files (pure code, services/ingestion/src/thesis/fees-series.ts); no query was executed for this file
+-- frozen at: 2026-11-14T11:25:11.929Z
+-- rows: 369
+-- result file: raw/fees/fees_take_rate_gas_daily.json
+-- result sha256: 91054feb0ab66cb6a7ed3a34556b586b03241325cdc7f78b62cd2ec03d9f9c5a
+-- take_rate_gas_bps = burn_yocto / 10^24 x price_usd / volume_usd x 10^4 (exact integer arithmetic, 8 decimals, half-even)
+-- 30 day = sum(burn USD) / sum(volume USD) over the trailing 30 calendar days on usable days (>= 15)

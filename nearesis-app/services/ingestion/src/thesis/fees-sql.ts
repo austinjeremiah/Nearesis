@@ -2,7 +2,7 @@ import { NEAR_DATASET } from "../adapters/bigquery-guard.ts";
 import { addDays, monthRanges } from "../backfill/plan.ts";
 
 /**
- * NEAR fee and burn series for the thesis "The Toll Booth Problem": BigQuery SQL builders (pure, no I/O).
+ * NEAR fee and burn series for the thesis "Volume Without Value Capture": BigQuery SQL builders (pure, no I/O).
  * Every query: SELECT only, finite DECLAREd block_date bounds (>= start, < end), no OR, columns limited to what is needed.
  * tokens_burnt is FLOAT64 yoctoNEAR in the public dataset (exact only to 2^-53 relative per value, see docs/economics/SEMANTICS.md);
  * the stored double is cast to BIGNUMERIC and summed exactly, so aggregation adds no error.

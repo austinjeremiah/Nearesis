@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 /**
- * Pure parts of the user-paid spread and app-fee measurement (thesis "The Toll Booth Problem").
+ * Pure parts of the user-paid spread and app-fee measurement (thesis "Volume Without Value Capture").
  * Nothing here touches a database, the network or the file system except `sha256Hex`.
  */
 

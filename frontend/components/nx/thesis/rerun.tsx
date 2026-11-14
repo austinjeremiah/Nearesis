@@ -71,7 +71,8 @@ function Rows({ rows, label }: { rows: RerunView['changed']; label: string }) {
                 <th scope="row">{r.what}</th>
                 <td className="mono" title={o.exact}>{o.text}</td>
                 <td className="mono" title={p.exact}>{p.text}</td>
-                <td className="mono" title={d.exact}>{d.text}</td>
+                {/* values that are not numbers (a verdict, a date) have no numeric change: say whether they are the same */}
+                <td className="mono" title={d.exact}>{r.delta === null ? (r.original !== null && r.reproduced !== null ? (r.changed ? 'changed' : 'same') : 'unknown') : d.text}</td>
               </tr>
             );
           })}

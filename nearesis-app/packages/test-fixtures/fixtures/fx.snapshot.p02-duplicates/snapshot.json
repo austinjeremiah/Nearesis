@@ -1,0 +1,36 @@
+{
+  "snapshotId": "fx.snapshot.p02-duplicates",
+  "replayNowUTC": "2026-10-19T00:00:00.000Z",
+  "explorer": {
+    "environment": "fixture_synthetic",
+    "pageSize": 5,
+    "streams": [
+      {
+        "kind": "pages",
+        "name": "main",
+        "pages": [
+          {
+            "file": "explorer/page-a.json",
+            "fetchedAtUTC": "2026-10-18T13:00:00.000Z",
+            "status": 200
+          },
+          {
+            "file": "explorer/page-b.json",
+            "fetchedAtUTC": "2026-10-18T13:00:10.000Z",
+            "status": 200
+          },
+          {
+            "file": "explorer/page-a.json",
+            "fetchedAtUTC": "2026-10-18T13:00:20.000Z",
+            "status": 200
+          },
+          {
+            "file": "explorer/page-c.json",
+            "fetchedAtUTC": "2026-10-18T14:00:00.000Z",
+            "status": 200
+          }
+        ]
+      }
+    ]
+  }
+}

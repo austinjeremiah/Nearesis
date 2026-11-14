@@ -1,0 +1,38 @@
+{
+  "label": "SYNTHETIC",
+  "description": "Model outputs that try to smuggle executable UI (JSX, HTML, formatter functions, handlers) into panel specs or patches. Each must be rejected by the schema validator.",
+  "panelCases": [
+    {
+      "name": "raw-jsx-string",
+      "value": "<TimeSeries data={rows} onHover={() => (window.__x = 1)} />",
+      "expect": "EXECUTABLE_CONTENT"
+    },
+    { "name": "jsx-fragment", "value": "<><Chart /></>", "expect": "NOT_AN_OBJECT" },
+    { "name": "arrow-function-text", "value": "() => React.createElement('div')", "expect": "NOT_AN_OBJECT" },
+    { "name": "component-prop", "merge": { "component": "MyChart" }, "expect": "EXECUTABLE_CONTENT" },
+    {
+      "name": "render-prop",
+      "merge": { "render": "function(){window.__x=1}" },
+      "expect": "EXECUTABLE_CONTENT"
+    },
+    { "name": "jsx-prop", "merge": { "jsx": "<b onClick={x}>hi</b>" }, "expect": "EXECUTABLE_CONTENT" },
+    {
+      "name": "dangerously-set-inner-html",
+      "merge": { "dangerouslySetInnerHTML": { "__html": "<img src=x onerror=alert(1)>" } },
+      "expect": "EXECUTABLE_CONTENT"
+    },
+    {
+      "name": "encoding-formatter",
+      "mergeEncoding": { "formatter": "function(v){return eval(v)}" },
+      "expect": "EXECUTABLE_CONTENT"
+    },
+    { "name": "event-handler", "merge": { "onClick": "alert(1)" }, "expect": "EXECUTABLE_CONTENT" },
+    { "name": "custom-react-kind", "merge": { "kind": "customReact" }, "expect": "UNKNOWN_PANEL_KIND" },
+    { "name": "renderer-field", "merge": { "renderer": "customReact" }, "expect": "EXECUTABLE_CONTENT" },
+    {
+      "name": "proto-pollution",
+      "rawJson": "{\"__proto__\":{\"polluted\":true},\"kind\":\"timeSeries\"}",
+      "expect": "EXECUTABLE_CONTENT"
+    }
+  ]
+}

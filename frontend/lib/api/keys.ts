@@ -1,0 +1,25 @@
+/** TanStack Query keys. One place, so SSE invalidation and pages agree. */
+export const qk = {
+  me: ['me'] as const,
+  workspaces: ['workspaces'] as const,
+  workspace: (wid: string) => ['workspace', wid] as const,
+  /** Everything scoped to one workspace shares this prefix, so one call can invalidate it all. */
+  scope: (wid: string) => ['ws', wid] as const,
+  runs: (wid: string) => ['ws', wid, 'runs'] as const,
+  run: (wid: string, runId: string) => ['ws', wid, 'run', runId] as const,
+  timeline: (wid: string) => ['ws', wid, 'timeline'] as const,
+  monitors: (wid: string) => ['ws', wid, 'monitors'] as const,
+  markers: (wid: string) => ['ws', wid, 'markers'] as const,
+  notifications: (wid: string) => ['ws', wid, 'notifications'] as const,
+  sources: (wid: string) => ['ws', wid, 'sources'] as const,
+  canvas: (wid: string) => ['ws', wid, 'canvas'] as const,
+  panel: (wid: string, panelId: string) => ['ws', wid, 'canvas', 'panel', panelId] as const,
+  graph: (wid: string) => ['ws', wid, 'graph'] as const,
+  eligibility: (wid: string) => ['ws', wid, 'eligibility'] as const,
+  snapshots: (wid: string) => ['ws', wid, 'snapshots'] as const,
+  capsules: (wid: string) => ['ws', wid, 'capsules'] as const,
+  approvals: (wid: string) => ['ws', wid, 'approvals'] as const,
+  summaries: (wid: string) => ['ws', wid, 'summaries'] as const,
+  lenses: (wid: string) => ['ws', wid, 'lenses'] as const,
+  branches: (wid: string) => ['ws', wid, 'branches'] as const,
+};

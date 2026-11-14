@@ -3,9 +3,11 @@ import {
   Activity,
   Bell,
   BookOpen,
+  Bot,
   Boxes,
   Braces,
   Clock,
+  Coins,
   Database,
   FileText,
   FlaskConical,
@@ -18,6 +20,7 @@ import {
   Network,
   Package,
   Radio,
+  Scale,
   Search,
   Settings,
   ShieldCheck,
@@ -53,10 +56,13 @@ export type NavGroup = {
 /** Global area. Visible with or without an active workspace. */
 export const GLOBAL_NAV: NavItem[] = [
   { href: '/home', label: 'Home', icon: Home, hint: 'What needs your attention' },
+  { href: '/thesis', label: 'Theses', icon: Scale, hint: 'Your theses and the NEAR Intents reference: verify, share, reproduce' },
+  { href: '/agent', label: 'Agent', icon: Bot, hint: 'Ask, chart and investigate' },
   { href: '/workspaces', label: 'Workspaces', icon: Boxes, hint: 'Portfolio of investigations' },
   { href: '/data', label: 'Explore data', icon: Database, hint: 'Certified metric catalog' },
   { href: '/publications', label: 'Publications', icon: BookOpen, hint: 'Published theses' },
   { href: '/notifications', label: 'Notifications', icon: Bell, hint: 'Approvals and findings' },
+  { href: '/credits', label: 'Credits', icon: Coins, hint: 'Your USD allowance for AI and proofs' },
   { href: '/system', label: 'System health', icon: Gauge, hint: 'Source and service health' },
 ];
 
@@ -106,6 +112,7 @@ export const WORKSPACE_NAV: NavGroup[] = [
     items: [
       { href: '/w/:wid/thesis', label: 'Thesis and reports', icon: FileText },
       { href: '/w/:wid/capsules', label: 'Capsules', icon: Package },
+      { href: '/w/:wid/cost', label: 'Cost', icon: Coins, hint: 'Spend, caps and forecast' },
     ],
   },
 ];
@@ -120,6 +127,11 @@ export const DATA_NAV: NavItem[] = [
   { href: '/data', label: 'Metric catalog', icon: Database },
   { href: '/data/sources', label: 'Sources', icon: Network },
   { href: '/data/quotes', label: 'Quote observatory', icon: Search },
+  { href: '/data/intents', label: 'Intents analytics', icon: Search },
+  { href: '/data/ecosystem', label: 'Ecosystem entities', icon: Network },
+  { href: '/data/accounts', label: 'Accounts', icon: Network },
+  { href: '/data/economics', label: 'Economics', icon: Database },
+  { href: '/data/realtime', label: 'Real-time feed', icon: Radio },
 ];
 
 export function withWorkspace(href: string, wid: string): string {

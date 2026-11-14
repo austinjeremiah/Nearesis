@@ -1,0 +1,411 @@
+import { z } from "zod";
+import { MIN_QUESTION_BUDGET } from "@nearesis/contracts";
+import { microToUsd } from "@nearesis/kernel";
+import type { ConsentKey, ConsentRequirement, TaskCtx } from "./types.ts";
+
+/**
+ * The step catalog: the only things a plan may contain. Model output is untrusted, so a plan is accepted only if every step key
+ * and every parameter validates here, and consent and estimates are computed from the validated steps, never from the model.
+ */
+const Uuid = z.uuid();
+const IsoDateTime = z.iso.datetime();
+const Text = (min: number, max: number) => z.string().trim().min(min).max(max);
+
+export const STEP_PARAMS = {
+  "workspace.create": z.strictObject({ objective: Text(1, 2000) }),
+  "workspace.use": z.strictObject({ workspaceId: Uuid }),
+  "workspace.archive": z.strictObject({ workspaceId: Uuid.optional() }),
+  "question.ask": z.strictObject({
+    question: Text(1, 2000).optional(),
+    source: z.enum(["live", "fixture"]).optional(),
+  }),
+  "run.await": z.strictObject({ runId: Uuid.optional() }),
+  "setup.auto": z.strictObject({ runId: Uuid.optional() }),
+  "marker.create": z.strictObject({ panelId: Uuid, at: IsoDateTime, question: Text(1, 2000).optional() }),
+  "monitor.create": z.strictObject({
+    name: Text(1, 200),
+    sourceId: Text(1, 200),
+    metricId: Text(1, 200),
+    op: z.enum(["gt", "gte", "lt", "lte", "eq", "ne"]),
+    value: z.number().finite(),
+  }),
+  "hypothesis.create": z.strictObject({
+    proposition: Text(5, 4000),
+    target: z.string().trim().max(2000).default(""),
+    predictor: z.string().trim().max(2000).default(""),
+    benchmark: z.string().trim().max(2000).default(""),
+    falsification: Text(1, 4000),
+  }),
+  "hypothesis.freeze": z.strictObject({ hypothesisId: Uuid.optional() }),
+  "capsule.build": z.strictObject({ runId: Uuid.optional() }),
+  "capsule.prove": z.strictObject({ capsuleId: Text(1, 200).optional() }),
+  "capsule.publish": z.strictObject({
+    capsuleId: Text(1, 200).optional(),
+    acknowledge: z.array(Text(1, 100)).max(20).optional(),
+  }),
+  "report.build": z.strictObject({ workspaceId: Uuid.optional() }),
+  "thesis.build": z.strictObject({ runId: Uuid.optional() }),
+  "thesis.publish": z.strictObject({ thesisId: Text(1, 200).optional() }),
+  "thesis.compare": z.strictObject({ against: Text(1, 200), thesisId: Text(1, 200).optional() }),
+  "thesis.challenge": z.strictObject({ thesisId: Text(1, 200).optional() }),
+} as const;
+export type StepKey = keyof typeof STEP_PARAMS;
+export const STEP_KEYS = Object.keys(STEP_PARAMS) as StepKey[];
+export const isStepKey = (k: string): k is StepKey => Object.hasOwn(STEP_PARAMS, k);
+
+export const STEP_CONSENT: Partial<Record<StepKey, ConsentKey[]>> = {
+  "workspace.archive": ["archive_workspace"],
+  "hypothesis.freeze": ["freeze_hypothesis"],
+  "capsule.prove": ["spend_credits"],
+  "capsule.publish": ["publish_public", "spend_credits"],
+  "thesis.publish": ["publish_public"],
+};
+
+/** What the planner is told about each key (the prompt documents parameters; validation is STEP_PARAMS). */
+export const CATALOG_DOC: Record<StepKey, string> = {
+  "workspace.create": 'create a workspace. params {"objective": string}',
+  "workspace.use": 'bind an existing workspace (an id from <workspaces>). params {"workspaceId": uuid}',
+  "workspace.archive":
+    'archive a workspace (needs consent). params {"workspaceId"?: uuid} (default: the task workspace)',
+  "question.ask":
+    'start an investigation run. params {"question"?: string, "source"?: "live"|"fixture"} (default: the workspace objective, live)',
+  "run.await":
+    'wait for the run to finish (approves only the zero-cost canvas patch). params {"runId"?: uuid} (default: the run just asked)',
+  "setup.auto":
+    'create markers, monitor rules and a draft hypothesis from the finished run. params {"runId"?: uuid}',
+  "marker.create":
+    'create a marker on an existing panel. params {"panelId": uuid, "at": ISO datetime, "question"?: string}; only when the user supplied the panel id',
+  "monitor.create":
+    'create one monitor rule. params {"name", "sourceId", "metricId", "op": gt|gte|lt|lte|eq|ne, "value": number}; only when the user supplied the source and metric',
+  "hypothesis.create":
+    'create a DRAFT hypothesis. params {"proposition", "target"?, "predictor"?, "benchmark"?, "falsification"}',
+  "hypothesis.freeze":
+    'freeze a hypothesis (needs consent). params {"hypothesisId"?: uuid} (default: the one just created)',
+  "capsule.build": 'build a verifiable capsule from the finished run. params {"runId"?: uuid}',
+  "capsule.prove":
+    'verify the capsule on OutLayer, paid from the user\'s credits (needs consent). params {"capsuleId"?: string}',
+  "capsule.publish":
+    'publish the capsule publicly (needs consent). params {"capsuleId"?: string, "acknowledge"?: string[]}',
+  "report.build":
+    'Workspace summary (older format): check the older workspace summary is ready and link the page and PDF. params {"workspaceId"?: uuid}; use it only when the user literally asks for the old workspace summary PDF; every other request for a report, a PDF, a write-up or the final result is thesis.build',
+  "thesis.build":
+    'build the workspace thesis (every report, PDF, write-up or final result is a thesis: it tests the relationship between two daily series that the user asked about, with evidence for and against, charts with their queries and a verdict) from a finished run and its capsule. params {"runId"?: uuid} (default: the run just asked, else the newest finished run)',
+  "thesis.publish":
+    'publish a thesis at a public link (needs consent). params {"thesisId"?: string} (default: the thesis just built)',
+  "thesis.compare":
+    'compare a thesis with another one (for example a reproduction with the original). params {"against": string (the thesis id to compare with), "thesisId"?: string} (default thesis: the one just built)',
+  "thesis.challenge":
+    "have a skeptic challenge a thesis (one model call charged to the user's credits; the thesis is not changed). params {\"thesisId\"?: string} (default: the thesis just built, else the newest thesis of the workspace); use it when the user asks to challenge a thesis or to play devil's advocate",
+};
+
+export const PLAYBOOKS = [
+  "investigate: workspace.create (or workspace.use), question.ask, run.await, setup.auto, capsule.build, thesis.build (every investigation ends with a thesis)",
+  "full publish flow: workspace.create|use, question.ask, run.await, setup.auto, capsule.build, capsule.prove (only when asked to verify on OutLayer), thesis.build, thesis.publish (only when asked to publish or share)",
+  "thesis: any request for a report, a PDF, a write-up or the final result plans thesis.build (on an existing workspace with a finished run it is the only step needed; capsule.build is added by the server when missing); plan report.build only when the user literally asks for the old workspace summary PDF",
+  "publish a thesis: thesis.publish (after thesis.build, or alone when the thesis id is known)",
+  'challenge a thesis ("challenge this thesis", "play devil\'s advocate"): workspace.use, thesis.challenge (the thesis from context or the workspace\'s newest)',
+  'follow-up on a finding (a message that starts with "In this workspace, investigate what happened around", "In this workspace, look for evidence against:" or "In this workspace, repeat this over the last 365 days:", in a workspace that already holds a finished run): workspace.use, question.ask, run.await, capsule.build, thesis.build (a new thesis version of that workspace; no setup.auto)',
+  "single actions: one step on an existing workspace (for example hypothesis.create or workspace.archive)",
+].join("\n");
+
+export interface PlannedStep {
+  key: StepKey;
+  params: Record<string, unknown>;
+  /** The planner's reason for the step, already sanitised; absent means the fixed sentence of the step key. */
+  why?: string | null;
+}
+export class PlanRejected extends Error {}
+
+/** Parses and validates one step. Throws PlanRejected with a plain reason. */
+export function validateStep(key: string, rawParams: unknown): PlannedStep {
+  if (!isStepKey(key)) throw new PlanRejected(`The step "${key.slice(0, 60)}" is not something I can do.`);
+  const r = STEP_PARAMS[key].safeParse(rawParams ?? {});
+  if (!r.success) {
+    const first = r.error.issues[0];
+    throw new PlanRejected(
+      `The parameters for ${key} are not valid${first ? ` (${first.path.join(".") || "params"}: ${first.message})` : ""}.`,
+    );
+  }
+  return { key, params: r.data as Record<string, unknown> };
+}
+
+/** Which ids a step needs before it runs, and which it produces; used to refuse plans that cannot work. */
+export function validateOrder(steps: PlannedStep[], ambient: TaskCtx): void {
+  const have: TaskCtx = { ...ambient };
+  const need = (cond: unknown, why: string) => {
+    if (!cond) throw new PlanRejected(why);
+  };
+  steps.forEach((s, i) => {
+    const p = s.params as Record<string, string | undefined>;
+    const at = `Step ${i + 1} (${s.key})`;
+    switch (s.key) {
+      case "workspace.create":
+        have.workspaceId = "<new>";
+        delete have.runId;
+        delete have.capsuleId;
+        delete have.hypothesisId;
+        delete have.thesisId;
+        break;
+      case "workspace.use":
+        have.workspaceId = p.workspaceId;
+        break;
+      case "workspace.archive":
+        need(p.workspaceId || have.workspaceId, `${at} has no workspace to archive.`);
+        break;
+      case "question.ask":
+        need(have.workspaceId, `${at} needs a workspace first.`);
+        have.runId = "<new>";
+        break;
+      case "run.await":
+        need(p.runId || have.runId, `${at} needs a run (ask a question first).`);
+        if (p.runId) have.runId = p.runId;
+        break;
+      case "setup.auto":
+      case "capsule.build":
+        need(have.workspaceId, `${at} needs a workspace.`);
+        // An existing workspace may already hold a finished run: the step then takes its newest COMPLETE run.
+        need(p.runId || have.runId || have.workspaceId !== "<new>", `${at} needs a finished run.`);
+        if (s.key === "capsule.build") have.capsuleId = "<new>";
+        break;
+      case "marker.create":
+      case "monitor.create":
+      case "hypothesis.create":
+        need(have.workspaceId, `${at} needs a workspace first.`);
+        if (s.key === "hypothesis.create") have.hypothesisId = "<new>";
+        break;
+      case "hypothesis.freeze":
+        need(have.workspaceId, `${at} needs a workspace first.`);
+        need(
+          p.hypothesisId || have.hypothesisId,
+          `${at} needs a hypothesis id or a hypothesis created earlier.`,
+        );
+        break;
+      case "capsule.prove":
+      case "capsule.publish":
+        // An existing workspace may already hold a capsule: the step then takes its newest one.
+        need(
+          p.capsuleId || have.capsuleId || (have.workspaceId && have.workspaceId !== "<new>"),
+          `${at} needs a capsule (build one first).`,
+        );
+        if (p.capsuleId) have.capsuleId = p.capsuleId;
+        break;
+      case "report.build":
+        need(p.workspaceId || have.workspaceId, `${at} needs a workspace.`);
+        break;
+      case "thesis.build":
+        need(have.workspaceId, `${at} needs a workspace.`);
+        // An existing workspace may already hold a finished run: the step then takes its newest one.
+        need(p.runId || have.runId || have.workspaceId !== "<new>", `${at} needs a finished run.`);
+        have.thesisId = "<new>";
+        break;
+      case "thesis.publish":
+      case "thesis.compare":
+        need(p.thesisId || have.thesisId, `${at} needs a thesis (build one first or name its id).`);
+        if (p.thesisId) have.thesisId = p.thesisId;
+        break;
+      case "thesis.challenge":
+        // an existing workspace may already hold a thesis: the step then takes its newest one
+        need(
+          p.thesisId || have.thesisId || (have.workspaceId && have.workspaceId !== "<new>"),
+          `${at} needs a thesis (build one first, name its id or use a workspace that has one).`,
+        );
+        if (p.thesisId) have.thesisId = p.thesisId;
+        break;
+    }
+  });
+}
+
+/**
+ * Server-side completion of a validated plan (never taken from the model): a thesis is built from a capsule, so when the plan
+ * has no capsule.build before a thesis.build and no capsule exists in context, one is inserted right before it.
+ */
+export function withAutoSteps(steps: PlannedStep[], ambient: TaskCtx): PlannedStep[] {
+  // every investigation ends with a thesis: a plan that starts one and never builds a thesis gets one at its end
+  if (steps.some((s) => s.key === "question.ask") && !steps.some((s) => s.key === "thesis.build"))
+    steps = [...steps, { key: "thesis.build", params: {} }];
+  const out: PlannedStep[] = [];
+  let hasCapsule = Boolean(ambient.capsuleId);
+  for (const s of steps) {
+    if (s.key === "workspace.create" || s.key === "workspace.use") hasCapsule = false;
+    if (s.key === "capsule.build") hasCapsule = true;
+    if (s.key === "thesis.build" && !hasCapsule) {
+      const runId = (s.params as { runId?: string }).runId;
+      out.push({ key: "capsule.build", params: runId ? { runId } : {} });
+      hasCapsule = true;
+    }
+    out.push(s);
+  }
+  if (out.length > MAX_PLAN_STEPS)
+    throw new PlanRejected(
+      `The plan needs ${out.length} steps with the capsule it requires; the limit is ${MAX_PLAN_STEPS}.`,
+    );
+  return out;
+}
+
+/** yoctoNEAR decimal string -> NEAR with up to 6 decimals, exact (truncated, never rounded up). */
+export function nearOf(yocto: string): string {
+  if (!/^\d+$/.test(yocto)) return "unknown";
+  const v = BigInt(yocto);
+  const whole = v / 10n ** 24n;
+  const frac = ((v % 10n ** 24n) / 10n ** 18n).toString().padStart(6, "0").replace(/0+$/, "");
+  return frac ? `${whole}.${frac}` : `${whole}`;
+}
+
+export const MAX_PLAN_STEPS = 12;
+
+export function titleOf(step: PlannedStep): string {
+  const p = step.params as Record<string, unknown>;
+  switch (step.key) {
+    case "workspace.create":
+      return "Create the workspace";
+    case "workspace.use":
+      return "Use the existing workspace";
+    case "workspace.archive":
+      return "Archive the workspace";
+    case "question.ask":
+      return "Start the investigation";
+    case "run.await":
+      return "Run the investigation to completion";
+    case "setup.auto":
+      return "Add markers, monitors and a draft hypothesis";
+    case "marker.create":
+      return "Create a marker";
+    case "monitor.create":
+      return `Create the monitor "${String(p.name)}"`;
+    case "hypothesis.create":
+      return "Create a draft hypothesis";
+    case "hypothesis.freeze":
+      return "Freeze the hypothesis";
+    case "capsule.build":
+      return "Build the verifiable capsule";
+    case "capsule.prove":
+      return "Verify the capsule on OutLayer";
+    case "capsule.publish":
+      return "Publish the capsule";
+    case "report.build":
+      return "Workspace summary (older format)";
+    case "thesis.build":
+      return "Build the thesis";
+    case "thesis.publish":
+      return "Publish the thesis";
+    case "thesis.compare":
+      return "Compare with the original thesis";
+    case "thesis.challenge":
+      return "Challenge the thesis";
+  }
+}
+
+export function detailOf(step: PlannedStep): string {
+  const p = step.params as Record<string, unknown>;
+  const q = (v: unknown) => `"${String(v).slice(0, 160)}"`;
+  switch (step.key) {
+    case "workspace.create":
+      return `Creates a workspace with the objective ${q(p.objective)}.`;
+    case "workspace.use":
+      return `Works in the existing workspace ${String(p.workspaceId)}.`;
+    case "workspace.archive":
+      return "Archives the workspace (it is hidden from the workspace list; owners and admins can unarchive it).";
+    case "question.ask":
+      return `Starts a ${String(p.source ?? "live")} investigation${p.question ? ` of ${q(p.question)}` : " of the workspace objective"} with the minimum budget (up to USD ${MIN_QUESTION_BUDGET.usd} of model spend).`;
+    case "run.await":
+      return "Follows the run, approves only the canvas patch that costs nothing, and pauses for you on any other approval.";
+    case "setup.auto":
+      return "Creates up to 3 markers, up to 3 monitor rules and one draft hypothesis from the run's findings. Nothing is frozen or published.";
+    case "marker.create":
+      return `Creates a marker on panel ${String(p.panelId)} at ${String(p.at)}.`;
+    case "monitor.create":
+      return `Creates a rule that fires when ${String(p.metricId)} ${String(p.op)} ${String(p.value)} on source ${String(p.sourceId)}.`;
+    case "hypothesis.create":
+      return `Creates a draft hypothesis: ${q(p.proposition)}. It is not frozen.`;
+    case "hypothesis.freeze":
+      return "Freezes the hypothesis so it can no longer be edited (you can only amend it afterwards).";
+    case "capsule.build":
+      return "Builds a capsule from the run's panel results (nothing is invented or padded).";
+    case "capsule.prove":
+      return "Runs the verifier on OutLayer (testnet); the deposit and gas are converted to USD and charged to your credits.";
+    case "capsule.publish":
+      return "Publishes the capsule to the public gateway with its verification badge; a testnet anchor may burn gas charged to your credits.";
+    case "report.build":
+      return "Checks the older workspace summary and links its page and PDF. The thesis is the report of a workspace; this is only the older format.";
+    case "thesis.build":
+      return "Builds the thesis from the run's panel results and its capsule: it tests the relationship you asked about between two daily series with a fixed, descriptive rule (no model call; nothing is invented). The thesis stays a private draft.";
+    case "thesis.publish":
+      return "Publishes the thesis at a public link anyone can open without signing in.";
+    case "thesis.compare":
+      return `Compares the thesis with ${String(p.against).slice(0, 80)} (verdict, sample size, window, test numbers, charts) and reports match, drift or different.`;
+    case "thesis.challenge":
+      return "Asks a skeptic to challenge the thesis. The challenge is one model call charged to your credits; it is stored beside the thesis and never changes it.";
+  }
+}
+
+/** USD decimal string with 6 places x n, exact (micro-USD integers). */
+function timesUsd(usd6: string, n: number): string {
+  const [w = "0", f = ""] = usd6.split(".");
+  return microToUsd(BigInt(w) * 1_000_000n * BigInt(n) + BigInt(f.padEnd(6, "0").slice(0, 6)) * BigInt(n));
+}
+
+/** Consent requirements derived from the steps. `proofEstimateUsd` is the server's current hold for one proof in USD (null if unknown). */
+export function consentFor(steps: PlannedStep[], proofEstimateUsd: string | null): ConsentRequirement[] {
+  const out = new Map<ConsentKey, ConsentRequirement>();
+  const proves = steps.filter((s) => s.key === "capsule.prove").length;
+  const publishes = steps.filter((s) => s.key === "capsule.publish").length;
+  const maxProof =
+    proofEstimateUsd !== null && /^\d+(\.\d+)?$/.test(proofEstimateUsd) && proves > 0
+      ? timesUsd(proofEstimateUsd, proves)
+      : null;
+  const publishesThesis = steps.some((s) => s.key === "thesis.publish");
+  const publishesCapsule = publishes > 0;
+  for (const s of steps)
+    for (const k of STEP_CONSENT[s.key] ?? []) {
+      if (out.has(k)) continue;
+      if (k === "spend_credits")
+        out.set(k, {
+          key: k,
+          label: "Spend credits",
+          detail:
+            (proves > 0
+              ? maxProof
+                ? `Up to USD ${maxProof} of your credits is held for the OutLayer proof; only what it really costs (OutLayer charge plus gas, converted at the latest NEAR/USD close) is charged and the rest is released.`
+                : "The OutLayer proof cost cannot be estimated right now; it is held from your credits and only what it really costs is charged."
+              : "") + (publishes > 0 ? " Publishing may anchor on testnet and charge the gas burnt." : ""),
+          maxUsd: maxProof,
+        });
+      else if (k === "publish_public")
+        out.set(k, {
+          key: k,
+          label: "Publish publicly",
+          detail:
+            (publishesCapsule
+              ? "The capsule becomes publicly visible with its verification badge. If the publish route lists cautions (for example INSUFFICIENT_DATA) the task stops and asks you to acknowledge them."
+              : "") +
+            (publishesCapsule && publishesThesis ? " " : "") +
+            (publishesThesis
+              ? "The thesis becomes readable by anyone with its link, without signing in; you can unpublish it later."
+              : ""),
+          maxUsd: null,
+        });
+      else if (k === "freeze_hypothesis")
+        out.set(k, {
+          key: k,
+          label: "Freeze a hypothesis",
+          detail: "A frozen hypothesis can no longer be edited, only amended.",
+          maxUsd: null,
+        });
+      else
+        out.set(k, {
+          key: k,
+          label: "Archive the workspace",
+          detail: "The workspace is hidden from the workspace list until an owner or admin unarchives it.",
+          maxUsd: null,
+        });
+    }
+  return [...out.values()];
+}
+
+export function modelUsdMaxFor(steps: PlannedStep[]): string {
+  const n = steps.filter((s) => s.key === "question.ask").length;
+  return (n * MIN_QUESTION_BUDGET.usd).toFixed(6);
+}
+export const QUESTION_BUDGET = { ...MIN_QUESTION_BUDGET };
+
+export const PLANNER_STEP_KEYS_NOTE = `Valid step keys: ${STEP_KEYS.join(", ")}.`;

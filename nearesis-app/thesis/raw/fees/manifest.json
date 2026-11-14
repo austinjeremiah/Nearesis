@@ -1,0 +1,1444 @@
+{
+  "schema": "nearesis.thesis.raw.v1",
+  "frozenAt": "2026-11-14T11:25:11.929Z",
+  "window": {
+    "from": "2025-11-10",
+    "to": "2026-11-13"
+  },
+  "datasets": [
+    {
+      "id": "fees_total_daily",
+      "title": "NEAR network fees burnt per day (all execution outcomes), gas and gas price",
+      "unit": "yoctoNEAR / NEAR / gas units",
+      "file": "raw/fees/fees_total_daily.json",
+      "sha256": "e0fa88d8735d2152e4723d484c0f2c985673f614be398841fa4d8623a465e73a",
+      "rows": 369,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "outcomes",
+          "type": "integer-string"
+        },
+        {
+          "name": "gas_burnt",
+          "type": "integer-string"
+        },
+        {
+          "name": "tokens_burnt_yocto",
+          "type": "integer-string"
+        },
+        {
+          "name": "tokens_burnt_near",
+          "type": "decimal-string"
+        },
+        {
+          "name": "blocks",
+          "type": "integer-string|null"
+        },
+        {
+          "name": "avg_gas_price_yocto",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "min_gas_price_yocto",
+          "type": "integer-string|null"
+        },
+        {
+          "name": "max_gas_price_yocto",
+          "type": "integer-string|null"
+        },
+        {
+          "name": "null_gas_rows",
+          "type": "integer-string"
+        },
+        {
+          "name": "null_token_rows",
+          "type": "integer-string"
+        }
+      ],
+      "source": "BigQuery public dataset bigquery-public-data.crypto_near_mainnet_us.execution_outcomes (block_date, executor_account_id, gas_burnt, tokens_burnt) and .blocks (gas_price)",
+      "sqlExecuted": "sql/executed/fees_total_daily.sql",
+      "sqlBigQuery": "sql/bigquery/fees_total_daily.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "147029229568",
+      "bigQueryJobs": [
+        {
+          "id": "outcomes:2025-11-10",
+          "from": "2025-11-10",
+          "to": "2025-12-01",
+          "jobId": "88b96d1e-16f2-4ac0-acc2-0c212c3d7eeb",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:21:13.987Z",
+          "dryRunBytes": 17049449801,
+          "bytesBilled": 17049845760,
+          "rows": 11542,
+          "resultSha256": "5165331377daf0274b0a421774e88aaf7e277486722cb85b6e8e8fcc9eb25a22",
+          "querySha256": "b1bc4217b879c6f30555233ae3be764cf570adf6987b05566942c9ce38830c38"
+        },
+        {
+          "id": "outcomes:2025-12-01",
+          "from": "2025-12-01",
+          "to": "2026-01-01",
+          "jobId": "fd5ee1e3-8cd6-4ed3-83b8-cda6c8d96632",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:20:41.826Z",
+          "dryRunBytes": 23599862500,
+          "bytesBilled": 23600300032,
+          "rows": 16562,
+          "resultSha256": "272b72961f3e8a1fab5dad158b14e33ce8ccd92c94c60939b3bd495703120236",
+          "querySha256": "c4294a5950a000207bc333013f4f18f351e562068f93fdd46739c110890e4f4e"
+        },
+        {
+          "id": "outcomes:2026-01-01",
+          "from": "2026-01-01",
+          "to": "2026-02-01",
+          "jobId": "e7dc928b-3034-4209-96dc-313fca39c47f",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:20:06.596Z",
+          "dryRunBytes": 22604086609,
+          "bytesBilled": 22604152832,
+          "rows": 16562,
+          "resultSha256": "4cbcd4db49b550863440fc6b0f1b3099eb1007eb30693ff0975fb0d9b4585467",
+          "querySha256": "6e9e182e50023ef6e19b8b8cc8abb13318bc3b9076a7d443ce246922f7aac78a"
+        },
+        {
+          "id": "outcomes:2026-02-01",
+          "from": "2026-02-01",
+          "to": "2026-03-01",
+          "jobId": "2491e294-fe95-4b54-950c-8e20dd79e195",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:19:32.684Z",
+          "dryRunBytes": 20466441638,
+          "bytesBilled": 20467154944,
+          "rows": 15056,
+          "resultSha256": "9dd4bbe5ca78b5f7bd15195cfb9f0a93b4cfeed3d0eefbbc74327cfcc1d652d6",
+          "querySha256": "7da86d7f9be5514253667a0562ba7750c0dd5f44d882ad5c2a329318c027608e"
+        },
+        {
+          "id": "outcomes:2026-03-01",
+          "from": "2026-03-01",
+          "to": "2026-04-01",
+          "jobId": "9e91870e-eaa4-4699-b7f6-d93e2d956c6d",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:19:02.574Z",
+          "dryRunBytes": 22854105147,
+          "bytesBilled": 22854762496,
+          "rows": 16562,
+          "resultSha256": "c49c6b100a5a65cea3eebc217492c85b2c5a738e2ad29df35c8be5237324bb24",
+          "querySha256": "87b977192720061ef6674be207d7bac9ea78013f22c216f5023c0a41ddd8a1c1"
+        },
+        {
+          "id": "outcomes:2026-04-01",
+          "from": "2026-04-01",
+          "to": "2026-05-01",
+          "jobId": "ff55a21d-601f-4f0c-9281-6f0ee9a43f04",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:18:29.703Z",
+          "dryRunBytes": 4778384425,
+          "bytesBilled": 4779409408,
+          "rows": 16065,
+          "resultSha256": "99dc92bb7066232dbe0fbf7e00fc17baa8d71e17c952c3a6268275ceb4748c59",
+          "querySha256": "f1b7346d53719f790ce17a4bc80c928d9de03d58bd5843363ccd35f7ff1a78d3"
+        },
+        {
+          "id": "outcomes:2026-05-01",
+          "from": "2026-05-01",
+          "to": "2026-06-01",
+          "jobId": "dcc91d77-593c-4642-9a3a-acdb13abab26",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:18:09.057Z",
+          "dryRunBytes": 4651859641,
+          "bytesBilled": 4652531712,
+          "rows": 16565,
+          "resultSha256": "f6f73b1013b7bdbe27fa22add0f1d3de95b04d0feae313c4474294c9ad028c31",
+          "querySha256": "e76d5e93d6ddc67c2e0c86009b84ad57ed55a011a5a0ea3fb72c26ad1b97973d"
+        },
+        {
+          "id": "outcomes:2026-06-01",
+          "from": "2026-06-01",
+          "to": "2026-07-01",
+          "jobId": "e4c459f6-714d-48b9-921f-edb01e4f03bd",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:57.981Z",
+          "dryRunBytes": 4788214523,
+          "bytesBilled": 4788846592,
+          "rows": 16068,
+          "resultSha256": "b494ecc19468fb543a120adb410e92377e25a2315d585f651669765599246839",
+          "querySha256": "046bfd96f9e7dc8333b86882ae0b515c40b5cce80b213be9c97d27dc95024163"
+        },
+        {
+          "id": "outcomes:2026-07-01",
+          "from": "2026-07-01",
+          "to": "2026-08-01",
+          "jobId": "4ec93934-fd2a-4588-9e96-80a6311db294",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:47.002Z",
+          "dryRunBytes": 4497790910,
+          "bytesBilled": 4498391040,
+          "rows": 16568,
+          "resultSha256": "89d6e05519409a05c622b03c94b9e16cd81dd3f9ca3a34a76398f680fe76da65",
+          "querySha256": "1900313b2417ba892a31f7d7c0514d852cbd01cc8685b5601cf1cf69f5e7d14c"
+        },
+        {
+          "id": "outcomes:2026-08-01",
+          "from": "2026-08-01",
+          "to": "2026-09-01",
+          "jobId": "cdbfad8a-adb1-459e-9edd-b68a6eec0e3e",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:35.863Z",
+          "dryRunBytes": 5044276956,
+          "bytesBilled": 5044699136,
+          "rows": 16573,
+          "resultSha256": "b0e11f5cc69472e222d91e52dd44d3a66070cbfc6d04a82699be0e01406ba7ca",
+          "querySha256": "e242b29e31b6f324d156357ce75703f23ce6e52a84301f2360d7c7e9becb2e21"
+        },
+        {
+          "id": "outcomes:2026-09-01",
+          "from": "2026-09-01",
+          "to": "2026-10-01",
+          "jobId": "d887fccb-eee7-4587-a03b-9fcdd0581a60",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:23.575Z",
+          "dryRunBytes": 5680164837,
+          "bytesBilled": 5681184768,
+          "rows": 16061,
+          "resultSha256": "4a5f0e2cc6c6b0ff66ebdd70194699cddf8f9e3c60e35b4f3f3ee3124f7bdda5",
+          "querySha256": "b391a5e72dfdc3535e19de904612f3cda39730e44302652df9d5c87c58784102"
+        },
+        {
+          "id": "outcomes:2026-10-01",
+          "from": "2026-10-01",
+          "to": "2026-11-01",
+          "jobId": "dcfb267d-812b-4d61-af1e-ad0767c17e18",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:11.717Z",
+          "dryRunBytes": 7926031966,
+          "bytesBilled": 7926185984,
+          "rows": 16563,
+          "resultSha256": "047078e0cdc59f17d942c3c6695d463f22e461fa1eda85469e5d721606558a7d",
+          "querySha256": "954dbf3fb07fe5a31dc30e577b8967f80a039d5235a1c8fc40c4b5f81124ac88"
+        },
+        {
+          "id": "outcomes:2026-11-01",
+          "from": "2026-11-01",
+          "to": "2026-11-14",
+          "jobId": "b1cb5fa0-4619-4dbf-aa1d-8aafebfe66b9",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:41.546Z",
+          "dryRunBytes": 2238678105,
+          "bytesBilled": 2238709760,
+          "rows": 7526,
+          "resultSha256": "3e0e0d5fe5664bddb2a8a515cd0018d9cb8f8d764afccdcaae1e8e8c5a750856",
+          "querySha256": "6882897e421058b40eb1df456f7c49b677f366adf8b1a715c56a86bc348862d2"
+        },
+        {
+          "id": "blocks:2025-11-10",
+          "from": "2025-11-10",
+          "to": "2025-12-01",
+          "jobId": "f1d75319-2d99-4006-b042-15051a56fe1e",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:34.849Z",
+          "dryRunBytes": 47168736,
+          "bytesBilled": 47185920,
+          "rows": 21,
+          "resultSha256": "af86c9ed7532cabdf19abea372ee0ae168390a91512d5292c167a43251726528",
+          "querySha256": "bc509b2572243c51dcd12615eb56548eee4f6a5aa462e593e83eb4175a5b1224"
+        },
+        {
+          "id": "blocks:2025-12-01",
+          "from": "2025-12-01",
+          "to": "2026-01-01",
+          "jobId": "d8f1aa6b-6359-4b6f-a1c2-7db2251adb00",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:32.927Z",
+          "dryRunBytes": 68228640,
+          "bytesBilled": 69206016,
+          "rows": 31,
+          "resultSha256": "4214a8d28822e75a128f0486b0473d9ff6e226b9990ca037f372765b8b4603b4",
+          "querySha256": "05a435c953dcc3946cae5e38e6d7a22b091aaa89ff3e13c9689c7cc36e144c63"
+        },
+        {
+          "id": "blocks:2026-01-01",
+          "from": "2026-01-01",
+          "to": "2026-02-01",
+          "jobId": "2e89f3ce-fcdf-4a24-b860-84c9f956dbc9",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:31.026Z",
+          "dryRunBytes": 70054880,
+          "bytesBilled": 70254592,
+          "rows": 31,
+          "resultSha256": "dcc5606efcbe35c01b827d9a80183208b80ebb2d281ddc0d82bf01cadce64fa5",
+          "querySha256": "2453a9133409233696334d37e334b49dfc7610e0733822ce367bb59c5a9748af"
+        },
+        {
+          "id": "blocks:2026-02-01",
+          "from": "2026-02-01",
+          "to": "2026-03-01",
+          "jobId": "0d0314a0-ffc9-471c-8449-bbc22c0cb7b6",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:29.087Z",
+          "dryRunBytes": 63770272,
+          "bytesBilled": 63963136,
+          "rows": 28,
+          "resultSha256": "c58a70379f4625e5da4fc77d720d091964db8d8790b1c64a40685008ed06553c",
+          "querySha256": "51dd297379afd3dfc626218b83d9e5a3774ad07362e4c80cfd5df722b1625683"
+        },
+        {
+          "id": "blocks:2026-03-01",
+          "from": "2026-03-01",
+          "to": "2026-04-01",
+          "jobId": "0bd54c9d-166e-4bb4-a3ce-85c6ddbc4cbf",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:27.182Z",
+          "dryRunBytes": 70988592,
+          "bytesBilled": 71303168,
+          "rows": 31,
+          "resultSha256": "a34791d7991c41612a7fcf6d16a8b55aaab9d24af8ba68548f055df7602b768a",
+          "querySha256": "f72d74bafed35ccc753a91e9cb5bf7425d470732e9097b40269ba36ecb0baca8"
+        },
+        {
+          "id": "blocks:2026-04-01",
+          "from": "2026-04-01",
+          "to": "2026-05-01",
+          "jobId": "d231f649-fa74-4586-ba29-15a594a2e69d",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:25.240Z",
+          "dryRunBytes": 69102704,
+          "bytesBilled": 69206016,
+          "rows": 30,
+          "resultSha256": "eb1da4c77b787bc467041b712a191186dff6c54433780ca7a858ea32cf6e9041",
+          "querySha256": "2465294027841edee1dfd647f30e2e2d126b3e0295dce4c0dc901511895ec5fa"
+        },
+        {
+          "id": "blocks:2026-05-01",
+          "from": "2026-05-01",
+          "to": "2026-06-01",
+          "jobId": "bf9f38f7-36f0-4826-b287-2cffde76d21a",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:23.330Z",
+          "dryRunBytes": 70938320,
+          "bytesBilled": 71303168,
+          "rows": 31,
+          "resultSha256": "aa8dd2a535fdfa7f2f47741d6b65cce13dfe49b9d12f7d5ecb0ef74d0c692594",
+          "querySha256": "768bbde1542f22ce5b266ef980deace92774a1c8fdd029e67ab26f9b8da15bac"
+        },
+        {
+          "id": "blocks:2026-06-01",
+          "from": "2026-06-01",
+          "to": "2026-07-01",
+          "jobId": "6d95faf5-b0ef-4aca-8487-3b4b55f12c43",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:21.400Z",
+          "dryRunBytes": 67905904,
+          "bytesBilled": 68157440,
+          "rows": 30,
+          "resultSha256": "19f47fe65d63b752d33e53286fa6401485c3e6119d0d45cf55160db2e09a921e",
+          "querySha256": "4fd6226e85a6c6b8499a373e0875771a201e0622f24805edb9a6b859d27c9822"
+        },
+        {
+          "id": "blocks:2026-07-01",
+          "from": "2026-07-01",
+          "to": "2026-08-01",
+          "jobId": "0dda13ef-8b22-4e42-a1c2-f1c775147d04",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:19.371Z",
+          "dryRunBytes": 69774784,
+          "bytesBilled": 70254592,
+          "rows": 31,
+          "resultSha256": "6f5c75b876cb120fc6962fcf0641bad3874c2da22fbcc9603791c41e5e4e2432",
+          "querySha256": "01e24fea88e7288b2eebe03c46497b74f13fe8c0e8be2ee48d562ce04ec0e68f"
+        },
+        {
+          "id": "blocks:2026-08-01",
+          "from": "2026-08-01",
+          "to": "2026-09-01",
+          "jobId": "d4f6ff6d-2c97-430b-8027-be12b7dd466f",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:17.135Z",
+          "dryRunBytes": 69798944,
+          "bytesBilled": 70254592,
+          "rows": 31,
+          "resultSha256": "d4a78bf983d61400f9147daba624ab5d7f00be65bb29b9baac022319492cb700",
+          "querySha256": "db8fdb5db84bf88338400a3335a3461f8499aadd0751c5172e4fe8f842218f5d"
+        },
+        {
+          "id": "blocks:2026-09-01",
+          "from": "2026-09-01",
+          "to": "2026-10-01",
+          "jobId": "09af5271-d566-47e0-b1aa-537856bc2c91",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:15.065Z",
+          "dryRunBytes": 67460816,
+          "bytesBilled": 68157440,
+          "rows": 30,
+          "resultSha256": "830873bf0150975ca72734480e79c2b3903bb3b80aee3c0e8ac4db19beb2f755",
+          "querySha256": "7abe8392e093eab526c717b9f1847b5c3501b60426f0fffd7b90d750b65a8f8f"
+        },
+        {
+          "id": "blocks:2026-10-01",
+          "from": "2026-10-01",
+          "to": "2026-11-01",
+          "jobId": "db5f74b6-df7f-4005-af53-1f6d1b694f53",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:12.887Z",
+          "dryRunBytes": 71981296,
+          "bytesBilled": 72351744,
+          "rows": 31,
+          "resultSha256": "cd54761221cf7ce8c48736a6c2edae46ebfc8283d45638d4e99e2c30b84fd1e8",
+          "querySha256": "e6f05e455f2c0f2c2b61050430b8558a8b5c614ccd9f889711589f101259f54e"
+        },
+        {
+          "id": "blocks:2026-11-01",
+          "from": "2026-11-01",
+          "to": "2026-11-14",
+          "jobId": "2cc8e3a1-a2ea-4538-a1fa-207b701b402d",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:10.567Z",
+          "dryRunBytes": 31093584,
+          "bytesBilled": 31457280,
+          "rows": 13,
+          "resultSha256": "81b0239223c54a67066e6c91e971a67fc6dc5988035673e6a05e046662c8e9d1",
+          "querySha256": "6aefb7317bf7387588484139343703bbb2653ee375fc6fb54159379b52b3b8c5"
+        }
+      ],
+      "definition": "Per UTC block day: the sum of tokens_burnt (yoctoNEAR, and the same in NEAR = yocto / 10^24) and gas_burnt over every row of execution_outcomes (transaction outcomes and receipt outcomes, incl. refund receipts that burn no tokens), the outcome count, and the day's mean gas price = sum of blocks.gas_price / block count. Gross tokens_burnt of the outcomes. Whether part of a fee is burnt or paid to the called contract: nearcore docs state a 30% contract reward up to protocol version 86 and 0% from 87 (docs/economics/SEMANTICS.md); the mainnet activation date of version 87 is not verified here, so no burnt/paid split is applied.",
+      "caveats": [
+        "tokens_burnt is FLOAT64 in the public dataset: each value above 2^53 yocto is already rounded at the source (relative error at most 2^-53); sums here are exact over the stored doubles.",
+        "Days are the execution day (block_date of the outcome), not the transaction day.",
+        "Gas is the gas UNITS reported by outcomes (refund receipts report gas but burn no tokens); do not price it.",
+        "tokens_burnt is not always gas_burnt x block gas price (dataset documentation), so the mean gas price is context, not a derivation.",
+        "avg_gas_price_yocto is null on a day whose blocks chunk has not run."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "All 369 days of the window are present."
+      }
+    },
+    {
+      "id": "fees_intents_daily",
+      "title": "NEAR burnt by outcomes executed on NEAR Intents contracts, per day (narrow and wide sets)",
+      "unit": "yoctoNEAR / NEAR / gas units",
+      "file": "raw/fees/fees_intents_daily.json",
+      "sha256": "34fef154f814230940b7ef4cda370dd8b8bdec3b416a447ab48b78de558f1a51",
+      "rows": 369,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "narrow_outcomes",
+          "type": "integer-string"
+        },
+        {
+          "name": "narrow_gas_burnt",
+          "type": "integer-string"
+        },
+        {
+          "name": "narrow_tokens_burnt_yocto",
+          "type": "integer-string"
+        },
+        {
+          "name": "narrow_tokens_burnt_near",
+          "type": "decimal-string"
+        },
+        {
+          "name": "wide_outcomes",
+          "type": "integer-string"
+        },
+        {
+          "name": "wide_gas_burnt",
+          "type": "integer-string"
+        },
+        {
+          "name": "wide_tokens_burnt_yocto",
+          "type": "integer-string"
+        },
+        {
+          "name": "wide_tokens_burnt_near",
+          "type": "decimal-string"
+        },
+        {
+          "name": "wide_accounts_without_row",
+          "type": "integer-string"
+        },
+        {
+          "name": "total_tokens_burnt_yocto",
+          "type": "integer-string"
+        },
+        {
+          "name": "narrow_share_of_total_pct",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "wide_share_of_total_pct",
+          "type": "decimal-string|null"
+        }
+      ],
+      "source": "BigQuery public dataset bigquery-public-data.crypto_near_mainnet_us.execution_outcomes, with the contract sets discovered from execution_outcomes x receipt_origin_transaction x transactions (fees_footprint_discovery)",
+      "sqlExecuted": "sql/executed/fees_intents_daily.sql",
+      "sqlBigQuery": "sql/bigquery/fees_intents_daily.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "148870529024",
+      "bigQueryJobs": [
+        {
+          "id": "outcomes:2025-11-10",
+          "from": "2025-11-10",
+          "to": "2025-12-01",
+          "jobId": "88b96d1e-16f2-4ac0-acc2-0c212c3d7eeb",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:21:13.987Z",
+          "dryRunBytes": 17049449801,
+          "bytesBilled": 17049845760,
+          "rows": 11542,
+          "resultSha256": "5165331377daf0274b0a421774e88aaf7e277486722cb85b6e8e8fcc9eb25a22",
+          "querySha256": "b1bc4217b879c6f30555233ae3be764cf570adf6987b05566942c9ce38830c38"
+        },
+        {
+          "id": "outcomes:2025-12-01",
+          "from": "2025-12-01",
+          "to": "2026-01-01",
+          "jobId": "fd5ee1e3-8cd6-4ed3-83b8-cda6c8d96632",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:20:41.826Z",
+          "dryRunBytes": 23599862500,
+          "bytesBilled": 23600300032,
+          "rows": 16562,
+          "resultSha256": "272b72961f3e8a1fab5dad158b14e33ce8ccd92c94c60939b3bd495703120236",
+          "querySha256": "c4294a5950a000207bc333013f4f18f351e562068f93fdd46739c110890e4f4e"
+        },
+        {
+          "id": "outcomes:2026-01-01",
+          "from": "2026-01-01",
+          "to": "2026-02-01",
+          "jobId": "e7dc928b-3034-4209-96dc-313fca39c47f",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:20:06.596Z",
+          "dryRunBytes": 22604086609,
+          "bytesBilled": 22604152832,
+          "rows": 16562,
+          "resultSha256": "4cbcd4db49b550863440fc6b0f1b3099eb1007eb30693ff0975fb0d9b4585467",
+          "querySha256": "6e9e182e50023ef6e19b8b8cc8abb13318bc3b9076a7d443ce246922f7aac78a"
+        },
+        {
+          "id": "outcomes:2026-02-01",
+          "from": "2026-02-01",
+          "to": "2026-03-01",
+          "jobId": "2491e294-fe95-4b54-950c-8e20dd79e195",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:19:32.684Z",
+          "dryRunBytes": 20466441638,
+          "bytesBilled": 20467154944,
+          "rows": 15056,
+          "resultSha256": "9dd4bbe5ca78b5f7bd15195cfb9f0a93b4cfeed3d0eefbbc74327cfcc1d652d6",
+          "querySha256": "7da86d7f9be5514253667a0562ba7750c0dd5f44d882ad5c2a329318c027608e"
+        },
+        {
+          "id": "outcomes:2026-03-01",
+          "from": "2026-03-01",
+          "to": "2026-04-01",
+          "jobId": "9e91870e-eaa4-4699-b7f6-d93e2d956c6d",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:19:02.574Z",
+          "dryRunBytes": 22854105147,
+          "bytesBilled": 22854762496,
+          "rows": 16562,
+          "resultSha256": "c49c6b100a5a65cea3eebc217492c85b2c5a738e2ad29df35c8be5237324bb24",
+          "querySha256": "87b977192720061ef6674be207d7bac9ea78013f22c216f5023c0a41ddd8a1c1"
+        },
+        {
+          "id": "outcomes:2026-04-01",
+          "from": "2026-04-01",
+          "to": "2026-05-01",
+          "jobId": "ff55a21d-601f-4f0c-9281-6f0ee9a43f04",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:18:29.703Z",
+          "dryRunBytes": 4778384425,
+          "bytesBilled": 4779409408,
+          "rows": 16065,
+          "resultSha256": "99dc92bb7066232dbe0fbf7e00fc17baa8d71e17c952c3a6268275ceb4748c59",
+          "querySha256": "f1b7346d53719f790ce17a4bc80c928d9de03d58bd5843363ccd35f7ff1a78d3"
+        },
+        {
+          "id": "outcomes:2026-05-01",
+          "from": "2026-05-01",
+          "to": "2026-06-01",
+          "jobId": "dcc91d77-593c-4642-9a3a-acdb13abab26",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:18:09.057Z",
+          "dryRunBytes": 4651859641,
+          "bytesBilled": 4652531712,
+          "rows": 16565,
+          "resultSha256": "f6f73b1013b7bdbe27fa22add0f1d3de95b04d0feae313c4474294c9ad028c31",
+          "querySha256": "e76d5e93d6ddc67c2e0c86009b84ad57ed55a011a5a0ea3fb72c26ad1b97973d"
+        },
+        {
+          "id": "outcomes:2026-06-01",
+          "from": "2026-06-01",
+          "to": "2026-07-01",
+          "jobId": "e4c459f6-714d-48b9-921f-edb01e4f03bd",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:57.981Z",
+          "dryRunBytes": 4788214523,
+          "bytesBilled": 4788846592,
+          "rows": 16068,
+          "resultSha256": "b494ecc19468fb543a120adb410e92377e25a2315d585f651669765599246839",
+          "querySha256": "046bfd96f9e7dc8333b86882ae0b515c40b5cce80b213be9c97d27dc95024163"
+        },
+        {
+          "id": "outcomes:2026-07-01",
+          "from": "2026-07-01",
+          "to": "2026-08-01",
+          "jobId": "4ec93934-fd2a-4588-9e96-80a6311db294",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:47.002Z",
+          "dryRunBytes": 4497790910,
+          "bytesBilled": 4498391040,
+          "rows": 16568,
+          "resultSha256": "89d6e05519409a05c622b03c94b9e16cd81dd3f9ca3a34a76398f680fe76da65",
+          "querySha256": "1900313b2417ba892a31f7d7c0514d852cbd01cc8685b5601cf1cf69f5e7d14c"
+        },
+        {
+          "id": "outcomes:2026-08-01",
+          "from": "2026-08-01",
+          "to": "2026-09-01",
+          "jobId": "cdbfad8a-adb1-459e-9edd-b68a6eec0e3e",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:35.863Z",
+          "dryRunBytes": 5044276956,
+          "bytesBilled": 5044699136,
+          "rows": 16573,
+          "resultSha256": "b0e11f5cc69472e222d91e52dd44d3a66070cbfc6d04a82699be0e01406ba7ca",
+          "querySha256": "e242b29e31b6f324d156357ce75703f23ce6e52a84301f2360d7c7e9becb2e21"
+        },
+        {
+          "id": "outcomes:2026-09-01",
+          "from": "2026-09-01",
+          "to": "2026-10-01",
+          "jobId": "d887fccb-eee7-4587-a03b-9fcdd0581a60",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:23.575Z",
+          "dryRunBytes": 5680164837,
+          "bytesBilled": 5681184768,
+          "rows": 16061,
+          "resultSha256": "4a5f0e2cc6c6b0ff66ebdd70194699cddf8f9e3c60e35b4f3f3ee3124f7bdda5",
+          "querySha256": "b391a5e72dfdc3535e19de904612f3cda39730e44302652df9d5c87c58784102"
+        },
+        {
+          "id": "outcomes:2026-10-01",
+          "from": "2026-10-01",
+          "to": "2026-11-01",
+          "jobId": "dcfb267d-812b-4d61-af1e-ad0767c17e18",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:11.717Z",
+          "dryRunBytes": 7926031966,
+          "bytesBilled": 7926185984,
+          "rows": 16563,
+          "resultSha256": "047078e0cdc59f17d942c3c6695d463f22e461fa1eda85469e5d721606558a7d",
+          "querySha256": "954dbf3fb07fe5a31dc30e577b8967f80a039d5235a1c8fc40c4b5f81124ac88"
+        },
+        {
+          "id": "outcomes:2026-11-01",
+          "from": "2026-11-01",
+          "to": "2026-11-14",
+          "jobId": "b1cb5fa0-4619-4dbf-aa1d-8aafebfe66b9",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:41.546Z",
+          "dryRunBytes": 2238678105,
+          "bytesBilled": 2238709760,
+          "rows": 7526,
+          "resultSha256": "3e0e0d5fe5664bddb2a8a515cd0018d9cb8f8d764afccdcaae1e8e8c5a750856",
+          "querySha256": "6882897e421058b40eb1df456f7c49b677f366adf8b1a715c56a86bc348862d2"
+        },
+        {
+          "id": "discovery:2026-05-13",
+          "from": "2026-05-13",
+          "to": "2026-05-13",
+          "jobId": "4840828e-b600-4359-8fd7-79cb50da330a",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:15:49.460Z",
+          "dryRunBytes": 732847366,
+          "bytesBilled": 732954624,
+          "rows": 41,
+          "resultSha256": "c122458d0989600d06498128527cceb8c472be3680033929f4a80203e32beae5",
+          "querySha256": "e20658aa836fd30eae3b2f67f62b704ea50a0d7816e8298e788a919c37ec2eb6"
+        },
+        {
+          "id": "discovery:2026-08-12",
+          "from": "2026-08-12",
+          "to": "2026-08-12",
+          "jobId": "eb207dcd-4853-4539-a345-6d2de2124b8e",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:15:54.372Z",
+          "dryRunBytes": 783863992,
+          "bytesBilled": 784334848,
+          "rows": 41,
+          "resultSha256": "622fdf8a67651161f2db9a96e66eb3ab1a0516bb5038a24c47e05d7c442e86e6",
+          "querySha256": "49a54c864b7f4948382bff7049ecf975155e2a0495f8a0ec02cc1ea1128b5544"
+        },
+        {
+          "id": "discovery:2026-10-14",
+          "from": "2026-10-14",
+          "to": "2026-10-14",
+          "jobId": "d92f41a7-39b8-434f-b91e-e808bc8c9b62",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:00.398Z",
+          "dryRunBytes": 1166494251,
+          "bytesBilled": 1167065088,
+          "rows": 41,
+          "resultSha256": "2a219a8cb4a1359b633adbba87a3fe9319a8812960bd98ff43ac3153d642a642",
+          "querySha256": "85dd2d6e18ec18b785a92dcd0f5aa83339756c7d93026089b3a5a00d7a38a6a3"
+        }
+      ],
+      "definition": "Gross tokens_burnt and gas_burnt of execution outcomes whose executor_account_id is in the narrow set (core Intents contracts: intents.near) or the wide set (core plus the settlement footprint: bridge-refuel.hot.tg, intents.near). The wide set rule: an account discovered among the executors of receipts originating from transactions sent to intents.near, carrying at least 0.5% of that Intents-origin burn and getting at least 50% of its own burn from it. Gross tokens_burnt of the outcomes. Whether part of a fee is burnt or paid to the called contract: nearcore docs state a 30% contract reward up to protocol version 86 and 0% from 87 (docs/economics/SEMANTICS.md); the mainnet activation date of version 87 is not verified here, so no burnt/paid split is applied.",
+      "caveats": [
+        "tokens_burnt is FLOAT64 in the public dataset: each value above 2^53 yocto is already rounded at the source (relative error at most 2^-53); sums here are exact over the stored doubles.",
+        "Executor attribution counts ALL burn executed on the account, whoever called it. For the core contracts that is Intents usage; for settlement-footprint accounts the dependence threshold keeps out generic contracts, but the wide figure can still include some non-Intents calls to those accounts.",
+        "The transaction-to-receipt conversion burn of a transaction sent to intents.near is charged at the transaction outcome (executor = the signer), so it is NOT in this series; see tx_fee_intents_daily (narrow_direct_toll_yocto adds it).",
+        "Wide accounts are kept individually only when they rank in the day's top 500 executors by tokens (or are core / bridge constants); wide_accounts_without_row counts the wide accounts below that cut on the day (their burn is not in the sum, never zero-asserted).",
+        "Private/shielded Intents settlement (after 2026-10-27) is not observable on chain and is not assumed zero.",
+        "Footprint is discovered on three post-April sample days (2026-05-13, 2026-08-12, 2026-10-14); it was not validated on the higher-volume Nov 2025 to March 2026 regime."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "All 369 days of the window are present."
+      }
+    },
+    {
+      "id": "fees_by_receiver_top",
+      "title": "Top 50 accounts by NEAR burnt, whole window and per quarter",
+      "unit": "yoctoNEAR / NEAR / percent",
+      "file": "raw/fees/fees_by_receiver_top.json",
+      "sha256": "f79e1118bbcd29f4725df402437976b4fbb085f67ffe23d9b74bbbc6e323e4ee",
+      "rows": 300,
+      "columns": [
+        {
+          "name": "scope",
+          "type": "string"
+        },
+        {
+          "name": "rank",
+          "type": "integer"
+        },
+        {
+          "name": "account",
+          "type": "string"
+        },
+        {
+          "name": "outcomes",
+          "type": "integer-string"
+        },
+        {
+          "name": "gas_burnt",
+          "type": "integer-string"
+        },
+        {
+          "name": "tokens_burnt_yocto",
+          "type": "integer-string"
+        },
+        {
+          "name": "tokens_burnt_near",
+          "type": "decimal-string"
+        },
+        {
+          "name": "share_of_total_pct",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "chunks_present",
+          "type": "integer-string"
+        },
+        {
+          "name": "chunks_total",
+          "type": "integer-string"
+        },
+        {
+          "name": "lower_bound_only",
+          "type": "boolean"
+        }
+      ],
+      "source": "BigQuery public dataset bigquery-public-data.crypto_near_mainnet_us.execution_outcomes (per-chunk top 1000 executors by tokens)",
+      "sqlExecuted": "sql/executed/fees_by_receiver_top.sql",
+      "sqlBigQuery": "sql/bigquery/fees_by_receiver_top.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "146186174464",
+      "bigQueryJobs": [
+        {
+          "id": "outcomes:2025-11-10",
+          "from": "2025-11-10",
+          "to": "2025-12-01",
+          "jobId": "88b96d1e-16f2-4ac0-acc2-0c212c3d7eeb",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:21:13.987Z",
+          "dryRunBytes": 17049449801,
+          "bytesBilled": 17049845760,
+          "rows": 11542,
+          "resultSha256": "5165331377daf0274b0a421774e88aaf7e277486722cb85b6e8e8fcc9eb25a22",
+          "querySha256": "b1bc4217b879c6f30555233ae3be764cf570adf6987b05566942c9ce38830c38"
+        },
+        {
+          "id": "outcomes:2025-12-01",
+          "from": "2025-12-01",
+          "to": "2026-01-01",
+          "jobId": "fd5ee1e3-8cd6-4ed3-83b8-cda6c8d96632",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:20:41.826Z",
+          "dryRunBytes": 23599862500,
+          "bytesBilled": 23600300032,
+          "rows": 16562,
+          "resultSha256": "272b72961f3e8a1fab5dad158b14e33ce8ccd92c94c60939b3bd495703120236",
+          "querySha256": "c4294a5950a000207bc333013f4f18f351e562068f93fdd46739c110890e4f4e"
+        },
+        {
+          "id": "outcomes:2026-01-01",
+          "from": "2026-01-01",
+          "to": "2026-02-01",
+          "jobId": "e7dc928b-3034-4209-96dc-313fca39c47f",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:20:06.596Z",
+          "dryRunBytes": 22604086609,
+          "bytesBilled": 22604152832,
+          "rows": 16562,
+          "resultSha256": "4cbcd4db49b550863440fc6b0f1b3099eb1007eb30693ff0975fb0d9b4585467",
+          "querySha256": "6e9e182e50023ef6e19b8b8cc8abb13318bc3b9076a7d443ce246922f7aac78a"
+        },
+        {
+          "id": "outcomes:2026-02-01",
+          "from": "2026-02-01",
+          "to": "2026-03-01",
+          "jobId": "2491e294-fe95-4b54-950c-8e20dd79e195",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:19:32.684Z",
+          "dryRunBytes": 20466441638,
+          "bytesBilled": 20467154944,
+          "rows": 15056,
+          "resultSha256": "9dd4bbe5ca78b5f7bd15195cfb9f0a93b4cfeed3d0eefbbc74327cfcc1d652d6",
+          "querySha256": "7da86d7f9be5514253667a0562ba7750c0dd5f44d882ad5c2a329318c027608e"
+        },
+        {
+          "id": "outcomes:2026-03-01",
+          "from": "2026-03-01",
+          "to": "2026-04-01",
+          "jobId": "9e91870e-eaa4-4699-b7f6-d93e2d956c6d",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:19:02.574Z",
+          "dryRunBytes": 22854105147,
+          "bytesBilled": 22854762496,
+          "rows": 16562,
+          "resultSha256": "c49c6b100a5a65cea3eebc217492c85b2c5a738e2ad29df35c8be5237324bb24",
+          "querySha256": "87b977192720061ef6674be207d7bac9ea78013f22c216f5023c0a41ddd8a1c1"
+        },
+        {
+          "id": "outcomes:2026-04-01",
+          "from": "2026-04-01",
+          "to": "2026-05-01",
+          "jobId": "ff55a21d-601f-4f0c-9281-6f0ee9a43f04",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:18:29.703Z",
+          "dryRunBytes": 4778384425,
+          "bytesBilled": 4779409408,
+          "rows": 16065,
+          "resultSha256": "99dc92bb7066232dbe0fbf7e00fc17baa8d71e17c952c3a6268275ceb4748c59",
+          "querySha256": "f1b7346d53719f790ce17a4bc80c928d9de03d58bd5843363ccd35f7ff1a78d3"
+        },
+        {
+          "id": "outcomes:2026-05-01",
+          "from": "2026-05-01",
+          "to": "2026-06-01",
+          "jobId": "dcc91d77-593c-4642-9a3a-acdb13abab26",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:18:09.057Z",
+          "dryRunBytes": 4651859641,
+          "bytesBilled": 4652531712,
+          "rows": 16565,
+          "resultSha256": "f6f73b1013b7bdbe27fa22add0f1d3de95b04d0feae313c4474294c9ad028c31",
+          "querySha256": "e76d5e93d6ddc67c2e0c86009b84ad57ed55a011a5a0ea3fb72c26ad1b97973d"
+        },
+        {
+          "id": "outcomes:2026-06-01",
+          "from": "2026-06-01",
+          "to": "2026-07-01",
+          "jobId": "e4c459f6-714d-48b9-921f-edb01e4f03bd",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:57.981Z",
+          "dryRunBytes": 4788214523,
+          "bytesBilled": 4788846592,
+          "rows": 16068,
+          "resultSha256": "b494ecc19468fb543a120adb410e92377e25a2315d585f651669765599246839",
+          "querySha256": "046bfd96f9e7dc8333b86882ae0b515c40b5cce80b213be9c97d27dc95024163"
+        },
+        {
+          "id": "outcomes:2026-07-01",
+          "from": "2026-07-01",
+          "to": "2026-08-01",
+          "jobId": "4ec93934-fd2a-4588-9e96-80a6311db294",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:47.002Z",
+          "dryRunBytes": 4497790910,
+          "bytesBilled": 4498391040,
+          "rows": 16568,
+          "resultSha256": "89d6e05519409a05c622b03c94b9e16cd81dd3f9ca3a34a76398f680fe76da65",
+          "querySha256": "1900313b2417ba892a31f7d7c0514d852cbd01cc8685b5601cf1cf69f5e7d14c"
+        },
+        {
+          "id": "outcomes:2026-08-01",
+          "from": "2026-08-01",
+          "to": "2026-09-01",
+          "jobId": "cdbfad8a-adb1-459e-9edd-b68a6eec0e3e",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:35.863Z",
+          "dryRunBytes": 5044276956,
+          "bytesBilled": 5044699136,
+          "rows": 16573,
+          "resultSha256": "b0e11f5cc69472e222d91e52dd44d3a66070cbfc6d04a82699be0e01406ba7ca",
+          "querySha256": "e242b29e31b6f324d156357ce75703f23ce6e52a84301f2360d7c7e9becb2e21"
+        },
+        {
+          "id": "outcomes:2026-09-01",
+          "from": "2026-09-01",
+          "to": "2026-10-01",
+          "jobId": "d887fccb-eee7-4587-a03b-9fcdd0581a60",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:23.575Z",
+          "dryRunBytes": 5680164837,
+          "bytesBilled": 5681184768,
+          "rows": 16061,
+          "resultSha256": "4a5f0e2cc6c6b0ff66ebdd70194699cddf8f9e3c60e35b4f3f3ee3124f7bdda5",
+          "querySha256": "b391a5e72dfdc3535e19de904612f3cda39730e44302652df9d5c87c58784102"
+        },
+        {
+          "id": "outcomes:2026-10-01",
+          "from": "2026-10-01",
+          "to": "2026-11-01",
+          "jobId": "dcfb267d-812b-4d61-af1e-ad0767c17e18",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:17:11.717Z",
+          "dryRunBytes": 7926031966,
+          "bytesBilled": 7926185984,
+          "rows": 16563,
+          "resultSha256": "047078e0cdc59f17d942c3c6695d463f22e461fa1eda85469e5d721606558a7d",
+          "querySha256": "954dbf3fb07fe5a31dc30e577b8967f80a039d5235a1c8fc40c4b5f81124ac88"
+        },
+        {
+          "id": "outcomes:2026-11-01",
+          "from": "2026-11-01",
+          "to": "2026-11-14",
+          "jobId": "b1cb5fa0-4619-4dbf-aa1d-8aafebfe66b9",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:41.546Z",
+          "dryRunBytes": 2238678105,
+          "bytesBilled": 2238709760,
+          "rows": 7526,
+          "resultSha256": "3e0e0d5fe5664bddb2a8a515cd0018d9cb8f8d764afccdcaae1e8e8c5a750856",
+          "querySha256": "6882897e421058b40eb1df456f7c49b677f366adf8b1a715c56a86bc348862d2"
+        }
+      ],
+      "definition": "For scope \"window\" and each calendar quarter present: accounts ranked by the sum of tokens_burnt over the outcomes they executed (executor_account_id: a contract for receipt outcomes, the signer for transaction outcomes, so a user or bot account appears for the conversion burn of its own transactions). share_of_total_pct = account tokens / all tokens burnt on the covered days of the scope. Quarters: Q4 2025 starts 2025-11-10, Q4 2026 ends 2026-11-13. Gross tokens_burnt of the outcomes. Whether part of a fee is burnt or paid to the called contract: nearcore docs state a 30% contract reward up to protocol version 86 and 0% from 87 (docs/economics/SEMANTICS.md); the mainnet activation date of version 87 is not verified here, so no burnt/paid split is applied.",
+      "caveats": [
+        "tokens_burnt is FLOAT64 in the public dataset: each value above 2^53 yocto is already rounded at the source (relative error at most 2^-53); sums here are exact over the stored doubles.",
+        "Built from the top 1000 executors of each chunk (month or half month). An account missing from a chunk's list burnt less than that chunk's smallest listed value there, so rows with lower_bound_only = true are lower bounds; false means the account is in every chunk list and its total is exact.",
+        "Accounts are executors, not payers: the NEAR for a receipt is bought by the transaction signer; attribution to the executing contract is where the gas was burnt."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "Covers the 13 outcome chunk(s) fetched (2025-11-10, 2025-12-01, 2026-01-01, 2026-02-01, 2026-03-01, 2026-04-01, 2026-05-01, 2026-06-01, 2026-07-01, 2026-08-01, 2026-09-01, 2026-10-01, 2026-11-01)."
+      }
+    },
+    {
+      "id": "tx_fee_intents_daily",
+      "title": "Transactions sent to NEAR Intents contracts per day with their conversion fee, reconciled to the outcome series",
+      "unit": "transactions / yoctoNEAR / NEAR / gas units",
+      "file": "raw/fees/tx_fee_intents_daily.json",
+      "sha256": "e3b321a309cb70a84618d4046ceb85a5505d8beeb7f4ea8e01de487280e7fdc1",
+      "rows": 369,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "txs_total",
+          "type": "integer-string"
+        },
+        {
+          "name": "conversion_tokens_total_yocto",
+          "type": "integer-string"
+        },
+        {
+          "name": "narrow_txs",
+          "type": "integer-string"
+        },
+        {
+          "name": "narrow_conversion_gas",
+          "type": "integer-string"
+        },
+        {
+          "name": "narrow_conversion_tokens_yocto",
+          "type": "integer-string"
+        },
+        {
+          "name": "narrow_conversion_tokens_near",
+          "type": "decimal-string"
+        },
+        {
+          "name": "wide_txs",
+          "type": "integer-string"
+        },
+        {
+          "name": "wide_conversion_gas",
+          "type": "integer-string"
+        },
+        {
+          "name": "wide_conversion_tokens_yocto",
+          "type": "integer-string"
+        },
+        {
+          "name": "wide_conversion_tokens_near",
+          "type": "decimal-string"
+        },
+        {
+          "name": "narrow_receipt_outcomes",
+          "type": "integer-string|null"
+        },
+        {
+          "name": "narrow_outcomes_per_tx",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "narrow_executor_tokens_yocto",
+          "type": "integer-string|null"
+        },
+        {
+          "name": "narrow_direct_toll_yocto",
+          "type": "integer-string|null"
+        },
+        {
+          "name": "narrow_conversion_share_of_direct_pct",
+          "type": "decimal-string|null"
+        }
+      ],
+      "source": "BigQuery public dataset bigquery-public-data.crypto_near_mainnet_us.transactions (receiver_account_id, receipt_conversion_gas_burnt, receipt_conversion_tokens_burnt), reconciled with fees_intents_daily",
+      "sqlExecuted": "sql/executed/fees_tx_fee_intents_daily.sql",
+      "sqlBigQuery": "sql/bigquery/fees_tx_fee_intents_daily.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "35116810240",
+      "bigQueryJobs": [
+        {
+          "id": "tx:2025-11-10",
+          "from": "2025-11-10",
+          "to": "2025-12-01",
+          "jobId": "9ca5cf79-7a21-44d3-b255-0f202f2f3523",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:25:01.572Z",
+          "dryRunBytes": 4414365658,
+          "bytesBilled": 4414504960,
+          "rows": 6342,
+          "resultSha256": "714dc36c8d8704d705a9ba5f536bd11a27f3d14ff621c6fd77334b6fff83611d",
+          "querySha256": "0fc48f5ea74873fa6ab0b75dfc5bb5426b9d5ceea9506d322c24a766f9ac43b1"
+        },
+        {
+          "id": "tx:2025-12-01",
+          "from": "2025-12-01",
+          "to": "2026-01-01",
+          "jobId": "f96e27dd-8c51-40ad-828c-96ceefebc19a",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:24:30.616Z",
+          "dryRunBytes": 5936842960,
+          "bytesBilled": 5937037312,
+          "rows": 9362,
+          "resultSha256": "1531e81651ab87e727a852553ed774f0198d53080a3e407ed2bb7fcd34840283",
+          "querySha256": "176aaa782b5ce94b84459e62b3179e4b8764a40b5d2e912d023f13b57bf38a4a"
+        },
+        {
+          "id": "tx:2026-01-01",
+          "from": "2026-01-01",
+          "to": "2026-02-01",
+          "jobId": "ec00bcde-50b3-4cc0-acf4-b3f271170364",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:24:01.671Z",
+          "dryRunBytes": 5497363315,
+          "bytesBilled": 5497683968,
+          "rows": 9362,
+          "resultSha256": "568dc0d85445c096d2cdb1742546f2ee9e960b46df7b1ad4758f8806bd46c98d",
+          "querySha256": "346410a0a8a0783e0f7691f8ec3ce136eb6de34a150e6b2cfb4cdca7565ef7fd"
+        },
+        {
+          "id": "tx:2026-02-01",
+          "from": "2026-02-01",
+          "to": "2026-03-01",
+          "jobId": "e4b70da4-7b4e-4dfb-9dfb-930c4d98fbf6",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:23:35.640Z",
+          "dryRunBytes": 5106058416,
+          "bytesBilled": 5106565120,
+          "rows": 8456,
+          "resultSha256": "0ef460ef7b9968fae895ca5a3cbc0e3e5393940dbd685f58a0c6e9b9c04eac82",
+          "querySha256": "2e44b8be58e54ea65070002463337971872c2fc6b685b95f43a2ec438458d34c"
+        },
+        {
+          "id": "tx:2026-03-01",
+          "from": "2026-03-01",
+          "to": "2026-04-01",
+          "jobId": "b5070b1d-563b-4e7a-a0a6-50162e5a6349",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:22:52.712Z",
+          "dryRunBytes": 5697462160,
+          "bytesBilled": 5697961984,
+          "rows": 9362,
+          "resultSha256": "11c4af2daa06a6e59cf593764373b42ab53269dc3b3e3e715754cf506f2cb2e8",
+          "querySha256": "0f5c3d2164fb804784ee521d6b3392f75c859d92ef20b004884a852303e61d2b"
+        },
+        {
+          "id": "tx:2026-04-01",
+          "from": "2026-04-01",
+          "to": "2026-05-01",
+          "jobId": "c679c8a4-dc55-473a-a365-6dca9065c4ea",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:22:22.339Z",
+          "dryRunBytes": 1397722894,
+          "bytesBilled": 1397751808,
+          "rows": 9060,
+          "resultSha256": "7956923cf157b486fec0e3d24d5b217758df0e14b08f34bbdb9f01c8f32384ec",
+          "querySha256": "e475c38786c99a474b0c2d30191fd2f2a3d8abff5dac928ee55a86b2c472a900"
+        },
+        {
+          "id": "tx:2026-05-01",
+          "from": "2026-05-01",
+          "to": "2026-06-01",
+          "jobId": "c0f136aa-8b4f-46a1-80a8-ba84b8f12a20",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:22:03.602Z",
+          "dryRunBytes": 1173646812,
+          "bytesBilled": 1174405120,
+          "rows": 9362,
+          "resultSha256": "9ac7353d0c6689ff540589e3fb7db21afbeb87f5c701de89aaa30a50c5816ae6",
+          "querySha256": "66f74fbc85efa365a390daceb0716bcef0ff499d58d301be5acce688dc104158"
+        },
+        {
+          "id": "tx:2026-06-01",
+          "from": "2026-06-01",
+          "to": "2026-07-01",
+          "jobId": "16ba18a7-f20f-4961-a1eb-0702a0b6cd15",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:21:56.306Z",
+          "dryRunBytes": 1150554815,
+          "bytesBilled": 1151336448,
+          "rows": 9060,
+          "resultSha256": "349a6bfd96c7e10ba1d1db16ef1418f0091251aaf0e44b9e19af5cc8d398b31f",
+          "querySha256": "a0c77f646c6a1eb06bed642c723de1ad32e72a26a3c7f6ea77d5eec1f4077087"
+        },
+        {
+          "id": "tx:2026-07-01",
+          "from": "2026-07-01",
+          "to": "2026-08-01",
+          "jobId": "284dc588-edf5-441d-baac-fc1ed6b2908f",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:21:49.102Z",
+          "dryRunBytes": 1068857561,
+          "bytesBilled": 1069547520,
+          "rows": 9362,
+          "resultSha256": "fa19cff3fdd920bd1ac4e2844919367f1e5d9ce1c0e4ee87ecd7fc51aea05863",
+          "querySha256": "544d49f024adea3910bd107fabe2129f42f1acca99ef36582280a6e6f3958cb1"
+        },
+        {
+          "id": "tx:2026-08-01",
+          "from": "2026-08-01",
+          "to": "2026-09-01",
+          "jobId": "e113ebe9-7421-4dbe-9ada-76eb3024fc56",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:21:39.827Z",
+          "dryRunBytes": 993490161,
+          "bytesBilled": 994050048,
+          "rows": 9363,
+          "resultSha256": "bd6e92d9e0c2a9021aee6c9ab74981d14cad6df143380610119de928050356af",
+          "querySha256": "c6d21b85523ff61c345c91bd148ab90a395f1cb7c997fd1453cd66ffeb11f863"
+        },
+        {
+          "id": "tx:2026-09-01",
+          "from": "2026-09-01",
+          "to": "2026-10-01",
+          "jobId": "317343a2-cc27-47ef-aa05-d1794890f747",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:21:32.910Z",
+          "dryRunBytes": 1154173378,
+          "bytesBilled": 1154482176,
+          "rows": 9060,
+          "resultSha256": "bff75b6576bad53a53392f2baaf10a666a67ec81efdb907313fe908c8678d2b6",
+          "querySha256": "4915dbec0959e19c9bfd9783b4049fb89baa43765702eb56956a741af3a40249"
+        },
+        {
+          "id": "tx:2026-10-01",
+          "from": "2026-10-01",
+          "to": "2026-11-01",
+          "jobId": "124a2884-4159-431e-9cec-37edb1b22f74",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:21:25.506Z",
+          "dryRunBytes": 1066224202,
+          "bytesBilled": 1066401792,
+          "rows": 9362,
+          "resultSha256": "13b200784ce20fd9255f2434d03b7ddf31cd2bf415ff8f50afa197ff6281393e",
+          "querySha256": "3d56cde51f49c3935fabf4f664ed7cf5063f4111c7fc57e1b89ee81ffc1e31f9"
+        },
+        {
+          "id": "tx:2026-11-01",
+          "from": "2026-11-01",
+          "to": "2026-11-14",
+          "jobId": "ee30c84e-92ca-4a45-90be-a713849c1507",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:21:18.195Z",
+          "dryRunBytes": 454413989,
+          "bytesBilled": 455081984,
+          "rows": 3926,
+          "resultSha256": "49f8fccf8be0dd9399e2797a682ddc4a40deab0688c0c50074ca57bddcb63b9c",
+          "querySha256": "22ba6fcfd655ddc29bb35a0087fec062f7cf098a03fdd1b13f073480bbfa40f7"
+        }
+      ],
+      "definition": "Transactions per UTC day whose receiver is a narrow (intents.near) or wide (bridge-refuel.hot.tg, intents.near) account, with the transaction-level fee the dataset carries: receipt_conversion_* = gas and tokens burnt converting the signed transaction into its first receipt (transaction day). Reconciliation to fees_intents_daily on days where both exist: narrow_outcomes_per_tx = receipt outcomes executed on the narrow contracts / transactions sent to them; narrow_direct_toll = executor tokens of the narrow contracts + conversion tokens of transactions sent to them.",
+      "caveats": [
+        "tokens_burnt is FLOAT64 in the public dataset: each value above 2^53 yocto is already rounded at the source (relative error at most 2^-53); sums here are exact over the stored doubles.",
+        "This is not the full transaction cost: the dataset's transaction row carries only the conversion burn; the cost of the receipts is the executor series.",
+        "The two series measure different, additive parts of the toll. Conversion burn sits at the transaction outcome (executor = signer) and is absent from fees_intents_daily; the executor series counts every receipt executed on the contract, including receipts from transactions sent elsewhere, callbacks and retries, so outcomes per transaction is not exactly 1.",
+        "Transactions that fail before any receipt executes, and receipts delayed past midnight, shift counts between neighbouring days.",
+        "Wide receivers are kept per day only when they rank in the day's top 300 receivers by transactions (or are core / bridge constants)."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "All 369 days of the window are present."
+      }
+    },
+    {
+      "id": "fees_take_rate_gas_daily",
+      "title": "Gas take rate of NEAR Intents: NEAR burnt on Intents contracts, in basis points of settled USD value",
+      "unit": "basis points (USD burn / USD volume x 10^4)",
+      "file": "raw/fees/fees_take_rate_gas_daily.json",
+      "sha256": "91054feb0ab66cb6a7ed3a34556b586b03241325cdc7f78b62cd2ec03d9f9c5a",
+      "rows": 369,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "price_usd",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "volume_usd",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "narrow_burn_usd",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "wide_burn_usd",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "take_rate_gas_bps_narrow",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "take_rate_gas_bps_wide",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "take_rate_gas_bps_narrow_30d",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "take_rate_gas_bps_wide_30d",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "days_in_30d",
+          "type": "integer-string"
+        },
+        {
+          "name": "intents_share_of_burn_pct_narrow",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "intents_share_of_burn_pct_wide",
+          "type": "decimal-string|null"
+        }
+      ],
+      "source": "derived from raw/fees/fees_intents_daily.json, raw/near_price_daily.json (sha256 355c60d51dc50c4786fc2c19be26e1da00edb9c1c5fcfc7fa0592d4c6e831e98) and raw/intents_volume_daily.json (sha256 06dc827071cf272121975d4d9187feb1ffddf263ef76497862ca3f1ad5c20bf5)",
+      "sqlExecuted": "sql/executed/fees_take_rate_gas_daily.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "bigQueryJobs": [],
+      "definition": "take_rate_gas_bps = (NEAR burnt by the Intents contracts that day x that day's NEAR/USD close) / (that day's Intents successful known-USD volume) x 10^4, in basis points of settled value, for the narrow and the wide set. The 30 day figure is the ratio of sums over the trailing 30 calendar days (days with burn, price and volume all present; null below 15 such days). intents_share_of_burn_pct = Intents burn / all NEAR burnt that day. This is the gas/burn toll only: protocol-level burn of outcomes executed on the Intents contracts. Not verified here: which share of a fee is burnt versus paid to the called contract under current protocol rules (documented 30% to the contract up to protocol version 86, 0% from 87, activation date unverified).",
+      "caveats": [
+        "Gas burn is one toll component only: it excludes the conversion burn charged to the signer, other contracts' burn, solver/relayer fees and any Intents protocol fee.",
+        "USD value of the burn uses the daily close, not an intraday price; volume is the provider's USD value of successful swaps at swap time and is partial for the days listed missing in intents_volume_daily (those days are null here, never zero).",
+        "Intents volume covers 1Click swaps the Explorer exposes; after 2026-10-27 private settlement is not observed, so a lower volume there means unobserved.",
+        "Days where either the burn row, the price or the volume is absent have null rates."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "All 369 days of the window are present."
+      }
+    },
+    {
+      "id": "fees_footprint_discovery",
+      "title": "NEAR Intents footprint discovery: executors of receipts originating from transactions sent to intents.near",
+      "unit": "yoctoNEAR / percent",
+      "file": "raw/fees/fees_footprint_discovery.json",
+      "sha256": "a109bb92143d8d8e8f0fde1c74c816ea450aaddc486228029ca7f1e956c6448b",
+      "rows": 57,
+      "columns": [
+        {
+          "name": "account",
+          "type": "string"
+        },
+        {
+          "name": "intents_origin_tokens_yocto",
+          "type": "integer-string"
+        },
+        {
+          "name": "intents_origin_tokens_near",
+          "type": "decimal-string"
+        },
+        {
+          "name": "share_of_intents_origin_pct",
+          "type": "decimal-string"
+        },
+        {
+          "name": "own_tokens_same_days_yocto",
+          "type": "integer-string|null"
+        },
+        {
+          "name": "dependence_pct",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "in_narrow_set",
+          "type": "boolean"
+        },
+        {
+          "name": "in_wide_set",
+          "type": "boolean"
+        },
+        {
+          "name": "reason",
+          "type": "string"
+        }
+      ],
+      "source": "BigQuery public dataset bigquery-public-data.crypto_near_mainnet_us: execution_outcomes x receipt_origin_transaction x transactions on 2026-05-13, 2026-08-12, 2026-10-14",
+      "sqlExecuted": "sql/executed/fees_footprint_discovery.sql",
+      "sqlBigQuery": "sql/bigquery/fees_footprint_discovery.sql",
+      "bigQueryExecuted": true,
+      "bigQueryBytesBilled": "2684354560",
+      "bigQueryJobs": [
+        {
+          "id": "discovery:2026-05-13",
+          "from": "2026-05-13",
+          "to": "2026-05-13",
+          "jobId": "4840828e-b600-4359-8fd7-79cb50da330a",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:15:49.460Z",
+          "dryRunBytes": 732847366,
+          "bytesBilled": 732954624,
+          "rows": 41,
+          "resultSha256": "c122458d0989600d06498128527cceb8c472be3680033929f4a80203e32beae5",
+          "querySha256": "e20658aa836fd30eae3b2f67f62b704ea50a0d7816e8298e788a919c37ec2eb6"
+        },
+        {
+          "id": "discovery:2026-08-12",
+          "from": "2026-08-12",
+          "to": "2026-08-12",
+          "jobId": "eb207dcd-4853-4539-a345-6d2de2124b8e",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:15:54.372Z",
+          "dryRunBytes": 783863992,
+          "bytesBilled": 784334848,
+          "rows": 41,
+          "resultSha256": "622fdf8a67651161f2db9a96e66eb3ab1a0516bb5038a24c47e05d7c442e86e6",
+          "querySha256": "49a54c864b7f4948382bff7049ecf975155e2a0495f8a0ec02cc1ea1128b5544"
+        },
+        {
+          "id": "discovery:2026-10-14",
+          "from": "2026-10-14",
+          "to": "2026-10-14",
+          "jobId": "d92f41a7-39b8-434f-b91e-e808bc8c9b62",
+          "location": "us-east1",
+          "executedAt": "2026-11-14T11:16:00.398Z",
+          "dryRunBytes": 1166494251,
+          "bytesBilled": 1167065088,
+          "rows": 41,
+          "resultSha256": "2a219a8cb4a1359b633adbba87a3fe9319a8812960bd98ff43ac3153d642a642",
+          "querySha256": "85dd2d6e18ec18b785a92dcd0f5aa83339756c7d93026089b3a5a00d7a38a6a3"
+        }
+      ],
+      "definition": "Top 40 executor accounts by tokens burnt per sample day among receipt outcomes belonging to transactions whose receiver is intents.near (same-day receipts), summed over the sample days. Intents-origin total over all executors: 224742573293700554423025664 yocto (the top-40 sum is 222851175396096106185375744 yocto). dependence_pct = the account's Intents-origin burn / its own total burn on the same days. Core set: intents.near. Wide set: bridge-refuel.hot.tg, intents.near.",
+      "caveats": [
+        "Receipts executing after the day of their transaction are not seen; transaction outcomes (executor = signer) are not receipts and are not in this join.",
+        "Three sample days only (post-2026-04-02 regime).",
+        "tokens_burnt is FLOAT64 in the public dataset: each value above 2^53 yocto is already rounded at the source (relative error at most 2^-53); sums here are exact over the stored doubles."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "Sample days 2026-05-13, 2026-08-12, 2026-10-14."
+      }
+    },
+    {
+      "id": "toll_daily",
+      "title": "User-paid toll per day: swap spread and integrator app fees",
+      "unit": "basis points of settled USD; USD",
+      "file": "raw/fees/toll_daily.json",
+      "sha256": "a206d28eacc7455533e87cca0858deb1b542b40c1de381a06c39c3d3fe0a1650",
+      "rows": 371,
+      "columns": [
+        {
+          "name": "d",
+          "type": "date"
+        },
+        {
+          "name": "spread_bps_all",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "spread_bps_stable",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "spread_usd_all",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "clean_in_usd_all",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "app_fee_usd",
+          "type": "decimal-string|null"
+        },
+        {
+          "name": "app_fee_bps",
+          "type": "decimal-string|null"
+        }
+      ],
+      "source": "Intents Explorer API swap records (archived raw pages and the intents_swaps table)",
+      "sqlExecuted": "raw/fees/spread_daily.sql",
+      "sqlBigQuery": null,
+      "bigQueryExecuted": false,
+      "bigQueryBytesBilled": null,
+      "definition": "spread = USD in minus USD out of successful swaps with both marks, volume-weighted in basis points of input, per route group (all routes; both legs USD stablecoins); app fees = the integrator appFees on each successful swap (input USD x fee bps / 10000), and app_fee_bps = app fee USD / successful input USD x 10000.",
+      "caveats": [
+        "Swaps whose spread exceeds 20 percent of input are pricing artefacts, reported separately in spread_daily.json and excluded here.",
+        "The spread mixes the solver margin, the 1Click fee, app fees, the protocol fee and price movement between quote and settlement; only app fees are separable.",
+        "Confidential (private) settlement is not in the Explorer data; all figures describe the public flow.",
+        "See raw/fees/SPREAD_NOTES.md and raw/fees/FEE_MODEL.md."
+      ],
+      "coverage": {
+        "missingDays": [],
+        "note": "copied from spread_daily.json and app_fees_daily.json, which list no missing days"
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "bigquery": [
+    "discover identity, billing project and dataset location",
+    "dry run",
+    "one 1-day block_date-bounded query, maximumBytesBilled <= 1 GiB"
+  ],
+  "explorer": ["1 page, numberOfTransactions small"],
+  "oneclick": ["GET /v0/tokens", "1 dry POST /v0/quote"],
+  "coingecko": ["1 daily-candle request"]
+}

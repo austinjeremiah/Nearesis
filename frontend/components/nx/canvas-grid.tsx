@@ -11,6 +11,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
+import { arrange, keyStep, type LayoutMap, type Rect } from '@/lib/panel/arrange';
 
 /**
  * The Canvas layout surface.
@@ -25,11 +26,7 @@ import {
  * stops rounding, for the rare panel that needs to sit off the track.
  */
 
-export type Rect = { x: number; y: number; w: number; h: number };
-export type LayoutMap = Record<string, Rect>;
-
-const MIN_W = 2;
-const MIN_H = 2;
+export type { Rect, LayoutMap };
 
 type DragState = {
   pointerId: number;
@@ -38,6 +35,8 @@ type DragState = {
   startX: number;
   startY: number;
   origin: Rect;
+  /** Layout when the gesture began: every frame reflows from here, so moving back restores the neighbours. */
+  base: LayoutMap;
   moved: boolean;
 };
 
@@ -136,20 +135,8 @@ export function CanvasGrid({
 
   const rectOf = (id: string, index: number): Rect => layout[id] ?? fallback(index);
 
-  const clamp = useCallback(
-    (r: Rect): Rect => {
-      const round = (n: number) => (snap ? Math.round(n) : Math.round(n * 100) / 100);
-      const w = Math.max(MIN_W, Math.min(columns, round(r.w)));
-      const h = Math.max(MIN_H, round(r.h));
-      return {
-        w,
-        h,
-        x: Math.max(0, Math.min(columns - w, round(r.x))),
-        y: Math.max(0, round(r.y)),
-      };
-    },
-    [columns, snap],
-  );
+  /** The whole layout including panels without a stored rect, so collisions see every panel. */
+  const fullLayout = (): LayoutMap => Object.fromEntries(ids.map((id, i) => [id, layoutRef.current[id] ?? fallback(i)]));
 
   /* --- pointer ------------------------------------------------------------ */
 
@@ -163,6 +150,7 @@ export function CanvasGrid({
       startX: e.clientX,
       startY: e.clientY,
       origin: rectOf(id, index),
+      base: fullLayout(),
       moved: false,
     };
     setDragging(id);
@@ -179,7 +167,7 @@ export function CanvasGrid({
       d.mode === 'move'
         ? { ...d.origin, x: d.origin.x + dx, y: d.origin.y + dy }
         : { ...d.origin, w: d.origin.w + dx, h: d.origin.h + dy };
-    onLayoutChange({ ...layoutRef.current, [d.id]: clamp(next) });
+    onLayoutChange(arrange(d.base, d.id, next, columns, snap, d.mode));
   };
 
   const end = () => {
@@ -203,15 +191,9 @@ export function CanvasGrid({
     if (!keys.includes(e.key)) return;
     e.preventDefault();
     const r = rectOf(id, index);
-    const step = e.shiftKey ? 'resize' : 'move';
-    const delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[
-      e.key
-    ] as [number, number];
-    const next =
-      step === 'move'
-        ? { ...r, x: r.x + delta[0], y: r.y + delta[1] }
-        : { ...r, w: r.w + delta[0], h: r.h + delta[1] };
-    const committed = { ...layoutRef.current, [id]: clamp(next) };
+    const next = keyStep(r, e.key, e.shiftKey);
+    if (!next) return;
+    const committed = arrange(fullLayout(), id, next, columns, snap, e.shiftKey ? 'resize' : 'move');
     onLayoutChange(committed);
     onCommit?.(committed);
   };
@@ -310,118 +292,3 @@ const GridCell = memo(
     a.rect.w === b.rect.w &&
     a.rect.h === b.rect.h,
 );
-
-/* ---------------------------------------------------------------------------
-   layout history
-   ------------------------------------------------------------------------ */
-
-/**
- * Undo and redo over layout only.
- *
- * Spec 6.5 keeps document revisions and data revisions apart: undoing a move
- * must never re-run a query or roll back a result. This hook therefore holds
- * nothing but geometry, and the revision it counts is the document's.
- */
-export function useLayoutHistory(initial: LayoutMap, storageKey?: string) {
-  const [present, setPresent] = useState<LayoutMap>(initial);
-  const past = useRef<LayoutMap[]>([]);
-  const future = useRef<LayoutMap[]>([]);
-  const [revision, setRevision] = useState(1);
-  const [, force] = useState(0);
-
-  // Read the saved layout after mount so the server and client first paint match.
-  useEffect(() => {
-    if (!storageKey) return;
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return;
-      const saved = JSON.parse(raw) as { layout: LayoutMap; revision: number };
-      if (saved?.layout) {
-        setPresent(saved.layout);
-        setRevision(saved.revision ?? 1);
-      }
-    } catch {
-      /* blocked storage is not an error: the default layout stands */
-    }
-  }, [storageKey]);
-
-  const persist = useCallback(
-    (next: LayoutMap, rev: number) => {
-      if (!storageKey) return;
-      try {
-        localStorage.setItem(storageKey, JSON.stringify({ layout: next, revision: rev }));
-      } catch {
-        /* non-fatal */
-      }
-    },
-    [storageKey],
-  );
-
-  /** Live update during a gesture. Not a history entry on its own. */
-  const set = useCallback((next: LayoutMap) => setPresent(next), []);
-
-  /** End of a gesture: this is the point that becomes undoable. */
-  const commit = useCallback(
-    (next: LayoutMap) => {
-      past.current = [...past.current.slice(-49), present];
-      future.current = [];
-      setPresent(next);
-      setRevision((r) => {
-        persist(next, r + 1);
-        return r + 1;
-      });
-      force((n) => n + 1);
-    },
-    [present, persist],
-  );
-
-  const undo = useCallback(() => {
-    const prev = past.current.pop();
-    if (!prev) return;
-    future.current.push(present);
-    setPresent(prev);
-    setRevision((r) => {
-      persist(prev, r + 1);
-      return r + 1;
-    });
-    force((n) => n + 1);
-  }, [present, persist]);
-
-  const redo = useCallback(() => {
-    const next = future.current.pop();
-    if (!next) return;
-    past.current.push(present);
-    setPresent(next);
-    setRevision((r) => {
-      persist(next, r + 1);
-      return r + 1;
-    });
-    force((n) => n + 1);
-  }, [present, persist]);
-
-  const reset = useCallback(
-    (to: LayoutMap) => {
-      past.current = [...past.current.slice(-49), present];
-      future.current = [];
-      setPresent(to);
-      setRevision((r) => {
-        persist(to, r + 1);
-        return r + 1;
-      });
-      force((n) => n + 1);
-    },
-    [present, persist],
-  );
-
-  return {
-    layout: present,
-    set,
-    commit,
-    undo,
-    redo,
-    reset,
-    revision,
-    canUndo: past.current.length > 0,
-    canRedo: future.current.length > 0,
-  };
-}

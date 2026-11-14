@@ -1,0 +1,9 @@
+{
+  "id": "fx.explorer.private-era",
+  "label": "SYNTHETIC",
+  "description": "Three public-era swaps (2026-10-26) and three private-settlement-era swaps (2026-10-27+, nearTxHashes are boundary hashes).",
+  "files": [
+    { "path": "page-1.json", "sha256": "0ff1fa7e599d008740d88c9d4181c8475e1c2362beb0cf99c55b6f5a7d0ac0c7" },
+    { "path": "pages.json", "sha256": "28c3e414f50618213dc3208d0551190c6cf5d7a3a3522b6607bd20804e4bd218" }
+  ]
+}

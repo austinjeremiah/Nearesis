@@ -1,0 +1,8 @@
+{
+  "id": "fx.probe.p02-live",
+  "label": "SYNTHETIC",
+  "description": "D16 live probe plan (no recorded data).",
+  "files": [
+    { "path": "plan.json", "sha256": "ab832c294b5257282c7191975095176742a27f1efd8735171745f866a04f97ff" }
+  ]
+}

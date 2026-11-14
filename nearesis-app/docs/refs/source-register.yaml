@@ -1,0 +1,199 @@
+# Source register (BOOT03). One entry per external integration.
+# Protocol (ch.14): status VERIFIED only for facts confirmed from the official page on accessedAt; otherwise TO_VERIFY.
+# `hosts` lists every host that may appear as an http(s) literal in production source; scripts/security/url-audit.ts enforces it.
+# accessedAt is the UTC date of the HTTP reachability check plus content read (HTTP 200 unless stated in notes).
+sources:
+  - id: near-bigquery
+    hosts: [bigquery.googleapis.com, www.googleapis.com, oauth2.googleapis.com]
+    officialDocUrl: https://docs.near.org/data-infrastructure/big-query
+    accessedAt: "2026-11-10"
+    version: "TO_VERIFY (dataset schema discovered at runtime)"
+    auth: "Google Cloud service account (keyless/ADC); no secret in repo"
+    rateLimits: "BigQuery quotas and per-query billed-byte caps (project guardrails)"
+    status: TO_VERIFY
+    notes: >
+      Docs page reachable (HTTP 200) and shows example tables in dataset crypto_near_mainnet_us (transactions,
+      receipt_actions, receipt_origin_transaction). Per amended D16 the dataset identity and location are NOT
+      asserted here. Discovery method: INFORMATION_SCHEMA.SCHEMATA / TABLES / COLUMNS plus dry-run (jobs.query dryRun=true)
+      at runtime; record results in the adapter DOCUMENTATION.md.
+  - id: bigquery-information-schema
+    hosts: []
+    officialDocUrl: https://cloud.google.com/bigquery/docs/information-schema-intro
+    accessedAt: "2026-11-10"
+    version: "TO_VERIFY"
+    auth: "same as near-bigquery"
+    rateLimits: "same as near-bigquery"
+    status: TO_VERIFY
+    notes: "Reference for the runtime discovery method only; reachable (HTTP 200)."
+  - id: near-intents-explorer
+    hosts: [explorer.near-intents.org]
+    officialDocUrl: https://docs.near-intents.org/integration/distribution-channels/1click-api/explorer/introduction
+    accessedAt: "2026-11-10"
+    version: "v0 (base path /api/v0)"
+    auth: "Bearer JWT from Partner Dashboard (env secret)"
+    rateLimits: "1 request every 5 seconds per partner ID; 429 on excess"
+    status: VERIFIED
+    notes: >
+      Confirmed on the page: base URL https://explorer.near-intents.org/api/v0, JWT required on all requests,
+      rate limit as stated, cursor pagination for transactions. Field-level schema still MUST come from the published
+      OpenAPI, not from this entry. Bare base URL returns HTTP 404 (no root handler), expected.
+  - id: near-intents-1click
+    hosts: [1click.chaindefuser.com]
+    officialDocUrl: https://docs.near-intents.org/integration/distribution-channels/1click-api/quickstart/making-a-request
+    accessedAt: "2026-11-10"
+    version: "v0"
+    auth: "Optional Bearer JWT for fee schedule; dry quotes only in this build"
+    rateLimits: "TO_VERIFY"
+    status: VERIFIED
+    notes: >
+      Confirmed on the page: GET /v0/tokens, POST /v0/quote, parameter dry=true validates and quotes without executing.
+      Authentication doc https://docs.near-intents.org/integration/distribution-channels/1click-api/authentication reachable (HTTP 200).
+      Rate limits not confirmed. Never execute swaps from the quote sampler.
+  - id: coingecko
+    hosts: [api.coingecko.com, pro-api.coingecko.com]
+    officialDocUrl: https://docs.coingecko.com/reference/introduction
+    accessedAt: "2026-11-10"
+    version: "v3"
+    auth: "API key header (demo or pro), env secret"
+    rateLimits: "TO_VERIFY (demo tier limited per docs)"
+    status: TO_VERIFY
+    notes: >
+      Docs reachable (HTTP 200); the page confirms a free Demo API with limited endpoints and rate limits exists.
+      Base-URL hosts and numeric limits not confirmed from the page. https://api.coingecko.com/api/v3/ping returned HTTP 200.
+  - id: near-ai-cloud
+    hosts: [cloud-api.near.ai]
+    officialDocUrl: https://docs.near.ai/cloud/quickstart
+    accessedAt: "2026-11-10"
+    version: "OpenAI-compatible /v1"
+    auth: "API key (Bearer), env secret"
+    rateLimits: "TO_VERIFY"
+    status: VERIFIED
+    notes: >
+      Confirmed on the page: gateway cloud-api.near.ai, base_url https://cloud-api.near.ai/v1, responses carry X-Request-Id.
+      SDK doc https://docs.near.ai/cloud/inference-sdk/javascript reachable (HTTP 200). Model support and verification policy
+      must be discovered before enabling production. Bare /v1 returns HTTP 404, expected.
+  - id: outlayer
+    hosts: [app.outlayer.ai]
+    officialDocUrl: https://app.outlayer.ai/docs/near-integration
+    accessedAt: "2026-11-10"
+    version: "TO_VERIFY"
+    auth: "NEAR account/function-call keys (never in repo); see BLK-20261110-003 for upload constraint"
+    rateLimits: "TO_VERIFY"
+    status: VERIFIED
+    notes: >
+      Confirmed on the page: request_execution on outlayer.testnet (testnet) and outlayer.near (mainnet).
+      Attestation docs https://app.outlayer.ai/docs/tee-attestation reachable per ch.23 R12. Never claim verified without cryptographic verification.
+  - id: near-rpc-testnet
+    hosts: [rpc.testnet.near.org, archival-rpc.testnet.near.org]
+    officialDocUrl: https://docs.near.org/api/rpc/providers
+    accessedAt: "2026-11-10"
+    version: "JSON-RPC 2.0"
+    auth: "none for public endpoint"
+    rateLimits: "Severely rate limited (archival), per providers page"
+    status: TO_VERIFY
+    notes: >
+      Providers page lists rpc.testnet.near.org and archival-rpc.testnet.near.org (severely rate limited). POST-only: GET returns HTTP 405, expected.
+      Public RPC deprecation/availability not confirmed.
+  - id: near-rpc-mainnet
+    hosts: [rpc.mainnet.near.org]
+    officialDocUrl: https://docs.near.org/api/rpc/introduction
+    accessedAt: "2026-11-10"
+    version: "JSON-RPC 2.0"
+    auth: "none for public endpoint"
+    rateLimits: "TO_VERIFY"
+    status: VERIFIED
+    notes: >
+      Confirmed on the page: POST https://rpc.mainnet.near.org/ with JSON-RPC body. GET returns HTTP 405, expected.
+      Mainnet writes require explicit human approval (ch.12).
+  - id: base-rpc
+    hosts: [mainnet.base.org, sepolia.base.org]
+    officialDocUrl: https://docs.base.org/base-chain/quickstart/connecting-to-base
+    accessedAt: "2026-11-10"
+    version: "chain ID 8453 (mainnet), 84532 (Sepolia)"
+    auth: "none for public endpoint"
+    rateLimits: "Public endpoint is rate limited; numeric limit TO_VERIFY"
+    status: VERIFIED
+    notes: >
+      Confirmed on the page: RPC https://mainnet.base.org (chain ID 8453) and https://sepolia.base.org (84532).
+      Read-only plugin chain.base.readonly@1 must validate eth_chainId=0x2105. Not a substitute for NEAR mainnet acceptance.
+  - id: cube-core
+    hosts: [cube.dev, docs.cube.dev]
+    officialDocUrl: https://docs.cube.dev/reference/data-modeling/cube
+    accessedAt: "2026-11-10"
+    version: "TO_VERIFY (self-hosted Cube Core; version pinned by Engine B)"
+    auth: "self-hosted; JWT secret in env"
+    rateLimits: "n/a (self-hosted)"
+    status: TO_VERIFY
+    notes: "Docs reachable (HTTP 200). Hosted Cube MCP is NOT a dependency (ch.14). Runtime host is localhost."
+  - id: clickhouse
+    hosts: [clickhouse.com]
+    officialDocUrl: https://clickhouse.com/docs
+    accessedAt: "2026-11-10"
+    version: "server image clickhouse/clickhouse-server:26.8.36.3 (compose)"
+    auth: "local user/password from env; compose binds 127.0.0.1:58123/59000"
+    rateLimits: "n/a (local)"
+    status: TO_VERIFY
+    notes: "Docs reachable (HTTP 200). Image tag taken from infrastructure/compose/docker-compose.yml, pinned by digest."
+  - id: temporal
+    hosts: [docs.temporal.io]
+    officialDocUrl: https://docs.temporal.io/develop/typescript
+    accessedAt: "2026-11-10"
+    version: "server image temporalio/temporal:1.9.1 (compose)"
+    auth: "none locally (dev server, 127.0.0.1:57233)"
+    rateLimits: "n/a (local)"
+    status: TO_VERIFY
+    notes: "Docs reachable (HTTP 200). Production topology is not decided in P00."
+  - id: langgraph-js
+    hosts: [docs.langchain.com]
+    officialDocUrl: https://docs.langchain.com/oss/javascript/langgraph/persistence
+    accessedAt: "2026-11-10"
+    version: "TO_VERIFY"
+    auth: "none (library)"
+    rateLimits: "n/a"
+    status: TO_VERIFY
+    notes: "Docs reachable (HTTP 200); interrupts doc R20 not separately fetched."
+  - id: react-flow
+    hosts: [reactflow.dev]
+    officialDocUrl: https://reactflow.dev/
+    accessedAt: "2026-11-10"
+    version: "TO_VERIFY"
+    auth: "none (library)"
+    rateLimits: "n/a"
+    status: TO_VERIFY
+    notes: "Site reachable (HTTP 200)."
+  - id: mcp-spec
+    hosts: [modelcontextprotocol.io]
+    officialDocUrl: https://modelcontextprotocol.io/docs/2025-11-25/tutorials/security/security_best_practices
+    accessedAt: "2026-11-10"
+    version: "spec revision 2025-11-25"
+    auth: "n/a"
+    rateLimits: "n/a"
+    status: TO_VERIFY
+    notes: "Reachable (HTTP 200). Own read-only semantic MCP methods; client-defined tool host URLs need approval."
+  - id: yjs
+    hosts: [docs.yjs.dev]
+    officialDocUrl: https://docs.yjs.dev/getting-started/a-collaborative-editor
+    accessedAt: "2026-11-10"
+    version: "TO_VERIFY"
+    auth: "n/a (authenticated room routing is our own)"
+    rateLimits: "n/a"
+    status: TO_VERIFY
+    notes: "Reachable (HTTP 200)."
+  - id: near-docs
+    hosts: [docs.near.org]
+    officialDocUrl: https://docs.near.org/
+    accessedAt: "2026-11-10"
+    version: "n/a (documentation site)"
+    auth: "none"
+    rateLimits: "n/a"
+    status: TO_VERIFY
+    notes: "Official NEAR documentation. Referenced as an evidence URL in packages/test-fixtures/scripts/generate.ts (contract registry fixture). Not an API endpoint; no runtime calls."
+  - id: openrouter
+    hosts: [openrouter.ai]
+    officialDocUrl: https://openrouter.ai/docs
+    accessedAt: "2026-11-10"
+    version: "API v1 (OpenAI-compatible)"
+    auth: "Bearer OPENROUTER_API_KEY; BYOK provider keys configured in the OpenRouter dashboard"
+    rateLimits: "TO_VERIFY"
+    status: TO_VERIFY
+    notes: "Primary live inference provider per ADR-20261110-004. BYOK routing must be verified per response via generation metadata."

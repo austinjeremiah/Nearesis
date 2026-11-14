@@ -1,0 +1,75 @@
+{
+  "dataHash": "sha256:15fe2ad62d6ca8ee99e0831cffe2a9a467be247530bb537697c91fab69c172a9",
+  "database": "nearesis_live",
+  "files": {
+    "account_daily_activity": {
+      "bytes": 28373,
+      "path": "raw/account_daily_activity.json",
+      "rows": 162,
+      "sha256": "3fe2d3a47d42011719d21874f69d77d01a0b731ff985d0936bb586e3fc5139a4"
+    },
+    "near_daily_tx": {
+      "bytes": 4868,
+      "path": "raw/near_daily_tx.json",
+      "rows": 162,
+      "sha256": "9dfebee29137d066bfde01c4bf8336f0950ac19c44012d5c7602136108af06da"
+    },
+    "price": {
+      "bytes": 6464,
+      "path": "raw/price.json",
+      "rows": 162,
+      "sha256": "6096abf07a3063d6843f175facaf12709ba6526a4104718b94a9a9df5353a606"
+    },
+    "source_coverage": {
+      "bytes": 446,
+      "path": "raw/source_coverage.json",
+      "rows": 4,
+      "sha256": "2a278b40552c9e265e90d07588de9c75d0a3e25bddef669060dfb0e066efbdf4"
+    },
+    "swaps": {
+      "bytes": 15216,
+      "path": "raw/swaps.json",
+      "rows": 162,
+      "sha256": "34ae0956abf295b240d8c3815329cdd7a677145972b208fd18c06e15b695d0ba"
+    },
+    "swaps_by_privacy_era": {
+      "bytes": 16218,
+      "path": "raw/swaps_by_privacy_era.json",
+      "rows": 162,
+      "sha256": "2146d86fafac4a2997af378dd5a4aa48113231ce58542f931de9e6fea16ca6bb"
+    }
+  },
+  "frozenAt": "2026-11-12T10:19:17Z",
+  "inputMethod": "live-organic-v2",
+  "queries": {
+    "account_daily_activity": "SELECT block_date AS d, tx_total, tx_intents, tx_bridge, tx_organic, top1pct_organic_tx, top5pct_organic_tx, account_rule_version FROM nearesis_live.account_daily_activity FINAL WHERE block_date BETWEEN {s:Date} AND {e:Date} ORDER BY d",
+    "near_daily_tx": "SELECT block_date AS d, tx_count AS y FROM nearesis_live.near_daily_tx FINAL WHERE block_date BETWEEN {s:Date} AND {e:Date} ORDER BY d",
+    "price": "SELECT day AS d, toFloat64(argMax(close, bucket_start)) AS price FROM nearesis_live.price_candles FINAL WHERE day BETWEEN {s:Date} AND {e:Date} AND `interval`='1d' AND symbol='NEAR' AND quote_currency='usd' GROUP BY d ORDER BY d",
+    "source_coverage": "SELECT dataset, state, count() AS days, min(day) AS first_day, max(day) AS last_day FROM nearesis_live.source_coverage FINAL WHERE day BETWEEN {s:Date} AND {e:Date} GROUP BY dataset, state ORDER BY dataset, state",
+    "swaps": "SELECT created_day AS d, count() AS n, countIf(status='SUCCESS') AS n_success, countIf(status='SUCCESS' AND amount_in_usd IS NULL) AS n_success_null_usd, toFloat64(sumIf(amount_in_usd, amount_in_usd IS NOT NULL AND status='SUCCESS')) AS vol FROM nearesis_live.intents_swaps FINAL WHERE created_day BETWEEN {s:Date} AND {e:Date} GROUP BY d ORDER BY d",
+    "swaps_by_privacy_era": "SELECT created_day AS d, privacy_era AS era, countIf(status='SUCCESS') AS n_success, countIf(status='SUCCESS' AND amount_in_usd IS NULL) AS n_success_null_usd, toFloat64(sumIf(amount_in_usd, amount_in_usd IS NOT NULL AND status='SUCCESS')) AS vol FROM nearesis_live.intents_swaps FINAL WHERE created_day BETWEEN {s:Date} AND {e:Date} GROUP BY d, era ORDER BY d, era"
+  },
+  "schema": "nearesis.research.live-snapshot.v1",
+  "snapshotId": "live-20260603-20261111-live-organic-v2-15fe2ad62d6c",
+  "swapWindowRule": {
+    "dropped": [
+      {
+        "day": "2026-11-12",
+        "n": 5328,
+        "reason": "newest day present, still being written"
+      },
+      {
+        "day": "2026-06-02",
+        "n": 2333,
+        "reason": "partial first day (2333 rows < half of the next-seven-day median 20425)"
+      }
+    ],
+    "first": "2026-06-03",
+    "last": "2026-11-11",
+    "reason": null
+  },
+  "window": {
+    "end": "2026-11-11",
+    "start": "2026-06-03"
+  }
+}

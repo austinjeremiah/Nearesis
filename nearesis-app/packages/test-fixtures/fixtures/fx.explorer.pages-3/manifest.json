@@ -1,0 +1,11 @@
+{
+  "id": "fx.explorer.pages-3",
+  "label": "SYNTHETIC",
+  "description": "Three Explorer /transactions pages (5,5,3 items; 13 unique stable IDs). Fields per the OpenAPI spec of 2026-11-10.",
+  "files": [
+    { "path": "page-1.json", "sha256": "7e2114bcee921d43985c81b061bc981819a0c1d9c36e4c3c3dbc8ee9ea7a553c" },
+    { "path": "page-2.json", "sha256": "55067040e587411bc388d19cda084896e493c8042370f5cfe2d48b37d56b3dce" },
+    { "path": "page-3.json", "sha256": "7ca0e3c8e4cda2a2f9c4972971a945c522a9ca99696bcda1d9dab3aab84f1a10" },
+    { "path": "pages.json", "sha256": "314fbd2157104b9031e6d6961d7d72fc09796d65403820b6a76c1b5c378bb6b7" }
+  ]
+}

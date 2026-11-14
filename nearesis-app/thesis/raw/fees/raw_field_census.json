@@ -1,0 +1,98 @@
+{
+ "note": "Field names and JSON types across every raw Explorer item read (counts of items).",
+ "items_read": 7203005,
+ "fields": {
+  "amountIn": {
+   "string": 7203005
+  },
+  "amountInFormatted": {
+   "string": 7203005
+  },
+  "amountInUsd": {
+   "string": 7203005
+  },
+  "amountOut": {
+   "string": 7203005
+  },
+  "amountOutFormatted": {
+   "string": 7203005
+  },
+  "amountOutUsd": {
+   "string": 7203005
+  },
+  "appFees": {
+   "array": 7203005
+  },
+  "createdAt": {
+   "string": 7203005
+  },
+  "createdAtTimestamp": {
+   "number": 7203005
+  },
+  "depositAddress": {
+   "string": 7203005
+  },
+  "depositAddressAndMemo": {
+   "string": 7203005
+  },
+  "depositMemo": {
+   "null": 7167322,
+   "string": 35683
+  },
+  "depositType": {
+   "string": 7203005
+  },
+  "destinationAsset": {
+   "string": 7203005
+  },
+  "destinationChainTxHashes": {
+   "array": 7203005
+  },
+  "intentHashes": {
+   "string": 7203005
+  },
+  "nearTxHashes": {
+   "array": 7203005
+  },
+  "originAsset": {
+   "string": 7203005
+  },
+  "originChainTxHashes": {
+   "array": 7203005
+  },
+  "recipient": {
+   "string": 7203005
+  },
+  "recipientType": {
+   "string": 7203005
+  },
+  "referral": {
+   "null": 785960,
+   "string": 6417045
+  },
+  "refundFee": {
+   "string": 5452705,
+   "null": 1750300
+  },
+  "refundFeeFormatted": {
+   "string": 5452705,
+   "null": 1750300
+  },
+  "refundReason": {
+   "null": 7038120,
+   "string": 164885
+  },
+  "refundTo": {
+   "string": 7203005
+  },
+  "refundType": {
+   "string": 7203005
+  },
+  "senders": {
+   "array": 7203005
+  },
+  "status": {
+   "string": 7203005
+  }
+ }
+}

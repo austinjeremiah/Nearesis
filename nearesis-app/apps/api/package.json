@@ -1,0 +1,35 @@
+{
+  "name": "@nearesis/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@clickhouse/client": "1.25.0",
+    "@nearesis/acceptance": "workspace:*",
+    "@nearesis/analytics": "workspace:*",
+    "@nearesis/canvas-schema": "workspace:*",
+    "@nearesis/capsule": "workspace:*",
+    "@nearesis/contracts": "workspace:*",
+    "@nearesis/kernel": "workspace:*",
+    "@nearesis/plugin-sdk": "workspace:*",
+    "@nearesis/semantic-gateway": "workspace:*",
+    "@nearesis/strict-json": "workspace:*",
+    "@nearesis/workflow": "workspace:*",
+    "fastify": "5.12.8",
+    "ioredis": "6.0.0",
+    "jose": "6.2.14",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@noble/curves": "2.4.0",
+    "@scure/base": "1.2.6"
+  }
+}

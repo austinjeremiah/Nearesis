@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "providerId": {
+      "type": "string",
+      "enum": [
+        "near-bigquery",
+        "near-explorer",
+        "intents-1click",
+        "coingecko",
+        "near-contract-registry"
+      ]
+    },
+    "adapterVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requestFingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sourceURL": {
+      "type": "string",
+      "format": "uri"
+    },
+    "sourceEnvironment": {
+      "type": "string",
+      "enum": [
+        "fixture_synthetic",
+        "fixture_recorded",
+        "live"
+      ]
+    },
+    "fetchedAtUTC": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+    },
+    "providerEventAtUTC": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "providerEventAtNullReason": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "receivedAtUTC": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+    },
+    "responseStatus": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 599
+    },
+    "contentType": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "payloadObjectHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "normalizedHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "cursorBefore": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "cursorAfter": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "sourceSchemaVersion": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "recordsClaimed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "recordsParsed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "rateLimitHeaders": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "privacyVisibility": {
+      "type": "string",
+      "enum": [
+        "public",
+        "partner_reported",
+        "private_hidden"
+      ]
+    },
+    "completeness": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "unknown"
+      ]
+    },
+    "warnings": {
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 500
+      }
+    }
+  },
+  "required": [
+    "providerId",
+    "adapterVersion",
+    "requestFingerprint",
+    "sourceURL",
+    "sourceEnvironment",
+    "fetchedAtUTC",
+    "providerEventAtUTC",
+    "receivedAtUTC",
+    "responseStatus",
+    "contentType",
+    "payloadObjectHash",
+    "privacyVisibility",
+    "completeness",
+    "warnings"
+  ],
+  "additionalProperties": false
+}

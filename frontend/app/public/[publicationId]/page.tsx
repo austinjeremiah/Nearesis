@@ -1,14 +1,19 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import '../../app.css';
+import './public.css';
+import { cookies } from 'next/headers';
 import Wordmark from '@/components/Wordmark';
-import { Badge, EvidenceVerdict } from '@/components/nx/evidence';
+import { ThemeToggle } from '@/components/nx/theme';
+import { DEFAULT_THEME, THEME_COOKIE, type Theme } from '@/lib/theme';
+import { API_URL } from '@/lib/api/config';
+import { Badge } from '@/components/nx/evidence';
 import { Card, EmptyState, KeyValues, Notice } from '@/components/nx/ui';
-import * as db from '@/lib/data/client';
+import { LocalBadge, OutlayerBadge } from '@/components/ws6/capsule-bits';
+import { PublicationVersionCard, type PublicationVersion } from '@/components/ws8/publication-trust';
+import { ExportLinks } from './export-links';
+import type { CapsuleView } from '@/lib/ws6/api';
 import { formatUtc, shortHash } from '@/lib/format';
 
-export const metadata: Metadata = { title: 'Published research · Nearesis' };
+export const dynamic = 'force-dynamic';
 
 const FONTS =
   'https://fonts.googleapis.com/css2' +
@@ -17,187 +22,151 @@ const FONTS =
   '&family=IBM+Plex+Mono:wght@400;500;600' +
   '&display=swap';
 
+type PublicPublication = Pick<CapsuleView, 'title' | 'claims' | 'results' | 'hashes' | 'verification' | 'capsuleId'> & {
+  label: string;
+  createdAt: string | null;
+  state: 'published';
+  publishedAt: string;
+  badge: string;
+  acknowledgedCautions: string[];
+  documents: { path: string; sha256: string; url: string }[];
+  versions: PublicationVersion[];
+};
+
+type Outcome =
+  | { kind: 'ok'; data: PublicPublication }
+  | { kind: 'withdrawn' }
+  | { kind: 'not_found' }
+  | { kind: 'rate_limited'; retryAfter: string | null }
+  | { kind: 'unavailable'; message: string };
+
 /**
- * Spec 5.25 — public reader.
- *
- * No private shell: no sidebar, no workspace ids, no role controls. Above the
- * fold is the claim, its scope, its evidence quality and its limitations. The
- * page must work without provider keys or an authenticated API, which is why it
- * reads only from the published capsule record.
+ * Anonymous read of the public publication endpoint. This is a server-to-server call that carries NO cookie and
+ * NO authorization header, so what renders is what any anonymous reader gets. Nothing about an unpublished or
+ * withdrawn capsule is shown.
  */
-export default async function PublicReaderPage({
-  params,
-}: {
-  params: Promise<{ publicationId: string }>;
-}) {
+async function load(id: string): Promise<Outcome> {
+  let r: Response;
+  try {
+    r = await fetch(`${API_URL}/v1/public/publications/${encodeURIComponent(id)}`, { cache: 'no-store', headers: { accept: 'application/json' } });
+  } catch {
+    return { kind: 'unavailable', message: 'The publication service is not reachable.' };
+  }
+  if (r.ok) return { kind: 'ok', data: (await r.json()) as PublicPublication };
+  const body = (await r.json().catch(() => ({}))) as { reasonCode?: string; message?: string };
+  if (r.status === 404) return body.reasonCode === 'PUBLICATION_WITHDRAWN' ? { kind: 'withdrawn' } : { kind: 'not_found' };
+  if (r.status === 429) return { kind: 'rate_limited', retryAfter: r.headers.get('retry-after') };
+  return { kind: 'unavailable', message: body.message ?? `The publication could not be read (HTTP ${r.status}).` };
+}
+
+export default async function PublicPublicationPage({ params }: { params: Promise<{ publicationId: string }> }) {
   const { publicationId } = await params;
-  const p = db.publication(publicationId);
-  if (!p) notFound();
-
-  const cap = db.capsule(p.capsuleHash);
-  const ws = db.workspace(p.workspaceId);
-  const claims = db.claims(p.workspaceId);
-
-  return (
-    <div className="nx" data-skin="ink">
+  const id = decodeURIComponent(publicationId);
+  // The reader's theme choice applies here too; anonymous readers get the product default.
+  const saved = (await cookies()).get(THEME_COOKIE)?.value;
+  const theme: Theme = saved === 'light' || saved === 'dark' ? saved : DEFAULT_THEME;
+  const wrap = (children: React.ReactNode) => (
+    <div className="nx pub" data-theme={theme}>
       <link href="https://fonts.googleapis.com" rel="preconnect" />
       <link href="https://fonts.gstatic.com" rel="preconnect" crossOrigin="anonymous" />
       <link href={FONTS} rel="stylesheet" precedence="default" />
-
-      <div
-        className="col doc"
-        style={{ maxWidth: 940, margin: '0 auto', padding: '40px 24px 80px', gap: 'var(--s6)' }}
-      >
-        <header className="row between" style={{ borderBottom: '1px solid var(--line-strong)', paddingBottom: 16 }}>
-          <Link href="/">
-            {/* Pale wordmark: this page is printed on the dark paper. */}
-            <Wordmark tone="white" size={24} />
-          </Link>
-          <span className="label">Published research</span>
-        </header>
-
-        <div className="col gap4">
-          <span className="label">
-            Version {p.version} · {formatUtc(p.publishedAt, false)}
-          </span>
-          <h1 className="h1">{p.title}</h1>
-          <p className="muted" style={{ maxWidth: '70ch' }}>
-            {ws?.objective}
-          </p>
-          <div className="row gap2 wrap">
-            <EvidenceVerdict verdict={p.verdict} strength={p.strength} />
-            <Badge outline>snapshot {p.snapshotId}</Badge>
-            <Badge tone="bad" title="This instance publishes from a frozen fixture snapshot.">
-              fixture
-            </Badge>
-          </div>
-        </div>
-
-        <Notice tone="warn" title="Numbers and claims below refer to the frozen snapshot shown">
-          Later source updates may differ. Everything here was computed from{' '}
-          <span className="mono">{p.snapshotId}</span> and has not been recomputed since.
-        </Notice>
-
-        <section className="col gap3">
-          <h2 className="h2">Claims</h2>
-          {claims.length === 0 ? (
-            <EmptyState
-              title="No claim table in this publication"
-              body="This version was published without a claim table. The limitations and reproducibility records below still apply."
-            />
-          ) : (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th style={{ minWidth: 260 }}>Claim</th>
-                    <th>Verdict</th>
-                    <th>Estimate</th>
-                    <th>What would change it</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {claims.map((c) => (
-                    <tr key={c.id}>
-                      <td className="small">{c.statement}</td>
-                      <td>
-                        <EvidenceVerdict verdict={c.verdict} strength={c.strength} />
-                      </td>
-                      <td className="small">{c.estimate}</td>
-                      <td className="small">{c.falsification}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <section className="col gap3">
-          <h2 className="h2">Limitations</h2>
-          <Card>
-            <ul style={{ paddingLeft: 16, listStyle: 'disc' }}>
-              <li className="small">
-                After {db.SETTLEMENT_BOUNDARY} a growing share of 1Click settlement cannot be
-                reconstructed from public NEAR transaction hashes. Totals after that date are a
-                lower bound.
-              </li>
-              <li className="small">
-                The signer proxy counts accounts, not people. One person may hold many accounts.
-              </li>
-              <li className="small">
-                1Click samples are dry quotes. They are not executed swaps, realized execution
-                quality or revenue.
-              </li>
-              <li className="small">
-                A forecast improvement is a prediction result, not evidence of causation.
-              </li>
-            </ul>
-          </Card>
-        </section>
-
-        <section className="col gap3">
-          <h2 className="h2">Reproducibility</h2>
-          <Card>
-            <KeyValues
-              rows={[
-                { k: 'Capsule', v: <span className="mono" style={{ wordBreak: 'break-all' }}>{p.capsuleHash}</span> },
-                { k: 'Snapshot', v: <span className="mono">{p.snapshotId}</span> },
-                { k: 'Semantic version', v: <span className="mono">{db.SEMANTIC_VERSION}</span> },
-                { k: 'Rebuild', v: <span className="mono">pnpm research:rebuild --snapshot {p.snapshotId}</span> },
-                {
-                  k: 'Reproducible',
-                  v: cap ? <Badge tone={cap.reproducible ? 'ok' : 'bad'}>{cap.reproducible ? 'Yes' : 'No'}</Badge> : <span className="unavailable" />,
-                },
-                {
-                  k: 'Input integrity',
-                  v: cap ? <Badge tone={cap.inputIntegrity ? 'ok' : 'bad'}>{cap.inputIntegrity ? 'Verified' : 'Mismatch'}</Badge> : <span className="unavailable" />,
-                },
-                {
-                  k: 'External attestation',
-                  v: cap ? <Badge tone={cap.attestation === 'verified' ? 'ok' : ''}>{cap.attestation}</Badge> : <span className="unavailable" />,
-                },
-              ]}
-            />
-            {cap?.attestation === 'unavailable' && (
-              <Notice tone="info" title="Reproducible locally. External compute attestation not available.">
-                The rebuild is deterministic and the inputs match their recorded hashes. No enclave
-                vouched for the run, and neither check establishes that the source data described
-                reality.
-              </Notice>
-            )}
-          </Card>
-        </section>
-
-        <section className="col gap3">
-          <h2 className="h2">Source index</h2>
-          <Card>
-            <KeyValues
-              rows={db.sources().map((s) => ({
-                k: s.name,
-                v: (
-                  <span className="small">
-                    {s.provider} · watermark{' '}
-                    <span className="mono">{formatUtc(s.watermark, false)}</span>
-                  </span>
-                ),
-              }))}
-            />
-          </Card>
-        </section>
-
-        <footer
-          className="row between"
-          style={{ paddingTop: 16, borderTop: '1px solid var(--line-strong)' }}
-        >
-          <span className="tiny dim">
-            Capsule {shortHash(p.capsuleHash)} · published {formatUtc(p.publishedAt)}
-          </span>
-          <Link className="link small" href="/">
-            About Nearesis
-          </Link>
-        </footer>
-      </div>
+      <header className="pub-bar">
+        <a href="/" aria-label="Nearesis home" className="pub-brand">
+          <span className="wm-on-light"><Wordmark tone="black" size={22} /></span>
+          <span className="wm-on-dark"><Wordmark tone="white" size={22} /></span>
+        </a>
+        <span className="pub-tag">Public publication</span>
+        <span className="pub-spacer" />
+        <ThemeToggle />
+      </header>
+      <main className="pub-body">{children}</main>
     </div>
+  );
+  const o = await load(id);
+  if (o.kind === 'withdrawn')
+    return wrap(
+      <div data-testid="public-withdrawn" data-state="withdrawn">
+        <EmptyState title="This publication was withdrawn" body="Its owner withdrew it, so it is no longer public. Nothing from it is shown." />
+      </div>,
+    );
+  if (o.kind === 'not_found')
+    return wrap(
+      <div data-testid="public-not-found" data-state="not_found">
+        <EmptyState title="Publication not found" body="No capsule has been published under this id." />
+      </div>,
+    );
+  if (o.kind === 'rate_limited')
+    return wrap(
+      <div data-testid="public-rate-limited" data-state="rate_limited">
+        <EmptyState title="Too many requests" body={`Try again${o.retryAfter ? ` in ${o.retryAfter} seconds` : ' shortly'}.`} />
+      </div>,
+    );
+  if (o.kind === 'unavailable')
+    return wrap(
+      <div data-testid="public-unavailable" data-state="source_unavailable">
+        <EmptyState title="Publication unavailable" body={o.message} />
+      </div>,
+    );
+  const c = o.data;
+  const latest = c.versions[c.versions.length - 1] ?? null;
+  const limitations = c.label === 'SYNTHETIC' ? ['This capsule is built from SYNTHETIC data. No statement here describes NEAR production activity.'] : [];
+  return wrap(
+    <div className="col gap4" data-testid="public-publication" data-capsule={c.capsuleId}>
+      <div className="row gap2 wrap">
+        <Badge tone="ok">published</Badge>
+        <Badge outline>{c.badge}</Badge>
+        <Badge tone={c.label === 'SYNTHETIC' ? 'warn' : 'info'} outline>{c.label}</Badge>
+      </div>
+      <h1 className="h2 pub-title">{c.title}</h1>
+      {c.label === 'SYNTHETIC' && <Notice tone="warn" title="Synthetic data">No statement here describes NEAR production activity.</Notice>}
+      {c.acknowledgedCautions.length > 0 && (
+        <Notice tone="warn" title="Published with acknowledged cautions">
+          The publisher acknowledged: {c.acknowledgedCautions.join(', ')}.
+        </Notice>
+      )}
+      <Card title="Verification">
+        <div className="row gap2 wrap">
+          <LocalBadge v={c.verification.local} />
+          <OutlayerBadge v={c.verification.outlayer} />
+        </div>
+        <KeyValues
+          rows={[
+            { k: 'Published', v: <span className="mono">{formatUtc(c.publishedAt)}</span> },
+            { k: 'Result manifest', v: <span className="mono" title={c.hashes.resultManifestHash ?? ''}>{c.hashes.resultManifestHash ? shortHash(c.hashes.resultManifestHash, 10, 6) : 'none'}</span> },
+          ]}
+        />
+        {c.verification.failures.length > 0 && <p className="small" data-testid="public-failures">Local verification recorded {c.verification.failures.length} failure(s). The capsule is published as unverified.</p>}
+      </Card>
+      <Card title="Signing key and anchor">
+        {latest ? <PublicationVersionCard v={latest} testId="public-trust" /> : <p className="small dim" data-testid="public-no-version">No signed version is recorded for this publication.</p>}
+      </Card>
+      <Card title="Claims">
+        <ul className="col gap2">
+          {c.claims.map((x) => (
+            <li key={x.id} className="small">
+              <Badge outline>{x.claimClass.replace(/_/g, ' ')}</Badge> {x.text}
+            </li>
+          ))}
+        </ul>
+      </Card>
+      <Card title="Results">
+        <ul className="col gap2">
+          {c.results.map((x) => (
+            <li key={x.id} className="small pub-result"><span className="strong">{x.label}</span>: <span className="mono">{x.value}</span> {x.unit}</li>
+          ))}
+        </ul>
+      </Card>
+      <Card title="Limitations">
+        <ul className="col gap2" data-testid="public-limitations">
+          {limitations.map((l, i) => (
+            <li key={i} className="small">{l}</li>
+          ))}
+          <li className="small">Results are reproducible only from the frozen snapshot named by the capsule hashes; they do not describe data after it.</li>
+        </ul>
+      </Card>
+      <Card title="Documents" subtitle="Downloaded without a session; each is checked against its listed SHA-256.">
+        <ExportLinks id={c.capsuleId} docs={c.documents} />
+      </Card>
+    </div>,
   );
 }

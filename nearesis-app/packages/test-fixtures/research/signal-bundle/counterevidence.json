@@ -1,0 +1,53 @@
+[
+  {
+    "candidate": "price",
+    "delta_mae": -0.000614159,
+    "horizon": 1,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9841283104
+  },
+  {
+    "candidate": "intents",
+    "delta_mae": -0.0043766555,
+    "horizon": 7,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9841283104
+  },
+  {
+    "candidate": "price",
+    "delta_mae": -0.0017494357,
+    "horizon": 7,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9841283104
+  },
+  {
+    "candidate": "combined",
+    "delta_mae": -0.0074641428,
+    "horizon": 7,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9841283104
+  },
+  {
+    "candidate": "intents",
+    "delta_mae": -0.0064433877,
+    "horizon": 14,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9841283104
+  },
+  {
+    "candidate": "price",
+    "delta_mae": -0.003159783,
+    "horizon": 14,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9841283104
+  },
+  {
+    "candidate": "combined",
+    "delta_mae": -0.0092936816,
+    "horizon": 14,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9841283104
+  },
+  { "check": "post_oct27_regime", "kind": "untestable", "status": "INSUFFICIENT_DATA" },
+  { "check": "stablecoin_only_routes", "kind": "untestable", "status": "NOT_TESTABLE" }
+]

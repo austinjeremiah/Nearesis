@@ -1,0 +1,79 @@
+[
+  {
+    "chain": "near",
+    "accountId": "meme-cooking.near",
+    "project": "meme.cooking",
+    "taxonomy": "launchpad",
+    "validFrom": "2026-01-01T00:00:00.000Z",
+    "validTo": null,
+    "ownershipVerification": "verified",
+    "evidenceUrl": "https://docs.near.org/",
+    "ambiguityScore": 0
+  },
+  {
+    "chain": "near",
+    "accountId": "v2.ref-finance.near",
+    "project": "Rhea",
+    "taxonomy": "dex",
+    "validFrom": "2026-01-01T00:00:00.000Z",
+    "validTo": "2026-11-09T00:00:00.000Z",
+    "ownershipVerification": "verified",
+    "evidenceUrl": "https://docs.near.org/",
+    "ambiguityScore": 0
+  },
+  {
+    "chain": "near",
+    "accountId": "v2.ref-finance.near",
+    "project": "Rhea",
+    "taxonomy": "dex_aggregator",
+    "validFrom": "2026-11-09T00:00:00.000Z",
+    "validTo": null,
+    "ownershipVerification": "verified",
+    "evidenceUrl": "https://docs.near.org/",
+    "ambiguityScore": 0
+  },
+  {
+    "chain": "near",
+    "accountId": "hot.tg",
+    "project": "HOT/Omni",
+    "taxonomy": "bridge",
+    "validFrom": "2026-01-01T00:00:00.000Z",
+    "validTo": null,
+    "ownershipVerification": "verified",
+    "evidenceUrl": "https://docs.near.org/",
+    "ambiguityScore": 0
+  },
+  {
+    "chain": "near",
+    "accountId": "outlayer.unresolved.near",
+    "project": "OutLayer",
+    "taxonomy": "compute",
+    "validFrom": "2026-01-01T00:00:00.000Z",
+    "validTo": null,
+    "ownershipVerification": "unverified",
+    "evidenceUrl": null,
+    "ambiguityScore": 0.6
+  },
+  {
+    "chain": "near",
+    "accountId": "shared-dao.near",
+    "project": "Sputnik/Trezu",
+    "taxonomy": "dao",
+    "validFrom": "2026-01-01T00:00:00.000Z",
+    "validTo": null,
+    "ownershipVerification": "verified",
+    "evidenceUrl": "https://docs.near.org/",
+    "ambiguityScore": 0.2
+  },
+  {
+    "chain": "near",
+    "accountId": "shared-dao.near",
+    "project": "Agent Market",
+    "taxonomy": "marketplace",
+    "validFrom": "2026-06-01T00:00:00.000Z",
+    "validTo": null,
+    "ownershipVerification": "verified",
+    "evidenceUrl": "https://docs.near.org/",
+    "ambiguityScore": 0.2
+  }
+]

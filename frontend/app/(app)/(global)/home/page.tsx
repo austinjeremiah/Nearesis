@@ -1,227 +1,173 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Content } from '@/components/nx/shell';
 import { BracketButton, PageHero } from '@/components/nx/landing';
 import { SectionBar } from '@/components/nx/section';
-import { SourceRows } from '@/components/nx/source-rows';
-import { Card, EmptyState, KeyValues, SpendValue } from '@/components/nx/ui';
-import {
-  Badge,
-  CoverageChip,
-  DataModeIndicator,
-  EvidenceVerdict,
-  SourceHealthChip,
-} from '@/components/nx/evidence';
-import * as db from '@/lib/data/client';
-import { formatAge, formatUsd, formatUtc } from '@/lib/format';
+import { Card, EmptyState } from '@/components/nx/ui';
+import { Badge } from '@/components/nx/evidence';
+import { ApiErrorState } from '@/components/nx/states';
+import { api } from '@/lib/api/server';
+import { shellServer } from '@/lib/api/shell-server';
+import { settle } from '@/lib/api/guard';
+import { formatAge, formatUsd } from '@/lib/format';
+import HomeView from '@/components/nx/home/home-view';
 
 export const metadata: Metadata = { title: 'Home · Nearesis' };
 
 /**
- * Spec 5.2 — Home.
- *
- * "Surface what requires attention, not marketing copy." Every section is
- * source-backed: the findings come from real claim records, the health summary
- * from real source watermarks, and usage from the recorded ledger. Nothing here
- * is a headline number invented to fill a card.
+ * Home: the workspaces you can open (pinned first) and a cross-workspace
+ * attention queue built only from API aggregates: pending approvals, unread
+ * monitor notifications, sources that are not fresh, and the global spend
+ * ceiling. An empty queue says so; nothing is invented.
  */
-export default function HomePage() {
-  const ws = db.workspaces().filter((w) => !w.archived);
-  const recent = [...ws].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4);
-  const pendingApprovals = db
-    .workspaces()
-    .flatMap((w) => db.approvals(w.id).map((a) => ({ ...a, workspace: w })))
-    .filter((a) => a.state === 'pending');
-  const findings = db
-    .workspaces()
-    .flatMap((w) => db.claims(w.id).map((c) => ({ ...c, workspace: w })))
-    .slice(0, 3);
-  const sources = db.sources();
-  const unhealthy = sources.filter((s) => s.health !== 'healthy');
-  const spentToday = ws.reduce((a, w) => a + w.spentUsd, 0);
-  const budgetToday = ws.reduce((a, w) => a + w.budgetUsd, 0);
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ tab?: string; q?: string }> }) {
+  // The Agent used to be a tab here; it is its own page now.
+  const sp = await searchParams;
+  if (sp.tab === 'agent') redirect(sp.q ? `/agent?q=${encodeURIComponent(sp.q)}` : '/agent');
+  const [ws, pins, approvals, notes, sources, spend] = await Promise.all([
+    settle(api.workspaces()),
+    settle(shellServer.pins()),
+    settle(shellServer.approvals('pending')),
+    settle(shellServer.notifications({ unread: true, limit: 8 })),
+    settle(shellServer.sources()),
+    settle(shellServer.costGlobal()),
+  ]);
+  const pinned = new Set(pins.ok ? pins.data.pins.map((p) => p.workspaceId) : []);
+  const recent = ws.ok
+    ? [...ws.data.workspaces]
+        .sort((a, b) => Number(pinned.has(b.id)) - Number(pinned.has(a.id)) || b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 6)
+    : [];
+  const staleSources = sources.ok ? sources.data.sources.filter((s) => s.state !== 'fresh' && s.state !== 'live') : [];
+  const spendBad = spend.ok && spend.data.state !== 'ok';
+  const nothing =
+    approvals.ok && notes.ok && sources.ok && approvals.data.approvals.length === 0 && notes.data.unread === 0 && staleSources.length === 0 && !spendBad;
 
   return (
     <>
       <PageHero
         kicker="Portfolio"
         title="Home"
-        lede="What needs your attention across every workspace you can see."
-        context={<DataModeIndicator mode="frozen" origin="fixture" watermark={db.SNAPSHOT_AS_OF} />}
+        lede="Live NEAR data, what the agents found, and your research."
         actions={<BracketButton href="/workspaces/new">New workspace</BracketButton>}
       />
       <Content>
+        <HomeView />
         <section>
-          <SectionBar title="Continue researching" number="001" />
-          <div className="grid c3">
-            {recent.map((w) => (
-              <Card
-                key={w.id}
-                title={<Link href={`/w/${w.id}/overview`}>{w.name}</Link>}
-                subtitle={w.objective}
-                actions={<Badge tone={w.thesisStatus === 'published' ? 'ok' : ''}>{w.thesisStatus.replace(/_/g, ' ')}</Badge>}
-                footer={
-                  <>
-                    <span className="tiny dim">Updated {formatAge(w.updatedAt)}</span>
-                    <span className="tiny dim mono">{w.snapshotId}</span>
-                    <div className="grow" />
-                    <Link className="link small" href={`/w/${w.id}/overview`}>
-                      Open
-                    </Link>
-                  </>
-                }
-              >
-                {/*
-                  Stacked rather than dot separated: in a three-up card the
-                  separators wrapped onto their own line and left a dot hanging
-                  at the end of a row.
-                */}
-                <dl className="meta-rows tiny">
-                  <div>
-                    <dt>Template</dt>
-                    <dd>{w.template}</dd>
-                  </div>
-                  <div>
-                    <dt>Spend</dt>
-                    <dd>
-                      <SpendValue spentUsd={w.spentUsd} budgetUsd={w.budgetUsd} />
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Branch</dt>
-                    <dd className="mono">{w.branch}</dd>
-                  </div>
-                </dl>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        <div className="grid c2">
-          <section>
-            <SectionBar title="Needs your review" number="002" />
-            {pendingApprovals.length === 0 ? (
-              <EmptyState title="Nothing waiting on you" body="Approvals and merge requests appear here." />
-            ) : (
-              <div className="stack-even">
-                {pendingApprovals.map((a) => (
-                  <Card
-                    key={a.id}
-                    title={a.kind}
-                    subtitle={a.workspace.name}
-                    actions={<Badge tone="warn">Pending</Badge>}
-                    footer={
-                      <>
-                        <span className="tiny dim">Expires {formatUtc(a.expiresAt)}</span>
-                        <div className="grow" />
-                        <Link className="link small" href={`/w/${a.workspaceId}/approvals`}>
-                          Review
-                        </Link>
-                      </>
-                    }
-                  >
-                    <p className="small">{a.requested}</p>
-                    <div className="row gap2 wrap tiny dim">
-                      {a.network && <Badge outline>{a.network}</Badge>}
-                      {a.amountCapUsd !== null && <span className="mono">cap {formatUsd(a.amountCapUsd)}</span>}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section>
-            <SectionBar title="Recent findings" number="003" />
-            <div className="stack-even">
-              {findings.map((c) => (
-                <Card
-                  key={c.id}
-                  title={<Link href={`/w/${c.workspaceId}/claims/${c.id}`}>{c.statement}</Link>}
-                  subtitle={c.workspace.name}
-                  footer={
-                    <>
-                      <EvidenceVerdict verdict={c.verdict} strength={c.strength} />
-                      <div className="grow" />
-                      {c.disputed && <Badge tone="warn">Disputed</Badge>}
-                    </>
-                  }
-                >
-                  <p className="small muted">{c.estimate}</p>
-                </Card>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        <div className="grid c2">
-          <section>
-            <SectionBar title="Data health" number="004" />
-            <Card
-              title={`${sources.length - unhealthy.length} of ${sources.length} sources healthy`}
-              actions={
-                <Link className="link small" href="/data/sources">
-                  View sources
+          <SectionBar title="Continue researching" number="004" />
+          {!ws.ok ? (
+            <ApiErrorState error={ws.error} />
+          ) : recent.length === 0 ? (
+            <EmptyState
+              title="Every thesis starts with a question"
+              body="No research workspaces yet."
+              action={
+                <Link className="btn primary" href="/workspaces/new">
+                  Create workspace
                 </Link>
               }
-            >
-              <SourceRows rows={sources} />
-            </Card>
-          </section>
-
-          <section>
-            <SectionBar title="Usage today" number="005" />
-            <Card
-              title={`${formatUsd(spentToday)} spent`}
-              subtitle={`Across ${ws.length} active workspaces, against ${formatUsd(budgetToday)} of caps.`}
-            >
-              <KeyValues
-                rows={ws.map((w) => ({
-                  k: w.name,
-                  v: (
-                    <span className="mono">
-                      {formatUsd(w.spentUsd)} / {formatUsd(w.budgetUsd)}
-                    </span>
-                  ),
-                }))}
-              />
-              <p className="tiny dim">
-                Recorded from the run ledger, not estimated. A run that was cancelled still shows
-                what it spent before it stopped.
-              </p>
-            </Card>
-          </section>
-        </div>
-
-        {/*
-          Publications are the output of the whole page, so they get their own
-          full-width row instead of being stacked under Usage today, which left
-          the left-hand column empty for the height of the list.
-        */}
-        <section>
-          <SectionBar
-            title="Latest publications"
-            number="006"
-            action={
-              <Link className="link small" href="/publications">
-                All publications
-              </Link>
-            }
-          />
-          {db.publications().length === 0 ? (
-            <EmptyState title="Nothing published yet" body="A published thesis appears here with its verification state." />
+            />
           ) : (
-            <div className="grid c3">
-              {db.publications().map((p) => (
+            <div className="grid c3" data-testid="recent-workspaces">
+              {recent.map((w) => (
                 <Card
-                  key={p.id}
-                  title={<Link href={`/public/${p.id}`}>{p.title}</Link>}
-                  subtitle={`Version ${p.version} · ${formatUtc(p.publishedAt, false)}`}
-                  footer={<EvidenceVerdict verdict={p.verdict} strength={p.strength} />}
+                  key={w.id}
+                  title={<Link href={`/w/${w.id}/overview`}>{w.objective}</Link>}
+                  actions={
+                    <span className="row gap1">
+                      {pinned.has(w.id) && <Badge tone="accent">Pinned</Badge>}
+                    </span>
+                  }
+                  footer={
+                    <>
+                      <span className="tiny dim">Created {formatAge(w.createdAt)}</span>
+                      <div className="grow" />
+                      <Link className="link small" href={`/w/${w.id}/overview`}>
+                        Open
+                      </Link>
+                    </>
+                  }
                 />
               ))}
             </div>
           )}
+        </section>
+
+        <section id="attention" data-testid="attention">
+          <SectionBar title="Needs attention" number="005" />
+          <div className="col gap3">
+            {nothing && (
+              <EmptyState title="Nothing needs you" body="No approvals are waiting, no unread notifications, every source is fresh and spend is under its ceiling." />
+            )}
+
+            {!approvals.ok ? (
+              <ApiErrorState error={approvals.error} />
+            ) : (
+              approvals.data.approvals.length > 0 && (
+                <Card title={`Approvals waiting (${approvals.data.approvals.length})`} subtitle="Each approval is bound to the exact action shown." >
+                  <ul className="col gap2" data-testid="attention-approvals" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                    {approvals.data.approvals.slice(0, 8).map((a) => (
+                      <li key={`${a.runId}-${a.approvalId}`} className="row gap2 wrap">
+                        <Badge tone="warn">{a.kind ?? 'approval'}</Badge>
+                        <Link className="link" href={`/w/${a.workspaceId}/approvals`}>
+                          {a.workspaceObjective}
+                        </Link>
+                        <span className="tiny dim">
+                          cost limit {a.costLimit === null ? 'not set' : formatUsd(a.costLimit)} · requested {formatAge(a.requestedAt)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {approvals.data.approvals.length > 8 && <p className="tiny dim">Showing 8 of {approvals.data.approvals.length}. Open a workspace to see the rest.</p>}
+                  {approvals.data.truncated && <p className="tiny dim">Some workspaces could not be included.</p>}
+                </Card>
+              )
+            )}
+
+            {!notes.ok ? (
+              <ApiErrorState error={notes.error} />
+            ) : (
+              notes.data.unread > 0 && (
+                <Card title={`Unread notifications (${notes.data.unread})`} actions={<Link className="link small" href="/notifications">All notifications</Link>}>
+                  <ul className="col gap2" data-testid="attention-notifications" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                    {notes.data.notifications.map((n) => (
+                      <li key={n.notificationId} className="row gap2 wrap">
+                        <Badge outline>{n.mode}</Badge>
+                        <Link className="link" href={`/w/${n.workspaceId}/monitors`}>
+                          {n.title}
+                        </Link>
+                        <span className="tiny dim">{n.workspaceObjective} · {formatAge(n.createdAt)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )
+            )}
+
+            {sources.ok && staleSources.length > 0 && (
+              <Card title={`Sources not fresh (${staleSources.length})`} actions={<Link className="link small" href="/system">System health</Link>}>
+                <ul className="col gap2" data-testid="attention-sources" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                  {staleSources.map((s) => (
+                    <li key={s.sourceId} className="row gap2">
+                      <Badge tone="warn">{s.state}</Badge>
+                      <span className="mono">{s.sourceId}</span>
+                      <span className="tiny dim">{s.gapCount ? `${s.gapCount} gaps` : ''}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+            {!sources.ok && <ApiErrorState error={sources.error} />}
+
+            {spendBad && spend.ok && (
+              <Card title="Global spend ceiling" actions={<Link className="link small" href="/system#spend">Details</Link>}>
+                <p className="small" data-testid="attention-spend">
+                  State <strong>{spend.data.state}</strong>: {formatUsd(spend.data.committedUsd)} of {formatUsd(spend.data.ceilingUsd)} committed.
+                </p>
+              </Card>
+            )}
+          </div>
         </section>
       </Content>
     </>

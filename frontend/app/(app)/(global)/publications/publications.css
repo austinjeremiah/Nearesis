@@ -1,0 +1,17 @@
+/* Publications list. Tokens only. On a phone the seven columns become one stacked block per capsule. */
+@media (max-width: 640px) {
+  .pubs-list table.table { min-width: 0; }
+  .pubs-list .table thead { display: none; }
+  .pubs-list .table, .pubs-list .table tbody, .pubs-list .table tr, .pubs-list .table td { display: block; width: 100%; }
+  .pubs-list .table tr { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .pubs-list .table tr:last-child { border-bottom: 0; }
+  .pubs-list .table tbody td { height: auto; padding: 3px 0; border: 0; display: flex; gap: 10px; align-items: center; white-space: normal; overflow-wrap: anywhere; }
+  .pubs-list .table tbody td:first-child { padding-bottom: 6px; }
+  .pubs-list .table tbody td:not(:first-child)::before { flex: 0 0 104px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+  .pubs-list .table tbody td:nth-child(2)::before { content: 'Data label'; }
+  .pubs-list .table tbody td:nth-child(3)::before { content: 'State'; }
+  .pubs-list .table tbody td:nth-child(4)::before { content: 'Badge'; }
+  .pubs-list .table tbody td:nth-child(5)::before { content: 'Acknowledged'; }
+  .pubs-list .table tbody td:nth-child(6)::before { content: 'Published'; }
+  .pubs-list .table tbody td:nth-child(7)::before { content: 'Public page'; }
+}

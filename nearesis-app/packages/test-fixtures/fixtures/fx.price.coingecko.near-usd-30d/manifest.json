@@ -1,0 +1,14 @@
+{
+  "id": "fx.price.coingecko.near-usd-30d",
+  "label": "SYNTHETIC",
+  "description": "CoinGecko-format daily OHLC for NEAR/USD, window 2026-10-10..2026-11-08: 2026-10-15 missing, 2026-11-09 outside the window, a later vintage revising 2026-10-20. Candle values include an 18-fractional-digit price.",
+  "files": [
+    { "path": "fetches.json", "sha256": "c74cfb33aadc6d0b808a666a7ba1b6378b0bb8e7c281c2d324b9df05137042a1" },
+    { "path": "ohlc-v1.json", "sha256": "11e9def909bfc9517806159a0b9b4d9a9f1e2f0d226036ad8c6b343a49add32f" },
+    { "path": "ohlc-v2.json", "sha256": "96e0017de85b339757f64f9c22dd29469268d65aeb97ac64c4cc9f1c3918904a" },
+    {
+      "path": "volumes-v1.json",
+      "sha256": "e17d50ce91671eff44fb839f3f17addec58fdd392a29f56e8c48b71b2849213b"
+    }
+  ]
+}

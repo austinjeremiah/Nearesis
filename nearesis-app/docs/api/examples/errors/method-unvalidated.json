@@ -1,0 +1,15 @@
+{
+  "traceId": "7f3a9c1e-52d4-4b86-9a07-3c5e8d1f2a64",
+  "retryable": false,
+  "errorCode": "DOMAIN_INVARIANT",
+  "reasonCode": "METHOD_NOT_VALIDATED",
+  "message": "The method has not passed validation; acknowledge it explicitly to publish.",
+  "nextAction": "Echo METHOD_NOT_VALIDATED in `acknowledge`.",
+  "state": "method_unvalidated",
+  "details": [
+    {
+      "path": "acknowledge",
+      "issue": "METHOD_NOT_VALIDATED"
+    }
+  ]
+}

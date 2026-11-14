@@ -13,6 +13,8 @@ import {
   type NavItem,
 } from '@/lib/nav';
 import { IconButton } from './ui';
+import { UserMenu } from './user-menu';
+import { useAskDock } from './ask-context';
 
 /**
  * Application shell: sidebar, topbar, page header, inspector and run strip.
@@ -66,18 +68,15 @@ export function AppShell({
   children,
   onOpenPalette,
   aside,
-  asideOpen = false,
-  onToggleAside,
 }: {
   workspaceId?: string | null;
   workspaceName?: string;
   children: ReactNode;
   onOpenPalette?: () => void;
-  /** The agent panel. Docked beside the content, not floated over it. */
+  /** The docked Ask panel. Stays mounted so an unsent draft survives a close; `inert` while shut. */
   aside?: ReactNode;
-  asideOpen?: boolean;
-  onToggleAside?: () => void;
 }) {
+  const ask = useAskDock();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [open, toggleGroup] = usePersistentSet(
@@ -88,14 +87,15 @@ export function AppShell({
   const navState = mobileOpen ? 'open' : collapsed ? 'collapsed' : 'expanded';
 
   return (
-    <div className="shell" data-nav={navState} data-ask={asideOpen ? 'open' : 'closed'}>
+    <div className="shell" data-nav={navState} data-ask={ask.available && ask.open ? 'open' : 'closed'}>
       <nav className="nav" aria-label="Primary">
         <div className="nav-top">
           {/* The collapse control belongs with the mark it collapses, not at the
               far bottom of the rail where it reads as a stray button. */}
           <div className="nav-brand">
             <Link href="/home" aria-label="Nearesis home">
-              <Wordmark tone="black" size={24} />
+              <span className="wm-on-light"><Wordmark tone="black" size={24} /></span>
+              <span className="wm-on-dark"><Wordmark tone="white" size={24} /></span>
             </Link>
             <button
               type="button"
@@ -200,32 +200,30 @@ export function AppShell({
               ⌘K
             </kbd>
           </button>
-          {onToggleAside && (
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={onToggleAside}
-              aria-pressed={asideOpen}
-              title="Agent panel"
-            >
+          {ask.available ? (
+            <button type="button" className="btn ghost" onClick={() => ask.setOpen(!ask.open)} aria-pressed={ask.open} title="Ask the agent about this workspace (⌘J)" data-testid="ask-toggle">
               <Sparkles size={14} />
               Ask
               <kbd className="mono tiny dim" style={{ marginLeft: 6 }}>
                 ⌘J
               </kbd>
             </button>
+          ) : (
+            <Link href="/agent" className="btn ghost" title="Ask the agent (⌘J)">
+              <Sparkles size={14} />
+              Ask
+              <kbd className="mono tiny dim" style={{ marginLeft: 6 }}>
+                ⌘J
+              </kbd>
+            </Link>
           )}
+          <UserMenu workspaceId={workspaceId} />
         </header>
         {children}
         </div>
       </div>
-      {/*
-        The agent panel stays mounted and the grid column animates from zero
-        width, so opening it slides rather than jumps and an unsent draft
-        survives a close. `inert` keeps it out of the tab order while shut.
-      */}
       {aside && (
-        <div className="ask-slot" inert={!asideOpen}>
+        <div className="ask-slot" inert={!(ask.available && ask.open)}>
           {aside}
         </div>
       )}

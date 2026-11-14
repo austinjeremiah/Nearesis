@@ -1,5 +1,7 @@
 'use client';
 
+import './research.css';
+
 import {
   useCallback,
   useEffect,
@@ -42,7 +44,7 @@ const FIT_MIN = 0.72;
 export type GraphNode = {
   id: string;
   /** Rendered as the node's eyebrow and used for the colour key. */
-  kind: 'hypothesis' | 'claim' | 'result' | 'query' | 'semantic' | 'snapshot';
+  kind: string;
   label: string;
   title: string;
   /** Hash, id or version line, set in the mono face. */
@@ -52,9 +54,11 @@ export type GraphNode = {
   detail?: { k: string; v: ReactNode }[];
   note?: string;
   link?: { label: string; href: string };
+  /** A short state tag shown on the node (for example unsupported, recheck, tombstone). */
+  tag?: { label: string; tone: 'ok' | 'warn' | 'bad' };
 };
 
-export type GraphEdge = { from: string; to: string };
+export type GraphEdge = { from: string; to: string; label?: string };
 
 type View = { x: number; y: number; k: number };
 type Point = { x: number; y: number };
@@ -66,18 +70,39 @@ export function GraphCanvas({
   edges,
   height = 620,
   renderLink,
+  onSelect,
+  onPositions,
+  renderDetail,
+  selectId,
 }: {
   nodes: GraphNode[];
   edges: GraphEdge[];
   height?: number;
   /** The page supplies its own router link so this file stays routing-agnostic. */
   renderLink?: (link: { label: string; href: string }) => ReactNode;
+  /** Fired when the selected node changes (null when cleared). */
+  onSelect?: (id: string | null) => void;
+  /** Fired when a drag ends, with every node's current position. Dragging never changes the evidence, only the layout. */
+  onPositions?: (positions: Record<string, { x: number; y: number }>) => void;
+  /** Replaces the built-in detail card body for the selected node. */
+  renderDetail?: (node: GraphNode) => ReactNode;
+  /** Select a node from outside (a neighbour link in the detail card). */
+  selectId?: string | null;
 }) {
   const [pos, setPos] = useState<Record<string, Point>>(() =>
     Object.fromEntries(nodes.map((n) => [n.id, { x: n.x, y: n.y }])),
   );
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelectedRaw] = useState<string | null>(null);
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+  const setSelected = useCallback((id: string | null) => {
+    setSelectedRaw(id);
+    onSelectRef.current?.(id);
+  }, []);
+  useEffect(() => {
+    if (selectId !== undefined) setSelected(selectId);
+  }, [selectId, setSelected]);
   const [panning, setPanning] = useState(false);
 
   const vp = useRef<HTMLDivElement | null>(null);
@@ -89,6 +114,20 @@ export function GraphCanvas({
   /** Set the moment the reader pans, zooms or drags, so an automatic refit
       never yanks the canvas out from under them. */
   const touched = useRef(false);
+
+  const onPositionsRef = useRef(onPositions);
+  onPositionsRef.current = onPositions;
+  const dragEnd = useCallback(() => onPositionsRef.current?.(posRef.current), []);
+
+  /* New nodes (a filter toggled, a refetch) get their computed position; nodes already moved keep theirs. */
+  useEffect(() => {
+    setPos((p) => {
+      let changed = false;
+      const next = { ...p };
+      for (const n of nodes) if (!next[n.id]) { next[n.id] = { x: n.x, y: n.y }; changed = true; }
+      return changed ? next : p;
+    });
+  }, [nodes]);
 
   const move = useCallback((id: string, x: number, y: number) => {
     touched.current = true;
@@ -217,7 +256,7 @@ export function GraphCanvas({
       onPointerUp={endPan}
       onPointerCancel={endPan}
       role="group"
-      aria-label="Evidence graph. Drag to pan, scroll to zoom, and select a node for its record."
+      aria-label="Evidence graph. Drag to pan, scroll to zoom, and select a node for its record. The same records are listed in the List tab."
     >
       <div
         className="graph-world"
@@ -254,6 +293,7 @@ export function GraphCanvas({
             selected={selected === n.id}
             scale={kRef}
             onMove={move}
+            onDragEnd={dragEnd}
             onSelect={setSelected}
           />
         ))}
@@ -303,8 +343,9 @@ export function GraphCanvas({
             </button>
           </div>
           <div className="card-body" style={{ padding: '12px 14px', gap: 12 }}>
-            {active.mono && <div className="small mono">{active.mono}</div>}
-            {active.detail && active.detail.length > 0 && (
+            {renderDetail ? renderDetail(active) : null}
+            {!renderDetail && active.mono && <div className="small mono">{active.mono}</div>}
+            {!renderDetail && active.detail && active.detail.length > 0 && (
               <dl style={{ margin: 0 }}>
                 {active.detail.map((d) => (
                   <div className="kv" key={d.k}>
@@ -314,8 +355,8 @@ export function GraphCanvas({
                 ))}
               </dl>
             )}
-            {active.note && <p className="tiny dim">{active.note}</p>}
-            {active.link && renderLink && renderLink(active.link)}
+            {!renderDetail && active.note && <p className="tiny dim">{active.note}</p>}
+            {!renderDetail && active.link && renderLink && renderLink(active.link)}
           </div>
         </aside>
       )}
@@ -329,6 +370,7 @@ function GraphNodeView({
   selected,
   scale,
   onMove,
+  onDragEnd,
   onSelect,
 }: {
   node: GraphNode;
@@ -336,6 +378,7 @@ function GraphNodeView({
   selected: boolean;
   scale: { current: number };
   onMove: (id: string, x: number, y: number) => void;
+  onDragEnd: () => void;
   onSelect: (id: string) => void;
 }) {
   const drag = useRef<{ id: number; sx: number; sy: number; ox: number; oy: number } | null>(null);
@@ -372,11 +415,14 @@ function GraphNodeView({
       onPointerUp={() => {
         drag.current = null;
         setDragging(false);
+        if (moved.current) onDragEnd();
       }}
       onPointerCancel={() => {
         drag.current = null;
         setDragging(false);
       }}
+      data-node-id={node.id}
+      data-tone={node.tag?.tone}
       onClick={() => {
         if (moved.current) {
           moved.current = false;
@@ -385,7 +431,10 @@ function GraphNodeView({
         onSelect(node.id);
       }}
     >
-      <span className="k">{node.label}</span>
+      <span className="k">
+        {node.label}
+        {node.tag && <span className={`gtag ${node.tag.tone}`}>{node.tag.label}</span>}
+      </span>
       <span className="t">{node.title}</span>
       {node.mono && <span className="s">{node.mono}</span>}
     </button>

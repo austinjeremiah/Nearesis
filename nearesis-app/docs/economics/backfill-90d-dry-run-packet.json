@@ -1,0 +1,2009 @@
+{
+  "generatedAtUTC": "2026-11-12T21:57:23.092Z",
+  "mode": "backfill-90d",
+  "digest": "7f25a2bd2c66b3a76e7cce3134bfe34c1df5b4e6ef2d4d3c88197497aefce5bf",
+  "approvedMaxBytes": 22548578304,
+  "totalBytes": 20288112640,
+  "totalGiB": "18.89",
+  "totalUsdListPrice": 0.115325,
+  "withinApproval": true,
+  "byFamilyBytes": {
+    "outcomes": 17182871687,
+    "conversion": 2915991145,
+    "gas_price": 189249808
+  },
+  "chunks": [
+    {
+      "id": "outcomes:2026-11-02",
+      "family": "outcomes",
+      "from": "2026-11-02",
+      "to": "2026-11-03",
+      "estimateBytes": 123560627,
+      "sqlSha256": "a23b20333c68a5015af63341e1c3d87ec78949c2d3733ab065ba9b3be46968e8"
+    },
+    {
+      "id": "conversion:2026-11-02",
+      "family": "conversion",
+      "from": "2026-11-02",
+      "to": "2026-11-03",
+      "estimateBytes": 24024977,
+      "sqlSha256": "91427fb3e2126271acb39be38edf1fb91867c2b8649bcb247ca1e32462423dd0"
+    },
+    {
+      "id": "gas_price:2026-11-02",
+      "family": "gas_price",
+      "from": "2026-11-02",
+      "to": "2026-11-03",
+      "estimateBytes": 2399376,
+      "sqlSha256": "36751483723c0b607d88dc23ed0a8d5d6b37e7717a831aa82a02b86d76f6287b"
+    },
+    {
+      "id": "outcomes:2026-11-01",
+      "family": "outcomes",
+      "from": "2026-11-01",
+      "to": "2026-11-02",
+      "estimateBytes": 123203823,
+      "sqlSha256": "a670faa45d73e622312fcdf9cdd4041f744c9eeae022b1b9510a845c83bfdf05"
+    },
+    {
+      "id": "conversion:2026-11-01",
+      "family": "conversion",
+      "from": "2026-11-01",
+      "to": "2026-11-02",
+      "estimateBytes": 23380402,
+      "sqlSha256": "ba204a756c42aa0ff4fe5a2c2f7e75a8c03b44102bc179652ac99e6e405bf1c2"
+    },
+    {
+      "id": "gas_price:2026-11-01",
+      "family": "gas_price",
+      "from": "2026-11-01",
+      "to": "2026-11-02",
+      "estimateBytes": 2397344,
+      "sqlSha256": "03cafe6a9edf005984842bc98c5db20d0635333db10bf80419498f9c8f25606c"
+    },
+    {
+      "id": "outcomes:2026-10-31",
+      "family": "outcomes",
+      "from": "2026-10-31",
+      "to": "2026-11-01",
+      "estimateBytes": 117934262,
+      "sqlSha256": "bdeb7207eeddc3c6a212ec1da9b4eaff063480d50f1c36c669a93196e35f4799"
+    },
+    {
+      "id": "conversion:2026-10-31",
+      "family": "conversion",
+      "from": "2026-10-31",
+      "to": "2026-11-01",
+      "estimateBytes": 23056465,
+      "sqlSha256": "fa3236e7693e85b44d8336c6ab5a0d9b298c659bd0cef366d52035334b28956c"
+    },
+    {
+      "id": "gas_price:2026-10-31",
+      "family": "gas_price",
+      "from": "2026-10-31",
+      "to": "2026-11-01",
+      "estimateBytes": 2370848,
+      "sqlSha256": "548fd8fe697c40ab20e55da9f673c10538e4bca60c21581ffc844820c83a4650"
+    },
+    {
+      "id": "outcomes:2026-10-30",
+      "family": "outcomes",
+      "from": "2026-10-30",
+      "to": "2026-10-31",
+      "estimateBytes": 173847256,
+      "sqlSha256": "ac02204ee96e00218014b55db4dddf2b78141542b641ccb659707c017d88d5ab"
+    },
+    {
+      "id": "conversion:2026-10-30",
+      "family": "conversion",
+      "from": "2026-10-30",
+      "to": "2026-10-31",
+      "estimateBytes": 32349173,
+      "sqlSha256": "ab1ce7f31ae36153e27503be744a7c48023fc6bbef74e0d1b5d1c18cb63591e4"
+    },
+    {
+      "id": "gas_price:2026-10-30",
+      "family": "gas_price",
+      "from": "2026-10-30",
+      "to": "2026-10-31",
+      "estimateBytes": 2370448,
+      "sqlSha256": "e9885f5fd5a45318a6b3b589441adcb7b09befc172aa76677ce52a5c02ddde8f"
+    },
+    {
+      "id": "outcomes:2026-10-29",
+      "family": "outcomes",
+      "from": "2026-10-29",
+      "to": "2026-10-30",
+      "estimateBytes": 168767386,
+      "sqlSha256": "33601e24a422cfac30431aa944774580bd6d58cb9ea94f89d3f478ba07d10e4d"
+    },
+    {
+      "id": "conversion:2026-10-29",
+      "family": "conversion",
+      "from": "2026-10-29",
+      "to": "2026-10-30",
+      "estimateBytes": 30741824,
+      "sqlSha256": "97a6cd4bf9f2579728387894a8cbe2ed8f8ac9b7f43adb16e077c513a5a80698"
+    },
+    {
+      "id": "gas_price:2026-10-29",
+      "family": "gas_price",
+      "from": "2026-10-29",
+      "to": "2026-10-30",
+      "estimateBytes": 2364288,
+      "sqlSha256": "d094fdfaa653e2e2db65fb5b86594ccd0eff2e021e4316a686890cf7f91e4c64"
+    },
+    {
+      "id": "outcomes:2026-10-28",
+      "family": "outcomes",
+      "from": "2026-10-28",
+      "to": "2026-10-29",
+      "estimateBytes": 163484916,
+      "sqlSha256": "a9e5512afd0296d3d6f35a327b757a2076b670ebaa9adb2f9f9c1307907cf120"
+    },
+    {
+      "id": "conversion:2026-10-28",
+      "family": "conversion",
+      "from": "2026-10-28",
+      "to": "2026-10-29",
+      "estimateBytes": 24324467,
+      "sqlSha256": "ef0609da3f252e33f703ba75272edbe54d20dd7c24e15c9b5ce535057bba90d0"
+    },
+    {
+      "id": "gas_price:2026-10-28",
+      "family": "gas_price",
+      "from": "2026-10-28",
+      "to": "2026-10-29",
+      "estimateBytes": 2389008,
+      "sqlSha256": "70f48cb159d13c0a61ccafa681446ae5d6bf56523b700850b06e2da6839292e7"
+    },
+    {
+      "id": "outcomes:2026-10-27",
+      "family": "outcomes",
+      "from": "2026-10-27",
+      "to": "2026-10-28",
+      "estimateBytes": 155144668,
+      "sqlSha256": "48f0940f61f6af58c2b9459abafa1f3594a31f2690c36f1395d8af7e5642fc2f"
+    },
+    {
+      "id": "conversion:2026-10-27",
+      "family": "conversion",
+      "from": "2026-10-27",
+      "to": "2026-10-28",
+      "estimateBytes": 28781397,
+      "sqlSha256": "173855b3e44956434d92e942d3a480582d5263c2e7cd65b063c6ddcc89ea7038"
+    },
+    {
+      "id": "gas_price:2026-10-27",
+      "family": "gas_price",
+      "from": "2026-10-27",
+      "to": "2026-10-28",
+      "estimateBytes": 2181328,
+      "sqlSha256": "344a1494510e490d4557095f4ea351aa1d9823036898ac4f390f6512f9f20025"
+    },
+    {
+      "id": "outcomes:2026-10-26",
+      "family": "outcomes",
+      "from": "2026-10-26",
+      "to": "2026-10-27",
+      "estimateBytes": 145064879,
+      "sqlSha256": "741a22dea68c065bd07b9ba8979e7cf9752faf59618ae875c75516651abff68d"
+    },
+    {
+      "id": "conversion:2026-10-26",
+      "family": "conversion",
+      "from": "2026-10-26",
+      "to": "2026-10-27",
+      "estimateBytes": 27040101,
+      "sqlSha256": "b21ab9aeadec1be7ea09ab4279889ff7a6b570a6977c3d7f3d281f282fce8c37"
+    },
+    {
+      "id": "gas_price:2026-10-26",
+      "family": "gas_price",
+      "from": "2026-10-26",
+      "to": "2026-10-27",
+      "estimateBytes": 2404208,
+      "sqlSha256": "6e236b69a1d6586171809e6f2c6f24b1b076285e47d2445b9de675cdc923c5f1"
+    },
+    {
+      "id": "outcomes:2026-10-25",
+      "family": "outcomes",
+      "from": "2026-10-25",
+      "to": "2026-10-26",
+      "estimateBytes": 131576377,
+      "sqlSha256": "492d00ff4883eaa9638b466c375fea057467a70e078e374ac0c72fd722ed624c"
+    },
+    {
+      "id": "conversion:2026-10-25",
+      "family": "conversion",
+      "from": "2026-10-25",
+      "to": "2026-10-26",
+      "estimateBytes": 25711389,
+      "sqlSha256": "aff030736035c4cdeee9a746bf31dfdd096b296b5ac6b96f52d6cdd7e7128c54"
+    },
+    {
+      "id": "gas_price:2026-10-25",
+      "family": "gas_price",
+      "from": "2026-10-25",
+      "to": "2026-10-26",
+      "estimateBytes": 2386928,
+      "sqlSha256": "6e2d08ae2e4d1e923b381abcad702f8ed86773a65027ec2bb3741d16198624aa"
+    },
+    {
+      "id": "outcomes:2026-10-24",
+      "family": "outcomes",
+      "from": "2026-10-24",
+      "to": "2026-10-25",
+      "estimateBytes": 149719845,
+      "sqlSha256": "a291c4a1c57b30c9acda816ca8f14bd0b9399507242b77f04381fca902e872dc"
+    },
+    {
+      "id": "conversion:2026-10-24",
+      "family": "conversion",
+      "from": "2026-10-24",
+      "to": "2026-10-25",
+      "estimateBytes": 29569158,
+      "sqlSha256": "3c09562326db60950f585b164b536fc1ef9ce7f94798b8ec6d614aaf54770a49"
+    },
+    {
+      "id": "gas_price:2026-10-24",
+      "family": "gas_price",
+      "from": "2026-10-24",
+      "to": "2026-10-25",
+      "estimateBytes": 2409920,
+      "sqlSha256": "ad00a58019e6d3d48be6e6521c1f1e539334c3cc3cb2bfc608f0ddd97c50314d"
+    },
+    {
+      "id": "outcomes:2026-10-23",
+      "family": "outcomes",
+      "from": "2026-10-23",
+      "to": "2026-10-24",
+      "estimateBytes": 156948623,
+      "sqlSha256": "c4f735844480362ed24c3a1059c0b305fc035116279c53dba97eeda5a4d6b720"
+    },
+    {
+      "id": "conversion:2026-10-23",
+      "family": "conversion",
+      "from": "2026-10-23",
+      "to": "2026-10-24",
+      "estimateBytes": 28868751,
+      "sqlSha256": "5b1ab13482947760e91d12e7a54c2873a997832dfaa13fddd888ad9c16397cc0"
+    },
+    {
+      "id": "gas_price:2026-10-23",
+      "family": "gas_price",
+      "from": "2026-10-23",
+      "to": "2026-10-24",
+      "estimateBytes": 2366304,
+      "sqlSha256": "6cb823648f50646d940f091473189f7dbbf8904e903888616ed577563cde326a"
+    },
+    {
+      "id": "outcomes:2026-10-22",
+      "family": "outcomes",
+      "from": "2026-10-22",
+      "to": "2026-10-23",
+      "estimateBytes": 146812246,
+      "sqlSha256": "3af5772a10f8e7a02b68a8afce66a8140201db38f05935ef4a39beb3e25a78db"
+    },
+    {
+      "id": "conversion:2026-10-22",
+      "family": "conversion",
+      "from": "2026-10-22",
+      "to": "2026-10-23",
+      "estimateBytes": 26097122,
+      "sqlSha256": "dd58194640e42fec45319f9dc25c6648cc0448cdf29df71556d9aa7ddf7f8e18"
+    },
+    {
+      "id": "gas_price:2026-10-22",
+      "family": "gas_price",
+      "from": "2026-10-22",
+      "to": "2026-10-23",
+      "estimateBytes": 2344416,
+      "sqlSha256": "8f99c4610cae751236e6e818117d5a29a7c1db9a1d0ac747e5591a35923fd013"
+    },
+    {
+      "id": "outcomes:2026-10-21",
+      "family": "outcomes",
+      "from": "2026-10-21",
+      "to": "2026-10-22",
+      "estimateBytes": 169095972,
+      "sqlSha256": "7e8df3a35b4326ec8ae2db1a5e35de96819e6352e5e3bde6b413ac7000c371d7"
+    },
+    {
+      "id": "conversion:2026-10-21",
+      "family": "conversion",
+      "from": "2026-10-21",
+      "to": "2026-10-22",
+      "estimateBytes": 31472253,
+      "sqlSha256": "e4c3d933f85cb6547a13554f607b471b48d7e787487b1f5af2bab241b052e39e"
+    },
+    {
+      "id": "gas_price:2026-10-21",
+      "family": "gas_price",
+      "from": "2026-10-21",
+      "to": "2026-10-22",
+      "estimateBytes": 2305648,
+      "sqlSha256": "496ba575e1a530b67ba27deff87b6078fba303bf124606e6974cd282b62787bf"
+    },
+    {
+      "id": "outcomes:2026-10-20",
+      "family": "outcomes",
+      "from": "2026-10-20",
+      "to": "2026-10-21",
+      "estimateBytes": 161081715,
+      "sqlSha256": "39f638a75841dfebf1fb16ff42ea12261b8657e226981c7701b92fdfef20ef57"
+    },
+    {
+      "id": "conversion:2026-10-20",
+      "family": "conversion",
+      "from": "2026-10-20",
+      "to": "2026-10-21",
+      "estimateBytes": 29701306,
+      "sqlSha256": "ce5c8b0f2fee8d800b135918b57116c425e27cc0bd259d1ecd9ce0b0dc11a6c4"
+    },
+    {
+      "id": "gas_price:2026-10-20",
+      "family": "gas_price",
+      "from": "2026-10-20",
+      "to": "2026-10-21",
+      "estimateBytes": 2309776,
+      "sqlSha256": "b9db9930f00ca10789c74ccbe2eab8c12ac0e6842922eb91a18e2281deb6b91d"
+    },
+    {
+      "id": "outcomes:2026-10-19",
+      "family": "outcomes",
+      "from": "2026-10-19",
+      "to": "2026-10-20",
+      "estimateBytes": 155211564,
+      "sqlSha256": "7c30ad23c7bd6a07e19f5d1e11c43d75aa37fa33023beed3013ce14cc7f3acba"
+    },
+    {
+      "id": "conversion:2026-10-19",
+      "family": "conversion",
+      "from": "2026-10-19",
+      "to": "2026-10-20",
+      "estimateBytes": 28817405,
+      "sqlSha256": "d6c78d86d2d7c7cbc3eef0311b4c62374482bec674c7079cd0b60b6826d10203"
+    },
+    {
+      "id": "gas_price:2026-10-19",
+      "family": "gas_price",
+      "from": "2026-10-19",
+      "to": "2026-10-20",
+      "estimateBytes": 2319536,
+      "sqlSha256": "ace052eaac5ed7336ed2c215b7bb094c1c43b46d78ddcc8855be7bead4e7d87e"
+    },
+    {
+      "id": "outcomes:2026-10-18",
+      "family": "outcomes",
+      "from": "2026-10-18",
+      "to": "2026-10-19",
+      "estimateBytes": 148942790,
+      "sqlSha256": "0131f5987e126c77b65536dcdc997784d5a7c0a8b41255e5cc2629fa1fb31b24"
+    },
+    {
+      "id": "conversion:2026-10-18",
+      "family": "conversion",
+      "from": "2026-10-18",
+      "to": "2026-10-19",
+      "estimateBytes": 27107672,
+      "sqlSha256": "fd853fdd80d039ff4f76c7c4e344c666972e86c5eaf3c1c8f8c40593d7363a68"
+    },
+    {
+      "id": "gas_price:2026-10-18",
+      "family": "gas_price",
+      "from": "2026-10-18",
+      "to": "2026-10-19",
+      "estimateBytes": 2322592,
+      "sqlSha256": "69919e55a920cdc13b205d1a2e502257f03ee3535ef6916479b5d778ce30325f"
+    },
+    {
+      "id": "outcomes:2026-10-17",
+      "family": "outcomes",
+      "from": "2026-10-17",
+      "to": "2026-10-18",
+      "estimateBytes": 177828450,
+      "sqlSha256": "f76efdacdcb9b7e1fc34db52bd83992ee3f82eebef471f72e4195646021558bc"
+    },
+    {
+      "id": "conversion:2026-10-17",
+      "family": "conversion",
+      "from": "2026-10-17",
+      "to": "2026-10-18",
+      "estimateBytes": 26252117,
+      "sqlSha256": "7aaac4208c77bd5971c47e07f6a9026e6d33e409b76d9bc1b8218d48e3e6a173"
+    },
+    {
+      "id": "gas_price:2026-10-17",
+      "family": "gas_price",
+      "from": "2026-10-17",
+      "to": "2026-10-18",
+      "estimateBytes": 2314544,
+      "sqlSha256": "11b49cd92e8e4e53eab8cdf2f86e26fbd3b488465cbff327f260efd582de7f24"
+    },
+    {
+      "id": "outcomes:2026-10-16",
+      "family": "outcomes",
+      "from": "2026-10-16",
+      "to": "2026-10-17",
+      "estimateBytes": 171804957,
+      "sqlSha256": "a1416b5c8c862521ce9420c89def0a2c7962972272630bc78efdf5db86a1d4f8"
+    },
+    {
+      "id": "conversion:2026-10-16",
+      "family": "conversion",
+      "from": "2026-10-16",
+      "to": "2026-10-17",
+      "estimateBytes": 31365023,
+      "sqlSha256": "5c5b7ceb1dca94711cf1f26b9bd84adfc7f6a9a89cbc746999dad35b357ea863"
+    },
+    {
+      "id": "gas_price:2026-10-16",
+      "family": "gas_price",
+      "from": "2026-10-16",
+      "to": "2026-10-17",
+      "estimateBytes": 2303184,
+      "sqlSha256": "64d6fe93b72fd7c17fdf76c0f940d76bd035e84072dff0f7afc97da0b24b6349"
+    },
+    {
+      "id": "outcomes:2026-10-15",
+      "family": "outcomes",
+      "from": "2026-10-15",
+      "to": "2026-10-16",
+      "estimateBytes": 680127417,
+      "sqlSha256": "e578cbcbfd8df207653eb23e72064125e07d72932f994a6cb0fcc39814fe9fe1"
+    },
+    {
+      "id": "conversion:2026-10-15",
+      "family": "conversion",
+      "from": "2026-10-15",
+      "to": "2026-10-16",
+      "estimateBytes": 44690410,
+      "sqlSha256": "39e15ebf47bfc6953bc9261d48282a191c5aaa8bc163fabc37277b60d36a7782"
+    },
+    {
+      "id": "gas_price:2026-10-15",
+      "family": "gas_price",
+      "from": "2026-10-15",
+      "to": "2026-10-16",
+      "estimateBytes": 2345872,
+      "sqlSha256": "df8aa93c19dcd60aea11d5fdaa8e9a59793e30c3e2e4f4154dd592d0f307f656"
+    },
+    {
+      "id": "outcomes:2026-10-14",
+      "family": "outcomes",
+      "from": "2026-10-14",
+      "to": "2026-10-15",
+      "estimateBytes": 261516546,
+      "sqlSha256": "e433cb9ea3fd523f0ba4c3fc4f308e77b06eae32c0f30f870a39e5c857f0a79b"
+    },
+    {
+      "id": "conversion:2026-10-14",
+      "family": "conversion",
+      "from": "2026-10-14",
+      "to": "2026-10-15",
+      "estimateBytes": 36413160,
+      "sqlSha256": "ee9b62cbddc63271365e80ef18f9d628436fdbde3645ca289d9aa0114a233097"
+    },
+    {
+      "id": "gas_price:2026-10-14",
+      "family": "gas_price",
+      "from": "2026-10-14",
+      "to": "2026-10-15",
+      "estimateBytes": 1893408,
+      "sqlSha256": "1bb8bc4ec22473f1846cda135d8dc3e8d5009f6a1da6c0d84552c9f945b27093"
+    },
+    {
+      "id": "outcomes:2026-10-13",
+      "family": "outcomes",
+      "from": "2026-10-13",
+      "to": "2026-10-14",
+      "estimateBytes": 355599003,
+      "sqlSha256": "a705e4bb5a35597b4d378bf5e35a04f805c93e14e206f3d8e3afcefd61d1f9bb"
+    },
+    {
+      "id": "conversion:2026-10-13",
+      "family": "conversion",
+      "from": "2026-10-13",
+      "to": "2026-10-14",
+      "estimateBytes": 34871118,
+      "sqlSha256": "ff896ccab06c81b109a7b6bf43e327f53547a40f9d6847fbc7486de06ea5bc50"
+    },
+    {
+      "id": "gas_price:2026-10-13",
+      "family": "gas_price",
+      "from": "2026-10-13",
+      "to": "2026-10-14",
+      "estimateBytes": 2200096,
+      "sqlSha256": "7054180fb8824d4ba70b43dcce696210061dea11faa5b5cff635dd15373a5767"
+    },
+    {
+      "id": "outcomes:2026-10-12",
+      "family": "outcomes",
+      "from": "2026-10-12",
+      "to": "2026-10-13",
+      "estimateBytes": 275592204,
+      "sqlSha256": "07e4f45641fdc87ab609f01f1ff6efbdb15b679ea5738b7ed036988b239504c4"
+    },
+    {
+      "id": "conversion:2026-10-12",
+      "family": "conversion",
+      "from": "2026-10-12",
+      "to": "2026-10-13",
+      "estimateBytes": 33433285,
+      "sqlSha256": "aaa1c6d63548faa25f592c71d38b54a5223540df3b1ecc725e81f54a03f176f1"
+    },
+    {
+      "id": "gas_price:2026-10-12",
+      "family": "gas_price",
+      "from": "2026-10-12",
+      "to": "2026-10-13",
+      "estimateBytes": 2328752,
+      "sqlSha256": "2cf0c446fb46a228c63037704b4bf23eae6e92f8f8fda5d2ea0d02deac8cb1a0"
+    },
+    {
+      "id": "outcomes:2026-10-11",
+      "family": "outcomes",
+      "from": "2026-10-11",
+      "to": "2026-10-12",
+      "estimateBytes": 1288827531,
+      "sqlSha256": "ed790d60d5d698d7d68da808f6da485ee803707ebb88d6b4e7fb283a357849e1"
+    },
+    {
+      "id": "conversion:2026-10-11",
+      "family": "conversion",
+      "from": "2026-10-11",
+      "to": "2026-10-12",
+      "estimateBytes": 49495537,
+      "sqlSha256": "d78aab7d20fcacd6c2f95972cd26367d00d88f2809a2cc1fdc93953d63f68515"
+    },
+    {
+      "id": "gas_price:2026-10-11",
+      "family": "gas_price",
+      "from": "2026-10-11",
+      "to": "2026-10-12",
+      "estimateBytes": 2357184,
+      "sqlSha256": "a0501bf80f999c46e7b1a8ba4478f3e4346f6055aa5954fcdf4f525999c251c7"
+    },
+    {
+      "id": "outcomes:2026-10-10",
+      "family": "outcomes",
+      "from": "2026-10-10",
+      "to": "2026-10-11",
+      "estimateBytes": 776867851,
+      "sqlSha256": "e67dfd8189d6ea8b7ac99c22685f4ebaaa00c1b49c415cfe2269ca6269bd90f4"
+    },
+    {
+      "id": "conversion:2026-10-10",
+      "family": "conversion",
+      "from": "2026-10-10",
+      "to": "2026-10-11",
+      "estimateBytes": 38212458,
+      "sqlSha256": "fca9ff1c751a79b80542a792191ec0e3f21f2ca6c0b956f001db9c767de3c2af"
+    },
+    {
+      "id": "gas_price:2026-10-10",
+      "family": "gas_price",
+      "from": "2026-10-10",
+      "to": "2026-10-11",
+      "estimateBytes": 2347712,
+      "sqlSha256": "e9fd30204f7f1bfd10b895ad644603eda33740c31167128cd3817feb262c658d"
+    },
+    {
+      "id": "outcomes:2026-10-09",
+      "family": "outcomes",
+      "from": "2026-10-09",
+      "to": "2026-10-10",
+      "estimateBytes": 163704387,
+      "sqlSha256": "8ad66dc4cb263803565f122cff70a6d4530205314ee53d201b2725411769cfe7"
+    },
+    {
+      "id": "conversion:2026-10-09",
+      "family": "conversion",
+      "from": "2026-10-09",
+      "to": "2026-10-10",
+      "estimateBytes": 31327164,
+      "sqlSha256": "6ed2355932c997b2d2b2150a5add6baed2fbe2377459f5ffd6fbb5b0e8f60411"
+    },
+    {
+      "id": "gas_price:2026-10-09",
+      "family": "gas_price",
+      "from": "2026-10-09",
+      "to": "2026-10-10",
+      "estimateBytes": 2346480,
+      "sqlSha256": "a48b23ecba2b6185d5c1207cb010502327a76b685a7815e8c6d8192c27168c03"
+    },
+    {
+      "id": "outcomes:2026-10-08",
+      "family": "outcomes",
+      "from": "2026-10-08",
+      "to": "2026-10-09",
+      "estimateBytes": 249176057,
+      "sqlSha256": "6ab3ac662fb483db7807f7a630c776e05e215c9123c7b0dea7d9d4181c572bc4"
+    },
+    {
+      "id": "conversion:2026-10-08",
+      "family": "conversion",
+      "from": "2026-10-08",
+      "to": "2026-10-09",
+      "estimateBytes": 47788982,
+      "sqlSha256": "955a6eddaafba8989eaf22a40f0f8f027b8e0b307007d50f3d685bd211d9fc04"
+    },
+    {
+      "id": "gas_price:2026-10-08",
+      "family": "gas_price",
+      "from": "2026-10-08",
+      "to": "2026-10-09",
+      "estimateBytes": 2347232,
+      "sqlSha256": "d511d353908a681aa2326f85c5b0b46f43b706f7acaf55fc6c9bb315ca43e9a7"
+    },
+    {
+      "id": "outcomes:2026-10-07",
+      "family": "outcomes",
+      "from": "2026-10-07",
+      "to": "2026-10-08",
+      "estimateBytes": 211608118,
+      "sqlSha256": "9dc568020c7ed334eecbeae8e248786de5edc27e34cd6256aa290e5a59741302"
+    },
+    {
+      "id": "conversion:2026-10-07",
+      "family": "conversion",
+      "from": "2026-10-07",
+      "to": "2026-10-08",
+      "estimateBytes": 46468626,
+      "sqlSha256": "d71fb763d5bba513733b9fb7555a3722a7c4605e05cf1faa7c214081642cb862"
+    },
+    {
+      "id": "gas_price:2026-10-07",
+      "family": "gas_price",
+      "from": "2026-10-07",
+      "to": "2026-10-08",
+      "estimateBytes": 2335552,
+      "sqlSha256": "d60f3c71c6d9b4fdb3371821bbc9de203763318ae89f6e4dd4575a5662b739fc"
+    },
+    {
+      "id": "outcomes:2026-10-06",
+      "family": "outcomes",
+      "from": "2026-10-06",
+      "to": "2026-10-07",
+      "estimateBytes": 197417965,
+      "sqlSha256": "e8ce32f687c6da906ddc3382c87a98d093208f21a08346403bce522c08c69942"
+    },
+    {
+      "id": "conversion:2026-10-06",
+      "family": "conversion",
+      "from": "2026-10-06",
+      "to": "2026-10-07",
+      "estimateBytes": 42851999,
+      "sqlSha256": "3a22a8e2dd704c693059fec240413a4b0adfea3a889507b18bdea7a9b401fcf3"
+    },
+    {
+      "id": "gas_price:2026-10-06",
+      "family": "gas_price",
+      "from": "2026-10-06",
+      "to": "2026-10-07",
+      "estimateBytes": 2348976,
+      "sqlSha256": "e7fbfe96f53da0b6d797a6b989fb32ca88f09514ceb282c47bf6a509a3684a26"
+    },
+    {
+      "id": "outcomes:2026-10-05",
+      "family": "outcomes",
+      "from": "2026-10-05",
+      "to": "2026-10-06",
+      "estimateBytes": 194431891,
+      "sqlSha256": "a36d10ed2792fc7a9ddabacee0f202af105090ad896f1c3afaa5f9a4bfb39eb0"
+    },
+    {
+      "id": "conversion:2026-10-05",
+      "family": "conversion",
+      "from": "2026-10-05",
+      "to": "2026-10-06",
+      "estimateBytes": 41865014,
+      "sqlSha256": "ed03a9d734cb0f0716e962c9c559d36910710c2eef33c50fb4391afbb745b908"
+    },
+    {
+      "id": "gas_price:2026-10-05",
+      "family": "gas_price",
+      "from": "2026-10-05",
+      "to": "2026-10-06",
+      "estimateBytes": 2349744,
+      "sqlSha256": "8dda3922afbc8c4f2105db6f72144e3d9242fbddbe99cae39ae1a3e6218cf78d"
+    },
+    {
+      "id": "outcomes:2026-10-04",
+      "family": "outcomes",
+      "from": "2026-10-04",
+      "to": "2026-10-05",
+      "estimateBytes": 184405990,
+      "sqlSha256": "8f4da6c094b70bd357afd475739fa401b4583b6d11f0a960a56c7777420a7d6b"
+    },
+    {
+      "id": "conversion:2026-10-04",
+      "family": "conversion",
+      "from": "2026-10-04",
+      "to": "2026-10-05",
+      "estimateBytes": 40521645,
+      "sqlSha256": "db1d0964da40dd11e9727d3143ffac4258601e6dde0e2c4e753dc24dc632fbc6"
+    },
+    {
+      "id": "gas_price:2026-10-04",
+      "family": "gas_price",
+      "from": "2026-10-04",
+      "to": "2026-10-05",
+      "estimateBytes": 2352576,
+      "sqlSha256": "77df11d22b3ae771b6872f9f88b354daa707f4634fd9ab37c83845034023a615"
+    },
+    {
+      "id": "outcomes:2026-10-03",
+      "family": "outcomes",
+      "from": "2026-10-03",
+      "to": "2026-10-04",
+      "estimateBytes": 158003675,
+      "sqlSha256": "13a92f08192e869748fcda35a3c25c87e71d852228f44cfade05c6ab3db215c9"
+    },
+    {
+      "id": "conversion:2026-10-03",
+      "family": "conversion",
+      "from": "2026-10-03",
+      "to": "2026-10-04",
+      "estimateBytes": 33583342,
+      "sqlSha256": "9cbbfff038893db485a02b82ef0793c372f4fee37fdf81e82903eb0f9ea17392"
+    },
+    {
+      "id": "gas_price:2026-10-03",
+      "family": "gas_price",
+      "from": "2026-10-03",
+      "to": "2026-10-04",
+      "estimateBytes": 2356096,
+      "sqlSha256": "f44e7912b905d4005413c42040204dc2ac51373366d080810d01639788021fa2"
+    },
+    {
+      "id": "outcomes:2026-10-02",
+      "family": "outcomes",
+      "from": "2026-10-02",
+      "to": "2026-10-03",
+      "estimateBytes": 200318522,
+      "sqlSha256": "c0975c8d5f784d01f6803b487870fa735ec3487347440b62472b524d36f28c00"
+    },
+    {
+      "id": "conversion:2026-10-02",
+      "family": "conversion",
+      "from": "2026-10-02",
+      "to": "2026-10-03",
+      "estimateBytes": 41866658,
+      "sqlSha256": "92ed9425416500829dbd97adf7368792178668518a8222d92da22fe59eb27b27"
+    },
+    {
+      "id": "gas_price:2026-10-02",
+      "family": "gas_price",
+      "from": "2026-10-02",
+      "to": "2026-10-03",
+      "estimateBytes": 2343472,
+      "sqlSha256": "cb6c2137178bf59b8b6b092a6ea660596d5a827a56241a998d302681465c4534"
+    },
+    {
+      "id": "outcomes:2026-10-01",
+      "family": "outcomes",
+      "from": "2026-10-01",
+      "to": "2026-10-02",
+      "estimateBytes": 235168903,
+      "sqlSha256": "d1c9b477d7271cf7c051f02b10418034b5fdfce0dff7f279d59e255c19de5a60"
+    },
+    {
+      "id": "conversion:2026-10-01",
+      "family": "conversion",
+      "from": "2026-10-01",
+      "to": "2026-10-02",
+      "estimateBytes": 51579181,
+      "sqlSha256": "ee26a518c1c6fc817e60bb7d7cf80f668fee5fed5a982e4c2f2224df43db731a"
+    },
+    {
+      "id": "gas_price:2026-10-01",
+      "family": "gas_price",
+      "from": "2026-10-01",
+      "to": "2026-10-02",
+      "estimateBytes": 2265168,
+      "sqlSha256": "8cee3b6bf607d2d9a20b52d08ebc30bbacd2da6ac9974d285d587221f20e8437"
+    },
+    {
+      "id": "outcomes:2026-09-30",
+      "family": "outcomes",
+      "from": "2026-09-30",
+      "to": "2026-10-01",
+      "estimateBytes": 215194647,
+      "sqlSha256": "8b0bd36a56c22efa00f3ec523a616133fbd848231dbf9edd7ee0a07331266cf7"
+    },
+    {
+      "id": "conversion:2026-09-30",
+      "family": "conversion",
+      "from": "2026-09-30",
+      "to": "2026-10-01",
+      "estimateBytes": 43167701,
+      "sqlSha256": "89d65dfd93315dc2c19b2ee22a102826cccc7b1611a5e5660f0492992a0c7591"
+    },
+    {
+      "id": "gas_price:2026-09-30",
+      "family": "gas_price",
+      "from": "2026-09-30",
+      "to": "2026-10-01",
+      "estimateBytes": 2220336,
+      "sqlSha256": "5c4567d5768ca43e48e826f5c106ecab70b76f13beca1f640aab48eddd1fe352"
+    },
+    {
+      "id": "outcomes:2026-09-29",
+      "family": "outcomes",
+      "from": "2026-09-29",
+      "to": "2026-09-30",
+      "estimateBytes": 252625186,
+      "sqlSha256": "a37dd0734587ef52990b64cda65d5e3eff2e325774e732f43684f44fa61b470a"
+    },
+    {
+      "id": "conversion:2026-09-29",
+      "family": "conversion",
+      "from": "2026-09-29",
+      "to": "2026-09-30",
+      "estimateBytes": 47382450,
+      "sqlSha256": "1ee2f0a0e57b83e584445f2fb32eeeb5a85a4307eb04c0ab0688b9fe85b7f69b"
+    },
+    {
+      "id": "gas_price:2026-09-29",
+      "family": "gas_price",
+      "from": "2026-09-29",
+      "to": "2026-09-30",
+      "estimateBytes": 2296112,
+      "sqlSha256": "6482235bfd8df9b7d0608393a21751f4004bde88f1722c1022f7916e4cbce2b8"
+    },
+    {
+      "id": "outcomes:2026-09-28",
+      "family": "outcomes",
+      "from": "2026-09-28",
+      "to": "2026-09-29",
+      "estimateBytes": 296855464,
+      "sqlSha256": "f880a1e04da6a81187cca4cf0afa818f1c497f55b9966f4d6153e58b688f1666"
+    },
+    {
+      "id": "conversion:2026-09-28",
+      "family": "conversion",
+      "from": "2026-09-28",
+      "to": "2026-09-29",
+      "estimateBytes": 54041240,
+      "sqlSha256": "dd7938a296ab66807f62026d9152f039dcc98403a274d4b9b340f9e427d7c99b"
+    },
+    {
+      "id": "gas_price:2026-09-28",
+      "family": "gas_price",
+      "from": "2026-09-28",
+      "to": "2026-09-29",
+      "estimateBytes": 2331296,
+      "sqlSha256": "b57137c0209a330004569e945dfab49fd649982b22aff64ea8b5b9e4de55c24b"
+    },
+    {
+      "id": "outcomes:2026-09-27",
+      "family": "outcomes",
+      "from": "2026-09-27",
+      "to": "2026-09-28",
+      "estimateBytes": 300062432,
+      "sqlSha256": "cb3c0739017da5b2190f7dc38298f00d2db670778947cd25e674e0a0d666e2a0"
+    },
+    {
+      "id": "conversion:2026-09-27",
+      "family": "conversion",
+      "from": "2026-09-27",
+      "to": "2026-09-28",
+      "estimateBytes": 57844925,
+      "sqlSha256": "c672bb176f7343b3a14cf5c09f4710a84076de40109e7271365779c316d1033e"
+    },
+    {
+      "id": "gas_price:2026-09-27",
+      "family": "gas_price",
+      "from": "2026-09-27",
+      "to": "2026-09-28",
+      "estimateBytes": 2333312,
+      "sqlSha256": "7064cdb2670b3809864b3533531c0dd8c9556b427807f6026e4e10c7919fb693"
+    },
+    {
+      "id": "outcomes:2026-09-26",
+      "family": "outcomes",
+      "from": "2026-09-26",
+      "to": "2026-09-27",
+      "estimateBytes": 151467644,
+      "sqlSha256": "066ecdc557593a56414c23b236d2e8b2178b860902169f14ad738da0d0631cae"
+    },
+    {
+      "id": "conversion:2026-09-26",
+      "family": "conversion",
+      "from": "2026-09-26",
+      "to": "2026-09-27",
+      "estimateBytes": 29181063,
+      "sqlSha256": "2d0648b795fbf515299eaa06966353255230ff16f3a9d102cc150725391e29d5"
+    },
+    {
+      "id": "gas_price:2026-09-26",
+      "family": "gas_price",
+      "from": "2026-09-26",
+      "to": "2026-09-27",
+      "estimateBytes": 2339680,
+      "sqlSha256": "3ea554c60c94e0bc3f29abfb11bbf5ee6a699ca27572c632597f056a353d6fd1"
+    },
+    {
+      "id": "outcomes:2026-09-25",
+      "family": "outcomes",
+      "from": "2026-09-25",
+      "to": "2026-09-26",
+      "estimateBytes": 184308137,
+      "sqlSha256": "0e5850fb011330ea382e09018e020f89eedc73c945dc0661afb6bdef5018eebd"
+    },
+    {
+      "id": "conversion:2026-09-25",
+      "family": "conversion",
+      "from": "2026-09-25",
+      "to": "2026-09-26",
+      "estimateBytes": 34936146,
+      "sqlSha256": "a13c0f5ffc4bf958688469062ecaa01cdb7b77e670b10f1d293201f42b3bd880"
+    },
+    {
+      "id": "gas_price:2026-09-25",
+      "family": "gas_price",
+      "from": "2026-09-25",
+      "to": "2026-09-26",
+      "estimateBytes": 2318128,
+      "sqlSha256": "aea52cc52f9fd591f30a532bdd398c1e30b2b250412a503d35b528c853d326cd"
+    },
+    {
+      "id": "outcomes:2026-09-24",
+      "family": "outcomes",
+      "from": "2026-09-24",
+      "to": "2026-09-25",
+      "estimateBytes": 183527655,
+      "sqlSha256": "9375b71d104a873976cfc74d613ac9bae0793cfb640f948300de502a7ee1ddf9"
+    },
+    {
+      "id": "conversion:2026-09-24",
+      "family": "conversion",
+      "from": "2026-09-24",
+      "to": "2026-09-25",
+      "estimateBytes": 35994773,
+      "sqlSha256": "2256eb6919838cc190829247b956260d3dcb693715e4c5b49f16d21cf784e050"
+    },
+    {
+      "id": "gas_price:2026-09-24",
+      "family": "gas_price",
+      "from": "2026-09-24",
+      "to": "2026-09-25",
+      "estimateBytes": 2285152,
+      "sqlSha256": "40421875a9c226287285ec9860ccc97e59fa94a949f518c0bccdca83f440a3bc"
+    },
+    {
+      "id": "outcomes:2026-09-23",
+      "family": "outcomes",
+      "from": "2026-09-23",
+      "to": "2026-09-24",
+      "estimateBytes": 216614719,
+      "sqlSha256": "e92ecf01ff7677c3a1e65994712ec01cb9a46515f6a3666bda1b89b52608e8da"
+    },
+    {
+      "id": "conversion:2026-09-23",
+      "family": "conversion",
+      "from": "2026-09-23",
+      "to": "2026-09-24",
+      "estimateBytes": 42068286,
+      "sqlSha256": "4e651187c3cfeece97500f0f0ee21db95e588345caa7e0b2b7d8c3fb218863a1"
+    },
+    {
+      "id": "gas_price:2026-09-23",
+      "family": "gas_price",
+      "from": "2026-09-23",
+      "to": "2026-09-24",
+      "estimateBytes": 2250848,
+      "sqlSha256": "7d529ddce8c8b4520ed2a6b347528b6fc9f014f33a1184f8dab0a0ab78aa20eb"
+    },
+    {
+      "id": "outcomes:2026-09-22",
+      "family": "outcomes",
+      "from": "2026-09-22",
+      "to": "2026-09-23",
+      "estimateBytes": 226447370,
+      "sqlSha256": "106e7d96650c63bcbf171776f79050956695573720c3e093fadfe01472b87eb7"
+    },
+    {
+      "id": "conversion:2026-09-22",
+      "family": "conversion",
+      "from": "2026-09-22",
+      "to": "2026-09-23",
+      "estimateBytes": 46754223,
+      "sqlSha256": "53ae99c4db8d464ec7e1c6e4d4e96b9cfcb772066d3656316b1c4738176cf171"
+    },
+    {
+      "id": "gas_price:2026-09-22",
+      "family": "gas_price",
+      "from": "2026-09-22",
+      "to": "2026-09-23",
+      "estimateBytes": 2223312,
+      "sqlSha256": "feafe758a1507002ac84f870a54810d77809d0b1c17a165546473da67e380612"
+    },
+    {
+      "id": "outcomes:2026-09-21",
+      "family": "outcomes",
+      "from": "2026-09-21",
+      "to": "2026-09-22",
+      "estimateBytes": 215504650,
+      "sqlSha256": "08f90d9fbf8e0ec91f73eb35faa5d72025ec90bf9e5d70795113c0ea602187b2"
+    },
+    {
+      "id": "conversion:2026-09-21",
+      "family": "conversion",
+      "from": "2026-09-21",
+      "to": "2026-09-22",
+      "estimateBytes": 42211004,
+      "sqlSha256": "885d543e3bd6ce161519a0027ba84f28fc9caa9bb51a601c25fe07fe5ac59419"
+    },
+    {
+      "id": "gas_price:2026-09-21",
+      "family": "gas_price",
+      "from": "2026-09-21",
+      "to": "2026-09-22",
+      "estimateBytes": 2281360,
+      "sqlSha256": "56dc709536b349ac44c03dbd16e92ac143005387d57b7dd53d5cc3ab9d7105e9"
+    },
+    {
+      "id": "outcomes:2026-09-20",
+      "family": "outcomes",
+      "from": "2026-09-20",
+      "to": "2026-09-21",
+      "estimateBytes": 190029543,
+      "sqlSha256": "e3f4018ded6d2ac18968749601dfa262020294ebaf9a976ae817ae511cb04de7"
+    },
+    {
+      "id": "conversion:2026-09-20",
+      "family": "conversion",
+      "from": "2026-09-20",
+      "to": "2026-09-21",
+      "estimateBytes": 40868222,
+      "sqlSha256": "ff3372c1912475150aa47965edb075a483e8226c2f82d6f1070cbe2fcdb0aa0b"
+    },
+    {
+      "id": "gas_price:2026-09-20",
+      "family": "gas_price",
+      "from": "2026-09-20",
+      "to": "2026-09-21",
+      "estimateBytes": 2254912,
+      "sqlSha256": "baf6967216604c0cb01a7251abc75ec131accd6950ac9acd9923a9645a5c9aa7"
+    },
+    {
+      "id": "outcomes:2026-09-19",
+      "family": "outcomes",
+      "from": "2026-09-19",
+      "to": "2026-09-20",
+      "estimateBytes": 179085952,
+      "sqlSha256": "61f8760e9b3116d17d1feeb7a01f7d89a91101fd8958118ba2311b4a4599e940"
+    },
+    {
+      "id": "conversion:2026-09-19",
+      "family": "conversion",
+      "from": "2026-09-19",
+      "to": "2026-09-20",
+      "estimateBytes": 40157606,
+      "sqlSha256": "c73bdb3a132b0c44016e2d619a2881b0a216e16b70597ff4f0ee47f056177a97"
+    },
+    {
+      "id": "gas_price:2026-09-19",
+      "family": "gas_price",
+      "from": "2026-09-19",
+      "to": "2026-09-20",
+      "estimateBytes": 2285984,
+      "sqlSha256": "430222b6e9a06e623a351e79b3aec78eaad5c4b5b5e1540e8a7a9efb4f08b4bf"
+    },
+    {
+      "id": "outcomes:2026-09-18",
+      "family": "outcomes",
+      "from": "2026-09-18",
+      "to": "2026-09-19",
+      "estimateBytes": 222874271,
+      "sqlSha256": "a9801025458460029380fc8a70f1a6fbeb9580d1058c73470cc61b566b20cc14"
+    },
+    {
+      "id": "conversion:2026-09-18",
+      "family": "conversion",
+      "from": "2026-09-18",
+      "to": "2026-09-19",
+      "estimateBytes": 47365216,
+      "sqlSha256": "de0f2097660b2c9ff2c187093fc80f9e82990cc60e75a131c3b66021be09731d"
+    },
+    {
+      "id": "gas_price:2026-09-18",
+      "family": "gas_price",
+      "from": "2026-09-18",
+      "to": "2026-09-19",
+      "estimateBytes": 2271680,
+      "sqlSha256": "98802d9d9babd9272eff4ce9d98e7939a50948ebbd9460ebae55d51d3f322b3d"
+    },
+    {
+      "id": "outcomes:2026-09-17",
+      "family": "outcomes",
+      "from": "2026-09-17",
+      "to": "2026-09-18",
+      "estimateBytes": 189467577,
+      "sqlSha256": "f01c806fb7c51799e22eef3beb8a59b103efb93ce14ec269620910b98564c433"
+    },
+    {
+      "id": "conversion:2026-09-17",
+      "family": "conversion",
+      "from": "2026-09-17",
+      "to": "2026-09-18",
+      "estimateBytes": 40703020,
+      "sqlSha256": "8baa195dd0a64f4a606efd9b4f1cfc00e2448d46bc3d33e1619318e73b0f428b"
+    },
+    {
+      "id": "gas_price:2026-09-17",
+      "family": "gas_price",
+      "from": "2026-09-17",
+      "to": "2026-09-18",
+      "estimateBytes": 2239648,
+      "sqlSha256": "f68585f53b8fb90e3e9e303b3fdcb62c9106b51209a5fe1a30ca583d2ce110e4"
+    },
+    {
+      "id": "outcomes:2026-09-16",
+      "family": "outcomes",
+      "from": "2026-09-16",
+      "to": "2026-09-17",
+      "estimateBytes": 168060752,
+      "sqlSha256": "afa16dd0f139ea35d94f60a3a05831b7eb2c78c1cb25f4f83a2ef713d9fd5295"
+    },
+    {
+      "id": "conversion:2026-09-16",
+      "family": "conversion",
+      "from": "2026-09-16",
+      "to": "2026-09-17",
+      "estimateBytes": 37360495,
+      "sqlSha256": "66a325ba816ea1879d2bc584c6077ae79f3f61e1e870109c7c869b4bea344fa1"
+    },
+    {
+      "id": "gas_price:2026-09-16",
+      "family": "gas_price",
+      "from": "2026-09-16",
+      "to": "2026-09-17",
+      "estimateBytes": 2239808,
+      "sqlSha256": "557349175c18a69a5d291983b7a49ab66fe1c8fb32862ced2cdb22bb7b35fa23"
+    },
+    {
+      "id": "outcomes:2026-09-15",
+      "family": "outcomes",
+      "from": "2026-09-15",
+      "to": "2026-09-16",
+      "estimateBytes": 154607993,
+      "sqlSha256": "7c75ca212001b6de438132f5b9e472fbfa1a1ee4218ea7be7a62cf9b36c5e1a4"
+    },
+    {
+      "id": "conversion:2026-09-15",
+      "family": "conversion",
+      "from": "2026-09-15",
+      "to": "2026-09-16",
+      "estimateBytes": 34031168,
+      "sqlSha256": "8118c0d900da6aeacedcd5c3caf53a69d0a83dbfe6aa6110b03cf9f1482e796e"
+    },
+    {
+      "id": "gas_price:2026-09-15",
+      "family": "gas_price",
+      "from": "2026-09-15",
+      "to": "2026-09-16",
+      "estimateBytes": 2228368,
+      "sqlSha256": "89d36691cd91706a804add0416721ff1f48075a62a3964ff1e6615fffce9c8b7"
+    },
+    {
+      "id": "outcomes:2026-09-14",
+      "family": "outcomes",
+      "from": "2026-09-14",
+      "to": "2026-09-15",
+      "estimateBytes": 155331159,
+      "sqlSha256": "c3f719e423b322ba1656d4fbcf96321812ac8176f833a54c143e7edd75938656"
+    },
+    {
+      "id": "conversion:2026-09-14",
+      "family": "conversion",
+      "from": "2026-09-14",
+      "to": "2026-09-15",
+      "estimateBytes": 34092077,
+      "sqlSha256": "7b03c53ae938dc9a4509fdd21d45f587d4402243179944db8fc9cb73da4ef725"
+    },
+    {
+      "id": "gas_price:2026-09-14",
+      "family": "gas_price",
+      "from": "2026-09-14",
+      "to": "2026-09-15",
+      "estimateBytes": 2242096,
+      "sqlSha256": "94454470f46f8eda41ce9a0d3c6b1e2588cebb82ebde6e0a3105f0874ab901de"
+    },
+    {
+      "id": "outcomes:2026-09-13",
+      "family": "outcomes",
+      "from": "2026-09-13",
+      "to": "2026-09-14",
+      "estimateBytes": 140403846,
+      "sqlSha256": "1aa12209e15b58c9e9f96d6cb7068a437305d923b01ae6b9626559c5c44b56e2"
+    },
+    {
+      "id": "conversion:2026-09-13",
+      "family": "conversion",
+      "from": "2026-09-13",
+      "to": "2026-09-14",
+      "estimateBytes": 30532620,
+      "sqlSha256": "af1a0693a902353d46e999d5d6f2c84b4682eedf82dc00da3db2c223e841ec1d"
+    },
+    {
+      "id": "gas_price:2026-09-13",
+      "family": "gas_price",
+      "from": "2026-09-13",
+      "to": "2026-09-14",
+      "estimateBytes": 2236304,
+      "sqlSha256": "d3599519645e61426704815338a911254ed8557a0e6b8c796246a5a78a96ccb9"
+    },
+    {
+      "id": "outcomes:2026-09-12",
+      "family": "outcomes",
+      "from": "2026-09-12",
+      "to": "2026-09-13",
+      "estimateBytes": 143990183,
+      "sqlSha256": "6af2a480915bb0a3ebca2bd1a32c87b590d7fd2ecd4f3df1fad6ec6561ff57e8"
+    },
+    {
+      "id": "conversion:2026-09-12",
+      "family": "conversion",
+      "from": "2026-09-12",
+      "to": "2026-09-13",
+      "estimateBytes": 31421571,
+      "sqlSha256": "113a1917ecf4ce3e5c9db52335b228773140af1fecf008423c80a4e243ccb448"
+    },
+    {
+      "id": "gas_price:2026-09-12",
+      "family": "gas_price",
+      "from": "2026-09-12",
+      "to": "2026-09-13",
+      "estimateBytes": 2231520,
+      "sqlSha256": "a8f19859398458fb9fb0d5b405e4e0a198ace2e55091ffa5589e996d565505a6"
+    },
+    {
+      "id": "outcomes:2026-09-11",
+      "family": "outcomes",
+      "from": "2026-09-11",
+      "to": "2026-09-12",
+      "estimateBytes": 192771934,
+      "sqlSha256": "e4a2d7b83be5d6815f02a098c23f23a7ea1658387aac37e2318d152cb39bdc7e"
+    },
+    {
+      "id": "conversion:2026-09-11",
+      "family": "conversion",
+      "from": "2026-09-11",
+      "to": "2026-09-12",
+      "estimateBytes": 40596729,
+      "sqlSha256": "3e6903b01445ba037c0edb552523c9a19da6dd053a2a081020815e0c91935ffe"
+    },
+    {
+      "id": "gas_price:2026-09-11",
+      "family": "gas_price",
+      "from": "2026-09-11",
+      "to": "2026-09-12",
+      "estimateBytes": 2194592,
+      "sqlSha256": "bea370898cf18a8e8f3f3529a22589e3b88e6dede553041d2a671a69c9351f22"
+    },
+    {
+      "id": "outcomes:2026-09-10",
+      "family": "outcomes",
+      "from": "2026-09-10",
+      "to": "2026-09-11",
+      "estimateBytes": 165546895,
+      "sqlSha256": "ffb297e07750e9456a76da8b0461fae0b7b5f9860799d134b3df20d089f5a93f"
+    },
+    {
+      "id": "conversion:2026-09-10",
+      "family": "conversion",
+      "from": "2026-09-10",
+      "to": "2026-09-11",
+      "estimateBytes": 34932099,
+      "sqlSha256": "91a514ae55ba6610715acb5fe602ed166b25d3a18783ed3ad35273413abe372e"
+    },
+    {
+      "id": "gas_price:2026-09-10",
+      "family": "gas_price",
+      "from": "2026-09-10",
+      "to": "2026-09-11",
+      "estimateBytes": 2248288,
+      "sqlSha256": "3b600d24a170c6fdc3d36972545e125da46cd67cce50f562003c65db75eda2e9"
+    },
+    {
+      "id": "outcomes:2026-09-09",
+      "family": "outcomes",
+      "from": "2026-09-09",
+      "to": "2026-09-10",
+      "estimateBytes": 177934544,
+      "sqlSha256": "b5c19f6384c357d72ba2c6fb22287153b776e64740a4e73f61079fafd133d075"
+    },
+    {
+      "id": "conversion:2026-09-09",
+      "family": "conversion",
+      "from": "2026-09-09",
+      "to": "2026-09-10",
+      "estimateBytes": 37267492,
+      "sqlSha256": "6d305c5e37e22818000b43ccf2086ea7ae3467d2426905a8c25012ac46c0508c"
+    },
+    {
+      "id": "gas_price:2026-09-09",
+      "family": "gas_price",
+      "from": "2026-09-09",
+      "to": "2026-09-10",
+      "estimateBytes": 2229472,
+      "sqlSha256": "08f5afa451e807f53c3473e6fb4e292ab8b3d0f21d4216a0978851fb706bcd8b"
+    },
+    {
+      "id": "outcomes:2026-09-08",
+      "family": "outcomes",
+      "from": "2026-09-08",
+      "to": "2026-09-09",
+      "estimateBytes": 161393921,
+      "sqlSha256": "71a03e17392c24e32fcf46a91cf192ba8ca600beb20bc0ef09941162de94c3e4"
+    },
+    {
+      "id": "conversion:2026-09-08",
+      "family": "conversion",
+      "from": "2026-09-08",
+      "to": "2026-09-09",
+      "estimateBytes": 34106783,
+      "sqlSha256": "0f4ef1134388404c120dfc07de54357a369dd7e7e6d9a3ad6e963667a818aefb"
+    },
+    {
+      "id": "gas_price:2026-09-08",
+      "family": "gas_price",
+      "from": "2026-09-08",
+      "to": "2026-09-09",
+      "estimateBytes": 2234752,
+      "sqlSha256": "0ccacc1d79aef90c697ad5d721a2af7ecdaa02761947f15bf73547f12aa3c80c"
+    },
+    {
+      "id": "outcomes:2026-09-07",
+      "family": "outcomes",
+      "from": "2026-09-07",
+      "to": "2026-09-08",
+      "estimateBytes": 172876728,
+      "sqlSha256": "14fdf32cfdd595a75ea86f0bb8644a060b518ab76856ef0cfe043ee114799a6c"
+    },
+    {
+      "id": "conversion:2026-09-07",
+      "family": "conversion",
+      "from": "2026-09-07",
+      "to": "2026-09-08",
+      "estimateBytes": 35511497,
+      "sqlSha256": "aaa3b2055a34b37ae0796a39ead0d7412825d9437e24275a42759c33a20fd8d5"
+    },
+    {
+      "id": "gas_price:2026-09-07",
+      "family": "gas_price",
+      "from": "2026-09-07",
+      "to": "2026-09-08",
+      "estimateBytes": 2224576,
+      "sqlSha256": "36c1ec1b26245ae02575139d2922a15e4b0125849b38e8f4bd0a508e27308d5c"
+    },
+    {
+      "id": "outcomes:2026-09-06",
+      "family": "outcomes",
+      "from": "2026-09-06",
+      "to": "2026-09-07",
+      "estimateBytes": 182207209,
+      "sqlSha256": "cfba476772a2074e03a226cd9575693773eb8de57d23a043ac34a38d15029855"
+    },
+    {
+      "id": "conversion:2026-09-06",
+      "family": "conversion",
+      "from": "2026-09-06",
+      "to": "2026-09-07",
+      "estimateBytes": 36654305,
+      "sqlSha256": "2cf778404d726d1736fef68e4a237d4932aeec6bd6551212e29e717207d2500a"
+    },
+    {
+      "id": "gas_price:2026-09-06",
+      "family": "gas_price",
+      "from": "2026-09-06",
+      "to": "2026-09-07",
+      "estimateBytes": 2229040,
+      "sqlSha256": "894da5e23a1b9d020d421682b0b52b0ba8a58537540051e6f3919f44e0b3aacf"
+    },
+    {
+      "id": "outcomes:2026-09-05",
+      "family": "outcomes",
+      "from": "2026-09-05",
+      "to": "2026-09-06",
+      "estimateBytes": 159991890,
+      "sqlSha256": "ce0961c2860aa065bbbdc319461c6140131deedee5041ca4760ea8f3db7f8642"
+    },
+    {
+      "id": "conversion:2026-09-05",
+      "family": "conversion",
+      "from": "2026-09-05",
+      "to": "2026-09-06",
+      "estimateBytes": 32257943,
+      "sqlSha256": "6cfd03a9877d35b68fd3d562c2de48f86b064f6328359e057a67729cb3021650"
+    },
+    {
+      "id": "gas_price:2026-09-05",
+      "family": "gas_price",
+      "from": "2026-09-05",
+      "to": "2026-09-06",
+      "estimateBytes": 2231792,
+      "sqlSha256": "58fc706ab385cdac612150377a247f603966ab5bf744ef6b7ac90851b959642b"
+    },
+    {
+      "id": "outcomes:2026-09-04",
+      "family": "outcomes",
+      "from": "2026-09-04",
+      "to": "2026-09-05",
+      "estimateBytes": 178591159,
+      "sqlSha256": "03d11183d9351b5adc4762a9f115bcc2caa574b67b8e4d3f4dae05f49c5bd1dc"
+    },
+    {
+      "id": "conversion:2026-09-04",
+      "family": "conversion",
+      "from": "2026-09-04",
+      "to": "2026-09-05",
+      "estimateBytes": 35095687,
+      "sqlSha256": "b98a0712e416a054b14bd68dcaf29e1ae85d4be95dc6d8f7364487619bbbd213"
+    },
+    {
+      "id": "gas_price:2026-09-04",
+      "family": "gas_price",
+      "from": "2026-09-04",
+      "to": "2026-09-05",
+      "estimateBytes": 2219664,
+      "sqlSha256": "ea35a197b139cf19521bd09ca768b2170ff9c0e9a83b943d92b3fb4ab786eb61"
+    },
+    {
+      "id": "outcomes:2026-09-03",
+      "family": "outcomes",
+      "from": "2026-09-03",
+      "to": "2026-09-04",
+      "estimateBytes": 172547296,
+      "sqlSha256": "884ea11c851b9caeb29bf9c3798b9c90c3e022da29a73c814af34db1d7a41daa"
+    },
+    {
+      "id": "conversion:2026-09-03",
+      "family": "conversion",
+      "from": "2026-09-03",
+      "to": "2026-09-04",
+      "estimateBytes": 33690243,
+      "sqlSha256": "da6c5d81909c92b3c6f7e24936662cbf00ad80c614437c45a6344317fb84b235"
+    },
+    {
+      "id": "gas_price:2026-09-03",
+      "family": "gas_price",
+      "from": "2026-09-03",
+      "to": "2026-09-04",
+      "estimateBytes": 2133424,
+      "sqlSha256": "a6dd82bbcc59de184b1db22389a196658dfa6de97c194866d7806e77638ef032"
+    },
+    {
+      "id": "outcomes:2026-09-02",
+      "family": "outcomes",
+      "from": "2026-09-02",
+      "to": "2026-09-03",
+      "estimateBytes": 165310679,
+      "sqlSha256": "520b721a4ade25f8fd58b4d9fbc1445d7334053175d2a79aedb443338c772841"
+    },
+    {
+      "id": "conversion:2026-09-02",
+      "family": "conversion",
+      "from": "2026-09-02",
+      "to": "2026-09-03",
+      "estimateBytes": 31742310,
+      "sqlSha256": "78c3f895115a5b752c30d1cf5f2908ebdf785c3a92b4d2d8437bfcdb5a071191"
+    },
+    {
+      "id": "gas_price:2026-09-02",
+      "family": "gas_price",
+      "from": "2026-09-02",
+      "to": "2026-09-03",
+      "estimateBytes": 2182560,
+      "sqlSha256": "1cb44e343bee3a64461601a1894cf1eafcf2e8f67c870976ce387d581fa169cc"
+    },
+    {
+      "id": "outcomes:2026-09-01",
+      "family": "outcomes",
+      "from": "2026-09-01",
+      "to": "2026-09-02",
+      "estimateBytes": 164533402,
+      "sqlSha256": "59f07e55b0ea50889e2cdc8f0bf43d9cb29cbaab5bce419259595f624dc55a9c"
+    },
+    {
+      "id": "conversion:2026-09-01",
+      "family": "conversion",
+      "from": "2026-09-01",
+      "to": "2026-09-02",
+      "estimateBytes": 32204484,
+      "sqlSha256": "0fb6f9024060a75ec52f502a8dca3d350432a77601745fcb218e3020437c76b9"
+    },
+    {
+      "id": "gas_price:2026-09-01",
+      "family": "gas_price",
+      "from": "2026-09-01",
+      "to": "2026-09-02",
+      "estimateBytes": 2222800,
+      "sqlSha256": "b22738ffbc3c647e0ceefdc9cc1483309e212218d538c5207b553aa5dc93dc2d"
+    },
+    {
+      "id": "outcomes:2026-08-31",
+      "family": "outcomes",
+      "from": "2026-08-31",
+      "to": "2026-09-01",
+      "estimateBytes": 166670182,
+      "sqlSha256": "e7a961577c69d2c1dddacf7e6d4f336c2464b8402995cdba4a688830225bb7f3"
+    },
+    {
+      "id": "conversion:2026-08-31",
+      "family": "conversion",
+      "from": "2026-08-31",
+      "to": "2026-09-01",
+      "estimateBytes": 32371883,
+      "sqlSha256": "47349318bb9997b6e765151b5cf54d88a420fa068cc7f06508ff429749ce060f"
+    },
+    {
+      "id": "gas_price:2026-08-31",
+      "family": "gas_price",
+      "from": "2026-08-31",
+      "to": "2026-09-01",
+      "estimateBytes": 2223072,
+      "sqlSha256": "f7046c0be8cd7b2305a665ca6f5d2f2e978f6f6d5d3c2b3bbf904c2a56039048"
+    },
+    {
+      "id": "outcomes:2026-08-30",
+      "family": "outcomes",
+      "from": "2026-08-30",
+      "to": "2026-08-31",
+      "estimateBytes": 150815848,
+      "sqlSha256": "8e9b93ff3fa837cc36aff1f77b85cd6654908eb27478fe71b3a8e0c2904005cd"
+    },
+    {
+      "id": "conversion:2026-08-30",
+      "family": "conversion",
+      "from": "2026-08-30",
+      "to": "2026-08-31",
+      "estimateBytes": 29524630,
+      "sqlSha256": "fc344d60702a33bcd75908491683d81afd0ee9f93264cd1677c53ecb93068278"
+    },
+    {
+      "id": "gas_price:2026-08-30",
+      "family": "gas_price",
+      "from": "2026-08-30",
+      "to": "2026-08-31",
+      "estimateBytes": 2227200,
+      "sqlSha256": "aee98dd961a5358b8645db339b58e4f219798e9ea79fac5bd6722ddb9e1e9469"
+    },
+    {
+      "id": "outcomes:2026-08-29",
+      "family": "outcomes",
+      "from": "2026-08-29",
+      "to": "2026-08-30",
+      "estimateBytes": 141455890,
+      "sqlSha256": "8b27eb19b1a7fb813e55038b85a306cdf702ec5938c374de2cb56dafb2275239"
+    },
+    {
+      "id": "conversion:2026-08-29",
+      "family": "conversion",
+      "from": "2026-08-29",
+      "to": "2026-08-30",
+      "estimateBytes": 27921783,
+      "sqlSha256": "00e03fd5b1e379c75b5ab03c31317a538c6c19ab7e09636c4f7a391a57ee8994"
+    },
+    {
+      "id": "gas_price:2026-08-29",
+      "family": "gas_price",
+      "from": "2026-08-29",
+      "to": "2026-08-30",
+      "estimateBytes": 2244368,
+      "sqlSha256": "fabf9aa71226c9ee9d700229447cd4ac35123cfe5836622aba8a57d57f89c294"
+    },
+    {
+      "id": "outcomes:2026-08-28",
+      "family": "outcomes",
+      "from": "2026-08-28",
+      "to": "2026-08-29",
+      "estimateBytes": 159125113,
+      "sqlSha256": "cfbf679c46d9d215a6394831419a623efe606f18e2f595e83e13d1d0128c45aa"
+    },
+    {
+      "id": "conversion:2026-08-28",
+      "family": "conversion",
+      "from": "2026-08-28",
+      "to": "2026-08-29",
+      "estimateBytes": 30631994,
+      "sqlSha256": "85d2197ac16bc2215d7cc55b84eec84abc8c9c44e69e0949f9e11f5f5aed4993"
+    },
+    {
+      "id": "gas_price:2026-08-28",
+      "family": "gas_price",
+      "from": "2026-08-28",
+      "to": "2026-08-29",
+      "estimateBytes": 2241552,
+      "sqlSha256": "2561b3a36bbcbafc9c7f046e32c1eb879e91a5ac12a84fea68192462f9e43d95"
+    },
+    {
+      "id": "outcomes:2026-08-27",
+      "family": "outcomes",
+      "from": "2026-08-27",
+      "to": "2026-08-28",
+      "estimateBytes": 165794016,
+      "sqlSha256": "06766644eedcb3b554094c92513b77484b76bf87e53e3cfcc2965c022ddb1a4c"
+    },
+    {
+      "id": "conversion:2026-08-27",
+      "family": "conversion",
+      "from": "2026-08-27",
+      "to": "2026-08-28",
+      "estimateBytes": 31952960,
+      "sqlSha256": "754e29db99b2622fd2dc2d85412f7305788ee95d4d579cf6f4b7d0e337699e35"
+    },
+    {
+      "id": "gas_price:2026-08-27",
+      "family": "gas_price",
+      "from": "2026-08-27",
+      "to": "2026-08-28",
+      "estimateBytes": 2235264,
+      "sqlSha256": "3ff146c16da8270e9871dd016a06e078beb5d805fbef6ee104c81f17a738b10c"
+    },
+    {
+      "id": "outcomes:2026-08-26",
+      "family": "outcomes",
+      "from": "2026-08-26",
+      "to": "2026-08-27",
+      "estimateBytes": 161994416,
+      "sqlSha256": "4a49382ea46ef57e19e4bf786f0e754925b76ada768a9ef65ba46ebb3abad35c"
+    },
+    {
+      "id": "conversion:2026-08-26",
+      "family": "conversion",
+      "from": "2026-08-26",
+      "to": "2026-08-27",
+      "estimateBytes": 30901158,
+      "sqlSha256": "dc25d2ca1913f4700e514f8d9c8463864bf83b41c38c2bc7c301eabdbbdd214c"
+    },
+    {
+      "id": "gas_price:2026-08-26",
+      "family": "gas_price",
+      "from": "2026-08-26",
+      "to": "2026-08-27",
+      "estimateBytes": 2269424,
+      "sqlSha256": "efe42c4b69f0df03b35937c580635085c02caf55acf0175296f0b46a22f1a580"
+    },
+    {
+      "id": "outcomes:2026-08-25",
+      "family": "outcomes",
+      "from": "2026-08-25",
+      "to": "2026-08-26",
+      "estimateBytes": 180844669,
+      "sqlSha256": "2eced1b9e6a5d80fa7964a723ebb4bfeb5c92504cf3f20af634c0048ded95736"
+    },
+    {
+      "id": "conversion:2026-08-25",
+      "family": "conversion",
+      "from": "2026-08-25",
+      "to": "2026-08-26",
+      "estimateBytes": 34014606,
+      "sqlSha256": "f9dbd70c3f2cac938a5b3eeeaf1ba9c6edfcdf90c85098c75523f6d015a3da46"
+    },
+    {
+      "id": "gas_price:2026-08-25",
+      "family": "gas_price",
+      "from": "2026-08-25",
+      "to": "2026-08-26",
+      "estimateBytes": 2265008,
+      "sqlSha256": "761ade16430fd6fc3354feab5b1ed55e00a542187fc6f64f2372b8d9dcc2a487"
+    },
+    {
+      "id": "outcomes:2026-08-24",
+      "family": "outcomes",
+      "from": "2026-08-24",
+      "to": "2026-08-25",
+      "estimateBytes": 201872198,
+      "sqlSha256": "154251637b393c8558254e2e4c921d3ad8d51ed9bec5b72fc8fcc25df43beb72"
+    },
+    {
+      "id": "conversion:2026-08-24",
+      "family": "conversion",
+      "from": "2026-08-24",
+      "to": "2026-08-25",
+      "estimateBytes": 38029332,
+      "sqlSha256": "25b0925cfe0dd2840bd3becdd7ba9548d997acd1fc0215eb8447518cdab48f8c"
+    },
+    {
+      "id": "gas_price:2026-08-24",
+      "family": "gas_price",
+      "from": "2026-08-24",
+      "to": "2026-08-25",
+      "estimateBytes": 2268832,
+      "sqlSha256": "27f227cbf651bcb5e953b85e9f50e9bbfc3f0f23b5d60852abb1d579928859a9"
+    },
+    {
+      "id": "outcomes:2026-08-23",
+      "family": "outcomes",
+      "from": "2026-08-23",
+      "to": "2026-08-24",
+      "estimateBytes": 180641911,
+      "sqlSha256": "12af8e137d2a1ac4ef84d26e9a783d042d7f9c317392d6badf80d5607be4fa04"
+    },
+    {
+      "id": "conversion:2026-08-23",
+      "family": "conversion",
+      "from": "2026-08-23",
+      "to": "2026-08-24",
+      "estimateBytes": 34540017,
+      "sqlSha256": "0bd96d54fc4932551ea9cd916b34f1adc314e3bf56c6aca2e11f853acc8ac151"
+    },
+    {
+      "id": "gas_price:2026-08-23",
+      "family": "gas_price",
+      "from": "2026-08-23",
+      "to": "2026-08-24",
+      "estimateBytes": 2266736,
+      "sqlSha256": "52685fb870df0585f06830a906879703c56e2109fbac9282f343850849a1809c"
+    },
+    {
+      "id": "outcomes:2026-08-22",
+      "family": "outcomes",
+      "from": "2026-08-22",
+      "to": "2026-08-23",
+      "estimateBytes": 200072592,
+      "sqlSha256": "5eca4b7152895435b278a68b62de55212a95e3cb8ec15472b213e94d30cc8b13"
+    },
+    {
+      "id": "conversion:2026-08-22",
+      "family": "conversion",
+      "from": "2026-08-22",
+      "to": "2026-08-23",
+      "estimateBytes": 38478937,
+      "sqlSha256": "76eca72684b1c36f4bcdd98a16fe64bc9590eb1b257594b7d8af668f92d05157"
+    },
+    {
+      "id": "gas_price:2026-08-22",
+      "family": "gas_price",
+      "from": "2026-08-22",
+      "to": "2026-08-23",
+      "estimateBytes": 2226800,
+      "sqlSha256": "179f09311f2d9bd7818d056806f1acb38da1bc9c7c2480400c6da185d0349769"
+    },
+    {
+      "id": "outcomes:2026-08-21",
+      "family": "outcomes",
+      "from": "2026-08-21",
+      "to": "2026-08-22",
+      "estimateBytes": 200591452,
+      "sqlSha256": "b9eef446953302e7b56e4a251cc2be7e53dd82ab126e943bf789e53b740e4b2d"
+    },
+    {
+      "id": "conversion:2026-08-21",
+      "family": "conversion",
+      "from": "2026-08-21",
+      "to": "2026-08-22",
+      "estimateBytes": 37313716,
+      "sqlSha256": "92c1a98f8e81d07401398df5bb946395377ec315e269675a9c98a9ebfed22568"
+    },
+    {
+      "id": "gas_price:2026-08-21",
+      "family": "gas_price",
+      "from": "2026-08-21",
+      "to": "2026-08-22",
+      "estimateBytes": 2215008,
+      "sqlSha256": "dafa7ee52af8f0e030f8dd393b5ab61603ad5e7fe03296aeba0d3e56c364d8c3"
+    },
+    {
+      "id": "outcomes:2026-08-20",
+      "family": "outcomes",
+      "from": "2026-08-20",
+      "to": "2026-08-21",
+      "estimateBytes": 185764862,
+      "sqlSha256": "694b8be93a32e7482946d5987e5737a09a335e08a91807721d53dbee3e7c1545"
+    },
+    {
+      "id": "conversion:2026-08-20",
+      "family": "conversion",
+      "from": "2026-08-20",
+      "to": "2026-08-21",
+      "estimateBytes": 35905869,
+      "sqlSha256": "5154fdf3e7aa5918da0f931a8872baedb1b30f7f5ae43dc8a2bcf17a66291924"
+    },
+    {
+      "id": "gas_price:2026-08-20",
+      "family": "gas_price",
+      "from": "2026-08-20",
+      "to": "2026-08-21",
+      "estimateBytes": 2274976,
+      "sqlSha256": "b730cd3eb5f061be4ab0eb3ddf883f39507160b02e832ab364c5feed2ac8c685"
+    },
+    {
+      "id": "outcomes:2026-08-19",
+      "family": "outcomes",
+      "from": "2026-08-19",
+      "to": "2026-08-20",
+      "estimateBytes": 176946615,
+      "sqlSha256": "bd04cbaea4cb54fc7f24c6a63a969577cb235db676580ac6475564fdc80d520f"
+    },
+    {
+      "id": "conversion:2026-08-19",
+      "family": "conversion",
+      "from": "2026-08-19",
+      "to": "2026-08-20",
+      "estimateBytes": 34641200,
+      "sqlSha256": "e1bbdf44bc5a345463f07a7ff2cd203729dbc69f9af0713af5f39004a11db2f1"
+    },
+    {
+      "id": "gas_price:2026-08-19",
+      "family": "gas_price",
+      "from": "2026-08-19",
+      "to": "2026-08-20",
+      "estimateBytes": 2266240,
+      "sqlSha256": "a75365e5ffa6cbfc5e4cc3078cc273210cf4db125c4ecf3f81476206aac21038"
+    },
+    {
+      "id": "outcomes:2026-08-18",
+      "family": "outcomes",
+      "from": "2026-08-18",
+      "to": "2026-08-19",
+      "estimateBytes": 161365629,
+      "sqlSha256": "b12dcc4332bd6e820b44d58136c953532916fc634f1c185bf48717de6f2ecbd5"
+    },
+    {
+      "id": "conversion:2026-08-18",
+      "family": "conversion",
+      "from": "2026-08-18",
+      "to": "2026-08-19",
+      "estimateBytes": 31706311,
+      "sqlSha256": "e089068f44856008f438b6084486d7cb3d1bc81dd28356934d43c56192138f23"
+    },
+    {
+      "id": "gas_price:2026-08-18",
+      "family": "gas_price",
+      "from": "2026-08-18",
+      "to": "2026-08-19",
+      "estimateBytes": 2256784,
+      "sqlSha256": "220b7283c7af8ca07f3b391446d62d950bc1038880ac8cf27dea32c1cedfb0cd"
+    },
+    {
+      "id": "outcomes:2026-08-17",
+      "family": "outcomes",
+      "from": "2026-08-17",
+      "to": "2026-08-18",
+      "estimateBytes": 157593342,
+      "sqlSha256": "fba847082b33ebd6a49a6f825fbda6224a1b35c2a3d4375d6414e14577f57efc"
+    },
+    {
+      "id": "conversion:2026-08-17",
+      "family": "conversion",
+      "from": "2026-08-17",
+      "to": "2026-08-18",
+      "estimateBytes": 31314746,
+      "sqlSha256": "6b5557916538c257a2a81e54de96d628e2fc1028583cb3ef69562c4f5413773c"
+    },
+    {
+      "id": "gas_price:2026-08-17",
+      "family": "gas_price",
+      "from": "2026-08-17",
+      "to": "2026-08-18",
+      "estimateBytes": 2262384,
+      "sqlSha256": "083d46c39b3f67bcbdf86422fba52ef46efd0cc108d82bf8ffe875a7d71916ed"
+    },
+    {
+      "id": "outcomes:2026-08-16",
+      "family": "outcomes",
+      "from": "2026-08-16",
+      "to": "2026-08-17",
+      "estimateBytes": 143028853,
+      "sqlSha256": "1be2a8710aecb7068aff1c0a5b901df5d75dcb7251707d883bc3901264340255"
+    },
+    {
+      "id": "conversion:2026-08-16",
+      "family": "conversion",
+      "from": "2026-08-16",
+      "to": "2026-08-17",
+      "estimateBytes": 28851208,
+      "sqlSha256": "80cc6844dfd4332b7b83f6c0abddee01b56b7bc1e952a2982f87f48654b70c17"
+    },
+    {
+      "id": "gas_price:2026-08-16",
+      "family": "gas_price",
+      "from": "2026-08-16",
+      "to": "2026-08-17",
+      "estimateBytes": 2281536,
+      "sqlSha256": "40fd77b4808331a5a14d32cbcb042d1645ee8182ea7332534a6098c52531b707"
+    },
+    {
+      "id": "outcomes:2026-08-15",
+      "family": "outcomes",
+      "from": "2026-08-15",
+      "to": "2026-08-16",
+      "estimateBytes": 132209566,
+      "sqlSha256": "7332fec0a1193eb7842ddd8d48134c1dc92d52f8074fc54e1b616b3ceabb73b7"
+    },
+    {
+      "id": "conversion:2026-08-15",
+      "family": "conversion",
+      "from": "2026-08-15",
+      "to": "2026-08-16",
+      "estimateBytes": 27331020,
+      "sqlSha256": "9230242cbbac6a0f75540d2d662905bd4c4b13acf28230df4e5df731127758b8"
+    },
+    {
+      "id": "gas_price:2026-08-15",
+      "family": "gas_price",
+      "from": "2026-08-15",
+      "to": "2026-08-16",
+      "estimateBytes": 2217104,
+      "sqlSha256": "ee168ad2e2777a65dc6de564e3d312c82cba747a47d1e283238a25b0a41b37b0"
+    },
+    {
+      "id": "outcomes:2026-08-14",
+      "family": "outcomes",
+      "from": "2026-08-14",
+      "to": "2026-08-15",
+      "estimateBytes": 148887993,
+      "sqlSha256": "465f6b9d95b71ed2e3d0dc47d9ca47ae840ea54591ba49e5998f15537a068efc"
+    },
+    {
+      "id": "conversion:2026-08-14",
+      "family": "conversion",
+      "from": "2026-08-14",
+      "to": "2026-08-15",
+      "estimateBytes": 29702771,
+      "sqlSha256": "275ac04facc3f314b5adedfafca411e8279e4a94db0f186af2af94953b585fdc"
+    },
+    {
+      "id": "gas_price:2026-08-14",
+      "family": "gas_price",
+      "from": "2026-08-14",
+      "to": "2026-08-15",
+      "estimateBytes": 2277392,
+      "sqlSha256": "1181a7a9b7a38e15be3d4561dfaec2949c1aec733b2c373ed6afd4dc40d64b6a"
+    },
+    {
+      "id": "outcomes:2026-08-13",
+      "family": "outcomes",
+      "from": "2026-08-13",
+      "to": "2026-08-14",
+      "estimateBytes": 153157508,
+      "sqlSha256": "490396bcf5a2e3154cc4499b4dd1a1b7c15dbf2c30b422885a252c5b6b39ef2a"
+    },
+    {
+      "id": "conversion:2026-08-13",
+      "family": "conversion",
+      "from": "2026-08-13",
+      "to": "2026-08-14",
+      "estimateBytes": 31034515,
+      "sqlSha256": "009c4f2973b49100ab48d918259a3bbdfa8304f40df71e2cf36f8fa721ffbd8e"
+    },
+    {
+      "id": "gas_price:2026-08-13",
+      "family": "gas_price",
+      "from": "2026-08-13",
+      "to": "2026-08-14",
+      "estimateBytes": 2258416,
+      "sqlSha256": "9df7d4acc971498d559297e10853eaede42508fac4133ad4e501273e6b0665f4"
+    },
+    {
+      "id": "outcomes:2026-08-12",
+      "family": "outcomes",
+      "from": "2026-08-12",
+      "to": "2026-08-13",
+      "estimateBytes": 161077779,
+      "sqlSha256": "f19086e5d9fd8118ef17e0f6a1287c8ca79a74833a533d504dbc066d04c9b335"
+    },
+    {
+      "id": "conversion:2026-08-12",
+      "family": "conversion",
+      "from": "2026-08-12",
+      "to": "2026-08-13",
+      "estimateBytes": 32019530,
+      "sqlSha256": "b8bca566c9bd226e129e0cfb90ec644ac6ab66f0e851e8c52c602f9b36a7c01b"
+    },
+    {
+      "id": "gas_price:2026-08-12",
+      "family": "gas_price",
+      "from": "2026-08-12",
+      "to": "2026-08-13",
+      "estimateBytes": 2232880,
+      "sqlSha256": "8f3981113cc4cc63e2896497e14c95ded5485ccdd8a36c04a29faaf388a7dbf7"
+    }
+  ]
+}

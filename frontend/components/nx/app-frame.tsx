@@ -1,17 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { AppShell } from './shell';
-import { AskPanel } from './ask-panel';
 import { CommandPalette, type PaletteAction } from './palette';
-import SmoothScroll from './smooth-scroll';
 import { TooltipProvider } from './overlays';
+import SmoothScroll from './smooth-scroll';
+import CreditsPopup from './credits-popup';
+import { AskDock } from './ask-dock';
+import { AskDockContext } from './ask-context';
+import { useWorkspaceStream } from '@/lib/sse/hub';
 
 /**
- * Client frame around every app route: the shell, the agent panel, the command
- * palette and the tooltip provider. Kept separate from the route-group layout
- * so that layout can stay a server component and only this subtree ships to the
- * browser.
+ * Client frame around every app route: the shell, the command palette and the
+ * tooltip provider. Kept separate from the route-group layout so that layout can
+ * stay a server component and only this subtree ships to the browser.
  */
 export default function AppFrame({
   workspaceId = null,
@@ -26,88 +29,47 @@ export default function AppFrame({
 }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
-
-  const toggleAsk = useCallback(() => setAskOpen((v) => !v), []);
-
-  // Cmd or Ctrl + J, the same shortcut the palette advertises.
+  // The panel mounts on first open (no agent calls on pages that never use it) and then stays mounted, so a draft survives a close.
+  const [askMounted, setAskMounted] = useState(false);
+  useEffect(() => {
+    if (askOpen) setAskMounted(true);
+  }, [askOpen]);
+  const router = useRouter();
+  // On a workspace page the Ask panel docks beside the page, bound to that workspace. Elsewhere Ask opens the Agent page.
+  const available = !!workspaceId;
+  const ask = useMemo(() => ({ available, open: available && askOpen, setOpen: setAskOpen }), [available, askOpen]);
+  // Cmd or Ctrl + J toggles the Ask panel (or opens the Agent page outside a workspace).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'j' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        toggleAsk();
+        if (available) setAskOpen((v) => !v);
+        else router.push('/agent');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [toggleAsk]);
-
-  // Theme is a display preference, so it lives in browser storage and nowhere
-  // near the authority the spec keeps on the server.
-  const toggleTheme = useCallback(() => {
-    const root = document.documentElement;
-    const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
-    root.dataset.theme = next;
-    try {
-      localStorage.setItem('nx.theme', next);
-    } catch {
-      /* blocked storage is not an error */
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('nx.theme');
-      if (saved) document.documentElement.dataset.theme = saved;
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
+  }, [router, available]);
   const paletteActions = useMemo<PaletteAction[]>(
-    () => [
-      {
-        id: 'ask',
-        group: 'Agent',
-        label: 'Ask a research question',
-        hint: '⌘J',
-        run: () => setAskOpen(true),
-      },
-      {
-        id: 'ask-toggle',
-        group: 'Agent',
-        label: askOpen ? 'Hide agent panel' : 'Show agent panel',
-        run: toggleAsk,
-      },
-      {
-        id: 'theme',
-        group: 'View',
-        label: 'Switch theme',
-        run: toggleTheme,
-      },
-      ...(actions ?? []),
-    ],
-    [actions, askOpen, toggleAsk, toggleTheme],
+    () => [{ id: 'ask-agent', group: 'Agent', label: 'Ask the agent a research question', hint: '⌘J', run: () => (available ? setAskOpen(true) : router.push('/agent')) }, ...(actions ?? [])],
+    [actions, router, available],
   );
-
+  // One live event stream per open workspace; events invalidate the query cache.
+  useWorkspaceStream(workspaceId);
   return (
     <TooltipProvider>
       <SmoothScroll />
-      <AppShell
-        workspaceId={workspaceId}
-        workspaceName={workspaceName}
-        onOpenPalette={() => setPaletteOpen(true)}
-        asideOpen={askOpen}
-        onToggleAside={toggleAsk}
-        aside={
-          <AskPanel
-            workspaceId={workspaceId}
-            workspaceName={workspaceName}
-            onClose={() => setAskOpen(false)}
-          />
-        }
-      >
-        {children}
-      </AppShell>
+      <AskDockContext.Provider value={ask}>
+        <AppShell
+          workspaceId={workspaceId}
+          workspaceName={workspaceName}
+          onOpenPalette={() => setPaletteOpen(true)}
+          aside={workspaceId && askMounted ? <AskDock key={workspaceId} workspaceId={workspaceId} workspaceName={workspaceName} onClose={() => setAskOpen(false)} /> : undefined}
+        >
+          {children}
+        </AppShell>
+      </AskDockContext.Provider>
+      <CreditsPopup />
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}

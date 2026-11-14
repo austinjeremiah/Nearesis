@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "reasonCode": {
+      "type": "string",
+      "minLength": 1
+    },
+    "retryability": {
+      "type": "string",
+      "enum": [
+        "retryable",
+        "not_retryable",
+        "human_action_needed"
+      ]
+    },
+    "humanActionNeeded": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lastCheckpoint": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "replayCommand": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "reasonCode",
+    "retryability",
+    "humanActionNeeded",
+    "lastCheckpoint",
+    "replayCommand"
+  ],
+  "additionalProperties": false
+}

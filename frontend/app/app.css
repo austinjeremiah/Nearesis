@@ -2330,111 +2330,6 @@ table.table {
    Pass 6: the Canvas layout surface, synthetic fixture marks, timeline.
    ========================================================================== */
 
-.cgrid {
-  position: relative;
-  width: 100%;
-}
-/* The track only shows while the reader is arranging panels. */
-.cgrid[data-grid='true'] {
-  background-image:
-    linear-gradient(to right, var(--line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--line) 1px, transparent 1px);
-  background-size: var(--cgrid-col) var(--cgrid-row);
-  background-position: 0 0;
-}
-.cgrid-item {
-  position: absolute;
-  top: 0;
-  left: 0;
-  will-change: transform;
-  transition: box-shadow var(--t-fast) var(--ease);
-}
-.cgrid-item > .card {
-  height: 100%;
-  overflow: hidden;
-}
-.cgrid-item > .card > .card-body {
-  overflow: auto;
-}
-.cgrid[data-locked='false'] .cgrid-item > .card > .card-head {
-  cursor: grab;
-}
-.cgrid-item[data-dragging='true'] {
-  z-index: 5;
-}
-.cgrid-item[data-dragging='true'] > .card {
-  box-shadow: var(--shadow-overlay);
-  border-color: var(--line-hard);
-}
-.cgrid-item[data-selected='true'] > .card {
-  border-color: var(--line-hard);
-  box-shadow: 0 0 0 2px var(--accent);
-}
-.cgrid-item:focus-visible {
-  outline: none;
-}
-.cgrid-item:focus-visible > .card {
-  box-shadow: var(--focus-ring);
-}
-.cgrid-resize {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 18px;
-  height: 18px;
-  cursor: nwse-resize;
-  touch-action: none;
-}
-.cgrid-resize::after {
-  content: '';
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid var(--line-strong);
-  border-bottom: 2px solid var(--line-strong);
-}
-
-/* The synthetic label travels with the panel, including into a screenshot. */
-.synthetic-stamp {
-  align-self: flex-start;
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  letter-spacing: 0.04em;
-  color: var(--bad);
-  background: var(--bad-bg);
-  border: 1px solid var(--bad);
-  border-radius: 3px;
-  padding: 2px 6px;
-}
-
-/* Agent timeline bars. An unfinished task is hatched, never filled solid. */
-.timeline-track {
-  position: relative;
-  height: 10px;
-  background: var(--sunken);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.timeline-bar {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: var(--ink);
-  border-radius: 2px;
-  min-width: 3px;
-}
-.timeline-bar[data-open='true'] {
-  background: repeating-linear-gradient(
-    45deg,
-    var(--text-3),
-    var(--text-3) 4px,
-    transparent 4px,
-    transparent 8px
-  );
-}
-
 /* The canvas toolbar: one row, wrapping, with the view controls grouped. */
 .canvas-toolbar {
   display: flex;
@@ -2463,140 +2358,12 @@ table.table {
 /* =============================================================================
    Agent panel: a docked third column, not a floating chat window.
    ========================================================================== */
-:root {
-  --ask-w: 400px;
-}
-.shell[data-ask='open'] {
-  grid-template-columns: var(--nav-w) minmax(0, 1fr) var(--ask-w);
-}
-.shell[data-nav='collapsed'][data-ask='open'] {
-  grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) var(--ask-w);
-}
-.askpanel {
-  grid-row: 1;
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border-left: 1px solid var(--line-strong);
-  overflow: hidden;
-}
-.ask-head {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  height: var(--topbar-h);
-  padding: 0 var(--s3) 0 var(--s4);
-  border-bottom: 1px solid var(--line-strong);
-}
-.ask-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: var(--s4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s4);
-}
-.ask-foot {
-  flex: none;
-  border-top: 1px solid var(--line-strong);
-  padding: var(--s3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s2);
-  background: var(--page);
-}
-.ask-foot .textarea {
-  width: 100%;
-  resize: none;
-}
-/* The question, set apart from the machine's answer the way a quote is. */
-.ask-bubble {
-  background: var(--sunken);
-  border-left: 2px solid var(--line-hard);
-  border-radius: var(--radius-sm);
-  padding: var(--s3);
-  font-size: var(--fs-small);
-}
-/* The run progression. A dot per step, filled once the step has a result. */
-.ask-steps {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.ask-steps > li {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--s3);
-  position: relative;
-  padding-left: 2px;
-}
-.ask-steps > li > .col {
-  flex: 1;
-}
-.ask-steps .dotmark {
-  width: 9px;
-  height: 9px;
-  margin-top: 5px;
-  flex: none;
-  border-radius: 50%;
-  border: 1.5px solid var(--text-3);
-}
-.ask-steps > li[data-state='succeeded'] .dotmark {
-  background: var(--ok);
-  border-color: var(--ok);
-}
-.ask-steps > li[data-state='running'] .dotmark {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.ask-steps > li[data-state='failed'] .dotmark,
-.ask-steps > li[data-state='blocked'] .dotmark {
-  background: var(--bad);
-  border-color: var(--bad);
-}
-/* The connector between steps, so the list reads as one progression. */
-.ask-steps > li:not(:last-child)::before {
-  content: '';
-  position: absolute;
-  left: 6px;
-  top: 18px;
-  bottom: -14px;
-  width: 1px;
-  background: var(--line);
-}
+
 .ellipsis {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-}
-
-/* Below the inspector breakpoint the agent panel floats instead of docking, so
-   it never squeezes the content it is being used to discuss. */
-@media (max-width: 1240px) {
-  .shell[data-ask='open'] {
-    grid-template-columns: var(--nav-w) minmax(0, 1fr);
-  }
-  .shell[data-nav='collapsed'][data-ask='open'] {
-    grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr);
-  }
-  .askpanel {
-    position: fixed;
-    right: 0;
-    top: 0;
-    z-index: var(--z-overlay);
-    width: min(var(--ask-w), 100vw);
-    height: 100dvh;
-    box-shadow: var(--shadow-overlay);
-  }
 }
 
 /* Grid auto-placement puts row-locked items first, in DOM order, so the agent
@@ -2646,9 +2413,6 @@ table.table {
   gap: var(--s2);
 }
 .card-foot {
-  gap: var(--s3);
-}
-.ask-head {
   gap: var(--s3);
 }
 
@@ -2979,17 +2743,9 @@ table.table {
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
-.main:has(.with-inspector) {
-  overflow: hidden;
-}
 .content {
   overflow: visible;
   scrollbar-gutter: auto;
-}
-.main:has(.with-inspector) .content {
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-gutter: stable;
 }
 /* The run strip belongs to the frame, not to the document being read. */
 .runstrip {
@@ -3036,17 +2792,25 @@ table.table {
    itself holds its width inside a clipping slot so nothing reflows mid-slide.
    -------------------------------------------------------------------------- */
 .shell {
-  grid-template-columns: var(--nav-w) minmax(0, 1fr) 0px;
   transition: grid-template-columns 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
-.shell[data-nav='collapsed'] {
-  grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) 0px;
+/* Desktop only: below 900px the shell is one column and the rail is a drawer. */
+@media (min-width: 901px) {
+  .shell {
+    grid-template-columns: var(--nav-w) minmax(0, 1fr) 0px;
+  }
+  .shell[data-nav='collapsed'] {
+    grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) 0px;
+  }
+  .shell[data-ask='open'] {
+    grid-template-columns: var(--nav-w) minmax(0, 1fr) var(--ask-w);
+  }
+  .shell[data-nav='collapsed'][data-ask='open'] {
+    grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) var(--ask-w);
+  }
 }
-.shell[data-ask='open'] {
-  grid-template-columns: var(--nav-w) minmax(0, 1fr) var(--ask-w);
-}
-.shell[data-nav='collapsed'][data-ask='open'] {
-  grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) var(--ask-w);
+:root {
+  --ask-w: 330px;
 }
 .ask-slot {
   grid-row: 1;
@@ -3055,28 +2819,78 @@ table.table {
   overflow: hidden;
 }
 .askpanel {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   width: var(--ask-w);
   margin-left: auto;
+  background: var(--surface);
+  color: var(--text);
+  border-left: 1px solid var(--line-strong);
+  overflow: hidden;
   opacity: 0;
   transition: opacity 180ms var(--ease);
 }
 .shell[data-ask='open'] .askpanel {
   opacity: 1;
 }
-@media (prefers-reduced-motion: reduce) {
-  .shell,
-  .askpanel {
-    transition: none;
-  }
+.ask-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  height: var(--topbar-h);
+  padding: 0 var(--s2) 0 var(--s3);
+  border-bottom: 1px solid var(--line-strong);
 }
-@media (max-width: 1240px) {
-  .shell[data-ask='open'],
-  .shell[data-nav='collapsed'][data-ask='open'] {
-    grid-template-columns: var(--nav-w) minmax(0, 1fr) 0px;
-  }
-  .shell[data-nav='collapsed'][data-ask='open'] {
-    grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr) 0px;
-  }
+.ask-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--s3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+.ask-foot {
+  flex: none;
+  padding: var(--s2) var(--s3) var(--s3);
+  background: var(--surface);
+}
+/* The composer: a white card with the question box, the credits line and the green Ask button. */
+.ask-composer-card {
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ask-composer-card textarea {
+  width: 100%;
+  resize: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: #000;
+  outline: none;
+  box-shadow: none;
+}
+.ask-composer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ask-budget {
+  font-size: var(--fs-tiny);
+  color: var(--text-2);
+}
+@media (max-width: 900px) {
   .ask-slot {
     overflow: visible;
   }
@@ -3093,6 +2907,12 @@ table.table {
   }
   .shell[data-ask='open'] .askpanel {
     transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell,
+  .askpanel {
+    transition: none;
   }
 }
 
@@ -3117,9 +2937,6 @@ table.table {
    Pass 10: chrome on a diet. The rail and the agent panel take an editor's
    proportions so the content column keeps the room.
    ========================================================================== */
-:root {
-  --ask-w: 330px;
-}
 /* Navigation reads as a list of destinations, not as body copy. */
 .nx .nav-item {
   height: 34px;
@@ -3144,17 +2961,6 @@ table.table {
   margin-top: var(--s2);
   padding-top: var(--s2);
 }
-.ask-head {
-  height: var(--topbar-h);
-  padding: 0 var(--s2) 0 var(--s3);
-}
-.ask-body {
-  padding: var(--s3);
-  gap: var(--s3);
-}
-.ask-foot {
-  padding: var(--s2) var(--s3) var(--s3);
-}
 
 /* The smooth scroller measures this element, so it must be the only child of
    the scrollport and must not introduce a layout of its own. */
@@ -3166,29 +2972,17 @@ table.table {
 }
 
 /* =============================================================================
-   Pass 11: the dark page skin, taken from the marketing site's approach
-   section. #1d1d1d under the same question-mark field at 40%, which is exactly
-   how `.approach-bg` is built on the landing page.
+   Pass 11: the reading paper.
 
-   Only the paper changes. The cards keep their cream, the way the white card
-   sits on the black panel over there, and the pieces that are drawn directly
-   on the paper flip so they stay legible.
+   The product sits on a near-black column (`--paper`), with the greige cards on
+   it and a NEAR-green rail beside it. Everything drawn straight onto the paper
+   goes through the paper tokens, so the dark theme redefines the tokens and
+   nothing here has to know which theme it is in.
    ========================================================================== */
 [data-skin='ink'] .main {
-  background-color: #1d1d1d;
-  color: var(--text-on-dark);
+  background-color: var(--paper);
+  color: var(--on-paper);
   position: relative;
-}
-[data-skin='ink'] .main::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.4;
-  background-image: url('/assets/6a95735b50765dc3934a1495_slider_bg.avif');
-  background-position: 100%;
-  background-size: auto;
-  pointer-events: none;
-  z-index: 0;
 }
 [data-skin='ink'] .main-inner {
   position: relative;
@@ -3198,16 +2992,16 @@ table.table {
 /* --- chrome drawn straight onto the paper --------------------------------- */
 [data-skin='ink'] .topbar {
   background: transparent;
-  border-bottom-color: rgba(241, 239, 226, 0.18);
-  color: var(--text-on-dark);
+  border-bottom-color: var(--paper-line);
+  color: var(--on-paper);
 }
 [data-skin='ink'] .pagehead {
-  border-bottom-color: rgba(241, 239, 226, 0.18);
+  border-bottom-color: var(--paper-line);
 }
 [data-skin='ink'] .display-title,
 [data-skin='ink'] .pagehead .h2,
-[data-skin='ink'] .nx .btn.ghost {
-  color: var(--text-on-dark);
+.nx[data-skin='ink'] :is(.topbar, .pagehead) .btn.ghost {
+  color: var(--on-paper);
 }
 [data-skin='ink'] .lede,
 [data-skin='ink'] .pagehead .small.dim,
@@ -3215,56 +3009,70 @@ table.table {
 [data-skin='ink'] .crumbs a,
 [data-skin='ink'] .content > .tiny.dim,
 [data-skin='ink'] .content > p.small {
-  color: var(--text-on-dark-2);
+  color: var(--on-paper-2);
 }
-[data-skin='ink'] .nx .btn.ghost:hover:not(:disabled) {
-  background: rgba(241, 239, 226, 0.12);
-  color: var(--text-on-dark);
+.nx[data-skin='ink'] :is(.topbar, .pagehead) .btn.ghost:hover:not(:disabled) {
+  background: var(--paper-hover);
+  color: var(--on-paper);
 }
 /* The bracketed action inverts: pale marks, and a pale fill on hover. */
-[data-skin='ink'] .nx .bracket-btn {
-  color: var(--text-on-dark);
+.nx[data-skin='ink'] .bracket-btn {
+  color: var(--on-paper);
 }
-[data-skin='ink'] .nx .bracket-btn .corner {
-  border-color: rgba(241, 239, 226, 0.55);
+.nx[data-skin='ink'] .bracket-btn .corner {
+  border-color: var(--on-paper-3);
 }
-[data-skin='ink'] .nx .bracket-btn:hover:not(:disabled),
-[data-skin='ink'] .nx .bracket-btn:focus-visible:not(:disabled) {
-  background: var(--invert);
-  color: #1d1d1d;
+.nx[data-skin='ink'] .bracket-btn:hover:not(:disabled),
+.nx[data-skin='ink'] .bracket-btn:focus-visible:not(:disabled) {
+  background: var(--paper-mark);
+  color: var(--on-paper-mark);
 }
 
-/* The section bar flips to pale on ink, exactly as BY THE NUMBERS does on the
-   landing page. A black bar on a black panel is not a section marker. */
+/* The section bar flips to pale on the paper, exactly as BY THE NUMBERS does on
+   the landing page. A black bar on a black panel is not a section marker. */
 [data-skin='ink'] .section-bar {
-  background: var(--invert);
-  color: var(--ink);
+  background: var(--paper-mark);
+  color: var(--on-paper-mark);
 }
 [data-skin='ink'] .section-bar .n {
-  color: var(--ink);
+  color: var(--on-paper-mark);
   opacity: 0.55;
 }
 [data-skin='ink'] .section-rule .sq,
 [data-skin='ink'] .dot-rule .sq {
-  background: rgba(241, 239, 226, 0.7);
+  background: var(--on-paper-3);
 }
 [data-skin='ink'] .section-rule .ln,
 [data-skin='ink'] .dot-rule .ln {
-  background: rgba(241, 239, 226, 0.25);
+  background: var(--paper-line);
 }
 [data-skin='ink'] .section-action a {
-  color: var(--text-on-dark);
+  color: var(--on-paper);
+}
+/* Marks that are ink by definition invert, so they stay visible on the paper. */
+[data-skin='ink'] .main .tabstrip-tab[aria-selected='true'] {
+  background: var(--paper-mark);
+  color: var(--on-paper-mark);
+}
+[data-skin='ink'] .main .tabstrip-tab[aria-selected='true'] .n {
+  color: var(--on-paper-mark);
+  opacity: 0.6;
+}
+[data-skin='ink'] .main .seg > button[aria-pressed='true'] {
+  background: var(--paper-mark);
+  color: var(--on-paper-mark);
+}
+[data-skin='ink'] .main .runstrip {
+  border-top: 1px solid var(--paper-line);
 }
 
-/* A surface carries its own ink. The dark paper sets a pale text colour for
-   anything drawn straight onto it, and without this reset a cream card would
-   inherit that pale colour and print its title in cream on cream. */
+/* A surface carries its own ink. The paper sets a pale text colour for anything
+   drawn straight onto it, and without this reset a card would inherit it. */
 .nx .card,
 .nx .notice,
 .nx .empty,
 .nx .table-wrap,
 .nx .inspector,
-.nx .askpanel,
 .nx .nav,
 .nx .popover,
 .nx .dialog,
@@ -3272,103 +3080,107 @@ table.table {
 .nx .palette {
   color: var(--text);
 }
-
-
-
-/* Plain rich black, no texture. #0e0f11 rather than pure #000: a touch of blue
-   in the mix keeps it from going flat grey on an LCD and gives the cream cards
-   a cleaner edge against it. */
-[data-skin='ink'] .main {
-  background-color: #0e0f11;
+/* The rail sets its own ink. */
+.nx .nav {
+  color: var(--on-rail);
 }
-[data-skin='ink'] .main::before {
-  display: none;
+
+/* The published reader is a document, so it has no shell: the paper is painted
+   on the page wrapper itself. */
+.nx[data-skin='ink'] {
+  background: var(--paper);
 }
 
 /* =============================================================================
-   Pass 12: the rail in NEAR green.
-   The template's accent carries the navigation, with ink text on top of it, so
-   the rail reads as the brand surface and the content column stays paper.
+   Pass 12: the rail in NEAR green (a deep green in the dark theme).
    ========================================================================== */
 .nav {
-  background: var(--accent);
-  border-right: 1px solid var(--ink);
-  color: var(--ink);
+  background: var(--rail);
+  border-right: 1px solid var(--rail-line);
+  color: var(--on-rail);
 }
 .nav-top,
 .nav-foot,
 .nav-section.workspace {
-  border-color: rgba(0, 0, 0, 0.22);
+  border-color: var(--rail-line);
 }
 .nx .nav-item {
-  color: rgba(0, 0, 0, 0.78);
+  color: var(--on-rail-2);
   font-size: var(--fs-body);
   font-weight: 600;
   height: 38px;
 }
 .nx .nav-item .ico {
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--on-rail-3);
   width: 16px;
   height: 16px;
 }
 .nx .nav-item:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: var(--ink);
+  background: var(--rail-hover);
+  color: var(--on-rail);
 }
 .nx .nav-item:hover .ico {
-  color: var(--ink);
+  color: var(--on-rail);
 }
-/* The active destination is ink on green, the inverse of everything else. */
+/* The active destination is the inverse of everything else on the rail. */
 .nx .nav-item[aria-current='page'] {
-  background: var(--ink);
-  color: var(--accent);
+  background: var(--rail-active);
+  color: var(--on-rail-active);
   font-weight: 700;
 }
 .nx .nav-item[aria-current='page'] .ico {
-  color: var(--accent);
-}
-.nx .nav-item[aria-current='page']::before {
-  background: var(--accent);
+  color: var(--on-rail-active);
 }
 .nx .nav-group-head {
-  color: rgba(0, 0, 0, 0.62);
+  color: var(--on-rail-3);
   font-size: var(--fs-tiny);
   font-weight: 700;
 }
 .nx .nav-group-head:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: var(--ink);
+  background: var(--rail-hover);
+  color: var(--on-rail);
 }
 .nav-top .label {
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--on-rail-3);
 }
 .nav-top .small.strong {
-  color: var(--ink);
+  color: var(--on-rail);
   font-size: var(--fs-body);
   font-weight: 700;
 }
 .nav-collapse {
-  color: rgba(0, 0, 0, 0.7);
+  color: var(--on-rail-2);
 }
 .nav-collapse:hover {
-  background: rgba(0, 0, 0, 0.1);
-  color: var(--ink);
+  background: var(--rail-hover);
+  color: var(--on-rail);
 }
 .nav-item .count {
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--on-rail-3);
+}
+/* The active destination takes the kicker's shape: same notched corner. */
+.nx .nav-item[aria-current='page'] {
+  border-radius: var(--radius-sm) var(--radius-sm) var(--radius-sm) 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+.nx .nav-item[aria-current='page']::before {
+  display: none;
 }
 
 /* =============================================================================
-   Pass 13: the dark paper, applied to the whole product.
+   Pass 13: cards on the paper, light theme only.
 
-   Done with tokens rather than by patching components. The reading column
-   redefines text and line colours for the dark paper, and every light surface
-   sitting on it restores them. Anything built from the tokens, a button, a
-   label, a tab strip, an empty state, therefore flips on its own, and nothing
-   has to know which paper it happens to be standing on.
+   In the light theme the paper is near-black, so the reading column redefines
+   text and line tokens for it and every light surface sitting on it takes them
+   back. A surface is caught three ways, so a new one is readable by default: the
+   shared `.surface` class or `data-surface` attribute, a class name containing
+   card, tile, panel, box, wrap or block, and the explicit names below.
+   Anything built from the tokens (a button, a label, a tab strip, an empty
+   state) flips on its own. The dark theme needs none of this: its tokens are
+   already pale-on-dark everywhere, so cards just lift off the darker paper.
    ========================================================================== */
-[data-skin='ink'] .main,
-[data-skin='ink'] .doc {
+.nx[data-skin='ink']:not([data-theme='dark']) .main,
+.nx[data-skin='ink']:not([data-theme='dark']) .doc {
   --text: #f1efe2;
   --text-2: rgba(241, 239, 226, 0.74);
   --text-3: rgba(241, 239, 226, 0.56);
@@ -3377,7 +3189,7 @@ table.table {
   --line-hard: #f1efe2;
   --sunken: rgba(241, 239, 226, 0.1);
   --raised: rgba(241, 239, 226, 0.06);
-  /* Status hues lighten for the dark paper. Same meanings, legible ink. */
+  /* Status hues lighten for the paper. Same meanings, legible ink. */
   --ok: #6dcf9c;
   --ok-bg: #16311f;
   --warn: #e0b45d;
@@ -3393,10 +3205,16 @@ table.table {
   --mode-replay: #e0b45d;
   color: var(--text);
 }
-/* A light surface is a light surface. It takes the paper tokens back. */
-[data-skin='ink']
-  :is(.card, .notice, .empty, .table-wrap, .popover, .dialog, .inspector, .gnode, .graph-detail,
-     .graph-controls, .graph-hint) {
+/* A light surface is a light surface. It takes the light tokens back. */
+.nx[data-skin='ink']:not([data-theme='dark'])
+  :is(.surface, [data-surface], [class*='card'], [class*='tile'], [class*='panel'], [class*='-box'], [class*='-wrap'], [class*='block'],
+     .askpanel, .card, .notice, .empty, .table-wrap, .popover, .dialog, .inspector, .gnode, .graph-detail,
+     .graph-controls, .graph-hint, .meter, .chain-step,
+     .ag-card, .ag-chartcard, .ag-composer-wrap, .ag-consent, .ag-empty, .ag-plan, .ag-timeline,
+     .ag-switch, .ag-wait, .ag-zone-chat, .ag-zone-rail, .ag-finding, .ag-user, .ag-thread,
+     .home-finding, .home-hero, .home-kpi, .home-live, .home-step, .home-thesis,
+     .nxp, .rv-approval, .rv-finding, .rv-log, .rv-step, .rv-tile,
+     .tt-acc, .tt-chart, .tt-ev, .tt-mind, .tt-notbuilt, .tt-repro, .tt-unable li, .tt-verdict) {
   --text: #000000;
   --text-2: #2f2e28;
   --text-3: #4a493f;
@@ -3420,40 +3238,13 @@ table.table {
   --mode-replay: #7d5209;
   color: var(--text);
 }
-/* Marks that are ink by definition invert, so they stay visible on black. */
-[data-skin='ink'] .main .tabstrip-tab[aria-selected='true'] {
-  background: var(--invert);
-  color: #0e0f11;
-}
-[data-skin='ink'] .main .tabstrip-tab[aria-selected='true'] .n {
-  color: #0e0f11;
-  opacity: 0.6;
-}
-[data-skin='ink'] .main .seg > button[aria-pressed='true'] {
-  background: var(--invert);
-  color: #0e0f11;
-}
-[data-skin='ink'] .main .runstrip {
-  border-top: 1px solid rgba(241, 239, 226, 0.22);
-}
-
-/* The rail green, pulled back a step. The full-strength accent is kept for
-   marks that have to shout (the primary action, an active state); the rail is
-   a surface you look at all day, so it sits slightly softer. One knob. */
-:root {
-  --rail: color-mix(in srgb, var(--accent) 72%, #dcdacb);
-}
-.nav {
-  background: var(--rail);
-}
 
 /* =============================================================================
    Pass 14: cards answer the pointer.
 
    A card that leads somewhere lifts slightly and firms its edge, over the
    whole card rather than over its heading. A card that is only a container of
-   facts does not move, because nothing happens if you click it, and a surface
-   that invites a click it cannot honour is worse than a still one.
+   facts does not move, because nothing happens if you click it.
    ========================================================================== */
 .nx .card {
   transition:
@@ -3461,33 +3252,12 @@ table.table {
     box-shadow 170ms var(--ease),
     border-color 170ms var(--ease);
 }
-/* Navigable: it contains a real link. */
 .nx .content .card:has(a[href]):hover {
   transform: translateY(-2px);
-  /* The accent marks the thing under the pointer, the way the active nav item
-     and the primary action use it. */
   border-color: var(--accent);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
-}
-[data-skin='ink'] .content .card:has(a[href]):hover {
-  border-color: var(--accent);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
 }
 .nx .content .card:not(:has(a[href])):hover {
   border-color: var(--line-strong);
-}
-/* Static cards still acknowledge the pointer, without pretending to be a link. */
-.nx .content .card:not(:has(a[href])):hover {
-  border-color: var(--line-strong);
-}
-/* A panel on the canvas is dragged, not clicked through, so it never lifts. */
-.nx .cgrid-item .card:hover,
-.nx .cgrid-item .card:has(a[href]):hover {
-  transform: none;
-  box-shadow: none;
-}
-.nx .cgrid-item[data-dragging='true'] > .card {
-  box-shadow: var(--shadow-overlay);
 }
 @media (prefers-reduced-motion: reduce) {
   .nx .card {
@@ -3498,166 +3268,11 @@ table.table {
   }
 }
 
-/* =============================================================================
-   Pass 15: the inspector is summoned, not parked.
-
-   With nothing selected the canvas has the full width, which is what a canvas
-   is for. Selecting a panel slides the inspector in from the edge; clearing the
-   selection slides it away. Same mechanism as the agent panel: the track
-   animates from zero and the pane holds its width inside a clipping slot, so
-   nothing reflows mid-slide.
-   ========================================================================== */
-.with-inspector {
-  grid-template-columns: minmax(0, 1fr) 0px;
-  transition: grid-template-columns 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-.with-inspector[data-inspector='open'] {
-  grid-template-columns: minmax(0, 1fr) var(--inspector-w);
-}
-.inspector-slot {
-  min-width: 0;
-  overflow: hidden;
-  height: 100%;
-}
-.inspector {
-  width: var(--inspector-w);
-  margin-left: auto;
-  opacity: 0;
-  transition: opacity 160ms var(--ease);
-}
-.with-inspector[data-inspector='open'] .inspector {
-  opacity: 1;
-}
-.inspector-head {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-}
-@media (prefers-reduced-motion: reduce) {
-  .with-inspector,
-  .inspector {
-    transition: none;
-  }
-}
-@media (max-width: 1100px) {
-  .with-inspector,
-  .with-inspector[data-inspector='open'] {
-    grid-template-columns: minmax(0, 1fr) 0px;
-  }
-  .inspector-slot {
-    overflow: visible;
-  }
-  .with-inspector[data-inspector='open'] .inspector {
-    display: flex;
-    position: fixed;
-    z-index: var(--z-overlay);
-    top: 0;
-    right: 0;
-    height: 100dvh;
-    width: min(var(--inspector-w-max), 100vw);
-    box-shadow: var(--shadow-overlay);
-  }
-}
-
-/* The published reader is a document, so it has no shell: the dark paper is
-   painted on the page wrapper itself. */
-.nx[data-skin='ink'] {
-  background: #0e0f11;
-}
-
-/* The active destination takes the kicker's shape: same notched corner, same
-   radius, so the mark that says "you are here" in the rail and the mark that
-   labels the page are recognisably the same object. */
-.nx .nav-item[aria-current='page'] {
-  border-radius: var(--radius-sm) var(--radius-sm) var(--radius-sm) 0;
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px));
-}
-/* The inset accent bar would be sliced by the notch, and the fill already
-   carries the state. */
-.nx .nav-item[aria-current='page']::before {
-  display: none;
-}
-
-/* =============================================================================
-   Pass 16: the inspector slides on a transform, and every container takes the
-   notched corner.
-   ========================================================================== */
-
-/* The track changes in one step; the pane does the moving. Animating the track
-   itself re-laid out the canvas column on every frame. */
-.with-inspector {
-  transition: none;
-}
-.inspector {
-  transform: translateX(100%);
-  opacity: 0;
-  transition:
-    transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    opacity 150ms var(--ease);
-  will-change: transform;
-}
-.with-inspector[data-pane='in'] .inspector {
-  transform: none;
-  opacity: 1;
-}
-@media (prefers-reduced-motion: reduce) {
-  .inspector {
-    transition: none;
-  }
-}
-
 /* --- the notched corner, on every container ------------------------------- */
 .nx .card,
 .nx .empty,
 .nx .table-wrap {
   border-radius: var(--radius) var(--radius) var(--radius) 0;
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 20px 100%, 0 calc(100% - 20px));
-}
-/* A clip path cuts the drop shadow off with everything else, so the hover
-   state is carried by the edge and the lift alone. That suits the house style
-   better anyway: hard edges, no glow. */
-.nx .content .card:has(a[href]):hover,
-[data-skin='ink'] .content .card:has(a[href]):hover {
-  box-shadow: none;
-}
-/* A panel being dragged keeps a square corner: the notch reads as a resting
-   state, and the drag already has its own treatment. */
-.nx .cgrid-item[data-dragging='true'] > .card {
-  clip-path: none;
-  border-radius: var(--radius);
-}
-
-/* -----------------------------------------------------------------------------
-   The inspector floats over the canvas rather than taking a column from it.
-
-   Opening it used to change the grid track, which re-laid out the canvas and
-   resized every chart in it: one 100ms hitch at the click, however the
-   animation was written. Floating it costs nothing. No track changes, no
-   panel moves, no chart redraws, and the pane is pure transform at 60fps.
-   The canvas also keeps its full width the whole time, which is the point.
-   -------------------------------------------------------------------------- */
-.with-inspector {
-  position: relative;
-  grid-template-columns: minmax(0, 1fr) 0px;
-}
-.with-inspector[data-inspector='open'] {
-  grid-template-columns: minmax(0, 1fr) 0px;
-}
-.inspector-slot {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: var(--inspector-w);
-  overflow: hidden;
-  pointer-events: none;
-}
-.with-inspector[data-pane='in'] .inspector-slot {
-  pointer-events: auto;
-}
-.inspector {
-  height: 100%;
-  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.28);
 }
 
 /* =============================================================================
@@ -3708,7 +3323,8 @@ table.table {
 }
 
 /* The notch is a corner detail, not a bite: 16px, and the footer keeps its
-   text clear of it. */
+   text clear of it. A clip path cuts a drop shadow off with everything else, so
+   hover is carried by the edge and the lift alone: hard edges, no glow. */
 .nx .card,
 .nx .empty,
 .nx .table-wrap {
@@ -3804,21 +3420,10 @@ table.table {
     inset 0 0 0 1px var(--accent),
     inset 0 -3px 0 0 var(--accent);
 }
-[data-skin='ink'] .content .card:has(a[href]):hover {
-  border-color: var(--accent);
-  box-shadow:
-    inset 0 0 0 1px var(--accent),
-    inset 0 -3px 0 0 var(--accent);
-}
 .nx .content .card:has(a[href]):hover .card-head .h3 {
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-thickness: 1.5px;
-}
-/* Canvas panels keep their own behaviour. */
-.nx .cgrid-item .card:hover {
-  background: var(--surface);
-  box-shadow: none;
 }
 
 /* Source health as aligned columns. Subgrid means every row shares one set of
@@ -3859,3 +3464,169 @@ table.table {
     row-gap: 4px;
   }
 }
+
+/* =============================================================================
+   Top bar density. The controls keep their label width (they never shrink), so
+   the bar spends its slack on padding and on trimming the account label rather
+   than on wrapping text into a column.
+   ========================================================================== */
+.nx .topbar {
+  gap: var(--s3);
+}
+.nx .topbar .btn.ghost {
+  padding: 0 10px;
+  gap: 7px;
+}
+.nx .topbar .btn.icon,
+.nx .topbar .btn.icon.ghost {
+  padding: 0;
+}
+.nx .topbar [data-testid='me-label'] {
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.nx .topbar > .row {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.nx .topbar [data-testid='stream-status'] {
+  white-space: nowrap;
+}
+.nx .topbar [data-testid='me-label'] {
+  flex: 0 1 auto;
+}
+.nx .topbar [data-testid='me-label'] {
+  min-width: 9ch;
+}
+@media (max-width: 1560px) {
+  .nx .topbar kbd,
+  .nx .topbar [data-testid='me-label'] .tiny {
+    display: none;
+  }
+}
+.nx .topbar {
+  padding: 0 var(--s4) 0 var(--s5);
+}
+
+/* =============================================================================
+   Canvas arrange mode: the drag/resize layout surface used while editing.
+   ========================================================================== */
+.cgrid {
+  position: relative;
+  width: 100%;
+}
+/* The track only shows while the reader is arranging panels. */
+.cgrid[data-grid='true'] {
+  background-image:
+    linear-gradient(to right, var(--line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+  background-size: var(--cgrid-col) var(--cgrid-row);
+  background-position: 0 0;
+}
+.cgrid-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+  transition: box-shadow var(--t-fast) var(--ease);
+}
+.cgrid-item > .card {
+  height: 100%;
+  overflow: hidden;
+}
+.cgrid-item > .card > .card-body {
+  overflow: auto;
+}
+.cgrid[data-locked='false'] .cgrid-item > .card > .card-head {
+  cursor: grab;
+}
+.cgrid-item[data-dragging='true'] {
+  z-index: 5;
+}
+.cgrid-item[data-dragging='true'] > .card {
+  box-shadow: var(--shadow-overlay);
+  border-color: var(--line-hard);
+}
+.cgrid-item[data-selected='true'] > .card {
+  border-color: var(--line-hard);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.cgrid-item:focus-visible {
+  outline: none;
+}
+.cgrid-item:focus-visible > .card {
+  box-shadow: var(--focus-ring);
+}
+.cgrid-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.cgrid-resize::after {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--line-strong);
+  border-bottom: 2px solid var(--line-strong);
+}
+
+
+/* On the paper, the arrange track is drawn in the paper's own line colour. */
+.cgrid-item > .nxp-cell.fill,
+.cgrid-item > .nxp-cell.fill > .nxp {
+  height: 100%;
+}
+.cgrid-item > .nxp-cell.fill {
+  grid-column: auto;
+}
+.cgrid-item > .nxp-cell.fill > .nxp {
+  overflow: hidden;
+}
+.cgrid-item[data-selected='true'] > .nxp-cell > .nxp {
+  outline: 2px solid var(--accent);
+}
+.cgrid[data-locked='false'] .cgrid-item {
+  cursor: grab;
+}
+
+/* Ask panel composer wins over the Agent page's textarea defaults. */
+.nx .ask-composer-card textarea,
+.nx .askpanel .ag-composer .ask-composer-card textarea {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  resize: none;
+}
+.askpanel .sr-only,
+.ag-composer .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Quick-answer chart cards on the Agent page take the panel card's shape. */
+.ag-chartcard {
+  border: 1px solid var(--line);
+  border-radius: 8px 8px 8px 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+}
+.ag-chartcard-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+.ag-chartcard-body { padding: 10px 16px 6px; }
+.ag-chartcard-foot { padding: 8px 16px 10px; }
+.nx .ask-composer-card { color: #000; }
+.nx .ask-composer-card .ask-budget { color: #4a493f; }
+.nx .ask-composer-card textarea::placeholder { color: #6b6a5f; }

@@ -1,0 +1,237 @@
+{
+ "generatedAt": "2026-11-14T11:25:11.929Z",
+ "checks": [
+  {
+   "name": "total tokens and gas per day (all executors)",
+   "localTable": "near_economics_outcomes_daily",
+   "result": {
+    "matchingDays": 94,
+    "onlyMineDays": 275,
+    "onlyTheirsDays": 0,
+    "tokens": {
+     "maxAbsDiffYocto": "0",
+     "maxAbsDiffDay": null,
+     "maxRelDiff": "0.000000000000",
+     "identicalDays": 94
+    },
+    "gas": {
+     "maxAbsDiff": "0",
+     "maxAbsDiffDay": null,
+     "maxRelDiff": "0.000000000000",
+     "identicalDays": 94
+    },
+    "worst": [
+     {
+      "d": "2026-08-12",
+      "mineTokens": "794687018487346045355372544",
+      "theirsTokens": "794687018487346045355372544",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-13",
+      "mineTokens": "757478011824054618073563136",
+      "theirsTokens": "757478011824054618073563136",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-14",
+      "mineTokens": "754638250627652063638425600",
+      "theirsTokens": "754638250627652063638425600",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-15",
+      "mineTokens": "662498222417536879478685696",
+      "theirsTokens": "662498222417536879478685696",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-16",
+      "mineTokens": "699598868060815239055167488",
+      "theirsTokens": "699598868060815239055167488",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     }
+    ]
+   }
+  },
+  {
+   "name": "executor intents.near only (tokens and gas)",
+   "localTable": "near_economics_outcomes_daily (rows of intents.near; accounts under 100 outcomes a day are folded there)",
+   "result": {
+    "matchingDays": 94,
+    "onlyMineDays": 275,
+    "onlyTheirsDays": 0,
+    "tokens": {
+     "maxAbsDiffYocto": "0",
+     "maxAbsDiffDay": null,
+     "maxRelDiff": "0.000000000000",
+     "identicalDays": 94
+    },
+    "gas": {
+     "maxAbsDiff": "0",
+     "maxAbsDiffDay": null,
+     "maxRelDiff": "0.000000000000",
+     "identicalDays": 94
+    },
+    "worst": [
+     {
+      "d": "2026-08-12",
+      "mineTokens": "76946301989982845130629120",
+      "theirsTokens": "76946301989982845130629120",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-13",
+      "mineTokens": "73516633066239139841671168",
+      "theirsTokens": "73516633066239139841671168",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-14",
+      "mineTokens": "74302285857664098797215744",
+      "theirsTokens": "74302285857664098797215744",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-15",
+      "mineTokens": "51550588398248754556928000",
+      "theirsTokens": "51550588398248754556928000",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-16",
+      "mineTokens": "65326585233279486727708672",
+      "theirsTokens": "65326585233279486727708672",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     }
+    ]
+   }
+  },
+  {
+   "name": "transaction conversion burn per day (tokens, gas)",
+   "localTable": "near_economics_conversion_daily (scope day)",
+   "result": {
+    "matchingDays": 94,
+    "onlyMineDays": 275,
+    "onlyTheirsDays": 0,
+    "tokens": {
+     "maxAbsDiffYocto": "0",
+     "maxAbsDiffDay": null,
+     "maxRelDiff": "0.000000000000",
+     "identicalDays": 94
+    },
+    "gas": {
+     "maxAbsDiff": "0",
+     "maxAbsDiffDay": null,
+     "maxRelDiff": "0.000000000000",
+     "identicalDays": 94
+    },
+    "worst": [
+     {
+      "d": "2026-08-12",
+      "mineTokens": "31893898793871946007793664",
+      "theirsTokens": "31893898793871946007793664",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-13",
+      "mineTokens": "30506536374154765761675264",
+      "theirsTokens": "30506536374154765761675264",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-14",
+      "mineTokens": "29870272114694141795110912",
+      "theirsTokens": "29870272114694141795110912",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-15",
+      "mineTokens": "27477378168684384878075904",
+      "theirsTokens": "27477378168684384878075904",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-16",
+      "mineTokens": "28586355324446841267200000",
+      "theirsTokens": "28586355324446841267200000",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     }
+    ]
+   }
+  },
+  {
+   "name": "blocks.gas_price sum (in the tokens column) and block count (in the gas column)",
+   "localTable": "near_economics_gas_price_daily",
+   "result": {
+    "matchingDays": 94,
+    "onlyMineDays": 275,
+    "onlyTheirsDays": 0,
+    "tokens": {
+     "maxAbsDiffYocto": "0",
+     "maxAbsDiffDay": null,
+     "maxRelDiff": "0.000000000000",
+     "identicalDays": 94
+    },
+    "gas": {
+     "maxAbsDiff": "0",
+     "maxAbsDiffDay": null,
+     "maxRelDiff": "0.000000000000",
+     "identicalDays": 94
+    },
+    "worst": [
+     {
+      "d": "2026-08-12",
+      "mineTokens": "13955500000000",
+      "theirsTokens": "13955500000000",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-13",
+      "mineTokens": "14115100000000",
+      "theirsTokens": "14115100000000",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-14",
+      "mineTokens": "14233700000000",
+      "theirsTokens": "14233700000000",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-15",
+      "mineTokens": "13856900000000",
+      "theirsTokens": "13856900000000",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     },
+     {
+      "d": "2026-08-16",
+      "mineTokens": "14259600000000",
+      "theirsTokens": "14259600000000",
+      "absDiff": "0",
+      "relDiff": "0.000000000000"
+     }
+    ]
+   }
+  }
+ ]
+}

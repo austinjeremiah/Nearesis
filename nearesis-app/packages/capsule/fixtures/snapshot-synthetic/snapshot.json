@@ -1,0 +1,30 @@
+{
+  "schema": "nearesis.snapshot.v1",
+  "snapshotId": "synthetic-2026-11-10",
+  "label": "SYNTHETIC",
+  "frozenAt": "2026-11-11T00:00:00Z",
+  "dataset": "SYNTHETIC fixture - not NEAR production data",
+  "claimId": "syn:intents-leads-signers",
+  "analysisCodeCommit": "b4e3df4",
+  "series": {
+    "file": "raw/daily_series.csv",
+    "x": {
+      "column": "intents_volume_usd_cents",
+      "name": "intents_volume_proxy",
+      "unit": "usd_cents"
+    },
+    "y": {
+      "column": "active_signers",
+      "name": "active_signers_proxy",
+      "unit": "accounts"
+    }
+  },
+  "metrics": ["lag_pearson:7", "pearson", "summary"],
+  "files": [
+    {
+      "path": "raw/daily_series.csv",
+      "sha256": "e49fcbe5a8f853ff1e3ad3ab0ec92ff9be58747f2fd001d08959ba2be82a05e8",
+      "bytes": 2385
+    }
+  ]
+}

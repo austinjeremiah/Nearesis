@@ -1,0 +1,21 @@
+{
+  "workspaceId": "6f1c2d7e-3a4b-4c5d-8e9f-0a1b2c3d4e5f",
+  "runs": [
+    {
+      "runId": "0b8f6a52-7d31-4e0a-9c64-1f2e3d4c5b6a",
+      "questionSummary": "Which NEAR Intents chain pairs grew fastest over the last 30 days?",
+      "state": "EXECUTING",
+      "terminal": false,
+      "startedAt": "2026-11-13T09:12:04.000Z",
+      "updatedAt": "2026-11-13T09:12:41.000Z"
+    },
+    {
+      "runId": "9d2e7c10-4a3b-4d5e-9f60-718293a4b5c6",
+      "questionSummary": "Is activity growth concentrated in a few accounts?",
+      "state": "PARTIAL",
+      "terminal": true,
+      "startedAt": "2026-11-12T16:30:00.000Z",
+      "updatedAt": "2026-11-12T16:44:10.000Z"
+    }
+  ]
+}

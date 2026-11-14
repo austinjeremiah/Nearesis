@@ -1,0 +1,61 @@
+{
+  "generatedAtUTC": "2026-11-12T19:11:49.413Z",
+  "mode": "daily",
+  "window": {
+    "from": "2026-11-09",
+    "to": "2026-11-10"
+  },
+  "digest": "1f2c377ca273779e751182804292b6eb6a2f0e3b2e50201b11ff523c41a00805",
+  "priceUsdPerTiB": 6.25,
+  "priceSource": "https://cloud.google.com/bigquery/pricing",
+  "dailyLimitBytes": 102005473280,
+  "totalBytes": 234718965,
+  "totalGiB": "0.22",
+  "totalUsdListPrice": 0.001334,
+  "byFamilyBytes": {
+    "outcomes": 191658283,
+    "conversion": 40663418,
+    "gas_price": 2397264
+  },
+  "chunks": [
+    {
+      "id": "outcomes:2026-11-09",
+      "family": "outcomes",
+      "from": "2026-11-09",
+      "to": "2026-11-10",
+      "estimateBytes": 191658283,
+      "sqlSha256": "67b10a539a8df2de49a8412e6d17e0ac2de4ed8fa994009b9b6d7e06d06e5d4b",
+      "usdListPrice": 0.001089
+    },
+    {
+      "id": "conversion:2026-11-09",
+      "family": "conversion",
+      "from": "2026-11-09",
+      "to": "2026-11-10",
+      "estimateBytes": 40663418,
+      "sqlSha256": "043d65962935765dbd03f1a2f662cd34596e563ab8e3084d289b98a8b5b5edad",
+      "usdListPrice": 0.000231
+    },
+    {
+      "id": "gas_price:2026-11-09",
+      "family": "gas_price",
+      "from": "2026-11-09",
+      "to": "2026-11-10",
+      "estimateBytes": 2397264,
+      "sqlSha256": "559581591951cf8e51c3f6d3347473beb6186d998097e258741e02a1d49d7d36",
+      "usdListPrice": 0.000014
+    }
+  ],
+  "quotaDays": [
+    {
+      "day": 1,
+      "chunks": [
+        "outcomes:2026-11-09",
+        "conversion:2026-11-09",
+        "gas_price:2026-11-09"
+      ],
+      "bytes": 234718965
+    }
+  ],
+  "oversize": []
+}

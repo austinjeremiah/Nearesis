@@ -1,0 +1,31 @@
+[
+  {
+    "originAsset": "nep141:eth.omft.near",
+    "destinationAsset": "nep141:wrap.near",
+    "depositAddress": "dep0201synthetic",
+    "depositMemo": null,
+    "depositAddressAndMemo": "dep0201synthetic",
+    "createdAt": "2026-10-20T12:00:00.000Z",
+    "createdAtTimestamp": 1792497600,
+    "intentHashes": null,
+    "amountInFormatted": "0.1",
+    "amountOutFormatted": "0.3",
+    "appFees": [],
+    "nearTxHashes": ["nearhash0201synthetic"],
+    "originChainTxHashes": ["originhash0201synthetic"],
+    "destinationChainTxHashes": ["desthash0201synthetic"],
+    "amountIn": "not-a-number",
+    "amountInUsd": "12.34",
+    "amountOut": "6030000000000000000201",
+    "amountOutUsd": "12.30",
+    "refundTo": "refund0201.synthetic",
+    "refundFeeFormatted": null,
+    "depositType": "ORIGIN_CHAIN",
+    "recipientType": "DESTINATION_CHAIN",
+    "refundType": "ORIGIN_CHAIN",
+    "recipient": "recipient0201.synthetic",
+    "status": "SUCCESS",
+    "referral": null,
+    "senders": []
+  }
+]

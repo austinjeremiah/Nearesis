@@ -1,0 +1,399 @@
+[
+  {
+    "id": "Q001",
+    "split": "dev",
+    "category": "ecosystem",
+    "difficulty": "medium",
+    "prompt": "Which NEAR applications account for most activity growth over the last 90 days?",
+    "kind": "run",
+    "requiredSources": ["contract_interactions", "entities"],
+    "minAnswerProperties": [
+      "ranked applications with absolute interaction change over the window",
+      "states what share of interactions is attributed to an application",
+      "names the comparison window and the previous window"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [
+      "classified + unverified + unclassified + below-threshold interactions equal total interactions",
+      "growth shares are between 0 and 1 and sum to at most 1"
+    ],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      },
+      {
+        "id": "account_as_person",
+        "pattern": "\\b(users|people|humans) (grew|increased|doubled)\\b",
+        "flags": "i",
+        "why": "accounts are not people"
+      }
+    ],
+    "acceptanceTests": ["A19", "A11", "B07"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "interaction|entity|contract|application"
+    },
+    "probes": [
+      {
+        "kind": "sum_equals",
+        "label": "entity coverage partitions total interactions",
+        "api": "/v1/entities/coverage",
+        "parts": [
+          "coverage.classifiedInteractions",
+          "coverage.unverifiedInteractions",
+          "coverage.unclassifiedListedInteractions",
+          "coverage.belowThresholdInteractions"
+        ],
+        "abs": 0,
+        "total": "coverage.totalInteractions"
+      },
+      {
+        "kind": "ch_equals",
+        "label": "total interactions equal the sum of the two source tables",
+        "api": "/v1/entities/coverage",
+        "json": "coverage.totalInteractions",
+        "ch": "SELECT (SELECT sum(interactions) FROM contract_interactions FINAL WHERE block_date BETWEEN '2026-08-14' AND '2026-11-11') + (SELECT sum(interactions) FROM contract_interactions_below_threshold FINAL WHERE block_date BETWEEN '2026-08-14' AND '2026-11-11')",
+        "rel": 0
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q002",
+    "split": "dev",
+    "category": "ecosystem",
+    "difficulty": "medium",
+    "prompt": "Is NEAR account activity growth broadly distributed or concentrated in a handful of accounts?",
+    "kind": "run",
+    "requiredSources": ["account_daily_activity"],
+    "minAnswerProperties": [
+      "reports top-1% and top-5% signer shares of organic transactions",
+      "states that accounts are not people"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": ["top-1% share <= top-5% share <= 1"],
+    "forbiddenClaims": [
+      {
+        "id": "account_as_person",
+        "pattern": "\\b(users|people|humans) (grew|increased|doubled)\\b",
+        "flags": "i",
+        "why": "accounts are not people"
+      },
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "signer|account|concentration|organic"
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "organic transactions on a pinned day equal the daily activity table",
+        "api": "/v1/accounts/daily?from=2026-11-09&to=2026-11-09",
+        "json": "daily[0].organicTransactions",
+        "ch": "SELECT tx_organic FROM account_daily_activity FINAL WHERE block_date = '2026-11-09'",
+        "rel": 0
+      },
+      {
+        "kind": "sum_equals",
+        "label": "new + returning accounts equal active accounts",
+        "api": "/v1/accounts/daily?from=2026-11-09&to=2026-11-09",
+        "parts": ["daily[0].newAccounts", "daily[0].returningAccounts"],
+        "abs": 0,
+        "total": "daily[0].activeAccounts"
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q003",
+    "split": "dev",
+    "category": "ecosystem",
+    "difficulty": "hard",
+    "prompt": "How much NEAR contract activity comes from contracts we cannot confidently attribute to an application?",
+    "kind": "run",
+    "requiredSources": ["contract_interactions", "entity_mappings"],
+    "minAnswerProperties": [
+      "reports verified, inferred, unverified and unclassified shares separately",
+      "does not fold unattributed activity into a named application"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": ["verified + inferred = classified", "all shares in [0,1]"],
+    "forbiddenClaims": [
+      {
+        "id": "attribution_overclaim",
+        "pattern": "\\b(all|every) (contract|interaction)s? (is|are) attributed\\b",
+        "flags": "i",
+        "why": "coverage is partial by construction"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "entity|classif|coverage|interaction"
+    },
+    "probes": [
+      {
+        "kind": "sum_equals",
+        "label": "verified + inferred equal classified",
+        "api": "/v1/entities/coverage",
+        "parts": ["coverage.verifiedInteractions", "coverage.inferredInteractions"],
+        "abs": 0,
+        "total": "coverage.classifiedInteractions"
+      },
+      {
+        "kind": "range",
+        "label": "unclassified share is a proportion",
+        "api": "/v1/entities/coverage",
+        "json": "coverage.unclassifiedShare",
+        "min": 0,
+        "max": 1
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q004",
+    "split": "dev",
+    "category": "ecosystem",
+    "difficulty": "hard",
+    "prompt": "Which NEAR applications have the strongest returning-account retention?",
+    "kind": "run",
+    "requiredSources": ["account_cohort_week_retention", "entity_daily_signers"],
+    "minAnswerProperties": [
+      "retention is by cohort week and defined as returning organic signers",
+      "states that new means first seen in the window, not lifetime first-seen"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "account_as_person",
+        "pattern": "\\b(users|people|humans) (grew|increased|doubled)\\b",
+        "flags": "i",
+        "why": "accounts are not people"
+      },
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "retention|returning|cohort"
+    },
+    "probes": [
+      {
+        "kind": "api_field",
+        "label": "retention endpoint states its definition of new",
+        "api": "/v1/accounts/retention",
+        "json": "meta.newMeans",
+        "httpStatus": 200,
+        "matches": "not lifetime"
+      },
+      {
+        "kind": "range",
+        "label": "retention shares are proportions",
+        "api": "/v1/accounts/retention",
+        "json": "cohorts[0].weeks[1].rate",
+        "min": 0,
+        "max": 1
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q005",
+    "split": "dev",
+    "category": "ecosystem",
+    "difficulty": "adversarial",
+    "prompt": "How sensitive are the application growth rankings to changes in contract attribution rules?",
+    "kind": "run",
+    "requiredSources": ["entities", "entity_mappings", "contract_interactions"],
+    "minAnswerProperties": [
+      "reruns or reports the ranking under at least one alternative attribution (verified only vs verified+inferred)",
+      "reports rank changes, not only the new ranking"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      },
+      {
+        "id": "robust_without_test",
+        "pattern": "\\b(robust|insensitive|unaffected)\\b",
+        "flags": "i",
+        "why": "robustness needs a reported sensitivity run"
+      }
+    ],
+    "acceptanceTests": ["A19", "Q18", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "entity|rank|attribution|sensitiv"
+    },
+    "probes": [
+      {
+        "kind": "range",
+        "label": "inferred share bounds the attribution uncertainty",
+        "api": "/v1/entities/coverage",
+        "json": "coverage.inferredShare",
+        "min": 0,
+        "max": 1
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q052",
+    "split": "dev",
+    "category": "ecosystem",
+    "difficulty": "easy",
+    "prompt": "How many NEAR transactions happened per day over the last 30 days, and is the series complete?",
+    "kind": "run",
+    "requiredSources": ["near_daily_tx"],
+    "minAnswerProperties": [
+      "a daily series with a stated complete-day count",
+      "no day filled with a made-up value"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "zero_for_unknown",
+        "pattern": "\\b(no activity|zero activity|nothing happened|0 swaps)\\b",
+        "flags": "i",
+        "why": "a day or field without data is unknown, not zero"
+      }
+    ],
+    "acceptanceTests": ["A19", "B07", "S01"],
+    "expect": {
+      "outcome": "answer",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": true,
+      "panelPattern": "transaction|tx|daily"
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "daily tx table is populated for the window",
+        "api": "/v1/accounts/daily?from=2026-11-09&to=2026-11-11",
+        "json": "daily[0].organicTransactions",
+        "ch": "SELECT tx_organic FROM account_daily_activity FINAL WHERE block_date = '2026-11-09'",
+        "rel": 0
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  }
+]

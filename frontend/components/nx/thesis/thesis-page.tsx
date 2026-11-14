@@ -1,0 +1,57 @@
+'use client';
+
+import { useQuery } from '@tanstack/react-query';
+import { ApiErrorState } from '@/components/nx/states';
+import { EmptyState, LinkButton } from '@/components/nx/ui';
+import { ThesisDocView, ThesisLoading } from '@/components/nx/thesis-track/thesis-view';
+import { fetchThesis, isNotServed, thesisKeys, type ThesisBundle } from '@/lib/thesis/api';
+import { isNotBuilt } from '@/lib/thesis-track/model';
+import ThesisActions from './thesis-actions';
+import { ReproducePanel, useRerun } from './rerun';
+import { ChallengeButton } from './challenges';
+
+/** `/thesis/[id]`: the one viewer for every thesis the signed-in reader can open. */
+export default function ThesisPage({ id }: { id: string }) {
+  const q = useQuery({ queryKey: thesisKeys.one(id), queryFn: () => fetchThesis(id), retry: false, staleTime: 15_000 });
+  if (q.isPending) return <ThesisLoading />;
+  if (q.isError) {
+    if (isNotServed(q.error)) {
+      return (
+        <div data-testid="thesis-not-found">
+          <EmptyState
+            title="Thesis not found"
+            body="Either this thesis is not yours to open, or the server does not serve user theses yet."
+            action={<LinkButton href="/thesis">Back to theses</LinkButton>}
+          />
+        </div>
+      );
+    }
+    if (isNotBuilt(q.error)) {
+      return <EmptyState title="The reference thesis has not been built yet" body="Build it from the repository root with pnpm thesis:build." />;
+    }
+    return <ApiErrorState error={q.error} onRetry={() => q.refetch()} />;
+  }
+  return <Loaded b={q.data} />;
+}
+
+function Loaded({ b }: { b: ThesisBundle }) {
+  const rr = useRerun(b);
+  return (
+    <ThesisDocView
+      doc={b.doc}
+      isReference={b.summary.kind === 'reference'}
+      publication={b.source === 'api' && b.summary.kind !== 'reference' ? (b.summary.published ? 'published' : 'draft') : null}
+      actions={<ThesisActions b={b} />}
+      reproduceHead={<ReproducePanel b={b} rr={rr} />}
+      strength={b.summary.strength}
+      followUpWorkspaceId={b.source === 'api' && b.summary.kind === 'workspace' ? (b.summary.workspaceId ?? b.doc.origin?.workspaceId ?? null) : null}
+      challenges={{
+        items: b.challenges,
+        thesisId: b.summary.id,
+        owner: b.source === 'api' && b.summary.kind === 'workspace',
+        show: b.source === 'api',
+        action: b.source === 'api' ? <div className="th-actions-row"><ChallengeButton thesisId={b.summary.id} /></div> : undefined,
+      }}
+    />
+  );
+}

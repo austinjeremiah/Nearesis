@@ -1,0 +1,32 @@
+{
+  "job": {
+    "kind": "daily_usage",
+    "estimateBytes": 31457280,
+    "billedBytes": 31457280,
+    "location": "recorded-location",
+    "jobId": "synthetic-job-1"
+  },
+  "rows": [
+    {
+      "block_date": "2026-10-01",
+      "tx_count": "1000",
+      "function_call_actions": "900",
+      "distinct_signers": "3",
+      "active_contracts": "40"
+    },
+    {
+      "block_date": "2026-10-02",
+      "tx_count": "1111",
+      "function_call_actions": "1000",
+      "distinct_signers": "4",
+      "active_contracts": "41"
+    },
+    {
+      "block_date": "2026-10-03",
+      "tx_count": "1222",
+      "function_call_actions": "1100",
+      "distinct_signers": "5",
+      "active_contracts": "42"
+    }
+  ]
+}

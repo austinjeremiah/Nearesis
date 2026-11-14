@@ -209,7 +209,7 @@ export function EvidenceVerdict({
       </Badge>
       {strength && (
         <Badge outline title="Evidence strength, reported separately from the verdict.">
-          {strength === 'none' ? 'No evidence' : `${strength} evidence`}
+          {strength} evidence
         </Badge>
       )}
     </span>

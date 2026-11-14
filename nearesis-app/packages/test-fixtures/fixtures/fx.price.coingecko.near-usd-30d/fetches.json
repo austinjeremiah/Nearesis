@@ -1,0 +1,28 @@
+{
+  "coinId": "near",
+  "symbol": "NEAR",
+  "quoteCurrency": "usd",
+  "window": {
+    "from": "2026-10-10",
+    "to": "2026-11-08"
+  },
+  "fetches": [
+    {
+      "file": "ohlc-v1.json",
+      "volumeFile": "volumes-v1.json",
+      "fetchedAtUTC": "2026-11-09T06:00:00.000Z"
+    },
+    {
+      "file": "ohlc-v2.json",
+      "fetchedAtUTC": "2026-11-10T06:00:00.000Z"
+    }
+  ],
+  "expect": {
+    "distinctDays": 29,
+    "rowsWithVintages": 32,
+    "missingDay": "2026-10-15",
+    "revisedDay": "2026-10-20",
+    "preciseDay": "2026-10-13",
+    "preciseClose": "4.123456789012345678"
+  }
+}

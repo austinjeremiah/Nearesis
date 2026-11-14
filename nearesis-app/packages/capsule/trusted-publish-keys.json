@@ -1,0 +1,15 @@
+{
+  "schema": "nearesis.trusted-publish-keys.v1",
+  "keys": [
+    {
+      "fingerprint": "7c0843a313c847b62049d5201d77a12bed7b6cf89ca18654b236b0ef5cd9b446",
+      "created": "2026-11-12T21:00:52.728Z",
+      "status": "active",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAm+FP5i7RXzfGFxWhSEx1oAKkesLyLer8bfpLm8d3ee8=\n-----END PUBLIC KEY-----\n",
+      "proofOfPossession": {
+        "challenge": "nearesis-publish-key-pop:v1:2026-11-12T21:00:52.724Z:74c1327fa1244905dc34fc6888d3c78c",
+        "signature": "FFTy/Hn16+tcQfYVqwv4OMRF3Md/qgj+anpY9Ni2ErdRS1q6xJv8lZvljlwvZepI63lbJE5CfP1L6nCNaynNCg=="
+      }
+    }
+  ]
+}

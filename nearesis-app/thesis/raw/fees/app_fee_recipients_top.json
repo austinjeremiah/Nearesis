@@ -1,0 +1,553 @@
+{
+ "note": "app_fee_usd is the integrator-configured appFees (recipient, fee in bps) charged on the input amount; the 1Click or protocol share is NOT listed in appFees and is not in these numbers. SUCCESS swaps only. Days with no SUCCESS swap are listed in missing_days.",
+ "windows": {
+  "first_90_days": [
+   "2025-11-09",
+   "2026-02-06"
+  ],
+  "last_90_days": [
+   "2026-08-16",
+   "2026-11-13"
+  ]
+ },
+ "pages_present": 7220,
+ "pages_referenced_missing_on_disk": 0,
+ "explorer_pages_scanned": 7220,
+ "items_read": 7203005,
+ "distinct_swaps_counted": 7184440,
+ "non_success_swaps_with_app_fee_by_status": {
+  "REFUNDED": 93353,
+  "FAILED": 3712,
+  "PROCESSING": 310
+ },
+ "missing_days": [],
+ "total_app_fee_usd": "53337474.1405365135103713",
+ "distinct_recipients": 958,
+ "top_recipients": [
+  {
+   "label": "ledgerswapkit.near",
+   "app_fee_usd": "23077515.5955493034280482",
+   "share_of_total_app_fee_usd": "0.432669",
+   "swaps": 418920,
+   "most_common_fee_bps": [
+    {
+     "bps": 140,
+     "entries": 137083
+    },
+    {
+     "bps": 145,
+     "entries": 107123
+    },
+    {
+     "bps": 75,
+     "entries": 82675
+    }
+   ],
+   "app_fee_usd_first_90_days": "7328160.794656164375",
+   "app_fee_usd_last_90_days": "7268571.1127074257488794"
+  },
+  {
+   "label": "trustswapkit.near",
+   "app_fee_usd": "10057991.073120347699707",
+   "share_of_total_app_fee_usd": "0.188572",
+   "swaps": 1433961,
+   "most_common_fee_bps": [
+    {
+     "bps": 70,
+     "entries": 1239807
+    },
+    {
+     "bps": 20,
+     "entries": 157168
+    },
+    {
+     "bps": 80,
+     "entries": 33371
+    }
+   ],
+   "app_fee_usd_first_90_days": "3046326.6535796",
+   "app_fee_usd_last_90_days": "1844751.0639618417215961"
+  },
+  {
+   "label": "zodlswaps.near",
+   "app_fee_usd": "3317962.9537038979154601",
+   "share_of_total_app_fee_usd": "0.062206",
+   "swaps": 73243,
+   "most_common_fee_bps": [
+    {
+     "bps": 67,
+     "entries": 69598
+    },
+    {
+     "bps": 34,
+     "entries": 1609
+    },
+    {
+     "bps": 50,
+     "entries": 1202
+    }
+   ],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "1813220.4497238048967417"
+  },
+  {
+   "label": "thorswap.near",
+   "app_fee_usd": "2427181.297455630198981",
+   "share_of_total_app_fee_usd": "0.045506",
+   "swaps": 31842,
+   "most_common_fee_bps": [
+    {
+     "bps": 50,
+     "entries": 19363
+    },
+    {
+     "bps": 0,
+     "entries": 9175
+    },
+    {
+     "bps": 1,
+     "entries": 1389
+    }
+   ],
+   "app_fee_usd_first_90_days": "798798.45531546",
+   "app_fee_usd_last_90_days": "780548.7195021754784953"
+  },
+  {
+   "label": "fefundsadmin.sputnik-dao.near",
+   "app_fee_usd": "2197045.9092538266365887",
+   "share_of_total_app_fee_usd": "0.041191",
+   "swaps": 99162,
+   "most_common_fee_bps": [
+    {
+     "bps": 15,
+     "entries": 55814
+    },
+    {
+     "bps": 20,
+     "entries": 25709
+    },
+    {
+     "bps": 30,
+     "entries": 13040
+    }
+   ],
+   "app_fee_usd_first_90_days": "1291039.9573862",
+   "app_fee_usd_last_90_days": "82713.4068411632033821"
+  },
+  {
+   "label": "buybacks.multisignature.near",
+   "app_fee_usd": "2090988.3478580343234545",
+   "share_of_total_app_fee_usd": "0.039202",
+   "swaps": 1090921,
+   "most_common_fee_bps": [
+    {
+     "bps": 1,
+     "entries": 318461
+    },
+    {
+     "bps": 5,
+     "entries": 277325
+    },
+    {
+     "bps": 20,
+     "entries": 168231
+    }
+   ],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "1129817.6113558388627402"
+  },
+  {
+   "label": "electriccoinco.near",
+   "app_fee_usd": "1671821.30849287",
+   "share_of_total_app_fee_usd": "0.031344",
+   "swaps": 28394,
+   "most_common_fee_bps": [
+    {
+     "bps": 50,
+     "entries": 27639
+    },
+    {
+     "bps": 25,
+     "entries": 734
+    },
+    {
+     "bps": 3,
+     "entries": 19
+    }
+   ],
+   "app_fee_usd_first_90_days": "1349907.50326039",
+   "app_fee_usd_last_90_days": "0.00999898"
+  },
+  {
+   "label": "tangemswapkit.near",
+   "app_fee_usd": "1052061.6144972114968585",
+   "share_of_total_app_fee_usd": "0.019724",
+   "swaps": 93218,
+   "most_common_fee_bps": [
+    {
+     "bps": 125,
+     "entries": 44127
+    },
+    {
+     "bps": 144,
+     "entries": 26483
+    },
+    {
+     "bps": 0,
+     "entries": 20549
+    }
+   ],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "977759.0521934606645948"
+  },
+  {
+   "label": "swapkit.near",
+   "app_fee_usd": "891443.3653295583723565",
+   "share_of_total_app_fee_usd": "0.016713",
+   "swaps": 398291,
+   "most_common_fee_bps": [
+    {
+     "bps": 10,
+     "entries": 160438
+    },
+    {
+     "bps": 1,
+     "entries": 79112
+    },
+    {
+     "bps": 7,
+     "entries": 72782
+    }
+   ],
+   "app_fee_usd_first_90_days": "140998.71011778",
+   "app_fee_usd_last_90_days": "429324.5069653356850537"
+  },
+  {
+   "label": "hvlnear.near",
+   "app_fee_usd": "605711.582338052936606",
+   "share_of_total_app_fee_usd": "0.011356",
+   "swaps": 159395,
+   "most_common_fee_bps": [
+    {
+     "bps": 30,
+     "entries": 112162
+    },
+    {
+     "bps": 20,
+     "entries": 30422
+    },
+    {
+     "bps": 50,
+     "entries": 16811
+    }
+   ],
+   "app_fee_usd_first_90_days": "2482.4092008",
+   "app_fee_usd_last_90_days": "358628.364173133606835"
+  },
+  {
+   "label": "1csfundsadmin.sputnik-dao.near",
+   "app_fee_usd": "590115.210927078848",
+   "share_of_total_app_fee_usd": "0.011063",
+   "swaps": 329051,
+   "most_common_fee_bps": [
+    {
+     "bps": 20,
+     "entries": 156977
+    },
+    {
+     "bps": 5,
+     "entries": 47605
+    },
+    {
+     "bps": 1,
+     "entries": 38639
+    }
+   ],
+   "app_fee_usd_first_90_days": "48561.6689828",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "onekeyoky.near",
+   "app_fee_usd": "350426.0060039288134075",
+   "share_of_total_app_fee_usd": "0.006569",
+   "swaps": 18027,
+   "most_common_fee_bps": [
+    {
+     "bps": 75,
+     "entries": 7993
+    },
+    {
+     "bps": 25,
+     "entries": 5419
+    },
+    {
+     "bps": 30,
+     "entries": 2388
+    }
+   ],
+   "app_fee_usd_first_90_days": "29534.27866645",
+   "app_fee_usd_last_90_days": "207732.5602126838102175"
+  },
+  {
+   "label": "f6e2a398796c74b6f555dd3786c02e2792ea53d6ad4ee3a59fd95576682b27a2",
+   "app_fee_usd": "338364.244389879948797",
+   "share_of_total_app_fee_usd": "0.006343",
+   "swaps": 6263,
+   "most_common_fee_bps": [
+    {
+     "bps": 67,
+     "entries": 5802
+    },
+    {
+     "bps": 34,
+     "entries": 461
+    }
+   ],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "307859.958534957239788"
+  },
+  {
+   "label": "rangotw.near",
+   "app_fee_usd": "337763.5259513181133165",
+   "share_of_total_app_fee_usd": "0.006332",
+   "swaps": 79992,
+   "most_common_fee_bps": [
+    {
+     "bps": 70,
+     "entries": 78570
+    },
+    {
+     "bps": 20,
+     "entries": 844
+    },
+    {
+     "bps": 35,
+     "entries": 366
+    }
+   ],
+   "app_fee_usd_first_90_days": "5954.59166044",
+   "app_fee_usd_last_90_days": "331165.8298435887923245"
+  },
+  {
+   "label": "crosspay.near",
+   "app_fee_usd": "295520.25133610936",
+   "share_of_total_app_fee_usd": "0.00554",
+   "swaps": 8235,
+   "most_common_fee_bps": [
+    {
+     "bps": 50,
+     "entries": 7766
+    },
+    {
+     "bps": 25,
+     "entries": 466
+    },
+    {
+     "bps": 67,
+     "entries": 2
+    }
+   ],
+   "app_fee_usd_first_90_days": "236277.033377",
+   "app_fee_usd_last_90_days": "0"
+  }
+ ],
+ "top_referral_labels_by_attached_app_fee_usd": [
+  {
+   "label": "swapkit",
+   "app_fee_usd": "39471469.8217906935471588",
+   "share_of_total_app_fee_usd": "0.765037",
+   "swaps": 2273309,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "zodl",
+   "app_fee_usd": "3393844.1750231091343001",
+   "share_of_total_app_fee_usd": "0.065779",
+   "swaps": 73945,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "zashi",
+   "app_fee_usd": "2137085.817703028208",
+   "share_of_total_app_fee_usd": "0.041421",
+   "swaps": 35795,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "near-intents.intents-referral.near",
+   "app_fee_usd": "1656922.3035661816344011",
+   "share_of_total_app_fee_usd": "0.032114",
+   "swaps": 68065,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "new.intents-referral.near",
+   "app_fee_usd": "1132555.7369934223537449",
+   "share_of_total_app_fee_usd": "0.021951",
+   "swaps": 126754,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "rango",
+   "app_fee_usd": "878212.0579479195938632",
+   "share_of_total_app_fee_usd": "0.017021",
+   "swaps": 1555609,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "lifi",
+   "app_fee_usd": "402563.3684099676544678",
+   "share_of_total_app_fee_usd": "0.007802",
+   "swaps": 571565,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "vizor",
+   "app_fee_usd": "359381.8993398252687896",
+   "share_of_total_app_fee_usd": "0.006965",
+   "swaps": 6286,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "e1a72603-64b3-4be1-8265-8bae5970d396",
+   "app_fee_usd": "309806.5080782860288692",
+   "share_of_total_app_fee_usd": "0.006004",
+   "swaps": 40411,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "aurora-2yu32xwzn3",
+   "app_fee_usd": "205100.12535715138678",
+   "share_of_total_app_fee_usd": "0.003975",
+   "swaps": 2436,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "thorwallet",
+   "app_fee_usd": "144510.2937006358838443",
+   "share_of_total_app_fee_usd": "0.0028",
+   "swaps": 10869,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "shapeshift",
+   "app_fee_usd": "138378.1022858544711631",
+   "share_of_total_app_fee_usd": "0.002682",
+   "swaps": 2663,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "blackmarket.tg",
+   "app_fee_usd": "124956.0666109179707328",
+   "share_of_total_app_fee_usd": "0.002421",
+   "swaps": 5071,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "solswap.intents-referral.near",
+   "app_fee_usd": "117860.3179575285812359",
+   "share_of_total_app_fee_usd": "0.002284",
+   "swaps": 5101,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  },
+  {
+   "label": "gemwallet",
+   "app_fee_usd": "104558.1392285499481922",
+   "share_of_total_app_fee_usd": "0.002026",
+   "swaps": 23160,
+   "most_common_fee_bps": [],
+   "app_fee_usd_first_90_days": "0",
+   "app_fee_usd_last_90_days": "0"
+  }
+ ],
+ "fee_bps_histogram_top": [
+  {
+   "bps": 70,
+   "entries": 1321100
+  },
+  {
+   "bps": 25,
+   "entries": 689138
+  },
+  {
+   "bps": 5,
+   "entries": 683004
+  },
+  {
+   "bps": 20,
+   "entries": 617789
+  },
+  {
+   "bps": 1,
+   "entries": 609191
+  },
+  {
+   "bps": 10,
+   "entries": 313686
+  },
+  {
+   "bps": 30,
+   "entries": 219015
+  },
+  {
+   "bps": 15,
+   "entries": 166379
+  },
+  {
+   "bps": 0,
+   "entries": 141087
+  },
+  {
+   "bps": 140,
+   "entries": 137430
+  },
+  {
+   "bps": 50,
+   "entries": 120911
+  },
+  {
+   "bps": 2,
+   "entries": 114925
+  },
+  {
+   "bps": 145,
+   "entries": 109770
+  },
+  {
+   "bps": 75,
+   "entries": 108867
+  },
+  {
+   "bps": 67,
+   "entries": 75413
+  }
+ ]
+}

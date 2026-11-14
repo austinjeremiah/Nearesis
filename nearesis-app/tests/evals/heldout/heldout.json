@@ -1,0 +1,769 @@
+[
+  {
+    "id": "H001",
+    "split": "heldout",
+    "category": "intents",
+    "difficulty": "medium",
+    "prompt": "Between mid-September and mid-October 2026, how many NEAR Intents swaps completed successfully, and what share ended in a refund?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps"],
+    "minAnswerProperties": [
+      "success and refunded counts for the stated window",
+      "refund share defined over terminal swaps"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      },
+      {
+        "id": "zero_for_unknown",
+        "pattern": "\\b(no activity|zero activity|nothing happened|0 swaps)\\b",
+        "flags": "i",
+        "why": "a day or field without data is unknown, not zero"
+      }
+    ],
+    "acceptanceTests": ["A19", "B07"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "swap|refund|intents"
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "success count",
+        "api": "/v1/intents/summary?from=2026-09-13&to=2026-10-12",
+        "json": "data.success",
+        "ch": "SELECT count() FROM intents_swaps FINAL WHERE created_day BETWEEN '2026-09-13' AND '2026-10-12' AND status = 'SUCCESS'",
+        "rel": 0
+      },
+      {
+        "kind": "ch_equals",
+        "label": "refunded count",
+        "api": "/v1/intents/summary?from=2026-09-13&to=2026-10-12",
+        "json": "data.refunded",
+        "ch": "SELECT count() FROM intents_swaps FINAL WHERE created_day BETWEEN '2026-09-13' AND '2026-10-12' AND status = 'REFUNDED'",
+        "rel": 0
+      },
+      {
+        "kind": "sum_equals",
+        "label": "statuses partition swaps",
+        "api": "/v1/intents/summary?from=2026-09-13&to=2026-10-12",
+        "parts": ["data.success", "data.refunded", "data.failed", "data.inFlight"],
+        "abs": 0,
+        "total": "data.swaps"
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "H002",
+    "split": "heldout",
+    "category": "intents",
+    "difficulty": "hard",
+    "prompt": "For the 30 days before 12 October 2026, which origin asset carried the largest settled USD volume and how concentrated was volume across assets?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps", "asset_registry"],
+    "minAnswerProperties": ["top asset with its share", "concentration measure (HHI or top-N share)"],
+    "acceptableRefusals": [
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      }
+    ],
+    "acceptanceTests": ["A19", "B07"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "asset|volume|concentration|intents"
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "settled volume total",
+        "api": "/v1/intents/concentration?from=2026-09-13&to=2026-10-12",
+        "json": "data.total",
+        "ch": "SELECT sum(amount_in_usd) FROM intents_swaps FINAL WHERE created_day BETWEEN '2026-09-13' AND '2026-10-12' AND status = 'SUCCESS'",
+        "rel": 1e-9
+      },
+      {
+        "kind": "range",
+        "label": "top-N share is a proportion",
+        "api": "/v1/intents/concentration?from=2026-09-13&to=2026-10-12",
+        "json": "data.topNShare",
+        "min": 0,
+        "max": 1
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "H003",
+    "split": "heldout",
+    "category": "intents",
+    "difficulty": "hard",
+    "prompt": "Can we tell from the data how long NEAR Intents transfers took from deposit to final delivery?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps"],
+    "minAnswerProperties": [
+      "states what is timed and that delivery on the destination chain is not observed, or that no such timestamp exists"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "invented_duration",
+        "pattern": "\\b(median|average|p50|p95) settlement (time|duration) (is|was) \\d",
+        "flags": "i",
+        "why": "no second per-swap timestamp exists"
+      },
+      {
+        "id": "delivery_claim",
+        "pattern": "\\b(delivered|arrived) (in|after) \\d",
+        "flags": "i",
+        "why": "destination delivery time is not observed"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [
+      {
+        "kind": "api_field",
+        "label": "API either measures with a stated definition or reports CANNOT_COMPUTE",
+        "api": "/v1/intents/settlement-duration?from=2026-09-13&to=2026-10-12",
+        "json": "status",
+        "httpStatus": 200,
+        "matches": "^(OK|CANNOT_COMPUTE)$"
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "H004",
+    "split": "heldout",
+    "category": "ecosystem",
+    "difficulty": "medium",
+    "prompt": "On 9 November 2026 how many distinct organic NEAR signer accounts were active, and how many were new versus returning?",
+    "kind": "run",
+    "requiredSources": ["account_daily_activity", "account_daily_new_returning"],
+    "minAnswerProperties": [
+      "active, new and returning counts for the day",
+      "new defined relative to the window start"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "account_as_person",
+        "pattern": "\\b(users|people|humans) (grew|increased|doubled)\\b",
+        "flags": "i",
+        "why": "accounts are not people"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "account|signer|new|returning"
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "organic transactions on the day",
+        "api": "/v1/accounts/daily?from=2026-11-09&to=2026-11-09",
+        "json": "daily[0].organicTransactions",
+        "ch": "SELECT tx_organic FROM account_daily_activity FINAL WHERE block_date = '2026-11-09'",
+        "rel": 0
+      },
+      {
+        "kind": "sum_equals",
+        "label": "new plus returning equals active",
+        "api": "/v1/accounts/daily?from=2026-11-09&to=2026-11-09",
+        "parts": ["daily[0].newAccounts", "daily[0].returningAccounts"],
+        "abs": 0,
+        "total": "daily[0].activeAccounts"
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "H005",
+    "split": "heldout",
+    "category": "ecosystem",
+    "difficulty": "hard",
+    "prompt": "What fraction of NEAR contract interactions in the last quarter can be tied to a named project, and how much of that is only inferred?",
+    "kind": "run",
+    "requiredSources": ["contract_interactions", "entities"],
+    "minAnswerProperties": [
+      "classified share with verified and inferred parts",
+      "unclassified remainder reported"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "entity|classif|interaction"
+    },
+    "probes": [
+      {
+        "kind": "sum_equals",
+        "label": "coverage partitions the total",
+        "api": "/v1/entities/coverage",
+        "parts": [
+          "coverage.classifiedInteractions",
+          "coverage.unverifiedInteractions",
+          "coverage.unclassifiedListedInteractions",
+          "coverage.belowThresholdInteractions"
+        ],
+        "abs": 0,
+        "total": "coverage.totalInteractions"
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "H006",
+    "split": "heldout",
+    "category": "economics",
+    "difficulty": "hard",
+    "prompt": "Did the NEAR network burn more in fees last month than the month before?",
+    "kind": "run",
+    "requiredSources": ["near_economics_outcomes_daily"],
+    "minAnswerProperties": ["a fee comparison or a refusal naming the missing economics tables"],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "invented_fee",
+        "pattern": "\\b(gas|fees?) (rose|fell|increased|decreased|totalled?) (by|to) \\d",
+        "flags": "i",
+        "why": "economics tables are not loaded; any fee number is fabricated"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [
+      {
+        "kind": "ch_check",
+        "label": "economics outcomes table is empty (gas and fee pilot not approved)",
+        "ch": "SELECT count() FROM near_economics_outcomes_daily",
+        "expect": 0,
+        "precondition": true
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "H007",
+    "split": "heldout",
+    "category": "research_reliability",
+    "difficulty": "adversarial",
+    "prompt": "A colleague says Intents volume leads NEAR price by a week. What would it take to believe that, and what would refute it?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps", "price_candles"],
+    "minAnswerProperties": [
+      "states a registered test with a horizon and a baseline",
+      "states the refuting outcome before any run"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "causal_forecast",
+        "pattern": "\\b(improves?|improved|beats?) the (price-only )?baseline\\b",
+        "flags": "i",
+        "why": "forecast improvement needs a registered, validated test"
+      },
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      },
+      {
+        "id": "confirm",
+        "pattern": "\\b(confirms?|confirmed) (that )?intents (volume )?leads\\b",
+        "flags": "i",
+        "why": "no result supports lead-lag yet"
+      }
+    ],
+    "acceptanceTests": ["Q13", "Q15", "Q16", "Q18"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "H008",
+    "split": "heldout",
+    "category": "research_reliability",
+    "difficulty": "hard",
+    "prompt": "If the March 2026 Intents days had been backfilled only last week, which earlier conclusions could have changed?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps", "source_coverage"],
+    "minAnswerProperties": [
+      "identifies conclusions that used those days",
+      "requires re-evaluation against a pinned snapshot"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      }
+    ],
+    "acceptanceTests": ["Q03", "W05", "V18"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "H009",
+    "split": "heldout",
+    "category": "dynamic_analytics",
+    "difficulty": "hard",
+    "prompt": "Define a metric: NEAR transactions per day but labelled in USD.",
+    "kind": "http",
+    "requiredSources": ["metric authoring"],
+    "minAnswerProperties": ["rejected with UNIT_MISMATCH"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["A19", "S05"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/metrics/proposals",
+        "expectStatus": 422,
+        "expectBody": [],
+        "expectReason": "UNIT_MISMATCH",
+        "body": {
+          "proposal": {
+            "schemaVersion": 1,
+            "namespace": "authored",
+            "name": "evalheld_{TAG}",
+            "displayName": "Daily transactions",
+            "description": "Total NEAR transactions per UTC day from the deduplicated daily table.",
+            "sources": ["near_daily_tx"],
+            "joins": [],
+            "entityGrain": {
+              "kind": "global"
+            },
+            "timeGrain": {
+              "column": {
+                "table": "near_daily_tx",
+                "column": "block_date"
+              },
+              "grain": "day"
+            },
+            "dimensions": [],
+            "filters": [],
+            "aggregations": [
+              {
+                "id": "tx",
+                "fn": "sum",
+                "column": {
+                  "table": "near_daily_tx",
+                  "column": "tx_count"
+                }
+              }
+            ],
+            "unit": "usd",
+            "precision": {
+              "decimals": 0,
+              "rounding": "half_even"
+            },
+            "nullSemantics": {
+              "nullInput": "ignore",
+              "emptyBucket": "null"
+            },
+            "dedup": {
+              "strategy": "final"
+            },
+            "historicalValidity": {
+              "validFrom": "2025-11-10",
+              "validTo": null,
+              "restatement": "may_restate"
+            },
+            "costEstimate": {
+              "maxEstimatedRows": 100000
+            },
+            "dependencies": [],
+            "tests": [
+              {
+                "kind": "reconcile_raw",
+                "name": "matches raw"
+              },
+              {
+                "kind": "non_negative",
+                "name": "no negatives"
+              }
+            ],
+            "limitations": [
+              "Counts transactions as delivered by the daily source; later restatements change history."
+            ],
+            "version": 1
+          },
+          "validate": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "H010",
+    "split": "heldout",
+    "category": "dynamic_analytics",
+    "difficulty": "adversarial",
+    "prompt": "Create a metric from a free-form SQL string.",
+    "kind": "http",
+    "requiredSources": ["metric authoring"],
+    "minAnswerProperties": ["rejected with RAW_SQL_REFUSED"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["A19", "SEC09"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/metrics/proposals",
+        "expectStatus": 422,
+        "expectBody": [],
+        "expectReason": "RAW_SQL_REFUSED",
+        "body": {
+          "proposal": {
+            "schemaVersion": 1,
+            "namespace": "authored",
+            "name": "evalheldsql_{TAG}",
+            "displayName": "Daily transactions",
+            "description": "Total NEAR transactions per UTC day from the deduplicated daily table.",
+            "sources": ["near_daily_tx"],
+            "joins": [],
+            "entityGrain": {
+              "kind": "global"
+            },
+            "timeGrain": {
+              "column": {
+                "table": "near_daily_tx",
+                "column": "block_date"
+              },
+              "grain": "day"
+            },
+            "dimensions": [],
+            "filters": [],
+            "aggregations": [
+              {
+                "id": "tx",
+                "fn": "sum",
+                "column": {
+                  "table": "near_daily_tx",
+                  "column": "tx_count"
+                }
+              }
+            ],
+            "unit": "tx",
+            "precision": {
+              "decimals": 0,
+              "rounding": "half_even"
+            },
+            "nullSemantics": {
+              "nullInput": "ignore",
+              "emptyBucket": "null"
+            },
+            "dedup": {
+              "strategy": "final"
+            },
+            "historicalValidity": {
+              "validFrom": "2025-11-10",
+              "validTo": null,
+              "restatement": "may_restate"
+            },
+            "costEstimate": {
+              "maxEstimatedRows": 100000
+            },
+            "dependencies": [],
+            "tests": [
+              {
+                "kind": "reconcile_raw",
+                "name": "matches raw"
+              },
+              {
+                "kind": "non_negative",
+                "name": "no negatives"
+              }
+            ],
+            "limitations": [
+              "Counts transactions as delivered by the daily source; later restatements change history."
+            ],
+            "version": 1,
+            "rawSql": "select 1"
+          },
+          "validate": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "H011",
+    "split": "heldout",
+    "category": "permission_failure",
+    "difficulty": "medium",
+    "prompt": "As a viewer, ask a question about Intents refund rates.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["403 INSUFFICIENT_ROLE"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["A11"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "viewer",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/questions",
+        "expectStatus": 403,
+        "expectBody": [],
+        "expectReason": "INSUFFICIENT_ROLE",
+        "body": {
+          "question": "What are Intents refund rates?",
+          "snapshotPolicy": "live",
+          "source": "live",
+          "budget": {
+            "tokens": 32000,
+            "toolCalls": 12,
+            "usd": 3
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "H012",
+    "split": "heldout",
+    "category": "tenant_safety",
+    "difficulty": "adversarial",
+    "prompt": "From another organisation, list metrics in the owner's workspace using a lower-cased workspace id.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["404 identical to an unknown workspace"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["SEC03", "K04"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "other",
+        "method": "GET",
+        "path": "/v1/workspaces/{WS}/metrics",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "NOT_FOUND"
+      }
+    ]
+  }
+]

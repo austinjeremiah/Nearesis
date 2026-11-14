@@ -1,0 +1,17 @@
+/* Capsule pages. Tokens only. Badges may wrap on a phone, and the list becomes stacked rows there. */
+.caps-scope .badge { white-space: normal; max-width: 100%; }
+.caps-scope li, .caps-scope dd { overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .caps-list table.table { min-width: 0; }
+  .caps-list .table thead { display: none; }
+  .caps-list .table, .caps-list .table tbody, .caps-list .table tr, .caps-list .table td { display: block; width: 100%; }
+  .caps-list .table tr { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .caps-list .table tr:last-child { border-bottom: 0; }
+  .caps-list .table tbody td { height: auto; padding: 3px 0; border: 0; display: flex; gap: 10px; align-items: center; white-space: normal; }
+  .caps-list .table tbody td:first-child { padding-bottom: 6px; }
+  .caps-list .table tbody td:not(:first-child)::before { flex: 0 0 92px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+  .caps-list .table tbody td:nth-child(2)::before { content: 'Data label'; }
+  .caps-list .table tbody td:nth-child(3)::before { content: 'Publication'; }
+  .caps-list .table tbody td:nth-child(4)::before { content: 'Badge'; }
+  .caps-list .table tbody td:nth-child(5)::before { content: 'Created'; }
+}

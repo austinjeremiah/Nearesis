@@ -1,0 +1,26 @@
+{
+  "canonicalisation": "crlf_cr_to_lf;unicode_nfc;utf8;trailing_whitespace_preserved",
+  "documentHash": "sha256:965c2ef29bda21540c3eea38e118ca08d2d7eecbf9f7dd357251fd7949e65c2c",
+  "frozenAt": "2026-11-11T06:43:50.646Z",
+  "note": "Fixture-evaluation freeze. Not a chain commitment; no on-chain hash has been written.",
+  "requiredParameters": [
+    "q14.interval.method",
+    "q14.interval.level",
+    "q11.minValidOrigins",
+    "q14.minOriginsForPValue",
+    "q17.minHoldoutOrigins",
+    "q14.nullSimulation.band",
+    "q14.coverage.band",
+    "q15.modelSelectionRule",
+    "q15.verdictTable",
+    "q14.nullSimulation.seeds",
+    "q14.coverage.seeds",
+    "experiment.testFamily",
+    "q18.variants",
+    "q18.signFlipRule",
+    "q11.horizon",
+    "q11.lagGrid",
+    "q11.minTrainingLength"
+  ],
+  "schema": "preregistration-freeze@1"
+}

@@ -1,0 +1,9 @@
+{
+  "traceId": "7f3a9c1e-52d4-4b86-9a07-3c5e8d1f2a64",
+  "retryable": false,
+  "errorCode": "DOMAIN_INVARIANT",
+  "reasonCode": "CANNOT_COMPUTE",
+  "message": "Unique users cannot be computed from the available source.",
+  "nextAction": "Use account-level activity instead.",
+  "state": "insufficient_data"
+}

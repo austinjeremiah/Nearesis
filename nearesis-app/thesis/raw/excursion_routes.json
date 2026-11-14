@@ -1,0 +1,12 @@
+{"columns":[{"name":"origin_symbol","type":"string"},{"name":"origin_chain","type":"string"},{"name":"destination_symbol","type":"string"},{"name":"destination_chain","type":"string"},{"name":"swaps","type":"integer-string"},{"name":"usd","type":"decimal-string|null"},{"name":"median_usd","type":"decimal-string|null"}],"rows":[
+["wNEAR","near","wNEAR","near","3437","35216431.9195","0.0001"],
+["ZEC","zec","wNEAR","near","454","26905711.5162","61257"],
+["wNEAR","near","USDT","eth","120","4550457.4377","51.8473"],
+["wNEAR","near","USDC","eth","394","3215873.4545","1.5227"],
+["USDT","near","wNEAR","near","1671","2277146.7032","179.08849999999998"],
+["USDC","near","wNEAR","near","1846","2164374.5146","181.3174"],
+["USDC","eth","wNEAR","near","182","1695140.8849","372.6737"],
+["wNEAR","near","ETH","eth","95","1458303.5457","4.78"],
+["USDC","arb","wNEAR","near","74","1275575.8008","890.2179"],
+["USDC","sol","wNEAR","near","77","1118449.1288","525.3792"]
+]}

@@ -1,0 +1,1 @@
+{"columns": [{"name": "receiver_account_id", "type": "string"}, {"name": "value", "type": "integer-string"}], "rows": [["a.near", "500"], ["b.near", "300"], ["c.near", "100"]]}

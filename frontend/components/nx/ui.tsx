@@ -159,7 +159,7 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
 }
 
 export function Textarea(
-  props: React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+  props: React.ComponentProps<'textarea'>,
 ) {
   return <textarea className="textarea" {...props} />;
 }
@@ -185,6 +185,7 @@ export function Select({
     </span>
   );
 }
+
 
 /* -----------------------------------------------------------------------------
    segmented control and tabs
@@ -284,11 +285,9 @@ export function Card({
 /**
  * Spend against a cap.
  *
- * Two jobs. Typography separates what was spent from what was allowed, so the
- * eye lands on the number that moves. Colour appears only when the ratio
- * crosses a threshold, and never alone: spec 3.1 requires a word beside it, so
- * "near cap" and "over cap" are written out rather than implied by amber and
- * red. A workspace at 20% of its budget stays ink, because nothing is wrong.
+ * Typography separates what was spent from what was allowed, so the eye lands
+ * on the number that moves. Colour appears only when the ratio crosses a
+ * threshold, and never alone: "near cap" and "over cap" are written out.
  */
 export function SpendValue({
   spentUsd,

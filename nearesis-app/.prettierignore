@@ -1,0 +1,16 @@
+.toolchain
+node_modules
+dist
+services/outlayer-verifier
+tools
+pnpm-lock.yaml
+**/generated/**
+.next
+test-results
+playwright-report
+.data
+.pytest_cache
+docs/metrics/METRICS.md
+packages/contracts/schemas/
+docs/research/live-snapshots
+docs/research/live-results

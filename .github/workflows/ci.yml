@@ -1,0 +1,101 @@
+name: ci
+# Started by hand (Actions tab): the full suite takes up to an hour.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same ref supersedes a running one.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    name: full suite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: nearesis-app
+    env:
+      CI: "true"
+    steps:
+      # Every run step below is `sh scripts/ci/steps.sh <name>`: the same file scripts/ci/local-run.ts replays locally.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Prohibited paths (Build Bible, directive, env files, keys, runtime data must not be tracked)
+        run: sh scripts/ci/steps.sh prohibited
+      - name: Cache project-local toolchain (Node, uv, Python)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: nearesis-app/.toolchain
+          key: toolchain-${{ runner.os }}-${{ hashFiles('nearesis-app/scripts/bootstrap-toolchain.sh') }}
+      - name: Cache pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('nearesis-app/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+      - name: Cache Playwright browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('nearesis-app/pnpm-lock.yaml') }}
+
+      - name: Bootstrap toolchain
+        run: sh scripts/ci/steps.sh toolchain
+      - name: Install JS dependencies
+        run: sh scripts/ci/steps.sh install-js
+      - name: Install Python dependencies
+        run: sh scripts/ci/steps.sh install-py
+      - name: Build the pinned OutLayer verifier wasm (Rust 1.99.1, wasm32-wasip2)
+        run: sh scripts/ci/steps.sh wasm
+      - name: Install Playwright Chromium
+        run: sh scripts/ci/steps.sh playwright
+      - name: Start services (Postgres, Redis, ClickHouse, Temporal, Cube)
+        run: sh scripts/ci/steps.sh services-up
+      - name: Apply database roles
+        run: sh scripts/ci/steps.sh db-roles
+
+      - name: Migrate databases (Postgres schemas, ClickHouse tables)
+        run: sh scripts/ci/steps.sh migrate
+
+      - name: Typecheck
+        run: sh scripts/ci/steps.sh typecheck
+      - name: Lint
+        run: sh scripts/ci/steps.sh lint
+      - name: Format check
+        run: sh scripts/ci/steps.sh format
+      - name: Test dependency graph
+        run: sh scripts/ci/steps.sh deps
+      - name: Package tests
+        run: sh scripts/ci/steps.sh test
+      - name: Browser e2e (build monitor)
+        run: sh scripts/ci/steps.sh e2e
+      - name: Python tests
+        run: sh scripts/ci/steps.sh pytest
+      - name: Security scans (secrets, URL and source-register audit)
+        run: sh scripts/ci/steps.sh security
+      - name: Vulnerability scan (pinned trivy, lockfiles and secrets)
+        run: sh scripts/ci/steps.sh vuln-scan
+      - name: Secret scan of tracked files (pinned trivy)
+        run: sh scripts/ci/steps.sh secret-scan
+      - name: Boot unit tests
+        run: sh scripts/ci/steps.sh boot
+      - name: Fixture-mode acceptance (live tests skipped)
+        run: sh scripts/ci/steps.sh accept-fixture
+
+      - name: Compose logs on failure
+        if: failure()
+        run: >-
+          docker compose -f infrastructure/compose/docker-compose.yml -f infrastructure/compose/analytics.yml
+          logs --no-color --tail 200
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-evidence
+          path: ${{ runner.temp }}/ci-reports
+          if-no-files-found: ignore
+          retention-days: 14

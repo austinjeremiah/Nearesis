@@ -1,0 +1,46 @@
+{
+  "id": "fx.semantic.zero-vs-gap",
+  "label": "SYNTHETIC",
+  "description": "10 UTC days of Explorer day-queries: day 3 is a confirmed zero (200 []), day 6 is a gap (never answered), day 9 is partial (page 2 failed). Replay as a snapshot.",
+  "files": [
+    { "path": "expected.json", "sha256": "3600ca52c3831e14deee03f412b3e2022848075b6fee5a50aeb9a544977c9cb1" },
+    {
+      "path": "explorer/day-2026-10-01-p1.json",
+      "sha256": "ed17cfa9cf238484447ff42d572859343fb74d480103da6c03bb240ac7aaabbd"
+    },
+    {
+      "path": "explorer/day-2026-10-02-p1.json",
+      "sha256": "ede8101c6aad92e7a9732f44e6f0d123c0f84fa5d7e75593e0598d33e9f4a156"
+    },
+    {
+      "path": "explorer/day-2026-10-03-p1.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "explorer/day-2026-10-04-p1.json",
+      "sha256": "f74b790b08f516bd6d0bb3930941025b3c34e383074440d9b0b8bd764ea08110"
+    },
+    {
+      "path": "explorer/day-2026-10-05-p1.json",
+      "sha256": "7a7b7a925e41ef22208894bd993518e4c816c11cc130d69c53a906b9cf3a8802"
+    },
+    {
+      "path": "explorer/day-2026-10-07-p1.json",
+      "sha256": "4f745b9f57d0b85b3e66af94e0d8df2895e7a26bd95abc15e73e4d959d45ecb1"
+    },
+    {
+      "path": "explorer/day-2026-10-08-p1.json",
+      "sha256": "6bab06a19e1c9ac823073d4d49cce7b19149f52e7f6e09412c4c8d370263897f"
+    },
+    {
+      "path": "explorer/day-2026-10-09-p1.json",
+      "sha256": "8620afd1bda0174f089fcc23dce2cf1f64b7470d2c9a30ad2ffaa39b7d5b80fa"
+    },
+    {
+      "path": "explorer/day-2026-10-10-p1.json",
+      "sha256": "8f5dbd14aad93ce877a4f8a0d68647264a87c0b6f593584e99d373b9dea15629"
+    },
+    { "path": "snapshot.json", "sha256": "eb2792ff70df5e8a36fa96684155230ecd9954885eba001a423354a13fe4d062" }
+  ],
+  "expectedNormalizedDigest": "e31d1face08126345ec3987203eab0b0867b596eaad6b496167dd6294a61ff77"
+}

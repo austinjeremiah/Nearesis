@@ -1,0 +1,24 @@
+/* App-level rules only. Tokens, shell, panels, badges and chat styles come from @nearesis/ui/styles.css. */
+.muted {
+  color: var(--fg-muted);
+}
+.home {
+  max-width: 720px;
+  margin: 40px auto;
+  padding: 0 16px;
+}
+.markdown {
+  padding: 0 12px 8px;
+  overflow: auto;
+  height: 100%;
+  overflow-wrap: anywhere;
+}
+.markdown pre {
+  background: var(--bg-sunken, var(--bg));
+  padding: 6px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+.transform-label {
+  color: var(--warn);
+}

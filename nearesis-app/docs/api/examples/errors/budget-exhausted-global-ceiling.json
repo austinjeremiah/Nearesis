@@ -1,0 +1,9 @@
+{
+  "traceId": "7f3a9c1e-52d4-4b86-9a07-3c5e8d1f2a64",
+  "retryable": false,
+  "errorCode": "BUDGET_EXCEEDED",
+  "reasonCode": "GLOBAL_CEILING",
+  "message": "Spend blocked before execution: the global model-spend ceiling of USD 5 is reached.",
+  "nextAction": "Model work is stopped for every workspace. Historical reads still work; the owner must decide any change.",
+  "state": "budget_exhausted"
+}

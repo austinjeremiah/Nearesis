@@ -1,0 +1,10 @@
+{
+  "canonicalisation": "crlf_cr_to_lf;unicode_nfc;utf8;trailing_whitespace_preserved",
+  "documentHash": "sha256:bc906a6bbf4901b553f1773716cc3714364b9e8b64b71842b534d087bf520e4b",
+  "frozenAt": "2026-11-12T11:55:08.000Z",
+  "inputMethod": "live-organic-v3",
+  "label": "live_study_pre_run_registration",
+  "note": "Frozen before any live-organic-v3 snapshot or result exists. Fixture-evaluation style freeze, not a chain commitment; the engine label for live runs stays post-hoc registration.",
+  "registrationId": "LIVE-ORGANIC-V3",
+  "schema": "preregistration-amendment-freeze@1"
+}

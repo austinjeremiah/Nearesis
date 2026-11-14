@@ -1,0 +1,91 @@
+# Isolated fault-injection stack for PERF11 and the backup/restore drill (never the shared `nearesis` project).
+# Separate compose project name (`nearesis-chaos`), separate named volumes and a separate network, ports 64xxx on
+# 127.0.0.1 only. Images are the SAME digest-pinned images the shared stack already uses (no new pulls).
+# Drive it only through scripts/chaos/stack.sh, which refuses any other project name.
+name: nearesis-chaos
+services:
+  postgres:
+    image: postgres:17.11@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
+    environment: { POSTGRES_USER: nearesis, POSTGRES_PASSWORD: nearesis, POSTGRES_DB: nearesis }
+    ports: ["127.0.0.1:64432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      { test: ["CMD-SHELL", "pg_isready -U nearesis -d nearesis"], interval: 3s, timeout: 3s, retries: 30 }
+    mem_limit: 1g
+  redis:
+    image: redis:8.6.8@sha256:8b30009c0de4fdb3fb67deb8afab050fe454e9b233c6a2c142ec34fcc51fa7f5
+    ports: ["127.0.0.1:64379:6379"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 3s, timeout: 3s, retries: 30 }
+    mem_limit: 128m
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.8.36.3@sha256:d426d2f612e1e189c90f9a3f8dcd85a03c6851273833817a296bb327e63aa7a7
+    environment:
+      CLICKHOUSE_USER: nearesis
+      CLICKHOUSE_PASSWORD: nearesis
+      CLICKHOUSE_DB: nearesis
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports: ["127.0.0.1:64123:8123", "127.0.0.1:64900:9000"]
+    volumes: [chdata:/var/lib/clickhouse]
+    ulimits: { nofile: { soft: 262144, hard: 262144 } }
+    healthcheck:
+      {
+        test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8123/ping || exit 1"],
+        interval: 3s,
+        timeout: 3s,
+        retries: 40,
+      }
+    mem_limit: 1g
+  temporal:
+    image: temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e
+    user: "0:0"
+    command:
+      ["server", "start-dev", "--ip", "0.0.0.0", "--db-filename", "/data/temporal.db", "--ui-port", "8233"]
+    ports: ["127.0.0.1:64233:7233", "127.0.0.1:64234:8233"]
+    volumes: [temporaldata:/data]
+    healthcheck:
+      {
+        test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"],
+        interval: 5s,
+        timeout: 5s,
+        retries: 30,
+      }
+    mem_limit: 512m
+  cube:
+    image: cubejs/cube:v1.8.18@sha256:d382326a0d2786242c3992f3dd462efbea82d07b2823ecdc83d619d2d6f5dcb7
+    depends_on:
+      clickhouse: { condition: service_healthy }
+    environment:
+      CUBEJS_DEV_MODE: "false"
+      CUBEJS_DB_TYPE: clickhouse
+      CUBEJS_DB_HOST: clickhouse
+      CUBEJS_DB_PORT: "8123"
+      CUBEJS_DB_NAME: nearesis
+      CUBEJS_DB_USER: nearesis
+      CUBEJS_DB_PASS: nearesis
+      CUBEJS_API_SECRET: nearesis-dev-cube-secret-not-for-production
+      CUBEJS_PRE_AGGREGATIONS_SCHEMA: nearesis_preagg
+      CUBEJS_REFRESH_WORKER: "false"
+      CUBEJS_CACHE_AND_QUEUE_DRIVER: memory
+      CUBEJS_LOG_LEVEL: warn
+      CUBEJS_TELEMETRY: "false"
+    ports: ["127.0.0.1:64400:4000"]
+    volumes:
+      - ../../services/analytics/cube/model:/cube/conf/model:ro
+      - ../../services/analytics/cube/cube.js:/cube/conf/cube.js:ro
+    healthcheck:
+      {
+        test:
+          [
+            "CMD",
+            "node",
+            "-e",
+            "fetch('http://127.0.0.1:4000/readyz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          ],
+        interval: 4s,
+        timeout: 4s,
+        retries: 40,
+      }
+    mem_limit: 1g
+volumes: { pgdata: {}, chdata: {}, temporaldata: {} }

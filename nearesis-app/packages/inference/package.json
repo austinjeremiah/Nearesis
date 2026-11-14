@@ -1,0 +1,18 @@
+{
+  "name": "@nearesis/inference",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --exclude 'test/acceptance/**'"
+  },
+  "dependencies": {
+    "@nearai/inference-sdk": "0.2.1",
+    "@nearesis/contracts": "workspace:*",
+    "zod": "4.6.7"
+  }
+}

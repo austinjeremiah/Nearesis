@@ -1,0 +1,29 @@
+{
+  "workspaceId": "6f1c2d7e-3a4b-4c5d-8e9f-0a1b2c3d4e5f",
+  "sources": [
+    {
+      "sourceId": "near-intents-explorer",
+      "name": "NEAR Intents Explorer",
+      "freshness": "fresh",
+      "watermark": "2026-11-13T09:10:00.000Z"
+    },
+    {
+      "sourceId": "near-lake-receipts",
+      "name": "NEAR Lake receipts",
+      "freshness": "late",
+      "watermark": "2026-11-13T07:55:00.000Z"
+    },
+    {
+      "sourceId": "one-click-quotes",
+      "name": "1Click quote sampler",
+      "freshness": "partial",
+      "watermark": "2026-11-13T09:00:00.000Z"
+    },
+    {
+      "sourceId": "bigquery-public-near",
+      "name": "BigQuery public NEAR dataset",
+      "freshness": "unavailable",
+      "watermark": null
+    }
+  ]
+}

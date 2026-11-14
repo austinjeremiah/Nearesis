@@ -1,0 +1,265 @@
+[
+  {
+    "id": "Q039",
+    "split": "dev",
+    "category": "performance",
+    "difficulty": "medium",
+    "prompt": "Serve a 30-day Intents summary quickly enough to drive an interactive panel.",
+    "kind": "http",
+    "requiredSources": ["intents_swaps"],
+    "minAnswerProperties": ["the summary answers within 3 seconds and equals the independent count"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["PERF01", "PERF10"],
+    "expect": {
+      "outcome": "answer",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "maxLatencyMs": 3000
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "summary swaps",
+        "api": "/v1/intents/summary?from=2026-10-13&to=2026-11-11",
+        "json": "data.swaps",
+        "ch": "SELECT count() FROM intents_swaps FINAL WHERE created_day BETWEEN '2026-10-13' AND '2026-11-11'",
+        "rel": 0
+      }
+    ],
+    "http": [
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/intents/summary?from=2026-10-13&to=2026-11-11",
+        "expectStatus": 200,
+        "expectBody": [
+          {
+            "json": "status",
+            "equals": "OK"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "Q040",
+    "split": "dev",
+    "category": "performance",
+    "difficulty": "medium",
+    "prompt": "Serve a full-year NEAR account activity series within an interactive budget.",
+    "kind": "http",
+    "requiredSources": ["account_daily_activity"],
+    "minAnswerProperties": [
+      "365 days of account activity in under 4 seconds with complete coverage reported"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["PERF01", "PERF10"],
+    "expect": {
+      "outcome": "answer",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "maxLatencyMs": 4000
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/accounts/daily?days=365",
+        "expectStatus": 200,
+        "expectBody": [
+          {
+            "json": "coverage.missingDays",
+            "equals": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "Q041",
+    "split": "dev",
+    "category": "performance",
+    "difficulty": "hard",
+    "prompt": "Serve entity coverage over 90 days (168 million interactions) without degrading.",
+    "kind": "http",
+    "requiredSources": ["contract_interactions"],
+    "minAnswerProperties": [
+      "coverage over 168M interactions in under 5 seconds and equals the independent sum"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["PERF10", "S06"],
+    "expect": {
+      "outcome": "answer",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "maxLatencyMs": 5000
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "total interactions",
+        "api": "/v1/entities/coverage",
+        "json": "coverage.totalInteractions",
+        "ch": "SELECT (SELECT sum(interactions) FROM contract_interactions FINAL WHERE block_date BETWEEN '2026-08-14' AND '2026-11-11') + (SELECT sum(interactions) FROM contract_interactions_below_threshold FINAL WHERE block_date BETWEEN '2026-08-14' AND '2026-11-11')",
+        "rel": 0
+      }
+    ],
+    "http": [
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/entities/coverage",
+        "expectStatus": 200,
+        "expectBody": []
+      }
+    ]
+  },
+  {
+    "id": "Q042",
+    "split": "dev",
+    "category": "cost_exhaustion",
+    "difficulty": "easy",
+    "prompt": "Ask a question with a budget below the minimum the runtime must reserve.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["rejected before any work starts with BUDGET_BELOW_MINIMUM"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["PERF12", "A15"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/questions",
+        "expectStatus": 422,
+        "expectBody": [],
+        "expectReason": "BUDGET_BELOW_MINIMUM",
+        "body": {
+          "question": "Which NEAR applications grew fastest?",
+          "snapshotPolicy": "live",
+          "source": "live",
+          "budget": {
+            "tokens": 1000,
+            "toolCalls": 1,
+            "usd": 0.01
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q043",
+    "split": "dev",
+    "category": "cost_exhaustion",
+    "difficulty": "medium",
+    "prompt": "Show the global model spend against the USD 5 ceiling.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": [
+      "ceiling is exactly 5, committed + remaining equals the ceiling, state is a known label"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["PERF12", "A15"],
+    "expect": {
+      "outcome": "answer",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [
+      {
+        "kind": "sum_equals",
+        "label": "committed plus remaining equals the ceiling",
+        "api": "/v1/cost/global",
+        "parts": ["committedUsd", "remainingUsd"],
+        "abs": 1e-6,
+        "totalValue": 5
+      }
+    ],
+    "http": [
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/cost/global",
+        "expectStatus": 200,
+        "expectBody": [
+          {
+            "json": "ceilingUsd",
+            "equals": 5
+          },
+          {
+            "json": "hardMaxUsd",
+            "equals": 5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "Q044",
+    "split": "dev",
+    "category": "cost_exhaustion",
+    "difficulty": "hard",
+    "prompt": "Request more tool calls than the system allows in a single investigation.",
+    "kind": "http",
+    "requiredSources": [],
+    "minAnswerProperties": ["the request is rejected as invalid, not silently clamped"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["A12", "PERF12"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/questions",
+        "expectStatus": 422,
+        "expectBody": [],
+        "expectReason": "INVALID_BODY",
+        "body": {
+          "question": "Which NEAR applications grew fastest?",
+          "snapshotPolicy": "live",
+          "source": "live",
+          "budget": {
+            "tokens": 32000,
+            "toolCalls": 99,
+            "usd": 3
+          }
+        }
+      }
+    ]
+  }
+]

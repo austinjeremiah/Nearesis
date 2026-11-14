@@ -1,0 +1,291 @@
+{
+ "command": "PYTHONPATH=services/research:services/research/test/forecomp uv run python services/research/test/forecomp/forecomp_crosscheck.py --full out.json",
+ "note": "R: ForeComp 1.0.0 on R 4.5.3. calibration = all 12 cells x 5000 frozen seeds (60000 series). Read-only; no Q14 verdict.",
+ "results": {
+  "calibration": {
+   "H": {
+    "boundary": 0,
+    "compared": 60000,
+    "degenerate_agree": 0,
+    "degenerate_python": 0,
+    "disagreements": 0,
+    "maxPAbs": 0.0,
+    "maxStatRel": 0.0,
+    "r_nonfinite": 0,
+    "rejectAgree": 60000
+   },
+   "P": {
+    "boundary": 0,
+    "compared": 60000,
+    "default_M_compared": 60000,
+    "degenerate_agree": 0,
+    "degenerate_python": 0,
+    "disagreements": 0,
+    "maxPAbs": 1.7763568394002505e-15,
+    "maxStatRel": 6.2468097304154594e-15,
+    "r_nonfinite": 0,
+    "rejectAgree": 60000
+   },
+   "S": {
+    "boundary": 0,
+    "compared": 60000,
+    "degenerate_agree": 0,
+    "degenerate_python": 0,
+    "disagreements": 0,
+    "maxPAbs": 0.0,
+    "maxStatRel": 5.780857645943202e-15,
+    "r_nonfinite": 0,
+    "rejectAgree": 60000
+   },
+   "boundaryCount": 0,
+   "failureCount": 0,
+   "forecomp": "1.0.0",
+   "n_series": 60000,
+   "rversion": "R version 4.5.3 (2026-03-11)"
+  },
+  "calibrationCounts": {
+   "phi=0,n=150": {
+    "committedRejections": 267,
+    "equal": true,
+    "rRejections": 267,
+    "series": 5000
+   },
+   "phi=0,n=300": {
+    "committedRejections": 221,
+    "equal": true,
+    "rRejections": 221,
+    "series": 5000
+   },
+   "phi=0,n=60": {
+    "committedRejections": 259,
+    "equal": true,
+    "rRejections": 259,
+    "series": 5000
+   },
+   "phi=0.3,n=150": {
+    "committedRejections": 237,
+    "equal": true,
+    "rRejections": 237,
+    "series": 5000
+   },
+   "phi=0.3,n=300": {
+    "committedRejections": 238,
+    "equal": true,
+    "rRejections": 238,
+    "series": 5000
+   },
+   "phi=0.3,n=60": {
+    "committedRejections": 253,
+    "equal": true,
+    "rRejections": 253,
+    "series": 5000
+   },
+   "phi=0.5,n=150": {
+    "committedRejections": 278,
+    "equal": true,
+    "rRejections": 278,
+    "series": 5000
+   },
+   "phi=0.5,n=300": {
+    "committedRejections": 244,
+    "equal": true,
+    "rRejections": 244,
+    "series": 5000
+   },
+   "phi=0.5,n=60": {
+    "committedRejections": 303,
+    "equal": true,
+    "rRejections": 303,
+    "series": 5000
+   },
+   "phi=0.7,n=150": {
+    "committedRejections": 350,
+    "equal": true,
+    "rRejections": 350,
+    "series": 5000
+   },
+   "phi=0.7,n=300": {
+    "committedRejections": 284,
+    "equal": true,
+    "rRejections": 284,
+    "series": 5000
+   },
+   "phi=0.7,n=60": {
+    "committedRejections": 345,
+    "equal": true,
+    "rRejections": 345,
+    "series": 5000
+   }
+  },
+  "edge": {
+   "H": {
+    "boundary": 0,
+    "compared": 11,
+    "degenerate_agree": 0,
+    "degenerate_python": 0,
+    "disagreements": 0,
+    "maxPAbs": 0.0,
+    "maxStatRel": 0.0,
+    "r_nonfinite": 1,
+    "rejectAgree": 11
+   },
+   "P": {
+    "boundary": 0,
+    "compared": 9,
+    "default_M_compared": 13,
+    "degenerate_agree": 4,
+    "degenerate_python": 4,
+    "disagreements": 0,
+    "maxPAbs": 5.551115123125783e-16,
+    "maxStatRel": 6.0322201535022e-10,
+    "r_nonfinite": 0,
+    "rejectAgree": 9
+   },
+   "S": {
+    "boundary": 0,
+    "compared": 10,
+    "degenerate_agree": 3,
+    "degenerate_python": 3,
+    "disagreements": 0,
+    "maxPAbs": 0.0,
+    "maxStatRel": 3.8402413201016795e-15,
+    "r_nonfinite": 0,
+    "rejectAgree": 10
+   },
+   "boundaryCount": 0,
+   "failureCount": 0,
+   "forecomp": "1.0.0",
+   "n_series": 13,
+   "rversion": "R version 4.5.3 (2026-03-11)"
+  },
+  "frozenVectors": {
+   "H": {
+    "boundary": 0,
+    "compared": 11,
+    "degenerate_agree": 0,
+    "degenerate_python": 0,
+    "disagreements": 0,
+    "maxPAbs": 0.0,
+    "maxStatRel": 0.0,
+    "r_nonfinite": 0,
+    "rejectAgree": 11
+   },
+   "P": {
+    "boundary": 0,
+    "compared": 10,
+    "default_M_compared": 11,
+    "degenerate_agree": 1,
+    "degenerate_python": 1,
+    "disagreements": 0,
+    "maxPAbs": 6.661338147750939e-16,
+    "maxStatRel": 2.531400398619369e-15,
+    "r_nonfinite": 0,
+    "rejectAgree": 10
+   },
+   "S": {
+    "boundary": 0,
+    "compared": 10,
+    "degenerate_agree": 1,
+    "degenerate_python": 1,
+    "disagreements": 0,
+    "maxPAbs": 0.0,
+    "maxStatRel": 2.170117418434861e-15,
+    "r_nonfinite": 0,
+    "rejectAgree": 10
+   },
+   "boundaryCount": 0,
+   "failureCount": 0,
+   "forecomp": "1.0.0",
+   "n_series": 11,
+   "rversion": "R version 4.5.3 (2026-03-11)"
+  },
+  "q14Frozen": {
+   "H": {
+    "boundary": 0,
+    "compared": 101,
+    "degenerate_agree": 0,
+    "degenerate_python": 0,
+    "disagreements": 0,
+    "maxPAbs": 0.0,
+    "maxStatRel": 0.0,
+    "r_nonfinite": 0,
+    "rejectAgree": 101
+   },
+   "P": {
+    "boundary": 0,
+    "compared": 101,
+    "default_M_compared": 101,
+    "degenerate_agree": 0,
+    "degenerate_python": 0,
+    "disagreements": 0,
+    "maxPAbs": 1.1102230246251565e-15,
+    "maxStatRel": 3.574822893714751e-15,
+    "r_nonfinite": 0,
+    "rejectAgree": 101
+   },
+   "S": {
+    "boundary": 0,
+    "compared": 101,
+    "degenerate_agree": 0,
+    "degenerate_python": 0,
+    "disagreements": 0,
+    "maxPAbs": 0.0,
+    "maxStatRel": 3.5323979949412594e-15,
+    "r_nonfinite": 0,
+    "rejectAgree": 101
+   },
+   "boundaryCount": 0,
+   "failureCount": 0,
+   "forecomp": "1.0.0",
+   "n_series": 101,
+   "rversion": "R version 4.5.3 (2026-03-11)"
+  },
+  "randomized": {
+   "H": {
+    "boundary": 0,
+    "compared": 8400,
+    "degenerate_agree": 0,
+    "degenerate_python": 0,
+    "disagreements": 0,
+    "maxPAbs": 0.0,
+    "maxStatRel": 0.0,
+    "r_nonfinite": 0,
+    "rejectAgree": 8400
+   },
+   "P": {
+    "M_default_differs_at_n": {
+     "1000": 1200
+    },
+    "boundary": 0,
+    "compared": 8400,
+    "default_M_compared": 7200,
+    "degenerate_agree": 0,
+    "degenerate_python": 0,
+    "disagreements": 0,
+    "maxPAbs": 2.55351295663786e-15,
+    "maxStatRel": 5.770146649325911e-15,
+    "r_nonfinite": 0,
+    "rejectAgree": 8400
+   },
+   "S": {
+    "boundary": 0,
+    "compared": 8400,
+    "degenerate_agree": 0,
+    "degenerate_python": 0,
+    "disagreements": 0,
+    "maxPAbs": 0.0,
+    "maxStatRel": 7.703137957119095e-15,
+    "r_nonfinite": 0,
+    "rejectAgree": 8400
+   },
+   "boundaryCount": 0,
+   "failureCount": 0,
+   "forecomp": "1.0.0",
+   "n_series": 8400,
+   "rversion": "R version 4.5.3 (2026-03-11)"
+  }
+ },
+ "runAt": "2026-11-12",
+ "schema": "forecomp-crosscheck-full-run@1",
+ "specCommit": "58684cf"
+}

@@ -1,0 +1,1 @@
+[{"originAsset": "nep141:eth.omft.near", "depositAddress": 

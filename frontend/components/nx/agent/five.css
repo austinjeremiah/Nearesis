@@ -1,0 +1,54 @@
+/* Test plan, follow-ups from findings and the "why this step" lines. Tokens only, so both themes follow. */
+
+/* ---------------------------------------------------------------- test plan */
+.tp { margin: 12px 14px; border: 1px solid var(--line-hard); border-left: 4px solid var(--info, var(--accent)); background: var(--raised); border-radius: var(--radius, 8px); display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 12px; min-width: 0; color: var(--text); }
+.tp[data-locked='true'] { border-left-color: var(--ok); }
+.tp[data-variant='story'] { margin: 0; background: var(--surface); border-radius: var(--radius-lg, 12px); padding: 16px 20px 16px; border-color: var(--line); border-left-width: 1px; border-top: 4px solid var(--info, var(--accent)); gap: 14px; }
+.tp[data-variant='story'][data-locked='true'] { border-top-color: var(--ok); }
+.tp-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tp-title { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: var(--fs-lg, 16px); letter-spacing: -0.01em; }
+.tp-edit { display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: var(--fs-tiny); font-weight: 600; color: var(--text-2); background: transparent; border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 10px; cursor: pointer; }
+.tp-edit:hover { color: var(--text); border-color: var(--text); }
+.tp-edit:focus-visible, .tp-link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.tp-statement { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 17px; line-height: 1.4; letter-spacing: -0.005em; overflow-wrap: anywhere; }
+.tp-facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px 18px; padding-top: 10px; border-top: 1px solid var(--line); }
+.tp-row { min-width: 0; }
+.tp-row dt { font-family: var(--font-mono); font-size: var(--fs-micro); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--text-3); }
+.tp-row dd { margin: 2px 0 0; font-size: var(--fs-small); font-weight: 600; overflow-wrap: anywhere; }
+.tp-wrong { margin: 0; font-size: var(--fs-small); line-height: 1.5; overflow-wrap: anywhere; }
+.tp-wrong b { font-weight: 700; }
+.tp-note, .tp-hint { margin: 0; font-size: var(--fs-tiny); color: var(--text-3); line-height: 1.45; }
+.tp-link { font: inherit; background: none; border: 0; padding: 0; color: var(--text); text-decoration: underline; cursor: pointer; }
+.tp-lock { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-tiny); color: var(--text-2); }
+.tp-lock > svg { color: var(--ok); flex: none; }
+.tp-fp { display: inline-flex; align-items: center; gap: 6px; }
+.tp-empty { border: 1px dashed var(--line-strong); border-radius: var(--radius, 8px); padding: 12px 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.tp-empty p { margin: 0; font-size: var(--fs-small); line-height: 1.5; max-width: 62ch; }
+.tp-form { display: flex; flex-direction: column; gap: 10px; }
+.tp-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tp-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tp-field label { font-size: var(--fs-tiny); font-weight: 600; color: var(--text-2); }
+.tp-field input, .tp-field select, .tp-field textarea { width: 100%; font: inherit; font-size: var(--fs-small); color: var(--text); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; padding: 7px 9px; outline: none; resize: vertical; min-width: 0; }
+.tp-field input:disabled { opacity: 0.5; }
+.tp-field input:focus, .tp-field select:focus, .tp-field textarea:focus { box-shadow: var(--focus-ring); }
+.tp-field[data-bad='true'] input, .tp-field[data-bad='true'] select, .tp-field[data-bad='true'] textarea { border-color: var(--bad); }
+.tp-err { font-size: var(--fs-tiny); color: var(--bad); }
+.tp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ag-timeline > .tp { margin: 0 14px 4px; }
+
+/* ---------------------------------------------------------------- follow-ups */
+.fu-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 2px; }
+.fu-row[data-bare='true'] { margin-top: 0; }
+.nx .fu-btn { display: inline-flex; align-items: center; font: inherit; font-size: var(--fs-tiny); font-weight: 600; color: var(--text-2); background: transparent; border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 10px; cursor: pointer; text-decoration: none; line-height: 1.4; white-space: nowrap; }
+.nx .fu-btn:hover { color: var(--text); border-color: var(--text); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.nx .fu-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ---------------------------------------------------------------- why this step and reasons */
+.why { margin: 0; font-size: var(--fs-tiny); line-height: 1.45; color: var(--text-3); overflow-wrap: anywhere; max-width: 70ch; }
+.why-reason { margin: 0; font-size: var(--fs-small); line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.why-reason .why-from { display: block; font-size: var(--fs-tiny); color: var(--text-3); margin-top: 2px; }
+
+@media (max-width: 560px) {
+  .tp-two { grid-template-columns: minmax(0, 1fr); }
+  .tp { margin-left: 10px; margin-right: 10px; padding: 10px 12px; }
+}

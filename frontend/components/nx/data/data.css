@@ -1,0 +1,49 @@
+/* Data area (WS5): link tabs, heat cells, bars. Kept out of app.css to avoid merge conflicts. */
+.tabs > a {
+  padding: var(--s2) 0;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--text-3);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.tabs > a:hover {
+  color: var(--text);
+}
+.tabs > a[aria-selected='true'] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.dbar {
+  display: inline-block;
+  height: 8px;
+  background: var(--accent);
+  vertical-align: middle;
+  min-width: 1px;
+}
+.dbar-track {
+  display: inline-block;
+  width: 120px;
+  background: var(--line);
+  height: 8px;
+  vertical-align: middle;
+}
+.hm {
+  display: grid;
+  gap: 2px;
+}
+.hm-cell {
+  height: 22px;
+  min-width: 14px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+}
+.hm-ok { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.hm-partial { background: color-mix(in srgb, var(--warn) 40%, transparent); }
+.hm-gap { background: color-mix(in srgb, var(--bad) 45%, transparent); }
+.hm-none { background: transparent; }
+.subnav-inline { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }

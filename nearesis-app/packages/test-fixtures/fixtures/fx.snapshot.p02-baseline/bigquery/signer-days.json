@@ -1,0 +1,59 @@
+{
+  "job": {
+    "kind": "signer_days",
+    "estimateBytes": 20971520,
+    "billedBytes": 20971520,
+    "location": "recorded-location",
+    "jobId": "synthetic-job-2"
+  },
+  "rows": [
+    {
+      "block_date": "2026-10-01",
+      "signer_account_id": "user0.near"
+    },
+    {
+      "block_date": "2026-10-01",
+      "signer_account_id": "user1.near"
+    },
+    {
+      "block_date": "2026-10-01",
+      "signer_account_id": "user2.near"
+    },
+    {
+      "block_date": "2026-10-02",
+      "signer_account_id": "user1.near"
+    },
+    {
+      "block_date": "2026-10-02",
+      "signer_account_id": "user2.near"
+    },
+    {
+      "block_date": "2026-10-02",
+      "signer_account_id": "user3.near"
+    },
+    {
+      "block_date": "2026-10-02",
+      "signer_account_id": "user0.near"
+    },
+    {
+      "block_date": "2026-10-03",
+      "signer_account_id": "user2.near"
+    },
+    {
+      "block_date": "2026-10-03",
+      "signer_account_id": "user3.near"
+    },
+    {
+      "block_date": "2026-10-03",
+      "signer_account_id": "user0.near"
+    },
+    {
+      "block_date": "2026-10-03",
+      "signer_account_id": "user1.near"
+    },
+    {
+      "block_date": "2026-10-03",
+      "signer_account_id": "user2.near"
+    }
+  ]
+}

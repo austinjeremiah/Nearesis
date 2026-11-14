@@ -1,0 +1,45 @@
+{
+  "facts": [
+    { "value": "1234", "unit": "swaps" },
+    { "value": "98765.43", "unit": "USD" },
+    { "value": "0.82", "unit": "ratio" },
+    { "value": "12.5", "unit": "%" }
+  ],
+  "intervalBounds": ["2026-11-01", "2026-11-07"],
+  "unsupported": [
+    "Swap count reached 1,500 in the window.",
+    "Volume was 98,000 USD.",
+    "R-squared of 0.91 was observed.",
+    "Fees rose 14% after the change.",
+    "There were 3 whales and 7 minnows.",
+    "Revenue hit $2.5M last week.",
+    "The count grew to 1,234,567 swaps.",
+    "Median trade size was 45.2 NEAR.",
+    "A 33% share of volume came from one account.",
+    "Latency averaged 120 ms.",
+    "Volume fell by 1.2B over the period.",
+    "About 1,235 swaps happened (off by one)."
+  ],
+  "incidental": [
+    "Observed from 2026-11-01 to 2026-11-07 with no gaps.",
+    "Snapshot taken at 2026-11-10T09:30:00Z by the fixture.",
+    "Run 3f2c9a1e-7b4d-4c1a-9e55-0a1b2c3d4e5f produced this result.",
+    "Evidence hash sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08 attached.",
+    "See test A19 and finding FND-20261110-011 for details.",
+    "Computed with semantic version 1.3.0 of the pack.",
+    "Uses schema version 3 of the finding envelope.",
+    "Metric intents.swap_count_24h and member alice.near were referenced.",
+    "1. First point\n2. Second point\n3) Third point",
+    "## 2.1 Method\nThe count was 1,234 swaps.",
+    "Trace id run_8841 and task_77ab linked.",
+    "Gate G04 and phase P04 report, capability semantic.query@1 used.",
+    "The window began on Nov 1, 2026 and ended on November 7, 2026."
+  ],
+  "supported": [
+    "Swap count was 1,234 over the interval.",
+    "Volume was 98,765.43 USD (rounded: 98,765.4).",
+    "R-squared of 0.82 explains the variance.",
+    "Share was 12.5% of volume.",
+    "Roughly 1.2k swaps, i.e. 1234 rounded."
+  ]
+}

@@ -33,7 +33,8 @@ export default function SmoothScroll() {
     if (!wrapper || !content) return;
 
     // A fixed-frame screen scrolls its own panes. Leave those alone.
-    if (wrapper.querySelector('.with-inspector')) return;
+    // The Agent page is a fixed frame with its own scrolling zones, and a page can opt out explicitly.
+    if (wrapper.querySelector('.with-inspector, .ag-page, [data-no-smooth]')) return;
 
     const lenis = new Lenis({
       wrapper,

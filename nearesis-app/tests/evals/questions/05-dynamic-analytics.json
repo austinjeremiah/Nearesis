@@ -1,0 +1,558 @@
+[
+  {
+    "id": "Q025",
+    "split": "dev",
+    "category": "dynamic_analytics",
+    "difficulty": "medium",
+    "prompt": "Can the system construct a previously undefined NEAR account-activity metric?",
+    "kind": "http",
+    "requiredSources": ["metric authoring"],
+    "minAnswerProperties": [
+      "a typed proposal is compiled by the allowlisted compiler and stored as VALIDATED, never CERTIFIED, with the caller as author"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["A19", "S01"],
+    "expect": {
+      "outcome": "answer",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/metrics/proposals",
+        "expectStatus": 201,
+        "expectBody": [
+          {
+            "json": "record.status",
+            "matches": "^(DRAFT|VALIDATED)$"
+          },
+          {
+            "json": "record.certifiedAt",
+            "equals": null
+          }
+        ],
+        "body": {
+          "proposal": {
+            "schemaVersion": 1,
+            "namespace": "authored",
+            "name": "evalacct_{TAG}",
+            "displayName": "Eval account activity",
+            "description": "Total NEAR transactions per UTC day from the deduplicated daily table.",
+            "sources": ["near_daily_tx"],
+            "joins": [],
+            "entityGrain": {
+              "kind": "global"
+            },
+            "timeGrain": {
+              "column": {
+                "table": "near_daily_tx",
+                "column": "block_date"
+              },
+              "grain": "day"
+            },
+            "dimensions": [],
+            "filters": [],
+            "aggregations": [
+              {
+                "id": "tx",
+                "fn": "sum",
+                "column": {
+                  "table": "near_daily_tx",
+                  "column": "tx_count"
+                }
+              }
+            ],
+            "unit": "tx",
+            "precision": {
+              "decimals": 0,
+              "rounding": "half_even"
+            },
+            "nullSemantics": {
+              "nullInput": "ignore",
+              "emptyBucket": "null"
+            },
+            "dedup": {
+              "strategy": "final"
+            },
+            "historicalValidity": {
+              "validFrom": "2025-11-10",
+              "validTo": null,
+              "restatement": "may_restate"
+            },
+            "costEstimate": {
+              "maxEstimatedRows": 100000
+            },
+            "dependencies": [],
+            "tests": [
+              {
+                "kind": "reconcile_raw",
+                "name": "matches raw"
+              },
+              {
+                "kind": "non_negative",
+                "name": "no negatives"
+              }
+            ],
+            "limitations": [
+              "Counts transactions as delivered by the daily source; later restatements change history."
+            ],
+            "version": 1
+          },
+          "validate": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q026",
+    "split": "dev",
+    "category": "dynamic_analytics",
+    "difficulty": "medium",
+    "prompt": "Can the system reject a metric whose declared unit is inconsistent with its aggregation?",
+    "kind": "http",
+    "requiredSources": ["metric authoring"],
+    "minAnswerProperties": ["UNIT_MISMATCH with the path of the offending field"],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["A19", "S05"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/metrics/proposals",
+        "expectStatus": 422,
+        "expectBody": [
+          {
+            "json": "details[0].path",
+            "equals": "unit"
+          }
+        ],
+        "expectReason": "UNIT_MISMATCH",
+        "body": {
+          "proposal": {
+            "schemaVersion": 1,
+            "namespace": "authored",
+            "name": "evalunit_{TAG}",
+            "displayName": "Daily transactions",
+            "description": "Total NEAR transactions per UTC day from the deduplicated daily table.",
+            "sources": ["near_daily_tx"],
+            "joins": [],
+            "entityGrain": {
+              "kind": "global"
+            },
+            "timeGrain": {
+              "column": {
+                "table": "near_daily_tx",
+                "column": "block_date"
+              },
+              "grain": "day"
+            },
+            "dimensions": [],
+            "filters": [],
+            "aggregations": [
+              {
+                "id": "tx",
+                "fn": "sum",
+                "column": {
+                  "table": "near_daily_tx",
+                  "column": "tx_count"
+                }
+              }
+            ],
+            "unit": "usd",
+            "precision": {
+              "decimals": 0,
+              "rounding": "half_even"
+            },
+            "nullSemantics": {
+              "nullInput": "ignore",
+              "emptyBucket": "null"
+            },
+            "dedup": {
+              "strategy": "final"
+            },
+            "historicalValidity": {
+              "validFrom": "2025-11-10",
+              "validTo": null,
+              "restatement": "may_restate"
+            },
+            "costEstimate": {
+              "maxEstimatedRows": 100000
+            },
+            "dependencies": [],
+            "tests": [
+              {
+                "kind": "reconcile_raw",
+                "name": "matches raw"
+              },
+              {
+                "kind": "non_negative",
+                "name": "no negatives"
+              }
+            ],
+            "limitations": [
+              "Counts transactions as delivered by the daily source; later restatements change history."
+            ],
+            "version": 1
+          },
+          "validate": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q027",
+    "split": "dev",
+    "category": "dynamic_analytics",
+    "difficulty": "hard",
+    "prompt": "Can the system detect overlapping entity classifications in the NEAR ecosystem registry?",
+    "kind": "run",
+    "requiredSources": ["entities", "entity_mappings"],
+    "minAnswerProperties": [
+      "ambiguous (multi-entity) interactions are reported as their own class and never counted twice"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": ["a receiver maps to at most one entity at a time"],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      }
+    ],
+    "acceptanceTests": ["A19", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "entity|ambiguous|overlap|classif"
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "ambiguous interactions are zero exactly when no exact mapping assigns one account to two current entities",
+        "api": "/v1/entities/coverage",
+        "json": "coverage.ambiguousInteractions",
+        "ch": "SELECT count() FROM (SELECT account FROM entity_mappings FINAL WHERE effective_to IS NULL AND match_type = 'exact' GROUP BY account HAVING uniqExact(entity_id) > 1)",
+        "rel": 0
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q028",
+    "split": "dev",
+    "category": "dynamic_analytics",
+    "difficulty": "medium",
+    "prompt": "Can the system generate a safe draft metric and require certification before it is published?",
+    "kind": "http",
+    "requiredSources": ["metric authoring"],
+    "minAnswerProperties": [
+      "a draft is not publishable: publish-check refuses it with METRIC_NOT_CERTIFIED",
+      "a viewer cannot propose metrics"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["A19", "S04", "A11"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/metrics/proposals",
+        "expectStatus": 201,
+        "expectBody": [],
+        "body": {
+          "proposal": {
+            "schemaVersion": 1,
+            "namespace": "authored",
+            "name": "evaldraft_{TAG}",
+            "displayName": "Eval draft",
+            "description": "Total NEAR transactions per UTC day from the deduplicated daily table.",
+            "sources": ["near_daily_tx"],
+            "joins": [],
+            "entityGrain": {
+              "kind": "global"
+            },
+            "timeGrain": {
+              "column": {
+                "table": "near_daily_tx",
+                "column": "block_date"
+              },
+              "grain": "day"
+            },
+            "dimensions": [],
+            "filters": [],
+            "aggregations": [
+              {
+                "id": "tx",
+                "fn": "sum",
+                "column": {
+                  "table": "near_daily_tx",
+                  "column": "tx_count"
+                }
+              }
+            ],
+            "unit": "tx",
+            "precision": {
+              "decimals": 0,
+              "rounding": "half_even"
+            },
+            "nullSemantics": {
+              "nullInput": "ignore",
+              "emptyBucket": "null"
+            },
+            "dedup": {
+              "strategy": "final"
+            },
+            "historicalValidity": {
+              "validFrom": "2025-11-10",
+              "validTo": null,
+              "restatement": "may_restate"
+            },
+            "costEstimate": {
+              "maxEstimatedRows": 100000
+            },
+            "dependencies": [],
+            "tests": [
+              {
+                "kind": "reconcile_raw",
+                "name": "matches raw"
+              },
+              {
+                "kind": "non_negative",
+                "name": "no negatives"
+              }
+            ],
+            "limitations": [
+              "Counts transactions as delivered by the daily source; later restatements change history."
+            ],
+            "version": 1
+          },
+          "validate": true
+        }
+      },
+      {
+        "as": "owner",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/metrics/publish-check",
+        "expectStatus": 422,
+        "expectBody": [],
+        "expectReason": "METRIC_NOT_CERTIFIED",
+        "body": {
+          "metrics": [
+            {
+              "metricKey": "authored.evaldraft_{TAG}",
+              "version": 1
+            }
+          ]
+        }
+      },
+      {
+        "as": "viewer",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/metrics/proposals",
+        "expectStatus": 403,
+        "expectBody": [],
+        "expectReason": "FORBIDDEN",
+        "body": {
+          "proposal": {
+            "name": "x"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q029",
+    "split": "dev",
+    "category": "dynamic_analytics",
+    "difficulty": "medium",
+    "prompt": "What visualization fits a daily NEAR transaction count series, and what fits an Intents chain-pair matrix?",
+    "kind": "run",
+    "requiredSources": ["near_daily_tx", "intents_swaps"],
+    "minAnswerProperties": [
+      "a time series or bar for the daily series, a matrix/heatmap or ranked bars for chain pairs, chosen from result shape",
+      "encodings name units"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["A19", "S05", "PERF06"],
+    "expect": {
+      "outcome": "answer",
+      "minPanels": 1,
+      "maxUsd": 0.08,
+      "reproducible": false,
+      "panelPattern": "timeSeries|bar|heatmap|table"
+    },
+    "probes": [
+      {
+        "kind": "api_field",
+        "label": "daily series has a time column and a numeric measure",
+        "api": "/v1/intents/trend?from=2026-10-13&to=2026-11-11&granularity=day",
+        "json": "data[0].period",
+        "httpStatus": 200,
+        "matches": "^\\d{4}-\\d{2}-\\d{2}$"
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q030",
+    "split": "dev",
+    "category": "dynamic_analytics",
+    "difficulty": "hard",
+    "prompt": "Break NEAR transactions down by solver identity.",
+    "kind": "http",
+    "requiredSources": ["metric authoring"],
+    "minAnswerProperties": [
+      "the breakdown is refused because no solver column exists in the catalogue, with UNKNOWN_COLUMN"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "invented_solver",
+        "pattern": "\\bsolver [A-Za-z0-9_.-]+ (executed|filled|handled) \\d",
+        "flags": "i",
+        "why": "the source has no solver identity"
+      }
+    ],
+    "acceptanceTests": ["A19", "S04"],
+    "expect": {
+      "outcome": "refusal",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "POST",
+        "path": "/v1/workspaces/{WS}/metrics/proposals",
+        "expectStatus": 422,
+        "expectBody": [],
+        "expectReason": "UNKNOWN_COLUMN",
+        "body": {
+          "proposal": {
+            "schemaVersion": 1,
+            "namespace": "authored",
+            "name": "evalsolver_{TAG}",
+            "displayName": "Daily transactions",
+            "description": "Total NEAR transactions per UTC day from the deduplicated daily table.",
+            "sources": ["near_daily_tx"],
+            "joins": [],
+            "entityGrain": {
+              "kind": "global"
+            },
+            "timeGrain": {
+              "column": {
+                "table": "near_daily_tx",
+                "column": "block_date"
+              },
+              "grain": "day"
+            },
+            "dimensions": [
+              {
+                "table": "near_daily_tx",
+                "column": "solver_id"
+              }
+            ],
+            "filters": [],
+            "aggregations": [
+              {
+                "id": "tx",
+                "fn": "sum",
+                "column": {
+                  "table": "near_daily_tx",
+                  "column": "tx_count"
+                }
+              }
+            ],
+            "unit": "tx",
+            "precision": {
+              "decimals": 0,
+              "rounding": "half_even"
+            },
+            "nullSemantics": {
+              "nullInput": "ignore",
+              "emptyBucket": "null"
+            },
+            "dedup": {
+              "strategy": "final"
+            },
+            "historicalValidity": {
+              "validFrom": "2025-11-10",
+              "validTo": null,
+              "restatement": "may_restate"
+            },
+            "costEstimate": {
+              "maxEstimatedRows": 100000
+            },
+            "dependencies": [],
+            "tests": [
+              {
+                "kind": "reconcile_raw",
+                "name": "matches raw"
+              },
+              {
+                "kind": "non_negative",
+                "name": "no negatives"
+              }
+            ],
+            "limitations": [
+              "Counts transactions as delivered by the daily source; later restatements change history."
+            ],
+            "version": 1
+          },
+          "validate": false
+        }
+      }
+    ]
+  }
+]

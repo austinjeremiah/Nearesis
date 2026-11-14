@@ -1,0 +1,130 @@
+{
+ "id": "blocks:2026-11-01",
+ "family": "blocks",
+ "from": "2026-11-01",
+ "to": "2026-11-14",
+ "sql": "DECLARE start_date DATE DEFAULT DATE '2026-11-01';\nDECLARE end_date DATE DEFAULT DATE '2026-11-14';\nSELECT b.block_date AS block_date, COUNT(*) AS blocks, CAST(MIN(b.gas_price) AS STRING) AS min_gas_price,\n  CAST(MAX(b.gas_price) AS STRING) AS max_gas_price, CAST(SUM(CAST(b.gas_price AS NUMERIC)) AS STRING) AS sum_gas_price,\n  COUNTIF(b.gas_price IS NULL) AS null_price_rows\nFROM `bigquery-public-data.crypto_near_mainnet_us.blocks` b\nWHERE b.block_date >= start_date AND b.block_date < end_date\nGROUP BY block_date ORDER BY block_date",
+ "querySha256": "6aefb7317bf7387588484139343703bbb2653ee375fc6fb54159379b52b3b8c5",
+ "dryRunBytes": 31093584,
+ "bytesBilled": 31457280,
+ "maximumBytesBilled": 34202943,
+ "jobId": "2cc8e3a1-a2ea-4538-a1fa-207b701b402d",
+ "location": "us-east1",
+ "executedAt": "2026-11-14T11:16:10.567Z",
+ "rows": 13,
+ "columns": [
+  "block_date",
+  "blocks",
+  "min_gas_price",
+  "max_gas_price",
+  "sum_gas_price",
+  "null_price_rows"
+ ],
+ "data": [
+  [
+   "2026-11-01",
+   "149834",
+   "100000000",
+   "100000000",
+   "14983400000000",
+   "0"
+  ],
+  [
+   "2026-11-02",
+   "149961",
+   "100000000",
+   "100000000",
+   "14996100000000",
+   "0"
+  ],
+  [
+   "2026-11-03",
+   "151065",
+   "100000000",
+   "100000000",
+   "15106500000000",
+   "0"
+  ],
+  [
+   "2026-11-04",
+   "145302",
+   "100000000",
+   "100000000",
+   "14530200000000",
+   "0"
+  ],
+  [
+   "2026-11-05",
+   "149870",
+   "100000000",
+   "100000000",
+   "14987000000000",
+   "0"
+  ],
+  [
+   "2026-11-06",
+   "149831",
+   "100000000",
+   "100000000",
+   "14983100000000",
+   "0"
+  ],
+  [
+   "2026-11-07",
+   "149414",
+   "100000000",
+   "100000000",
+   "14941400000000",
+   "0"
+  ],
+  [
+   "2026-11-08",
+   "151113",
+   "100000000",
+   "100000000",
+   "15111300000000",
+   "0"
+  ],
+  [
+   "2026-11-09",
+   "149829",
+   "100000000",
+   "100000000",
+   "14982900000000",
+   "0"
+  ],
+  [
+   "2026-11-10",
+   "150130",
+   "100000000",
+   "100000000",
+   "15013000000000",
+   "0"
+  ],
+  [
+   "2026-11-11",
+   "147131",
+   "100000000",
+   "100000000",
+   "14713100000000",
+   "0"
+  ],
+  [
+   "2026-11-12",
+   "149030",
+   "100000000",
+   "100000000",
+   "14903000000000",
+   "0"
+  ],
+  [
+   "2026-11-13",
+   "150839",
+   "100000000",
+   "100000000",
+   "15083900000000",
+   "0"
+  ]
+ ],
+ "resultSha256": "81b0239223c54a67066e6c91e971a67fc6dc5988035673e6a05e046662c8e9d1"
+}

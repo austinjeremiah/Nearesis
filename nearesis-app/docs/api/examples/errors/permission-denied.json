@@ -1,0 +1,8 @@
+{
+  "traceId": "7f3a9c1e-52d4-4b86-9a07-3c5e8d1f2a64",
+  "retryable": false,
+  "errorCode": "FORBIDDEN",
+  "reasonCode": "ROLE_CANNOT_PUBLISH",
+  "message": "Viewers cannot publish capsules.",
+  "state": "permission_denied"
+}

@@ -1,0 +1,65 @@
+[
+  {
+    "candidate": "intents",
+    "delta_mae": -0.0003804748,
+    "horizon": 1,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9909590354
+  },
+  {
+    "candidate": "price",
+    "delta_mae": -0.0003175226,
+    "horizon": 1,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9909590354
+  },
+  {
+    "candidate": "combined",
+    "delta_mae": -0.0008693165,
+    "horizon": 1,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9909590354
+  },
+  {
+    "candidate": "intents",
+    "delta_mae": 4.21235e-5,
+    "horizon": 7,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9909590354
+  },
+  {
+    "candidate": "price",
+    "delta_mae": -3.75652e-5,
+    "horizon": 7,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9909590354
+  },
+  {
+    "candidate": "combined",
+    "delta_mae": -0.000311105,
+    "horizon": 7,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9909590354
+  },
+  {
+    "candidate": "intents",
+    "delta_mae": -3.11205e-5,
+    "horizon": 14,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9909590354
+  },
+  {
+    "candidate": "price",
+    "delta_mae": -0.0014151713,
+    "horizon": 14,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9909590354
+  },
+  {
+    "candidate": "combined",
+    "delta_mae": -0.0019807448,
+    "horizon": 14,
+    "kind": "no_fdr_significant_gain",
+    "p_adjusted": 0.9909590354
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "traceId": "7f3a9c1e-52d4-4b86-9a07-3c5e8d1f2a64",
+  "retryable": false,
+  "errorCode": "DOMAIN_INVARIANT",
+  "reasonCode": "METRIC_UNCERTIFIED",
+  "message": "The metric is a draft and cannot back a certified claim.",
+  "nextAction": "Label the result exploratory or certify the metric.",
+  "state": "metric_uncertified"
+}

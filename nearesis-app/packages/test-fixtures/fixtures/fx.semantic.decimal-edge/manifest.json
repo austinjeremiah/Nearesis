@@ -1,0 +1,24 @@
+{
+  "id": "fx.semantic.decimal-edge",
+  "label": "SYNTHETIC",
+  "description": "Decimal edge cases: 2^128-1, 1 yocto, 18/24-decimal tokens, sums whose float64 result differs from exact. expected.json is computed by decimal_edge.py (prec 80) run via uv.",
+  "files": [
+    {
+      "path": "decimal_edge.py",
+      "sha256": "c6c4e12ca7bca892849b18179b4803ff5a8ae73316b4f9486660c6e7b4fc9c24"
+    },
+    { "path": "expected.json", "sha256": "a00401263ffb390cd318e08ebe1db2002886ed24c416dbfa0f6b2fb1145a118b" },
+    {
+      "path": "explorer/page-1.json",
+      "sha256": "5e0b3774a6613ee9a82fb53e1008454969f9316a33011f84a6513602dbe5b05a"
+    },
+    {
+      "path": "oneclick/tokens.json",
+      "sha256": "66f9b01d595da50fc94cbc3a91e8bdde0950f1bdcd1164aec5f3c6854ca3de99"
+    },
+    { "path": "snapshot.json", "sha256": "4174a31f99166d64bfe8b9a0eb3cbac7454e3675deb62a583f0331a7673cd529" }
+  ],
+  "expectedOutputSha256": "a00401263ffb390cd318e08ebe1db2002886ed24c416dbfa0f6b2fb1145a118b",
+  "computedBy": "uv run python decimal_edge.py (decimal prec 80)",
+  "expectedNormalizedDigest": "4334b391c6eea3f1999eae9200daa471594145acb8447ed9389b120fa815db96"
+}

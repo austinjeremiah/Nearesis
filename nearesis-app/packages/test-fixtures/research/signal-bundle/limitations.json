@@ -1,0 +1,7 @@
+[
+  "Predictive (Granger-style) evidence only; causality is excluded from the claim.",
+  "Private/confidential Intents execution after the 2026-10-27 regime is unobserved, not zero.",
+  "Post-regime window is analysed separately and has 18 usable rows.",
+  "Models are ridge regressions on log1p-scale features; no nonlinear model class is claimed.",
+  "SYNTHETIC fixture: results demonstrate method behaviour only and make no claim about real NEAR data."
+]

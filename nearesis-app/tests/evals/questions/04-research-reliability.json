@@ -1,0 +1,424 @@
+[
+  {
+    "id": "Q018",
+    "split": "dev",
+    "category": "research_reliability",
+    "difficulty": "hard",
+    "prompt": "Does NEAR Intents activity improve forecasts of NEAR returns beyond a price-only baseline?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps", "price_candles"],
+    "minAnswerProperties": [
+      "a registered, frozen forecast comparison with a paired loss test",
+      "or an explicit INSUFFICIENT_DATA verdict with the reason"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [
+      "transforms are fitted on training data only",
+      "mechanical overlap between predictor and target blocks the claim"
+    ],
+    "forbiddenClaims": [
+      {
+        "id": "causal_forecast",
+        "pattern": "\\b(improves?|improved|beats?) the (price-only )?baseline\\b",
+        "flags": "i",
+        "why": "forecast improvement needs a registered, validated test"
+      },
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      }
+    ],
+    "acceptanceTests": ["Q11", "Q14", "Q15", "Q16", "B08"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "forecast|baseline|price|return|intents"
+    },
+    "probes": [],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q019",
+    "split": "dev",
+    "category": "research_reliability",
+    "difficulty": "hard",
+    "prompt": "Is any improvement from Intents activity over the price-only baseline statistically supported?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps", "price_candles"],
+    "minAnswerProperties": [
+      "a test statistic with its horizon and correction for multiple comparisons, or a statement that none was run"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "causal_forecast",
+        "pattern": "\\b(improves?|improved|beats?) the (price-only )?baseline\\b",
+        "flags": "i",
+        "why": "forecast improvement needs a registered, validated test"
+      },
+      {
+        "id": "p_value_bare",
+        "pattern": "\\bp\\s*[<=]\\s*0?\\.0\\d",
+        "flags": "i",
+        "why": "a bare p-value without a registered test"
+      }
+    ],
+    "acceptanceTests": ["Q08", "Q14", "Q15", "Q18"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "test|significan|baseline|forecast"
+    },
+    "probes": [],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q020",
+    "split": "dev",
+    "category": "research_reliability",
+    "difficulty": "adversarial",
+    "prompt": "What evidence contradicts the strongest NEAR Intents growth hypothesis?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps", "intents_swap_refunds"],
+    "minAnswerProperties": [
+      "lists at least one contradicting or weakening observation",
+      "keeps contradicting evidence next to the claim"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      },
+      {
+        "id": "one_sided",
+        "pattern": "\\b(no|zero) (contradicting|counter) evidence\\b",
+        "flags": "i",
+        "why": "absence of a search is not absence of evidence"
+      }
+    ],
+    "acceptanceTests": ["Q19", "Q22", "B15"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "refund|contradict|growth|intents|swap"
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "refund share of terminal swaps is reproducible",
+        "api": "/v1/intents/summary?from=2026-10-13&to=2026-11-11",
+        "json": "data.refunded",
+        "ch": "SELECT count() FROM intents_swaps FINAL WHERE created_day BETWEEN '2026-10-13' AND '2026-11-11' AND status = 'REFUNDED'",
+        "rel": 0
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q021",
+    "split": "dev",
+    "category": "research_reliability",
+    "difficulty": "hard",
+    "prompt": "What breaks in the NEAR growth finding if we use a different historical window (60, 90 or 180 days)?",
+    "kind": "run",
+    "requiredSources": ["near_daily_tx", "intents_swaps"],
+    "minAnswerProperties": [
+      "reports the finding under at least two windows and states which conclusions change"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      },
+      {
+        "id": "robust_claim",
+        "pattern": "\\b(robust|stable) (across|to) (all )?windows\\b",
+        "flags": "i",
+        "why": "needs reported runs"
+      }
+    ],
+    "acceptanceTests": ["Q18", "Q05", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false,
+      "panelPattern": "window|growth|transaction|swap"
+    },
+    "probes": [
+      {
+        "kind": "ch_equals",
+        "label": "60-day swap count equals an independent count",
+        "api": "/v1/intents/summary?from=2026-09-13&to=2026-11-11",
+        "json": "data.swaps",
+        "ch": "SELECT count() FROM intents_swaps FINAL WHERE created_day BETWEEN '2026-09-13' AND '2026-11-11'",
+        "rel": 0
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q022",
+    "split": "dev",
+    "category": "research_reliability",
+    "difficulty": "hard",
+    "prompt": "What happens to the analysis when an important data partition is unavailable, for example the Intents days that were marked partial in April 2026?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps", "source_coverage"],
+    "minAnswerProperties": [
+      "names the partial days and their reason",
+      "does not present the missing days as zero"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [
+      {
+        "id": "zero_for_unknown",
+        "pattern": "\\b(no activity|zero activity|nothing happened|0 swaps)\\b",
+        "flags": "i",
+        "why": "a day or field without data is unknown, not zero"
+      }
+    ],
+    "acceptanceTests": ["V14", "B09", "Q07"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [
+      {
+        "kind": "api_field",
+        "label": "coverage reports the April window as having no complete days",
+        "api": "/v1/intents/summary?from=2026-04-03&to=2026-04-22",
+        "json": "coverage.completeDays",
+        "httpStatus": 200,
+        "equals": 0
+      },
+      {
+        "kind": "api_field",
+        "label": "coverage names the reason",
+        "api": "/v1/intents/summary?from=2026-04-03&to=2026-04-22",
+        "json": "coverage.incompleteDays[0].reason",
+        "httpStatus": 200,
+        "matches": "EXPLORER"
+      }
+    ],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  },
+  {
+    "id": "Q023",
+    "split": "dev",
+    "category": "research_reliability",
+    "difficulty": "medium",
+    "prompt": "Can the published NEAR research result be reconstructed using its pinned snapshot?",
+    "kind": "http",
+    "requiredSources": ["capsule"],
+    "minAnswerProperties": [
+      "a published capsule rebuilds to its recorded hash from its own snapshot, and an unknown capsule is a typed 404"
+    ],
+    "acceptableRefusals": [],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": [],
+    "forbiddenClaims": [],
+    "acceptanceTests": ["V12", "V16", "V18", "Q04"],
+    "expect": {
+      "outcome": "answer",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "http": [
+      {
+        "as": "owner",
+        "method": "GET",
+        "path": "/v1/capsules",
+        "expectStatus": 200,
+        "expectBody": []
+      },
+      {
+        "as": "owner",
+        "method": "POST",
+        "path": "/v1/publish",
+        "expectStatus": 404,
+        "expectBody": [],
+        "expectReason": "CAPSULE_NOT_FOUND",
+        "body": {
+          "capsuleId": "cap-eval-does-not-exist"
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q024",
+    "split": "dev",
+    "category": "research_reliability",
+    "difficulty": "adversarial",
+    "prompt": "What if the data for a historical research date exists now but was not available at that date?",
+    "kind": "run",
+    "requiredSources": ["intents_swaps", "price_candles"],
+    "minAnswerProperties": [
+      "distinguishes data fetched after the research date from data available at it",
+      "requires a pinned snapshot with a watermark for a historical read"
+    ],
+    "acceptableRefusals": [
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["CANNOT_COMPUTE"],
+        "condition": "the catalogue or source lacks the needed field, so the system abstains and says what is missing"
+      },
+      {
+        "state": "PARTIAL",
+        "reasonCodes": ["INSUFFICIENT_DATA", "CANNOT_COMPUTE"],
+        "condition": "coverage is too thin for the requested window"
+      },
+      {
+        "state": "BLOCKED_SOURCE",
+        "reasonCodes": [],
+        "condition": "a source the question reads is not healthy, so the run is refused before any number is shown"
+      }
+    ],
+    "requiredProvenance": ["panel.queryRef.hash", "panel.dataBinding.completeness"],
+    "invariants": ["a historical read is labelled and never silently today's data"],
+    "forbiddenClaims": [
+      {
+        "id": "hindsight",
+        "pattern": "\\bat the time (the data|it) (showed|was)\\b",
+        "flags": "i",
+        "why": "availability at the time needs a vintage"
+      },
+      {
+        "id": "causal_claim",
+        "pattern": "\\b(caused by|because of|is driven by|was driven by|due to the)\\b",
+        "flags": "i",
+        "why": "descriptive aggregates do not establish causation"
+      }
+    ],
+    "acceptanceTests": ["Q03", "W05", "B13"],
+    "expect": {
+      "outcome": "either",
+      "minPanels": 1,
+      "maxUsd": 0.05,
+      "reproducible": false
+    },
+    "probes": [],
+    "run": {
+      "as": "owner",
+      "source": "live",
+      "snapshotPolicy": "live"
+    }
+  }
+]

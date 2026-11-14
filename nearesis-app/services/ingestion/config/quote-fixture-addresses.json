@@ -1,0 +1,50 @@
+{
+  "label": "quote-only fixture, non-owned",
+  "purpose": "Public example addresses taken from the official 1Click documentation, used only as recipient/refundTo in dry:true quote requests. They are not user wallets, never receive funds from this system, and no swap or deposit is ever submitted.",
+  "sources": {
+    "openapi": "https://1click.chaindefuser.com/docs/v0/openapi.yaml (QuoteRequest.refundTo example, QuoteRequest.recipient example; fetched 2026-11-11)",
+    "sdk": "https://github.com/defuse-protocol/one-click-sdk-typescript README Quick Start (comments: 'Valid Arbitrum address', 'Valid Solana Address'; fetched 2026-11-11)"
+  },
+  "chains": {
+    "eth": {
+      "status": "available",
+      "format": "evm",
+      "address": "0x2527D02599Ba641c19FEa793cD0F167589a0f10D",
+      "provenance": "same EVM address as the official SDK/OpenAPI refundTo example; reused for Ethereum, Base and Arbitrum (one EVM key space)",
+      "checkedAgainst": "EIP-55 checksum verified 2026-11-11; accepted by the live 1Click dry quote API (see reports/TESTS/QUOTE-CLEANUP/validation-*.json)"
+    },
+    "base": {
+      "status": "available",
+      "format": "evm",
+      "address": "0x2527D02599Ba641c19FEa793cD0F167589a0f10D",
+      "provenance": "same as eth",
+      "checkedAgainst": "EIP-55 checksum; live 1Click dry quote API"
+    },
+    "arb": {
+      "status": "available",
+      "format": "evm",
+      "address": "0x2527D02599Ba641c19FEa793cD0F167589a0f10D",
+      "provenance": "official SDK README labels this exact string 'Valid Arbitrum address'",
+      "checkedAgainst": "EIP-55 checksum; live 1Click dry quote API"
+    },
+    "sol": {
+      "status": "available",
+      "format": "solana",
+      "address": "13QkxhNMrTPxoCkRdYdJ65tFuwXPhL5gLS2Z5Nr6gjRK",
+      "provenance": "official SDK README labels this exact string 'Valid Solana Address'; OpenAPI recipient example",
+      "checkedAgainst": "base58 decodes to 32 bytes; live 1Click dry quote API"
+    },
+    "near": {
+      "status": "unavailable",
+      "format": "near",
+      "address": null,
+      "provenance": "the official docs and SDK examples contain no NEAR quote recipient; none is invented"
+    },
+    "btc": {
+      "status": "unavailable",
+      "format": "bitcoin",
+      "address": null,
+      "provenance": "the official docs and SDK examples contain no Bitcoin address; none is invented"
+    }
+  }
+}

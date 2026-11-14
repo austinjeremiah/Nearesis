@@ -1,0 +1,30 @@
+{
+  "name": "@nearesis/analytics",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --no-file-parallelism",
+    "migrate": "tsx scripts/migrate.ts",
+    "gen:model": "tsx scripts/gen-model.ts",
+    "metrics:diff": "tsx scripts/metrics-diff.ts",
+    "metrics:doc": "tsx scripts/gen-metrics-md.ts",
+    "gen:live": "tsx scripts/gen-live.ts",
+    "live:catalog": "tsx scripts/live-catalog.ts"
+  },
+  "dependencies": {
+    "@clickhouse/client": "1.25.0",
+    "@nearesis/acceptance": "workspace:*",
+    "@nearesis/contracts": "workspace:*",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "ioredis": "6.0.0"
+  }
+}

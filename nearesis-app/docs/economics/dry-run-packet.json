@@ -1,0 +1,541 @@
+{
+  "generatedAtUTC": "2026-11-12T18:44:47.884Z",
+  "window": {
+    "from": "2025-11-10",
+    "to": "2026-11-09"
+  },
+  "digest": "b71a7e564880076975b2ea3840928608e013ec11dadfd753a40ca080e5144a75",
+  "dailyLimitBytes": 102005473280,
+  "totalBytes": 1437597583912,
+  "totalGiB": "1338.87",
+  "chunks": [
+    {
+      "id": "outcomes:2026-11-01",
+      "family": "outcomes",
+      "from": "2026-11-01",
+      "to": "2026-11-10",
+      "estimateBytes": 5850892266,
+      "sqlSha256": "63018e8a69f163f9360e12bfdb69d2aa8dac050cff8ef69c6f2fd0844ffb345c"
+    },
+    {
+      "id": "outcomes:2026-10-01",
+      "family": "outcomes",
+      "from": "2026-10-01",
+      "to": "2026-11-01",
+      "estimateBytes": 32546983628,
+      "sqlSha256": "79dca1d8eb1726bc957c2db2b0f7d4ce832289d46395a0ab75ebd814861fb841"
+    },
+    {
+      "id": "outcomes:2026-09-01",
+      "family": "outcomes",
+      "from": "2026-09-01",
+      "to": "2026-10-01",
+      "estimateBytes": 24000889098,
+      "sqlSha256": "4958f9dbc138669962e75fab70d68641c0da23e11d4f7923b61f9ae49a352923"
+    },
+    {
+      "id": "outcomes:2026-08-01",
+      "family": "outcomes",
+      "from": "2026-08-01",
+      "to": "2026-09-01",
+      "estimateBytes": 21522125175,
+      "sqlSha256": "4d0bb6e789bb356d6fadd8d171b13f221f7cec3fc1eb06e4e1f98567b523d8e5"
+    },
+    {
+      "id": "outcomes:2026-07-01",
+      "family": "outcomes",
+      "from": "2026-07-01",
+      "to": "2026-08-01",
+      "estimateBytes": 19299087840,
+      "sqlSha256": "6c98eeefaba5cfbdea055b5947a80bde808d391c3f904c3bdcd5478dcc1c86bb"
+    },
+    {
+      "id": "outcomes:2026-06-01",
+      "family": "outcomes",
+      "from": "2026-06-01",
+      "to": "2026-07-01",
+      "estimateBytes": 20640288232,
+      "sqlSha256": "cae11bcf3305fdc19bcf933e2b74460343276e6df9cae652135dd73f75476b39"
+    },
+    {
+      "id": "outcomes:2026-05-01",
+      "family": "outcomes",
+      "from": "2026-05-01",
+      "to": "2026-06-01",
+      "estimateBytes": 20096384717,
+      "sqlSha256": "de3b2a515b7d930ab53e143eb398ab82637816bd6dfc4be9a6230ebcdbe7d464"
+    },
+    {
+      "id": "outcomes:2026-04-01",
+      "family": "outcomes",
+      "from": "2026-04-01",
+      "to": "2026-05-01",
+      "estimateBytes": 20256129063,
+      "sqlSha256": "ea7c451c9c8efc48c8e788636cf9e9b784597722df68b0a18d90212087e97ad0"
+    },
+    {
+      "id": "outcomes:2026-03-01",
+      "family": "outcomes",
+      "from": "2026-03-01",
+      "to": "2026-04-01",
+      "estimateBytes": 99778187006,
+      "sqlSha256": "c881267cab5f78f07416d798e7f35b79ca6b04d2f6ad71c440801b3d118638ad"
+    },
+    {
+      "id": "outcomes:2026-02-01",
+      "family": "outcomes",
+      "from": "2026-02-01",
+      "to": "2026-03-01",
+      "estimateBytes": 89929371218,
+      "sqlSha256": "f608561913bf840991196a50f934bdcfb064593530824f48f3a0342cebd87e24"
+    },
+    {
+      "id": "outcomes:2026-01-01",
+      "family": "outcomes",
+      "from": "2026-01-01",
+      "to": "2026-01-16",
+      "estimateBytes": 49097314941,
+      "sqlSha256": "c52f60bdeec86f88263e4e1be866d8f66d8b1a8bc93b5ec4389b463d8e9984f4"
+    },
+    {
+      "id": "outcomes:2026-01-16",
+      "family": "outcomes",
+      "from": "2026-01-16",
+      "to": "2026-02-01",
+      "estimateBytes": 51302948810,
+      "sqlSha256": "2770aa481c54d9f983ec217f991dcf7cc1909e49c265d3571788b79906b5bc59"
+    },
+    {
+      "id": "outcomes:2025-12-01",
+      "family": "outcomes",
+      "from": "2025-12-01",
+      "to": "2025-12-16",
+      "estimateBytes": 51352548524,
+      "sqlSha256": "5b65ca30c9027435058242fccd1eeaaaa72c7c9a4bafd1fbf9a5e6718ad4be7a"
+    },
+    {
+      "id": "outcomes:2025-12-16",
+      "family": "outcomes",
+      "from": "2025-12-16",
+      "to": "2026-01-01",
+      "estimateBytes": 53379441423,
+      "sqlSha256": "ae42497c14cc9d342259a2e06c60afa07994b6ced367bf784aa5e1a5edaeb848"
+    },
+    {
+      "id": "outcomes:2025-11-10",
+      "family": "outcomes",
+      "from": "2025-11-10",
+      "to": "2025-12-01",
+      "estimateBytes": 75610878464,
+      "sqlSha256": "4bbe1da7b0a7934da3675e558fafea53505be167af0e5d1c4b59967fdbece2ab"
+    },
+    {
+      "id": "tx_cost:2026-11-01",
+      "family": "tx_cost",
+      "from": "2026-11-01",
+      "to": "2026-11-10",
+      "estimateBytes": 8351773833,
+      "sqlSha256": "48032bf087fa68fce7ef4d8e30d89a674e8d5676aceba8259baa3ff6a9e1064f"
+    },
+    {
+      "id": "tx_cost:2026-10-01",
+      "family": "tx_cost",
+      "from": "2026-10-01",
+      "to": "2026-11-01",
+      "estimateBytes": 36331280776,
+      "sqlSha256": "8e306378d9693b9f985239a9f487c797e6a4d98d970639434a49cde32f25ee35"
+    },
+    {
+      "id": "tx_cost:2026-09-01",
+      "family": "tx_cost",
+      "from": "2026-09-01",
+      "to": "2026-10-01",
+      "estimateBytes": 29034671620,
+      "sqlSha256": "3a3ecad54578227f80786b891b9a5487f20523ea908b1cda35d32d6940be8808"
+    },
+    {
+      "id": "tx_cost:2026-08-01",
+      "family": "tx_cost",
+      "from": "2026-08-01",
+      "to": "2026-09-01",
+      "estimateBytes": 26038977571,
+      "sqlSha256": "a156b5d62b48ef0fdfc1e5decb92325a9c852bc1ce4ed864e5f0c25901b3dfd4"
+    },
+    {
+      "id": "tx_cost:2026-07-01",
+      "family": "tx_cost",
+      "from": "2026-07-01",
+      "to": "2026-08-01",
+      "estimateBytes": 23873057456,
+      "sqlSha256": "6f2a476c9e134318a56791e72244a87b0018f995f89995c51e4a106fc485dd0b"
+    },
+    {
+      "id": "tx_cost:2026-06-01",
+      "family": "tx_cost",
+      "from": "2026-06-01",
+      "to": "2026-07-01",
+      "estimateBytes": 25127533127,
+      "sqlSha256": "fd86ab30c1ce840423a3385c5660cf5728fad63b56c84ef34e2d342f75415aa2"
+    },
+    {
+      "id": "tx_cost:2026-05-01",
+      "family": "tx_cost",
+      "from": "2026-05-01",
+      "to": "2026-06-01",
+      "estimateBytes": 25238162732,
+      "sqlSha256": "422643cf5dac8db22fdc170a3cc2600a43cdc772c6ebb1111233b6eafcff89ec"
+    },
+    {
+      "id": "tx_cost:2026-04-01",
+      "family": "tx_cost",
+      "from": "2026-04-01",
+      "to": "2026-05-01",
+      "estimateBytes": 25023534924,
+      "sqlSha256": "f2a3931b33b66df1696676102a865aa75ca9f7ecfa61456552d0c391e24a4f8c"
+    },
+    {
+      "id": "tx_cost:2026-03-01",
+      "family": "tx_cost",
+      "from": "2026-03-01",
+      "to": "2026-03-16",
+      "estimateBytes": 61105088204,
+      "sqlSha256": "5e62d88631ecba91582ac6896d60e8f66fc35a9b11beef53cde76c7f1b91700c"
+    },
+    {
+      "id": "tx_cost:2026-03-16",
+      "family": "tx_cost",
+      "from": "2026-03-16",
+      "to": "2026-04-01",
+      "estimateBytes": 63394265740,
+      "sqlSha256": "59088fcc67efad1a8a707b0a2f7cf69ee9a88b6527dea03810d958fc4fbdba9e"
+    },
+    {
+      "id": "tx_cost:2026-02-01",
+      "family": "tx_cost",
+      "from": "2026-02-01",
+      "to": "2026-02-15",
+      "estimateBytes": 59276424477,
+      "sqlSha256": "a53382b3d8e3f09af9c426dd197c5a78675770b707114e58df5148f391a604f3"
+    },
+    {
+      "id": "tx_cost:2026-02-15",
+      "family": "tx_cost",
+      "from": "2026-02-15",
+      "to": "2026-03-01",
+      "estimateBytes": 58884889102,
+      "sqlSha256": "51d432883bc827231c50235f7249858dcbf5df0cf74885f6c0154d34aba74697"
+    },
+    {
+      "id": "tx_cost:2026-01-01",
+      "family": "tx_cost",
+      "from": "2026-01-01",
+      "to": "2026-01-16",
+      "estimateBytes": 63382364708,
+      "sqlSha256": "f85304543e23ea0b91f1355334d02cd763d8b3ff47999fe16c2264ea8274d9c9"
+    },
+    {
+      "id": "tx_cost:2026-01-16",
+      "family": "tx_cost",
+      "from": "2026-01-16",
+      "to": "2026-02-01",
+      "estimateBytes": 65931370340,
+      "sqlSha256": "4fd61e5b44ad6b98df7ed34b9829c0ee5dce6abb906301aff833ce8464d3ab0a"
+    },
+    {
+      "id": "tx_cost:2025-12-01",
+      "family": "tx_cost",
+      "from": "2025-12-01",
+      "to": "2025-12-16",
+      "estimateBytes": 66836235058,
+      "sqlSha256": "6bb0f66e47da4ac50bf58d5dc787e07385c67c3a2ba35f453733bb58c15496c4"
+    },
+    {
+      "id": "tx_cost:2025-12-16",
+      "family": "tx_cost",
+      "from": "2025-12-16",
+      "to": "2026-01-01",
+      "estimateBytes": 68795223537,
+      "sqlSha256": "3c2c2cad238d3295ad009f8a85571d228f642555376f6d8583a61dca2194e938"
+    },
+    {
+      "id": "tx_cost:2025-11-10",
+      "family": "tx_cost",
+      "from": "2025-11-10",
+      "to": "2025-12-01",
+      "estimateBytes": 95480546910,
+      "sqlSha256": "6aa13193c340744a54bab5ff77396dedc1ed5d33503f98953c530b67928427ae"
+    },
+    {
+      "id": "gas_price:2026-11-01",
+      "family": "gas_price",
+      "from": "2026-11-01",
+      "to": "2026-11-10",
+      "estimateBytes": 21539504,
+      "sqlSha256": "c3ea6fbc98f1550763074b821615152151c5fe77567bb54555ff3f5704d7d326"
+    },
+    {
+      "id": "gas_price:2026-10-01",
+      "family": "gas_price",
+      "from": "2026-10-01",
+      "to": "2026-11-01",
+      "estimateBytes": 71981296,
+      "sqlSha256": "188398bfa2419f0746c58c546c2eba1e07dabf73f70aebbfc0daff1dfa3dee8d"
+    },
+    {
+      "id": "gas_price:2026-09-01",
+      "family": "gas_price",
+      "from": "2026-09-01",
+      "to": "2026-10-01",
+      "estimateBytes": 67460816,
+      "sqlSha256": "d6c31d10dd794457269a773214b53a21f5e01492e1dde9024151128cc7c876e4"
+    },
+    {
+      "id": "gas_price:2026-08-01",
+      "family": "gas_price",
+      "from": "2026-08-01",
+      "to": "2026-09-01",
+      "estimateBytes": 69798944,
+      "sqlSha256": "36eccebff9e195fba16d3b67af6a3b83ce0d3c84b01f9c3aecdaecd9720e54b7"
+    },
+    {
+      "id": "gas_price:2026-07-01",
+      "family": "gas_price",
+      "from": "2026-07-01",
+      "to": "2026-08-01",
+      "estimateBytes": 69774784,
+      "sqlSha256": "9720f650e21c249b305a8594c77adf4a715ac7cc1b34a78be1b1881605c4a9b5"
+    },
+    {
+      "id": "gas_price:2026-06-01",
+      "family": "gas_price",
+      "from": "2026-06-01",
+      "to": "2026-07-01",
+      "estimateBytes": 67905904,
+      "sqlSha256": "cc0140f684524b73b6206c03b549d0bdf3a0ebe162d8522004e23c46327e821b"
+    },
+    {
+      "id": "gas_price:2026-05-01",
+      "family": "gas_price",
+      "from": "2026-05-01",
+      "to": "2026-06-01",
+      "estimateBytes": 70938320,
+      "sqlSha256": "c40fa887d5de7e066f3675b780ce306776dc41f1ee630bd52f5293ed7f812005"
+    },
+    {
+      "id": "gas_price:2026-04-01",
+      "family": "gas_price",
+      "from": "2026-04-01",
+      "to": "2026-05-01",
+      "estimateBytes": 69102704,
+      "sqlSha256": "8ed8b1beffe06c7d639764effa22d23c5406f328df5fe9fbfb13a2ab684f10b6"
+    },
+    {
+      "id": "gas_price:2026-03-01",
+      "family": "gas_price",
+      "from": "2026-03-01",
+      "to": "2026-04-01",
+      "estimateBytes": 70988592,
+      "sqlSha256": "cc0ce96936290f1e2a409c752a5a3daa6035c3c8e5aaba0389057aa0819900d6"
+    },
+    {
+      "id": "gas_price:2026-02-01",
+      "family": "gas_price",
+      "from": "2026-02-01",
+      "to": "2026-03-01",
+      "estimateBytes": 63770272,
+      "sqlSha256": "dde6a91c507b937975a1782e3682684bdae518cc55aeb3283a761e69dc9b249e"
+    },
+    {
+      "id": "gas_price:2026-01-01",
+      "family": "gas_price",
+      "from": "2026-01-01",
+      "to": "2026-02-01",
+      "estimateBytes": 70054880,
+      "sqlSha256": "091b8d8c7d0598b7e9db4c2362ae915ae7883e263185c77d3b6e452481278dd8"
+    },
+    {
+      "id": "gas_price:2025-12-01",
+      "family": "gas_price",
+      "from": "2025-12-01",
+      "to": "2026-01-01",
+      "estimateBytes": 68228640,
+      "sqlSha256": "75fc37f6b4ce7b0948a032fe060e38a03a26bdc8d456b824d5603222abaee673"
+    },
+    {
+      "id": "gas_price:2025-11-10",
+      "family": "gas_price",
+      "from": "2025-11-10",
+      "to": "2025-12-01",
+      "estimateBytes": 47168736,
+      "sqlSha256": "0f0ead426c2ed6a26bb9ffe1d4467e26971798f05d61e27d0c9056bc7ebaf18c"
+    }
+  ],
+  "quotaDays": [
+    {
+      "day": 1,
+      "chunks": [
+        "outcomes:2026-11-01",
+        "outcomes:2026-10-01",
+        "outcomes:2026-09-01",
+        "outcomes:2026-08-01"
+      ],
+      "bytes": 83920890167
+    },
+    {
+      "day": 2,
+      "chunks": [
+        "outcomes:2026-07-01",
+        "outcomes:2026-06-01",
+        "outcomes:2026-05-01",
+        "outcomes:2026-04-01"
+      ],
+      "bytes": 80291889852
+    },
+    {
+      "day": 3,
+      "chunks": [
+        "outcomes:2026-03-01"
+      ],
+      "bytes": 99778187006
+    },
+    {
+      "day": 4,
+      "chunks": [
+        "outcomes:2026-02-01"
+      ],
+      "bytes": 89929371218
+    },
+    {
+      "day": 5,
+      "chunks": [
+        "outcomes:2026-01-01"
+      ],
+      "bytes": 49097314941
+    },
+    {
+      "day": 6,
+      "chunks": [
+        "outcomes:2026-01-16"
+      ],
+      "bytes": 51302948810
+    },
+    {
+      "day": 7,
+      "chunks": [
+        "outcomes:2025-12-01"
+      ],
+      "bytes": 51352548524
+    },
+    {
+      "day": 8,
+      "chunks": [
+        "outcomes:2025-12-16"
+      ],
+      "bytes": 53379441423
+    },
+    {
+      "day": 9,
+      "chunks": [
+        "outcomes:2025-11-10",
+        "tx_cost:2026-11-01"
+      ],
+      "bytes": 83962652297
+    },
+    {
+      "day": 10,
+      "chunks": [
+        "tx_cost:2026-10-01",
+        "tx_cost:2026-09-01",
+        "tx_cost:2026-08-01"
+      ],
+      "bytes": 91404929967
+    },
+    {
+      "day": 11,
+      "chunks": [
+        "tx_cost:2026-07-01",
+        "tx_cost:2026-06-01",
+        "tx_cost:2026-05-01",
+        "tx_cost:2026-04-01"
+      ],
+      "bytes": 99262288239
+    },
+    {
+      "day": 12,
+      "chunks": [
+        "tx_cost:2026-03-01"
+      ],
+      "bytes": 61105088204
+    },
+    {
+      "day": 13,
+      "chunks": [
+        "tx_cost:2026-03-16"
+      ],
+      "bytes": 63394265740
+    },
+    {
+      "day": 14,
+      "chunks": [
+        "tx_cost:2026-02-01"
+      ],
+      "bytes": 59276424477
+    },
+    {
+      "day": 15,
+      "chunks": [
+        "tx_cost:2026-02-15"
+      ],
+      "bytes": 58884889102
+    },
+    {
+      "day": 16,
+      "chunks": [
+        "tx_cost:2026-01-01"
+      ],
+      "bytes": 63382364708
+    },
+    {
+      "day": 17,
+      "chunks": [
+        "tx_cost:2026-01-16"
+      ],
+      "bytes": 65931370340
+    },
+    {
+      "day": 18,
+      "chunks": [
+        "tx_cost:2025-12-01"
+      ],
+      "bytes": 66836235058
+    },
+    {
+      "day": 19,
+      "chunks": [
+        "tx_cost:2025-12-16"
+      ],
+      "bytes": 68795223537
+    },
+    {
+      "day": 20,
+      "chunks": [
+        "tx_cost:2025-11-10",
+        "gas_price:2026-11-01",
+        "gas_price:2026-10-01",
+        "gas_price:2026-09-01",
+        "gas_price:2026-08-01",
+        "gas_price:2026-07-01",
+        "gas_price:2026-06-01",
+        "gas_price:2026-05-01",
+        "gas_price:2026-04-01",
+        "gas_price:2026-03-01",
+        "gas_price:2026-02-01",
+        "gas_price:2026-01-01",
+        "gas_price:2025-12-01",
+        "gas_price:2025-11-10"
+      ],
+      "bytes": 96309260302
+    }
+  ],
+  "oversize": []
+}

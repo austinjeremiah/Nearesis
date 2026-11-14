@@ -1,0 +1,210 @@
+{
+  "schema": "nearesis.thesis.hashes.v1",
+  "version": "v-772d7d6dbdf6",
+  "generatedAt": "2026-11-14T10:12:49.255Z",
+  "files": [
+    {
+      "path": "build/THESIS.md",
+      "sha256": "bd2236693c1f458ef02e45290e357af4212fcbad6f48f7ecc21c3f7cfda39054",
+      "bytes": 99835
+    },
+    {
+      "path": "build/site/index.html",
+      "sha256": "43eb8dfdcacc1a54803d8df246988f4e01590e5302cd77e2f3d35bf12a556352",
+      "bytes": 580617
+    },
+    {
+      "path": "build/FACTS.md",
+      "sha256": "716a9100cb1af3a7789018cb64e58ecbb0d94b9dfc120cefea28f00f4d8d5872",
+      "bytes": 77906
+    },
+    {
+      "path": "raw/forecast.json",
+      "sha256": "6bbf9c037e0713e227774b7b8e3680e4226b5618a3657ee235a30cf972400a88",
+      "bytes": 636192
+    },
+    {
+      "path": "build/thesis.json",
+      "sha256": "48ffb57bff77a9bec89e194ba7a2d39a4131793c06e5ef1e497e8b8514aeea0b",
+      "bytes": 1657983
+    }
+  ],
+  "inputs": [
+    {
+      "path": "thesis/TABLES.md",
+      "sha256": "386053ae7beafeda360897249aebc6f9d46b41a2f60b3de91bf4eec3f6188438"
+    },
+    {
+      "path": "thesis/archive/intents-vs-price-v1/build/thesis.json",
+      "sha256": "7f0da7a1ad9a7845d8a8815eb981b3bb655000185773ba0a5e21d0d44c85c05b"
+    },
+    {
+      "path": "thesis/interpretation.md",
+      "sha256": "699e2fe1f9869e58024a1efec010f74d4b5c0861fb7ba2cc62cb9e488fc5f3db"
+    },
+    {
+      "path": "thesis/raw/asset_sets.json",
+      "sha256": "2fa260e3b9419b6569182bfc33785cc054e3ebe28b5f3851cb69c216213f2c34"
+    },
+    {
+      "path": "thesis/raw/bq_account_scan_daily.json",
+      "sha256": "1beeea90bd18768d7ac8900c1ca59b17acafab50054f02ff0602507747bf881a"
+    },
+    {
+      "path": "thesis/raw/bq_transactions_signers_daily.json",
+      "sha256": "c0588d9f21767c5890c2456d59ee45d2a56f01010d8d279d6c3798c64521ea03"
+    },
+    {
+      "path": "thesis/raw/chain_pairs_monthly.json",
+      "sha256": "b743886ca1b3181dea7b77655ecf4ff4791edd9c4c7dc42b07a146604fc176f9"
+    },
+    {
+      "path": "thesis/raw/excursion_routes.json",
+      "sha256": "075ec1f2e76ea01bb0e67a18b85df4383fdf8e534b684ae53f3560749efc50d0"
+    },
+    {
+      "path": "thesis/raw/fees/FEE_MODEL.md",
+      "sha256": "464544955fae9772a7b4bf4ea3a1f8477ac9376105673cd47800ccb258461000"
+    },
+    {
+      "path": "thesis/raw/fees/NOTES.md",
+      "sha256": "110140f0743153f2a93e29d5936b076cc23f7fba4789c1bd250e917635284785"
+    },
+    {
+      "path": "thesis/raw/fees/fees_by_receiver_top.json",
+      "sha256": "f79e1118bbcd29f4725df402437976b4fbb085f67ffe23d9b74bbbc6e323e4ee"
+    },
+    {
+      "path": "thesis/raw/fees/fees_footprint_discovery.json",
+      "sha256": "a109bb92143d8d8e8f0fde1c74c816ea450aaddc486228029ca7f1e956c6448b"
+    },
+    {
+      "path": "thesis/raw/fees/fees_intents_daily.json",
+      "sha256": "34fef154f814230940b7ef4cda370dd8b8bdec3b416a447ab48b78de558f1a51"
+    },
+    {
+      "path": "thesis/raw/fees/fees_take_rate_gas_daily.json",
+      "sha256": "91054feb0ab66cb6a7ed3a34556b586b03241325cdc7f78b62cd2ec03d9f9c5a"
+    },
+    {
+      "path": "thesis/raw/fees/fees_total_daily.json",
+      "sha256": "e0fa88d8735d2152e4723d484c0f2c985673f614be398841fa4d8623a465e73a"
+    },
+    {
+      "path": "thesis/raw/fees/manifest.json",
+      "sha256": "12bbc01cf67061bda8838d1dff6f71702d4a82b10be602adaf5b79b6860326f2"
+    },
+    {
+      "path": "thesis/raw/fees/toll_daily.json",
+      "sha256": "a206d28eacc7455533e87cca0858deb1b542b40c1de381a06c39c3d3fe0a1650"
+    },
+    {
+      "path": "thesis/raw/fees/tx_fee_intents_daily.json",
+      "sha256": "e3b321a309cb70a84618d4046ceb85a5505d8beeb7f4ea8e01de487280e7fdc1"
+    },
+    {
+      "path": "thesis/raw/head_accounts_break.json",
+      "sha256": "9fde6db7a0e78e1c8b115ecd2dfdb7341d7a5a31ec83d09a7b9b0cad11a688a2"
+    },
+    {
+      "path": "thesis/raw/intents_mix_daily.json",
+      "sha256": "2166838d0c38ce510ca2e746ba9401ebbb6e387cf20cbc8eb23b2faec65fa410"
+    },
+    {
+      "path": "thesis/raw/intents_tx_daily.json",
+      "sha256": "6f12dd6dd4ff8f889e4a99972d0bb7b541a41787c1496b69d8ea623573676247"
+    },
+    {
+      "path": "thesis/raw/intents_volume_daily.json",
+      "sha256": "06dc827071cf272121975d4d9187feb1ffddf263ef76497862ca3f1ad5c20bf5"
+    },
+    {
+      "path": "thesis/raw/manifest.json",
+      "sha256": "72ad1563822526e0987c8abe6babe2da18de586ea579013f8521657c1fc064a0"
+    },
+    {
+      "path": "thesis/raw/near_price_daily.json",
+      "sha256": "355c60d51dc50c4786fc2c19be26e1da00edb9c1c5fcfc7fa0592d4c6e831e98"
+    },
+    {
+      "path": "thesis/raw/new_signers_daily.json",
+      "sha256": "69f1cc5f8fdb6f6db5536115f7c71f6d6fdc0db4853c6c809bd453d9be503ee5"
+    },
+    {
+      "path": "thesis/raw/swaps_coverage.json",
+      "sha256": "7db31bc754d1ca33deaf20a59459015b8e3d6db98e29e2362200d3eb380b16de"
+    },
+    {
+      "path": "thesis/raw/swaps_daily.json",
+      "sha256": "9559bf87041ff96d680abb75f74af9646d5bc134e5d14b0543adb8c44371c882"
+    },
+    {
+      "path": "thesis/raw/tail_daily.json",
+      "sha256": "1059f110af7df857edcce2efda25f70f866c67707e52bcb72fa1ed2645369533"
+    },
+    {
+      "path": "thesis/raw/transactions_daily.json",
+      "sha256": "077c92917dabd3c9cc218ee1f3f2face20af604610a5544832d96818384f551a"
+    },
+    {
+      "path": "thesis/sql/bigquery/account_scan_daily.sql",
+      "sha256": "bfa8e9a7933fa1455453a70e8e20abc2885a067f897c5f3012e447af9002a0aa"
+    },
+    {
+      "path": "thesis/sql/bigquery/transactions_signers_daily.sql",
+      "sha256": "7c888c0b20e1c6e6f388b2c8abe729728a7e7cd67646726791f624de4a879817"
+    },
+    {
+      "path": "thesis/sql/executed/asset_sets.sql",
+      "sha256": "491531bc5593c5e985c1aaa59df136346b62974a1354fa51eb40cb18de84264c"
+    },
+    {
+      "path": "thesis/sql/executed/chain_pairs_monthly.sql",
+      "sha256": "684f0c57589e612df0a30166f83bbf73c2a77d9bddc22dfa0a1824f644899e59"
+    },
+    {
+      "path": "thesis/sql/executed/excursion_routes.sql",
+      "sha256": "0e3362891652dbc0c233053fc2e5378545d8ffc4cd3c4d7dc32962760fd1ee72"
+    },
+    {
+      "path": "thesis/sql/executed/head_accounts_break.sql",
+      "sha256": "b3824e87258a52e6d5439aa5188fe3c254ad81e1cdfd1a9f38f57ea6a816b942"
+    },
+    {
+      "path": "thesis/sql/executed/intents_mix_daily.sql",
+      "sha256": "b085f63a6725e491e57bf4813448d82c9dac7253bc60df0f50096342f5eb2681"
+    },
+    {
+      "path": "thesis/sql/executed/intents_tx_daily.sql",
+      "sha256": "5f673e2e3c438713598a034e7bdab94c751a15d4743845171fa7e0a067d1f453"
+    },
+    {
+      "path": "thesis/sql/executed/intents_volume_daily.sql",
+      "sha256": "9cda0a847cbf7d060e51b18e021d22e47f42276676c4b3b6840e1f553d8a1caa"
+    },
+    {
+      "path": "thesis/sql/executed/near_price_daily.sql",
+      "sha256": "8f4d41c750930ea2ce1d681b5e59ac4bdc204f60d70707302f0153d00bd5667c"
+    },
+    {
+      "path": "thesis/sql/executed/new_signers_daily.sql",
+      "sha256": "8ec9466e627add1c0fdc3ec651962f1284f12e7c9f924d3a99ab8d63eeca3a5e"
+    },
+    {
+      "path": "thesis/sql/executed/swaps_coverage.sql",
+      "sha256": "43929a0241d78a4896f1dccfc747ca5447aaf6bb8435e0e40e73a518571ff270"
+    },
+    {
+      "path": "thesis/sql/executed/swaps_daily.sql",
+      "sha256": "c3e00bcdd6169d2273c3b2ad80f4aeb1f49ab965c7a76f09ef5abfb66e79fd1f"
+    },
+    {
+      "path": "thesis/sql/executed/tail_daily.sql",
+      "sha256": "a1349e112c8ac957f32a6553f85361509053efc00654b528ac72b009b2b76bb3"
+    },
+    {
+      "path": "thesis/sql/executed/transactions_daily.sql",
+      "sha256": "050f7ce8e9a17755af019ce9c29b5b3dc471603090fb8f3cb7a3c1061aa09b5d"
+    }
+  ]
+}

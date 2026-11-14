@@ -1,0 +1,113 @@
+{
+  "attempts": [
+    {
+      "routeId": "eth-usdc",
+      "originAsset": "nep141:eth.omft.near",
+      "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+      "amountBaseUnits": "1000000000000000000",
+      "privacyMode": "public",
+      "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+      "attemptNo": 1,
+      "fetchedAtUTC": "2026-11-10T11:00:01.000Z",
+      "outcome": "response",
+      "status": 200,
+      "file": "quote-ok.json",
+      "benchmarkOutFormatted": "3101.00"
+    },
+    {
+      "routeId": "eth-usdc",
+      "originAsset": "nep141:eth.omft.near",
+      "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+      "amountBaseUnits": "1000000000000000000",
+      "privacyMode": "basic",
+      "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+      "attemptNo": 1,
+      "fetchedAtUTC": "2026-11-10T11:00:03.000Z",
+      "outcome": "response",
+      "status": 400,
+      "file": "quote-no-liquidity.json"
+    },
+    {
+      "routeId": "eth-usdc",
+      "originAsset": "nep141:eth.omft.near",
+      "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+      "amountBaseUnits": "1000000000000000000",
+      "privacyMode": "advanced",
+      "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+      "attemptNo": 1,
+      "fetchedAtUTC": "2026-11-10T11:00:05.000Z",
+      "outcome": "network_error"
+    },
+    {
+      "routeId": "eth-usdc",
+      "originAsset": "nep141:eth.omft.near",
+      "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+      "amountBaseUnits": "10000000000000000000",
+      "privacyMode": "public",
+      "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+      "attemptNo": 1,
+      "fetchedAtUTC": "2026-11-10T11:00:07.000Z",
+      "outcome": "timeout"
+    },
+    {
+      "routeId": "eth-usdc",
+      "originAsset": "nep141:eth.omft.near",
+      "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+      "amountBaseUnits": "10000000000000000000",
+      "privacyMode": "basic",
+      "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+      "attemptNo": 1,
+      "fetchedAtUTC": "2026-11-10T11:00:09.000Z",
+      "outcome": "response",
+      "status": 200,
+      "file": "quote-invalid-schema.json"
+    },
+    {
+      "routeId": "eth-usdc",
+      "originAsset": "nep141:eth.omft.near",
+      "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+      "amountBaseUnits": "10000000000000000000",
+      "privacyMode": "advanced",
+      "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+      "attemptNo": 1,
+      "fetchedAtUTC": "2026-11-10T11:00:11.000Z",
+      "outcome": "response",
+      "status": 200,
+      "file": "quote-zero-out.json"
+    },
+    {
+      "routeId": "eth-usdc",
+      "originAsset": "nep141:eth.omft.near",
+      "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+      "amountBaseUnits": "100000000000000000000",
+      "privacyMode": "public",
+      "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+      "attemptNo": 1,
+      "fetchedAtUTC": "2026-11-10T11:00:13.000Z",
+      "outcome": "response",
+      "status": 200,
+      "file": "quote-bad-scale.json"
+    },
+    {
+      "routeId": "eth-usdc",
+      "originAsset": "nep141:eth.omft.near",
+      "destinationAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+      "amountBaseUnits": "100000000000000000000",
+      "privacyMode": "basic",
+      "scheduledBucketUTC": "2026-11-10T11:00:00.000Z",
+      "attemptNo": 1,
+      "fetchedAtUTC": "2026-11-10T11:00:15.000Z",
+      "outcome": "not_attempted"
+    }
+  ],
+  "expectedClasses": [
+    "OK",
+    "NO_QUOTE",
+    "NETWORK_ERROR",
+    "TIMEOUT",
+    "INVALID_OUTPUT",
+    "INVALID_OUTPUT",
+    "INVALID_OUTPUT",
+    "unavailable"
+  ]
+}

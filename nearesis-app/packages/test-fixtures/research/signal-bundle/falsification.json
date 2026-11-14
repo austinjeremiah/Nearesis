@@ -1,0 +1,155 @@
+{
+  "lagComparison": {
+    "0": { "delta_mae": 0.003863234, "n_origins": 323, "relative_improvement": 0.0266346809, "status": "OK" },
+    "1": {
+      "delta_mae": 0.0182605026,
+      "n_origins": 323,
+      "relative_improvement": 0.1258952123,
+      "status": "OK"
+    },
+    "2": {
+      "delta_mae": 0.0969953235,
+      "n_origins": 323,
+      "relative_improvement": 0.6687245738,
+      "status": "OK"
+    },
+    "3": {
+      "delta_mae": -0.0003261499,
+      "n_origins": 323,
+      "relative_improvement": -0.002248608,
+      "status": "OK"
+    },
+    "4": { "delta_mae": -0.000193473, "n_origins": 323, "relative_improvement": -0.00133388, "status": "OK" },
+    "5": {
+      "delta_mae": -0.0005888222,
+      "n_origins": 323,
+      "relative_improvement": -0.0040595761,
+      "status": "OK"
+    },
+    "7": {
+      "delta_mae": -0.0004444396,
+      "n_origins": 323,
+      "relative_improvement": -0.0030641447,
+      "status": "OK"
+    }
+  },
+  "leakage": { "1": true, "14": true, "7": true },
+  "placebo": {
+    "alpha": 0.05,
+    "n_placebos": 40,
+    "p_value": 0.0243902439,
+    "passed": true,
+    "placebo_delta_mae": { "max": -0.0004826964, "mean": -0.0033233708, "q95": -0.001082201 },
+    "real_delta_mae": 0.108987309,
+    "test": "circular_time_shift_placebo_of_intents_series"
+  },
+  "robustness": {
+    "agree_share": 1.0,
+    "checks": {
+      "outlier_days_excluded": {
+        "delta_mae": 0.1032316224,
+        "n_origins": 306,
+        "relative_improvement": 0.7425329778,
+        "status": "OK"
+      },
+      "post_oct27_regime": {
+        "n_rows": 18,
+        "reason": "needs more than 60 post-regime rows",
+        "status": "INSUFFICIENT_DATA"
+      },
+      "rolling_window_180d": {
+        "delta_mae": 0.1107582236,
+        "n_origins": 358,
+        "relative_improvement": 0.7403534273,
+        "status": "OK"
+      },
+      "rolling_window_30d": {
+        "delta_mae": 0.1198931634,
+        "n_origins": 358,
+        "relative_improvement": 0.6874737315,
+        "status": "OK"
+      },
+      "rolling_window_90d": {
+        "delta_mae": 0.1139467922,
+        "n_origins": 358,
+        "relative_improvement": 0.7398370898,
+        "status": "OK"
+      },
+      "stablecoin_only_routes": {
+        "reason": "route/asset-level volume is not part of this input",
+        "status": "NOT_TESTABLE"
+      },
+      "top_1pct_accounts_removed": {
+        "delta_mae": 0.1088487362,
+        "excludedAccounts": ["acct0000.near", "acct0001.near"],
+        "n_origins": 323,
+        "relative_improvement": 0.7506121998,
+        "status": "OK"
+      },
+      "top_5pct_accounts_removed": {
+        "delta_mae": 0.1087839334,
+        "excludedAccounts": [
+          "acct0000.near",
+          "acct0001.near",
+          "acct0002.near",
+          "acct0003.near",
+          "acct0004.near",
+          "acct0005.near",
+          "acct0006.near",
+          "acct0007.near",
+          "acct0008.near",
+          "acct0009.near"
+        ],
+        "n_origins": 323,
+        "relative_improvement": 0.7498650818,
+        "status": "OK"
+      }
+    },
+    "lag_comparison": {
+      "0": {
+        "delta_mae": 0.003863234,
+        "n_origins": 323,
+        "relative_improvement": 0.0266346809,
+        "status": "OK"
+      },
+      "1": {
+        "delta_mae": 0.0182605026,
+        "n_origins": 323,
+        "relative_improvement": 0.1258952123,
+        "status": "OK"
+      },
+      "2": {
+        "delta_mae": 0.0969953235,
+        "n_origins": 323,
+        "relative_improvement": 0.6687245738,
+        "status": "OK"
+      },
+      "3": {
+        "delta_mae": -0.0003261499,
+        "n_origins": 323,
+        "relative_improvement": -0.002248608,
+        "status": "OK"
+      },
+      "4": {
+        "delta_mae": -0.000193473,
+        "n_origins": 323,
+        "relative_improvement": -0.00133388,
+        "status": "OK"
+      },
+      "5": {
+        "delta_mae": -0.0005888222,
+        "n_origins": 323,
+        "relative_improvement": -0.0040595761,
+        "status": "OK"
+      },
+      "7": {
+        "delta_mae": -0.0004444396,
+        "n_origins": 323,
+        "relative_improvement": -0.0030641447,
+        "status": "OK"
+      }
+    },
+    "n_positive": 6,
+    "n_testable": 6
+  }
+}

@@ -5,6 +5,8 @@ const root = path.join(__dirname);
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  // Dev server only: lets the smoke tests (and 127.0.0.1 in a browser) load dev chunks and HMR.
+  allowedDevOrigins: ['127.0.0.1'],
   outputFileTracingRoot: root,
   turbopack: { root },
   async headers() {

@@ -1,0 +1,48 @@
+{
+  "id": "ADR-20261111-002",
+  "note": "Machine-readable half of the reference-environment ADR. Thresholds are the ch.13 / ch.16 objectives as written; none may be tuned, relaxed or re-interpreted after a failure. fixtures holds each test's fixture-spec hash (computed from the deterministic fixture definition, no performance data).",
+  "frozenAt": "2026-11-11T07:15:25Z",
+  "environment": {
+    "cpuModel": "Apple M2 Pro",
+    "cpuCores": 10,
+    "ramGiB": 16,
+    "os": "Darwin 27.0.0",
+    "arch": "arm64",
+    "node": "v24.22.2"
+  },
+  "thresholds": {
+    "PERF01": {
+      "warmP95Ms": 1000,
+      "minWarmSamples": 2000,
+      "maxErrors": 0,
+      "maxNonHit": 0
+    },
+    "PERF02": {
+      "panels": 50,
+      "maxLongTaskMs": 250,
+      "inputAckP95Ms": 250,
+      "interactions": 60,
+      "maxHeapUsedMB": 400,
+      "maxHeapGrowthDuringInteractionsPct": 10
+    },
+    "PERF03": {
+      "rules": 100,
+      "watermarks": 20,
+      "maxDuplicateTasks": 0,
+      "triggerToTaskP95Ms": 10000,
+      "maxPendingInboxAfterDrain": 0
+    },
+    "PERF04": {
+      "maxTableCountMismatches": 0,
+      "maxTableHashMismatches": 0,
+      "maxSeqGaps": 0,
+      "maxDuplicateEffects": 0
+    }
+  },
+  "fixtures": {
+    "PERF01": "696f2c228fb53a1789ec1b325900b0dae43a656185e1728d3afa539a40aef5c3",
+    "PERF02": "58474c72ccb90feed79890b9271ce437e220542a2bedda69b81ac1eb506e33b6",
+    "PERF03": "b13f17fcf08cb2c1adaff49d10f4c32724e3334f7368dec2d40b92070ba8989b",
+    "PERF04": "228a96df858de710ebce4ee4e5862db270e52bfaf051ede73c5a1649f05e0915"
+  }
+}

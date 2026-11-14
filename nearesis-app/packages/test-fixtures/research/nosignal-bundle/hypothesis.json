@@ -1,0 +1,7 @@
+{
+  "causalClaim": "excluded",
+  "primaryComparison": "intents vs baseline",
+  "primaryHorizon": 1,
+  "primaryOutcome": "organic daily successful actions (Intents-generated accounts excluded), log1p scale",
+  "text": "Lagged completed 1Click/Intents volume improves out-of-sample forecasts of organic NEAR-native daily activity beyond usage and calendar history. Predictive claim only; causality is excluded."
+}

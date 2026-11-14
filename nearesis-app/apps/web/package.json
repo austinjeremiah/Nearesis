@@ -1,0 +1,40 @@
+{
+  "name": "@nearesis/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3100 -H 127.0.0.1",
+    "build": "next build",
+    "start": "next start -p 3100 -H 127.0.0.1",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run test/unit"
+  },
+  "dependencies": {
+    "@nearesis/analytics": "workspace:*",
+    "@nearesis/canvas-schema": "workspace:*",
+    "@nearesis/contracts": "workspace:*",
+    "@nearesis/semantic-gateway": "workspace:*",
+    "@nearesis/test-fixtures": "workspace:*",
+    "@nearesis/ui": "workspace:*",
+    "@xyflow/react": "12.12.1",
+    "echarts": "6.1.0",
+    "ioredis": "6.0.0",
+    "next": "16.4.5",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "yjs": "13.6.33",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@nearesis/acceptance": "workspace:*",
+    "@nearesis/agent-runtime": "workspace:*",
+    "@nearesis/api": "workspace:*",
+    "@nearesis/inference": "workspace:*",
+    "@nearesis/kernel": "workspace:*",
+    "@nearesis/near-thesis": "workspace:*",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "playwright": "1.65.0"
+  }
+}

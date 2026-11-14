@@ -1,0 +1,8 @@
+{
+  "id": "fx.oneclick.tokens",
+  "label": "SYNTHETIC",
+  "description": "1Click GET /v0/tokens response (TokenResponse[]) incl. 24/18/8/6-decimal tokens and a legacy HOT BNB id.",
+  "files": [
+    { "path": "tokens.json", "sha256": "51fa64d4653695859520bae9dc2cc60b9324d6a4025305d895a29d39566a22ea" }
+  ]
+}

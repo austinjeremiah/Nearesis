@@ -80,3 +80,34 @@ desktop.ini
 # ---- deploy -----------------------------------------------------------------
 .vercel/
 .netlify/
+
+# ---- backend (nearesis-app) --------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+.near-credentials/
+.outlayer/
+
+# Build outputs
+target/
+out/
+node_modules/
+dist/
+.DS_Store
+
+# Project-local toolchain and virtualenvs (nearesis-app/scripts/bootstrap-toolchain.sh)
+.toolchain/
+.venv/
+__pycache__/
+
+# Local runtime data: raw archive, spend ledger (never commit)
+.data/
+test-results/
+playwright-report/
+
+
+# The thesis bundle is generated but committed, so anyone can check it against a rebuild.
+!nearesis-app/thesis/build/

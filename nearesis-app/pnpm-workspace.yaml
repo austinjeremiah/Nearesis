@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "services/*"
+  - "plugins/*"
+  - "!services/outlayer-verifier"
+allowBuilds:
+  "@swc/core": true
+  esbuild: true
+  protobufjs: true
+  secp256k1: false # transitive native addon; its pure-JS fallback is used, so no install script runs

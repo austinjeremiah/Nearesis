@@ -100,6 +100,9 @@ export type Thesis = {
   schema?: string;
   version?: string;
   generatedAt?: string;
+  /** A short name for the thesis (the reference thesis has one); the claim stays in `hypothesis`. */
+  title?: string;
+  question?: string;
   hypothesis?: string;
   verdict?: {
     status?: string;

@@ -219,8 +219,11 @@ export function FlowHero({
   actions,
   eyebrow,
   extra,
+  lede,
 }: {
   extra?: ReactNode;
+  /** One sentence under the title (a thesis's claim when the title is its name). */
+  lede?: string;
   title: string;
   badge?: ReactNode;
   meta?: ReactNode[];
@@ -234,6 +237,7 @@ export function FlowHero({
         <h1 className="fl-hero-title">{title}</h1>
         {badge && <div className="fl-hero-badge">{badge}</div>}
       </div>
+      {lede && <p className="fl-hero-lede">{lede}</p>}
       {meta && meta.length > 0 && (
         <p className="fl-hero-meta mono">
           {meta.map((m, i) => (

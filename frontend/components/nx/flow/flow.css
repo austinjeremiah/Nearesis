@@ -120,3 +120,5 @@
 .fl-print .tt-md .table td:last-child { min-width: 0; }
 
 .fl-hero-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 2px 0 4px; }
+
+.fl-hero-lede { margin: 6px 0 4px; max-width: 72ch; font-size: 1.12rem; line-height: 1.5; color: var(--text-2); }

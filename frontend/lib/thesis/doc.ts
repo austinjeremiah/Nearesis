@@ -270,6 +270,8 @@ export function normalizeDoc(raw: unknown): Thesis | null {
     schema: str(raw.schema) ?? undefined,
     version: str(raw.version) ?? undefined,
     generatedAt: str(raw.generatedAt) ?? undefined,
+    title: str(raw.title) ?? undefined,
+    question: str(raw.question) ?? undefined,
     hypothesis: str(raw.hypothesis) ?? undefined,
     verdict: v
       ? {

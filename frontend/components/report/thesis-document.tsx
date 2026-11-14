@@ -333,8 +333,9 @@ export default function ThesisDocument({ doc: t, meta, mode = 'app', slug = null
               <span className="rp-cover-kind">{coverLabel(meta)}</span>
             </div>
             <div className="rp-cover-mid">
-              <p className="rp-eyebrow">Claim under test</p>
-              <h1>{t.hypothesis ?? unknown}</h1>
+              <p className="rp-eyebrow">{t.title ? 'Thesis' : 'Claim under test'}</p>
+              <h1>{t.title ?? t.hypothesis ?? unknown}</h1>
+              {t.title && t.hypothesis && <p className="rp-cover-claim">{t.hypothesis}</p>}
               <div className="rp-rule" />
               <div className="rp-tags rp-cover-chip">
                 <Tag tone={chipTone(status ?? '')}>{statusLabel(status)}</Tag>

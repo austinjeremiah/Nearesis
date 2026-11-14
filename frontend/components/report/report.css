@@ -209,3 +209,5 @@ html:has(.rp-root), body:has(.rp-root) { background: var(--rp-bg); }
 @media screen and (max-width: 760px) {
   .rp-src { columns: 1; }
 }
+
+.rp-cover-claim { margin: 14px 0 0; max-width: 34em; font-size: 15px; line-height: 1.5; color: #3b3a36; }

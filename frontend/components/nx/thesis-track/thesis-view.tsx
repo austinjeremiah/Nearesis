@@ -803,7 +803,8 @@ export function ThesisDocView({
             {t.origin?.kind === 'workspace' && <Badge outline>workspace thesis</Badge>}
           </>
         }
-        title={orUnknown(t.hypothesis)}
+        title={t.title ? t.title : orUnknown(t.hypothesis)}
+        lede={t.title && t.hypothesis ? t.hypothesis : undefined}
         badge={<Badge tone={tone}>{statusLabel(t.verdict?.status)}</Badge>}
         meta={meta}
         actions={actions}

@@ -317,9 +317,36 @@ async function runAwait(e: Env): Promise<Outcome> {
   }
 }
 
+/** Newest COMPLETE run of the workspace, used when a step names no run and the task created none. */
+async function latestRunId(e: Env, ws: string): Promise<string | null> {
+  const r = await call<{ runs?: { runId?: string; state?: string }[] }>(
+    e.api,
+    e.user,
+    "GET",
+    `/v1/workspaces/${ws}/runs`,
+  );
+  const hit = (r.body.runs ?? []).find((x) => x.state === "COMPLETE" && typeof x.runId === "string");
+  return hit?.runId ?? null;
+}
+
+/** Newest capsule of the workspace, used when a step names no capsule and the task built none. */
+async function latestCapsuleId(e: Env): Promise<string | null> {
+  const ws = e.ctx.workspaceId;
+  if (!ws) return null;
+  const r = await call<{ capsules?: { capsuleId?: string; createdAt?: string }[] }>(
+    e.api,
+    e.user,
+    "GET",
+    `/v1/workspaces/${ws}/capsules`,
+  );
+  const list = (r.body.capsules ?? []).filter((c) => typeof c.capsuleId === "string");
+  list.sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")));
+  return list[0]?.capsuleId ?? null;
+}
+
 async function setupAuto(e: Env): Promise<Outcome> {
   const ws = wsOf(e);
-  const runId = need(str(e.params.runId) ?? e.ctx.runId ?? null, "a finished run");
+  const runId = need(str(e.params.runId) ?? e.ctx.runId ?? (await latestRunId(e, ws)), "a finished run");
   const r = await call<{
     markers?: Obj[];
     monitors?: Obj[];
@@ -426,7 +453,7 @@ async function hypothesisFreeze(e: Env): Promise<Outcome> {
 
 async function capsuleBuild(e: Env): Promise<Outcome> {
   const ws = wsOf(e);
-  const runId = need(str(e.params.runId) ?? e.ctx.runId ?? null, "a finished run");
+  const runId = need(str(e.params.runId) ?? e.ctx.runId ?? (await latestRunId(e, ws)), "a finished run");
   const r = await call<Obj>(e.api, e.user, "POST", `/v1/workspaces/${ws}/capsules`, { runId }, idem(e));
   const capsuleId = need(str(r.body.capsuleId), "the capsule id");
   await e.patchCtx({ capsuleId });
@@ -513,7 +540,10 @@ export async function awaitProof(e: Env, proofId: string): Promise<ProofView> {
 export { recordProofCosts };
 
 async function capsuleProve(e: Env): Promise<Outcome> {
-  const capsuleId = need(str(e.params.capsuleId) ?? e.ctx.capsuleId ?? null, "a capsule");
+  const capsuleId = need(
+    str(e.params.capsuleId) ?? e.ctx.capsuleId ?? (await latestCapsuleId(e)),
+    "a capsule",
+  );
   let proofId: string | null = null;
   // A proof this task already started is resumed, never paid for twice.
   if (e.ctx.proofId) {
@@ -567,7 +597,10 @@ async function capsuleProve(e: Env): Promise<Outcome> {
 }
 
 async function capsulePublish(e: Env): Promise<Outcome> {
-  const capsuleId = need(str(e.params.capsuleId) ?? e.ctx.capsuleId ?? null, "a capsule");
+  const capsuleId = need(
+    str(e.params.capsuleId) ?? e.ctx.capsuleId ?? (await latestCapsuleId(e)),
+    "a capsule",
+  );
   const ack = Array.isArray(e.params.acknowledge) ? (e.params.acknowledge as string[]) : [];
   const t0 = e.startedAtMs;
   const r = await call<Obj>(

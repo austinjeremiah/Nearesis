@@ -142,8 +142,9 @@ export function validateOrder(steps: PlannedStep[], ambient: TaskCtx): void {
         break;
       case "setup.auto":
       case "capsule.build":
-        need(p.runId || have.runId, `${at} needs a finished run.`);
         need(have.workspaceId, `${at} needs a workspace.`);
+        // An existing workspace may already hold a finished run: the step then takes its newest COMPLETE run.
+        need(p.runId || have.runId || have.workspaceId !== "<new>", `${at} needs a finished run.`);
         if (s.key === "capsule.build") have.capsuleId = "<new>";
         break;
       case "marker.create":
@@ -161,7 +162,11 @@ export function validateOrder(steps: PlannedStep[], ambient: TaskCtx): void {
         break;
       case "capsule.prove":
       case "capsule.publish":
-        need(p.capsuleId || have.capsuleId, `${at} needs a capsule (build one first).`);
+        // An existing workspace may already hold a capsule: the step then takes its newest one.
+        need(
+          p.capsuleId || have.capsuleId || (have.workspaceId && have.workspaceId !== "<new>"),
+          `${at} needs a capsule (build one first).`,
+        );
         if (p.capsuleId) have.capsuleId = p.capsuleId;
         break;
       case "report.build":

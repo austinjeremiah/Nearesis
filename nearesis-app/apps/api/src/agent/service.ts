@@ -232,6 +232,21 @@ export class AgentService {
       const workspaces = (
         (ws.body as { workspaces?: Array<{ id: string; objective: string }> } | null)?.workspaces ?? []
       ).map((w) => ({ id: w.id, objective: w.objective }));
+      // What the current workspace already holds, so the planner neither asks for nor re-runs what exists.
+      let current: { finishedRuns: number; capsules: number } | null = null;
+      if (workspaceId) {
+        const [r, c] = await Promise.all([
+          this.o.api(user, "GET", `/v1/workspaces/${workspaceId}/runs`),
+          this.o.api(user, "GET", `/v1/workspaces/${workspaceId}/capsules`),
+        ]);
+        const runs = (r.body as { runs?: Array<{ state?: string }> } | null)?.runs;
+        const caps = (c.body as { capsules?: unknown[] } | null)?.capsules;
+        if (Array.isArray(runs) && Array.isArray(caps))
+          current = {
+            finishedRuns: runs.filter((x) => x.state === "COMPLETE").length,
+            capsules: caps.length,
+          };
+      }
       const hist = history.map((m) => ({
         role: m.role,
         text: (m.text ?? (m.answer as { summary?: string } | null)?.summary ?? "").slice(0, 2000),
@@ -245,6 +260,7 @@ export class AgentService {
             text,
             history: hist.filter((h) => h.text),
             threadWorkspaceId: workspaceId,
+            current,
             workspaces,
             now: (this.o.now ?? (() => new Date()))(),
           },

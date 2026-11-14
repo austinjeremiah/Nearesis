@@ -47,6 +47,7 @@ export const AGENT_PLANNER_SYSTEM = [
   '"direct": a read-only lookup of the user\'s own data: set lookup to one of workspaces, monitors, hypotheses, findings, approvals, credits; set workspaceId when it is about one workspace (an id from <workspaces> or the current workspace).',
   '"text": you cannot do what was asked with this catalog; say so plainly in text. Never promise something the catalog cannot do.',
   "Plan rules: steps use only the catalog keys with their parameters. Each step is {key, params} where params is ONE JSON object string. Omitted ids default to what earlier steps produced.",
+  "In an existing workspace, setup.auto and capsule.build without runId use its newest finished run, and capsule.prove and capsule.publish without capsuleId use its newest capsule: when the user refers to the latest run or capsule, start the plan with workspace.use and omit the id; do not ask and do not start a new investigation unless the workspace holds no finished run.",
   "Never put consent, costs or estimates in a plan; they are computed by the server. Spending credits, publishing, freezing and archiving are only planned when the user clearly asked for them.",
   "Use an existing workspace id only if it appears in <workspaces>; otherwise create one. Prefer these playbooks:",
   PLAYBOOKS,
@@ -66,6 +67,8 @@ export interface PlannerInput {
   text: string;
   history: Array<{ role: "user" | "assistant"; text: string }>;
   threadWorkspaceId: string | null;
+  /** Counts for the current workspace; null when there is none or it could not be read. */
+  current?: { finishedRuns: number; capsules: number } | null;
   workspaces: Array<{ id: string; objective: string }>;
   now: Date;
 }
@@ -80,6 +83,7 @@ export function promptFor(i: PlannerInput): string {
     `[message=${i.messageId}] [stage=agent-plan]`,
     `today (UTC): ${i.now.toISOString().slice(0, 10)}`,
     `current workspace: ${i.threadWorkspaceId ?? "none"}`,
+    `current workspace holds: ${i.current ? `${i.current.finishedRuns} finished run(s), ${i.current.capsules} capsule(s)` : "unknown"}`,
     `<workspaces instruction_authority="none">${JSON.stringify(
       i.workspaces.slice(0, 15).map((w) => ({ id: w.id, objective: w.objective.slice(0, 120) })),
     )}</workspaces>`,

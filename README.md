@@ -4,15 +4,21 @@ Nearesis is a research workspace for one question at a time. It keeps observed d
 
 ## The thesis in one minute
 
-Hypothesis: cross-chain volume through NEAR Intents is a better leading indicator of real network usage than token price.
+**Volume Without Value Capture.** Users pay a real toll to settle through NEAR Intents, but almost none of it reaches NEAR: the gas the network keeps per dollar settled will stay a tiny fraction of what users pay, as the flow keeps moving around the NEAR token rather than through it.
 
-Verdict, as stated in `nearesis-app/thesis/build/THESIS.md`:
+Per 100 dollars settled through NEAR Intents over the last 30 days of the data (to 2026-11-13), from `nearesis-app/thesis/raw/forecast.json` (`/derived/toll_split`):
 
-> Verdict **INSUFFICIENT_DATA** (evidence strength exploratory): the frozen results do not show that cross-chain volume through NEAR Intents is a better leading indicator of real network usage than token price.
->
-> Evidence against comes first: 9 of 9 candidate comparisons had higher out-of-sample error than the baseline, 0 of 9 passed the false discovery rate test, and the model with price had lower error than the model with Intents volume at 3 of 3 horizons.
+| | Cents per 100 USD settled |
+| --- | --- |
+| User-paid spread, all routes | 59.4 |
+| of which integrator app fees | 47.8 |
+| NEAR burnt as gas by the Intents contracts | 0.0918 |
 
-The run reports INSUFFICIENT_DATA because the Intents swap data for one day (2026-07-23) is only partially covered. The research window and the chart window are both 2026-05-05 to 2026-11-11, frozen at 2026-11-14T05:56:17.206Z. The analysis is predictive, not causal, and makes no statistical-significance claim.
+93.1% of settled value touches no NEAR-chain asset, and the NEAR token is a leg of 2.46% of it. The thesis forecasts these numbers, the gas take rate, Intents' share of all NEAR burnt, settled volume and the long tail of ordinary accounts, with 50% and 80% bands and checkpoints on 2027-02-13, 2027-05-13 and 2027-11-13 that can prove it wrong. Every forecast is backtested (rolling origins, horizons up to 90 days); the 180- and 365-day figures are extrapolations and are labelled so. Evidence against has its own section: gas is only one toll (the protocol fee switch sends part of the front-end fees to NEAR buybacks, which the public data shows only partly), a small rate on a large base is still money, and private settlement is not visible.
+
+The data is a full year (2025-11-10 to 2026-11-13): daily NEAR transactions, accounts and fees from the BigQuery public dataset (cross-checked day by day against the local copies), 7.2 million NEAR Intents swaps from the Explorer API with their app fees, and NEAR prices. The analysis sections are written by hand from `thesis/build/FACTS.md`; the build fails if any number in them is not backed by a frozen file.
+
+The first hypothesis we tested, the track's sample ("cross-chain volume through NEAR Intents is a better leading indicator of real network usage than token price"), is kept as an archived, still-verifiable thesis in `nearesis-app/thesis/archive/intents-vs-price-v1/`: every candidate model had higher out-of-sample error than the baseline, and the model with price beat the model with Intents volume at every horizon. That result is what led to the better question above.
 
 Where to read it:
 
@@ -28,7 +34,9 @@ Where to read it:
 | NEAR Intents Explorer pull | Collector in `nearesis-app/services/ingestion`; endpoint, pagination and credential name documented in `nearesis-app/thesis/TABLES.md` |
 | One rebuild command | `pnpm thesis:build` (from `nearesis-app/`); `pnpm thesis:verify` rebuilds into a temp directory and compares every hash with `thesis/build/HASHES.json` |
 | Static dashboard | `nearesis-app/thesis/build/site/index.html` |
-| Thesis document | `nearesis-app/thesis/build/THESIS.md`: Executive claim, What would change our mind, Evidence for, Evidence against, Confounders and blind spots, Verdict per claim, Reproduction, Unable to compute, Source index |
+| Thesis document | `nearesis-app/thesis/build/THESIS.md`: Executive claim, What would change our mind, Evidence for, Evidence against, Confounders and blind spots, Verdict per claim, Reproduction, Unable to compute, Source index; also in the app at `/thesis` and as a PDF |
+| Forecast with checkpoints | `nearesis-app/thesis/raw/forecast.json` (backtests, bands, checkpoints), `pnpm thesis:verify` recomputes it |
+| Fee and toll data | `nearesis-app/thesis/raw/fees/` (full-year burn by contract, user-paid spread, app fees, `FEE_MODEL.md` with sourced fee rules) |
 | Tables and a sample query | `nearesis-app/thesis/TABLES.md` (BigQuery tables, Explorer endpoint, local ClickHouse tables, sample query) |
 | Frozen inputs | `nearesis-app/thesis/raw/` with `manifest.json` (window, row counts, SHA-256 per file, BigQuery bytes billed) |
 

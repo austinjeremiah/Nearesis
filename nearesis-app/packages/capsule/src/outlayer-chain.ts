@@ -247,7 +247,31 @@ export class TestnetOutlayerChain implements OutlayerChain {
     });
     const signature = sign(null, sha256Raw(tx), priv);
     const signed = Buffer.concat([tx, Buffer.from([0]), signature]);
-    const out = await rpcCall<TxOutcome>("broadcast_tx_commit", [signed.toString("base64")]);
+    // The hash is known before sending, so a slow or interrupted RPC answer never loses a transaction that was paid for.
+    const txHash = base58Encode(sha256Raw(tx));
+    let out: TxOutcome;
+    try {
+      out = await rpcCall<TxOutcome>("broadcast_tx_commit", [signed.toString("base64")]);
+    } catch (e) {
+      // broadcast_tx_commit gives up after about ten seconds while the receipts are still running (cause PENDING), and a
+      // network error leaves the outcome unknown. Either way the transaction may be on chain: read its final outcome by
+      // hash for up to three minutes before reporting a failure, and name the hash in that failure.
+      const deadline = Date.now() + 180_000;
+      let last: unknown = e;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 4_000));
+        try {
+          return await this.fetchReceipt(txHash);
+        } catch (e2) {
+          last = e2;
+        }
+      }
+      const err = new Error(
+        `transaction ${txHash} was broadcast but its final outcome could not be read: ${String((last as Error)?.message ?? last).slice(0, 300)}`,
+      ) as Error & { txHash: string };
+      err.txHash = txHash;
+      throw err;
+    }
     return parseOutcome(out, this.account, depositYocto);
   }
 

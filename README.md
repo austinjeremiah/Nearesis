@@ -37,7 +37,7 @@ Where to read it:
 These steps need no credentials, no databases and no network after installation. `thesis:build` reads only `thesis/raw` and the frozen research results; it fetches nothing.
 
 ```sh
-git clone <this repository> && cd <repository>/nearesis-app
+git clone https://github.com/austinjeremiah/Nearesis.git && cd Nearesis/nearesis-app
 pnpm install
 pnpm thesis:build
 pnpm thesis:verify
@@ -98,7 +98,7 @@ Configuration is by environment variable, read from a repository-root `.env` (se
 | `GCP_PROJECT_ID` | BigQuery (live data and `thesis:data --bigquery`) |
 | `OUTLAYER_PAYMENT_KEY` | OutLayer proof jobs |
 
-API flags the lead's local setup uses for the full feature set: `NEARESIS_MONITOR_BACKGROUND=1` (background monitors), `NEARESIS_PUBLISH_KEYCHAIN=1` and `NEARESIS_PUBLISH_ANCHOR_TESTNET=1` (publication signing and testnet anchoring), `NEARESIS_OUTLAYER_LIVE=1` (live OutLayer proofs). Without them those features are off or use local stand-ins.
+API flags that switch on the full feature set: `NEARESIS_MONITOR_BACKGROUND=1` (background monitors), `NEARESIS_PUBLISH_KEYCHAIN=1` and `NEARESIS_PUBLISH_ANCHOR_TESTNET=1` (publication signing and testnet anchoring), `NEARESIS_OUTLAYER_LIVE=1` (live OutLayer proofs). Without them those features are off or use local stand-ins.
 
 Without credentials the app runs on the SYNTHETIC fixture path, which is labelled as such in the UI and the API.
 

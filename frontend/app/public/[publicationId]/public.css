@@ -1,0 +1,19 @@
+/* Public publication page. Tokens only, so both themes follow; it must read without a session. */
+.pub { display: flex; flex-direction: column; }
+.pub-bar { display: flex; align-items: center; gap: 14px; padding: 14px clamp(16px, 4vw, 40px); border-bottom: 1px solid var(--line); background: var(--page); }
+.pub-brand { display: inline-flex; text-decoration: none; }
+.pub-tag { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.pub-spacer { flex: 1; }
+.pub-body { width: 100%; max-width: 900px; margin: 0 auto; padding: clamp(24px, 6vh, 56px) clamp(16px, 4vw, 24px) 64px; min-width: 0; }
+.pub-body > * { min-width: 0; }
+.pub-title { overflow-wrap: anywhere; margin: 0; }
+.pub .card { min-width: 0; }
+.pub .card li { overflow-wrap: anywhere; }
+.pub-result { line-height: 1.5; }
+.pub-doc { align-items: center; }
+.pub-doc .link { overflow-wrap: anywhere; }
+.pub .kv, .pub dl { min-width: 0; }
+@media (max-width: 640px) {
+  .pub-tag { display: none; }
+  .pub-doc .btn { white-space: normal; }
+}

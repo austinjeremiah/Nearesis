@@ -1,4 +1,9 @@
 import '../../app.css';
+import './public.css';
+import { cookies } from 'next/headers';
+import Wordmark from '@/components/Wordmark';
+import { ThemeToggle } from '@/components/nx/theme';
+import { DEFAULT_THEME, THEME_COOKIE, type Theme } from '@/lib/theme';
 import { API_URL } from '@/lib/api/config';
 import { Badge } from '@/components/nx/evidence';
 import { Card, EmptyState, KeyValues, Notice } from '@/components/nx/ui';
@@ -9,6 +14,13 @@ import type { CapsuleView } from '@/lib/ws6/api';
 import { formatUtc, shortHash } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
+
+const FONTS =
+  'https://fonts.googleapis.com/css2' +
+  '?family=Inter+Tight:wght@300;400;500;600;700' +
+  '&family=Stack+Sans+Notch:wght@300;400;500;600' +
+  '&family=IBM+Plex+Mono:wght@400;500;600' +
+  '&display=swap';
 
 type PublicPublication = Pick<CapsuleView, 'title' | 'claims' | 'results' | 'hashes' | 'verification' | 'capsuleId'> & {
   label: string;
@@ -50,9 +62,24 @@ async function load(id: string): Promise<Outcome> {
 export default async function PublicPublicationPage({ params }: { params: Promise<{ publicationId: string }> }) {
   const { publicationId } = await params;
   const id = decodeURIComponent(publicationId);
+  // The reader's theme choice applies here too; anonymous readers get the product default.
+  const saved = (await cookies()).get(THEME_COOKIE)?.value;
+  const theme: Theme = saved === 'light' || saved === 'dark' ? saved : DEFAULT_THEME;
   const wrap = (children: React.ReactNode) => (
-    <div className="nx" style={{ maxWidth: 860, margin: '0 auto', padding: '8vh 24px' }}>
-      {children}
+    <div className="nx pub" data-theme={theme}>
+      <link href="https://fonts.googleapis.com" rel="preconnect" />
+      <link href="https://fonts.gstatic.com" rel="preconnect" crossOrigin="anonymous" />
+      <link href={FONTS} rel="stylesheet" precedence="default" />
+      <header className="pub-bar">
+        <a href="/" aria-label="Nearesis home" className="pub-brand">
+          <span className="wm-on-light"><Wordmark tone="black" size={22} /></span>
+          <span className="wm-on-dark"><Wordmark tone="white" size={22} /></span>
+        </a>
+        <span className="pub-tag">Public publication</span>
+        <span className="pub-spacer" />
+        <ThemeToggle />
+      </header>
+      <main className="pub-body">{children}</main>
     </div>
   );
   const o = await load(id);
@@ -85,12 +112,12 @@ export default async function PublicPublicationPage({ params }: { params: Promis
   const limitations = c.label === 'SYNTHETIC' ? ['This capsule is built from SYNTHETIC data. No statement here describes NEAR production activity.'] : [];
   return wrap(
     <div className="col gap4" data-testid="public-publication" data-capsule={c.capsuleId}>
-      <div className="row gap2">
+      <div className="row gap2 wrap">
         <Badge tone="ok">published</Badge>
         <Badge outline>{c.badge}</Badge>
         <Badge tone={c.label === 'SYNTHETIC' ? 'warn' : 'info'} outline>{c.label}</Badge>
       </div>
-      <h1 className="h2">{c.title}</h1>
+      <h1 className="h2 pub-title">{c.title}</h1>
       {c.label === 'SYNTHETIC' && <Notice tone="warn" title="Synthetic data">No statement here describes NEAR production activity.</Notice>}
       {c.acknowledgedCautions.length > 0 && (
         <Notice tone="warn" title="Published with acknowledged cautions">
@@ -98,7 +125,7 @@ export default async function PublicPublicationPage({ params }: { params: Promis
         </Notice>
       )}
       <Card title="Verification">
-        <div className="row gap2">
+        <div className="row gap2 wrap">
           <LocalBadge v={c.verification.local} />
           <OutlayerBadge v={c.verification.outlayer} />
         </div>
@@ -125,7 +152,7 @@ export default async function PublicPublicationPage({ params }: { params: Promis
       <Card title="Results">
         <ul className="col gap2">
           {c.results.map((x) => (
-            <li key={x.id} className="small"><span className="strong">{x.label}</span>: <span className="mono">{x.value}</span> {x.unit}</li>
+            <li key={x.id} className="small pub-result"><span className="strong">{x.label}</span>: <span className="mono">{x.value}</span> {x.unit}</li>
           ))}
         </ul>
       </Card>

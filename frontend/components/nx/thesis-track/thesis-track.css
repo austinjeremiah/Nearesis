@@ -1,7 +1,7 @@
 /* NEAR Thesis page. Tokens only, so both themes follow. */
 .tt { display: flex; flex-direction: column; gap: 40px; max-width: 1280px; }
 .tt section.tt-sec { display: flex; flex-direction: column; gap: 14px; }
-.tt-secnote { margin: 0; color: var(--text-2); font-size: var(--fs-small); max-width: 72ch; }
+.tt-secnote { margin: 0; color: var(--on-paper-2, var(--text-2)); font-size: var(--fs-small); max-width: 72ch; }
 
 /* verdict */
 .tt-verdict { border: 1px solid var(--line-strong); background: var(--surface); padding: 28px 28px 24px; display: flex; flex-direction: column; gap: 16px; }
@@ -49,9 +49,27 @@
 .tt-code code { background: none; padding: 0; font-size: inherit; }
 .tt-code:focus-visible, .tt-md-table:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* claims */
-.tt-claims td { vertical-align: top; min-width: 120px; line-height: 1.45; }
-.tt-claims td.stmt { min-width: 260px; }
+/* claims: one card per claim, so seven text-heavy columns never have to fit a row */
+.tt-claims { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.tt-claim { border: 1px solid var(--line-strong); background: var(--surface); padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tt-claim-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px 16px; flex-wrap: wrap; }
+.tt-claim-stmt { font-weight: 600; line-height: 1.4; flex: 1 1 320px; min-width: 0; overflow-wrap: anywhere; }
+.tt-claim-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.tt-claim-grid { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; font-size: var(--fs-small); }
+.tt-claim-grid > div { min-width: 0; }
+.tt-claim-grid dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 2px; }
+.tt-claim-grid dd { margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
+.tt-claim-grid dd.mono { font-size: 12px; }
+
+/* tables inside the thesis: the global table skin keeps mono cells on one line and 940px wide; here text wraps */
+.tt table.table { min-width: 0; }
+.tt .table .mono, .tt .table .badge { white-space: normal; word-break: normal; overflow-wrap: anywhere; }
+.tt .table td { vertical-align: top; height: auto; }
+.tt .table td.n, .tt .table td.n .mono { white-space: nowrap; overflow-wrap: normal; }
+.tt-md-table table.table { min-width: 720px; }
+.tt-md .table td:last-child { min-width: 200px; }
+.tt-md .table th, .tt-md .table td { overflow-wrap: normal; word-break: normal; min-width: 72px; }
+.tt-md .table td code { overflow-wrap: anywhere; }
 
 /* charts */
 .tt-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -102,6 +120,8 @@
 @media (max-width: 640px) {
   .tt { gap: 28px; }
   .tt-verdict { padding: 18px 16px; }
+  .tt-claim { padding: 12px; }
+  .tt-claim-grid { grid-template-columns: minmax(0, 1fr); }
   .tt-hashes { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .tt-hashes dd { margin-bottom: 8px; }
   .tt-chart > header, .tt-chart-body, .tt-chart-foot { padding-left: 12px; padding-right: 12px; }
@@ -111,3 +131,8 @@
 .tt-ev, .tt-mind, .tt-md { min-width: 0; overflow-wrap: anywhere; }
 .tt-md code.tt-ref, .tt-md code { overflow-wrap: anywhere; word-break: break-word; }
 .tt-md code.tt-ref { font-size: 0.72em; color: var(--text-3); background: none; padding: 0 2px; }
+
+/* The page sits on the dark paper in both themes, so every boxed surface sets its own text colour; text on the paper
+   uses the paper tokens above. Without this, light theme draws pale inherited text on the cream cards. */
+.tt-verdict, .tt-ev, .tt-mind, .tt-claim, .tt-chart, .tt-repro, .tt-acc, .tt-unable li, .tt-notbuilt, .tt-skel { color: var(--text); }
+.tt-verdict .tt-secnote, .tt-repro .tt-secnote, .tt-ev .tt-secnote, .tt-chart .tt-secnote { color: var(--text-2); }

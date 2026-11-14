@@ -11,6 +11,7 @@ import { formatUtc } from '@/lib/format';
 import { caps, metricsApi, type BundleResult, type CapsuleView, type VerifyReport } from '@/lib/ws6/api';
 import { ActionError, Hash, Json, Slot, useAction } from '@/components/ws6/common';
 import { AnchorReadbackBlock, KeyBadge, PublicationVersionCard } from '@/components/ws8/publication-trust';
+import '../capsules.css';
 import { LocalBadge, OutlayerBadge, PublicationBadge } from '@/components/ws6/capsule-bits';
 import { OutlayerProofCard } from '@/components/ws6/outlayer-proof-card';
 
@@ -37,7 +38,7 @@ function ExportRow({ e }: { e: CapsuleView['exports'][number] }) {
     }
   }
   return (
-    <li className="row gap2" data-testid="export-row">
+    <li className="row gap2 wrap" data-testid="export-row">
       <a className="link" href={bff(e.href)} target="_blank" rel="noreferrer">
         {e.label}
       </a>
@@ -167,8 +168,8 @@ export default function CapsuleDetail({ wid, capsuleId }: { wid: string; capsule
         const isPublic = pub.data?.public ?? false;
         const v = report;
         return (
-          <div className="col gap4">
-            <div className="row gap2" data-testid="capsule-badges">
+          <div className="col gap4 caps-scope">
+            <div className="row gap2 wrap" data-testid="capsule-badges">
               <LocalBadge v={c.verification.local} />
               <OutlayerBadge v={c.verification.outlayer} />
               <Badge tone={c.sourceLabel === 'SYNTHETIC' ? 'warn' : 'info'} outline>{c.sourceLabel}</Badge>

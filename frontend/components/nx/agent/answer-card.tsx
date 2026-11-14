@@ -1,6 +1,6 @@
 'use client';
 
-import { tidyNumbers } from '@/lib/prose';
+import { tidyNumberNodes } from '@/lib/prose';
 import { Badge } from '@/components/nx/evidence';
 import { DataTable } from '@/components/nx/table';
 import { SeriesChart } from '@/components/nx/data/charts';
@@ -75,7 +75,7 @@ export function FindingCard({ f, highlighted, onSelect, onChip }: { f: AgentFind
           skeptic: {f.skepticVerdict}
         </Badge>
       </div>
-      <p>{tidyNumbers(f.statement)}</p>
+      <p>{tidyNumberNodes(f.statement)}</p>
       <div className="row gap2 wrap">
         <span className="tiny dim">{f.facts.length} number(s) tied to result cells</span>
         {f.chartIds.map((id) => (
@@ -94,7 +94,7 @@ export function FindingCard({ f, highlighted, onSelect, onChip }: { f: AgentFind
           <summary>Limitations ({f.limitations.length})</summary>
           <ul>
             {f.limitations.map((l, i) => (
-              <li key={i}>{tidyNumbers(l)}</li>
+              <li key={i}>{tidyNumberNodes(l)}</li>
             ))}
           </ul>
         </details>
@@ -104,7 +104,7 @@ export function FindingCard({ f, highlighted, onSelect, onChip }: { f: AgentFind
           <summary>Skeptic notes ({f.skepticNotes.length})</summary>
           <ul>
             {f.skepticNotes.map((l, i) => (
-              <li key={i}>{tidyNumbers(l)}</li>
+              <li key={i}>{tidyNumberNodes(l)}</li>
             ))}
           </ul>
         </details>
@@ -148,7 +148,7 @@ export function AnswerBody({
         )}
         {a.summary ? (
           <p className="ag-lead" data-testid="agent-summary">
-            {tidyNumbers(a.summary)}
+            {tidyNumberNodes(a.summary)}
           </p>
         ) : (
           <p className="small dim" data-testid="agent-no-summary">
@@ -194,7 +194,7 @@ export function AnswerBody({
           <p className="ag-k">Limitations</p>
           <ul className="ag-caveats" style={{ marginTop: 0 }}>
             {a.limitations.map((l, i) => (
-              <li key={i}>{tidyNumbers(l)}</li>
+              <li key={i}>{tidyNumberNodes(l)}</li>
             ))}
           </ul>
         </section>

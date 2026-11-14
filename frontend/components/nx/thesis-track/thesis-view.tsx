@@ -178,23 +178,42 @@ function Claims({ t }: { t: Thesis }) {
   return (
     <section className="tt-sec" aria-label="Claims">
       <SectionBar title="Claims" number="003" />
-      <div className="tt-claims">
-        <DataTable
-          caption="Claims with verdict, estimate, uncertainty, counterexample and falsification"
-          rows={claims}
-          rowKey={(c) => c.id}
-          empty={{ title: 'No claims in the bundle' }}
-          columns={[
-            { key: 's', header: 'Statement', render: (c) => <span className="stmt strong">{c.statement}</span> },
-            { key: 'k', header: 'Kind', render: (c) => orUnknown(c.kind) },
-            { key: 'v', header: 'Verdict', render: (c) => orUnknown(c.verdict) },
-            { key: 'e', header: 'Estimate', render: (c) => <span className="mono">{c.estimate ?? 'unknown'}</span> },
-            { key: 'u', header: 'Uncertainty', render: (c) => <span className="mono">{c.uncertainty ?? 'unknown'}</span> },
-            { key: 'c', header: 'Counterexample', render: (c) => dash(c.counterexample) },
-            { key: 'f', header: 'Falsification', render: (c) => dash(c.falsification) },
-          ]}
-        />
-      </div>
+      <p className="tt-secnote">Each claim with its verdict, estimate, uncertainty, counterexample and falsification condition.</p>
+      {claims.length === 0 ? (
+        <EmptyState title="No claims in the bundle" />
+      ) : (
+        <ul className="tt-claims" aria-label="Claims with verdict, estimate, uncertainty, counterexample and falsification">
+          {claims.map((c) => (
+            <li key={c.id} className="tt-claim card" data-testid="thesis-claim">
+              <div className="tt-claim-head">
+                <span className="tt-claim-stmt">{c.statement}</span>
+                <span className="tt-claim-badges">
+                  <Badge outline>{orUnknown(c.kind)}</Badge>
+                  <Badge>{orUnknown(c.verdict)}</Badge>
+                </span>
+              </div>
+              <dl className="tt-claim-grid">
+                <div>
+                  <dt>Estimate</dt>
+                  <dd className="mono">{c.estimate ?? 'unknown'}</dd>
+                </div>
+                <div>
+                  <dt>Uncertainty</dt>
+                  <dd className="mono">{c.uncertainty ?? 'unknown'}</dd>
+                </div>
+                <div>
+                  <dt>Counterexample</dt>
+                  <dd>{dash(c.counterexample)}</dd>
+                </div>
+                <div>
+                  <dt>Falsification</dt>
+                  <dd>{dash(c.falsification)}</dd>
+                </div>
+              </dl>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

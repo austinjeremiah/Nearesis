@@ -27,7 +27,7 @@ export function ExportLinks({ id, docs }: { id: string; docs: { path: string; sh
   return (
     <ul className="col gap2" style={{ listStyle: 'none', padding: 0 }} data-testid="public-documents">
       {docs.map((d) => (
-        <li key={d.path} className="row gap2" data-testid="public-document">
+        <li key={d.path} className="row gap2 wrap pub-doc" data-testid="public-document">
           <a className="link" href={href(d.path)} target="_blank" rel="noreferrer">{d.path}</a>
           <span className="mono tiny dim" title={d.sha256}>{d.sha256.slice(0, 12)}</span>
           <button type="button" className="btn ghost" data-testid="public-doc-check" onClick={() => void check(d.path, d.sha256)}>Verify download hash</button>

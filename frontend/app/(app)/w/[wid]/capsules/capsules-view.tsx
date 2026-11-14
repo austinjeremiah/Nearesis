@@ -7,6 +7,7 @@ import { DataTable } from '@/components/nx/table';
 import { Card } from '@/components/nx/ui';
 import { formatUtc } from '@/lib/format';
 import { caps } from '@/lib/ws6/api';
+import './capsules.css';
 import { Slot } from '@/components/ws6/common';
 import { PublicationBadge } from '@/components/ws6/capsule-bits';
 
@@ -14,6 +15,7 @@ export default function CapsulesView({ wid }: { wid: string }) {
   const q = useQuery({ queryKey: ['capsule-publications'], queryFn: caps.publications });
   return (
     <Card title="Capsules in this workspace">
+      <div className="caps-list">
       <Slot q={q}>
         {(d) => (
           <DataTable
@@ -39,6 +41,7 @@ export default function CapsulesView({ wid }: { wid: string }) {
           />
         )}
       </Slot>
+      </div>
     </Card>
   );
 }

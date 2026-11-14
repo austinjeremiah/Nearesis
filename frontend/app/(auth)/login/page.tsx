@@ -19,7 +19,7 @@ export default function LoginPage() {
   return (
     <>
       <div className="auth-panel">
-        <Wordmark tone="black" size={30} />
+        <><span className="wm-on-light"><Wordmark tone="black" size={30} /></span><span className="wm-on-dark"><Wordmark tone="white" size={30} /></span></>
 
         <div className="col gap2">
           <h1 className="h1">Sign in</h1>

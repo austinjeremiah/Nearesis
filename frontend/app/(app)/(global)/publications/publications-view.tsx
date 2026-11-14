@@ -7,6 +7,7 @@ import { DataTable } from '@/components/nx/table';
 import { Card } from '@/components/nx/ui';
 import { formatUtc } from '@/lib/format';
 import { caps } from '@/lib/ws6/api';
+import './publications.css';
 import { Slot } from '@/components/ws6/common';
 import { PublicationBadge } from '@/components/ws6/capsule-bits';
 
@@ -14,6 +15,7 @@ export default function PublicationsView() {
   const q = useQuery({ queryKey: ['capsule-publications'], queryFn: caps.publications });
   return (
     <Card title="All capsules">
+      <div className="pubs-list">
       <Slot q={q}>
         {(d) => (
           <DataTable
@@ -45,6 +47,7 @@ export default function PublicationsView() {
           />
         )}
       </Slot>
+      </div>
     </Card>
   );
 }

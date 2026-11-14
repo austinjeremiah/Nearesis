@@ -44,6 +44,9 @@ export interface SpendEntry {
   note: string;
   burntYocto: string;
   chargedYocto: string | null;
+  /** Additive: lets a caller that bills the job (the API's paid proof route) record exact amounts and the request id. */
+  requestId?: number;
+  depositYocto?: string;
 }
 
 export interface LiveProveOptions {
@@ -276,6 +279,8 @@ export async function proveCapsule(o: ProveOptions): Promise<OutlayerProofDocume
           note: `request ${receipt.requestId}; deposit is the contract's estimate_execution_cost`,
           burntYocto: receipt.tokensBurntYocto,
           chargedYocto: receipt.chargedYocto,
+          requestId: receipt.requestId,
+          depositYocto: receipt.depositYocto,
         });
         got.record = await live.chain.fetchAttestation(receipt.requestId, timeout);
         return {

@@ -10,6 +10,7 @@ import type { InvestigationEngine } from "./runs.ts";
 import { historyRoutes } from "./history-routes.ts";
 import { monitoringRoutes } from "./monitoring-routes.ts";
 import { capsuleRoutes } from "./capsule-routes.ts";
+import { creditsRoutes } from "./credits-routes.ts";
 import { publishRoutes } from "./publish-routes.ts";
 import { integrityRoutes } from "./integrity-routes.ts";
 import { gatewayRoutes } from "./gateway-routes.ts";
@@ -74,6 +75,8 @@ export interface AppOptions {
   publishAnchorChain?: (manifestHash: string) => Promise<import("@nearesis/capsule").ChainCommitPayload>;
   /** Test seams for the Agent tab routes (analytics sources, model, spend files, rate limit). */
   assistant?: Partial<import("./assistant-routes.ts").AssistantRoutesOptions>;
+  /** Test seams for credits and the paid OutLayer proof routes (tx lookup, chain client, prover, spend file). */
+  credits?: Partial<import("./credits-routes.ts").CreditsRoutesOptions>;
   /** Starts/signals investigation workflows (production: `temporalEngine()`). Without one, question/cancel/approval writes are 503. */
   engine?: InvestigationEngine;
   nodeEnv?: string | undefined;
@@ -571,6 +574,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     ...(opts.authoring ? { authoring: opts.authoring } : {}),
     ...(opts.publishAnchorChain ? { anchorChain: opts.publishAnchorChain } : {}),
   });
+  await app.register(creditsRoutes, { kernel, authenticate, ...(opts.credits ?? {}) });
   await app.register(integrityRoutes, { kernel });
   if (opts.gatewayCredential)
     await app.register(gatewayRoutes, { kernel, credential: opts.gatewayCredential });

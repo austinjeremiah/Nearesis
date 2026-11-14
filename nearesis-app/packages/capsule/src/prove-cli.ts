@@ -9,7 +9,7 @@
  * Exit codes: 0 attested (or reproduced when not live), 3 not attested / not reproduced, 4 refused, 2 usage.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import type { SpendGate } from "@nearesis/contracts";
@@ -17,6 +17,7 @@ import type { OutlayerLivePolicy } from "./attest-outlayer.ts";
 import { APP_ROOT, DEFAULT_WASM } from "./build.ts";
 import { TestnetOutlayerChain } from "./outlayer-chain.ts";
 import { ProveRefused, proveCapsule, type SpendEntry } from "./outlayer-prove.ts";
+import { ROOT_ENV_FILE, appendSpendEntry } from "./prove-support.ts";
 
 const { values: a } = parseArgs({
   args: process.argv.slice(2),
@@ -31,8 +32,7 @@ const { values: a } = parseArgs({
 });
 const abs = (p: string) => resolve(process.env.INIT_CWD ?? process.cwd(), p);
 const ACCOUNT = a.account ?? "majorlynx5104.testnet";
-const SPEND_FILE = join(APP_ROOT, ".data", "spend", "near-testnet.json");
-const ROOT_ENV = resolve(APP_ROOT, "..", ".env");
+const ROOT_ENV = ROOT_ENV_FILE;
 
 /** A capsule directory, or an id that resolves to a published archive or a built directory. */
 function resolveCapsule(spec: string): string {
@@ -53,26 +53,6 @@ function resolveCapsule(spec: string): string {
       }
   for (const d of dirs) if (existsSync(join(d, "manifest.json"))) return d;
   throw new Error(`capsule not found: ${spec}`);
-}
-
-function appendSpend(e: SpendEntry, chain: TestnetOutlayerChain): Promise<void> {
-  return chain.balanceYocto().then((bal) => {
-    const j = JSON.parse(readFileSync(SPEND_FILE, "utf8")) as {
-      startBalanceYocto: string;
-      entries: Array<Record<string, unknown>>;
-    };
-    const spent = BigInt(j.startBalanceYocto) - BigInt(bal);
-    j.entries.push({
-      at: e.at,
-      method: e.method,
-      txHash: e.txHash,
-      depositNear: e.depositNear,
-      balanceYocto: bal,
-      spentTotalYocto: spent.toString(),
-      note: `${e.note}; tx fees burnt ${e.burntYocto} yocto; provider charge ${e.chargedYocto ?? "unknown"} yocto`,
-    });
-    writeFileSync(SPEND_FILE, `${JSON.stringify(j, null, 2)}\n`);
-  });
 }
 
 async function main(): Promise<number> {
@@ -112,7 +92,7 @@ async function main(): Promise<number> {
       ...(a["resume-tx"] ? { resume: { txHash: a["resume-tx"] } } : {}),
       budgetYocto: BigInt(Math.round(Number(a["budget-near"] ?? "0.01") * 1e6)) * 10n ** 18n,
       recordSpend: (e: SpendEntry) => {
-        pending.push(appendSpend(e, chain));
+        pending.push(appendSpendEntry(e, chain));
       },
     };
     try {

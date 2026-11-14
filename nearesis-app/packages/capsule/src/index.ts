@@ -30,3 +30,4 @@ export * from "./live.ts";
 export * from "./outlayer-submit.ts";
 export * from "./outlayer-chain.ts";
 export * from "./outlayer-prove.ts";
+export * from "./prove-support.ts";

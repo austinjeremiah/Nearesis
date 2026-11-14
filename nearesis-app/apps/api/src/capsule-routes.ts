@@ -7,6 +7,7 @@ import { guardCapsuleMetrics, principalOf } from "./metric-publish-guard.ts";
 import type { PublishAuthoring } from "./metric-publish-guard.ts";
 import type { Kernel, Session } from "@nearesis/kernel";
 import { resolveCapsuleDir } from "./capsule-resolve.ts";
+import { overlayProofs } from "./proof-view.ts";
 import {
   anchorViewFor,
   defaultChainReadback,
@@ -105,7 +106,7 @@ export const capsuleRoutes: FastifyPluginAsync<CapsuleRoutesOptions> = async (
     if (!d) return unavailable(req.params.id);
     const capsule = await loadCapsuleView(d, { research: "skip", wasm: "skip" });
     return capsule
-      ? { status: "available" as const, capsule }
+      ? { status: "available" as const, capsule: await overlayProofs(kernel, s, d, capsule) }
       : {
           status: "unavailable" as const,
           reason: "Capsule manifest failed validation; nothing is shown as verified.",

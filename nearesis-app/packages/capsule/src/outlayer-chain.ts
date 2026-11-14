@@ -53,6 +53,8 @@ export interface OutlayerChain {
   /** Reads an already-executed request_execution transaction (used to verify a job without paying for another). */
   fetchReceipt(txHash: string): Promise<ExecutionReceipt>;
   balanceYocto(): Promise<string>;
+  /** Current protocol gas price, yoctoNEAR per gas unit (RPC `gas_price`). Used to size a hold for the gas of one job. */
+  gasPriceYocto?(): Promise<string>;
   readonly account: string;
 }
 
@@ -195,6 +197,12 @@ export class TestnetOutlayerChain implements OutlayerChain {
         .update(Buffer.from(await r.arrayBuffer()))
         .digest("hex") === sha256
     );
+  }
+
+  async gasPriceYocto(): Promise<string> {
+    const r = await rpcCall<{ gas_price: string }>("gas_price", [null]);
+    if (!/^\d+$/.test(r.gas_price)) throw new Error("gas_price returned a non-numeric value");
+    return r.gas_price;
   }
 
   async balanceYocto(): Promise<string> {

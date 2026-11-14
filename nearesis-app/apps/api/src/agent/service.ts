@@ -10,22 +10,13 @@ import {
 import type { AssistantModelPort, AssistantSpendGate } from "@nearesis/workflow";
 import { ApiError, apiErrorOf, call } from "./api-client.ts";
 import type { AgentApi, AgentUser } from "./api-client.ts";
-import { consentFor, detailOf, modelUsdMaxFor, titleOf } from "./catalog.ts";
+import { consentFor, detailOf, modelUsdMaxFor, nearOf, titleOf } from "./catalog.ts";
 import type { PlannedStep } from "./catalog.ts";
 import { Executor } from "./executor.ts";
 import { DIRECT_LOOKUPS, planMessage } from "./planner.ts";
 import type { DirectLookup } from "./planner.ts";
 import { AgentStore } from "./store.ts";
 import type { MessageView, StepResult, StepResultItem } from "./types.ts";
-
-/** yoctoNEAR decimal string -> NEAR with up to 6 decimals, exact (truncated, never rounded up). */
-export function nearOf(yocto: string): string {
-  if (!/^\d+$/.test(yocto)) return "unknown";
-  const v = BigInt(yocto);
-  const whole = v / 10n ** 24n;
-  const frac = ((v % 10n ** 24n) / 10n ** 18n).toString().padStart(6, "0").replace(/0+$/, "");
-  return frac ? `${whole}.${frac}` : `${whole}`;
-}
 
 export interface AgentServiceOptions {
   db: Db;

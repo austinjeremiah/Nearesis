@@ -176,6 +176,15 @@ export function validateOrder(steps: PlannedStep[], ambient: TaskCtx): void {
   });
 }
 
+/** yoctoNEAR decimal string -> NEAR with up to 6 decimals, exact (truncated, never rounded up). */
+export function nearOf(yocto: string): string {
+  if (!/^\d+$/.test(yocto)) return "unknown";
+  const v = BigInt(yocto);
+  const whole = v / 10n ** 24n;
+  const frac = ((v % 10n ** 24n) / 10n ** 18n).toString().padStart(6, "0").replace(/0+$/, "");
+  return frac ? `${whole}.${frac}` : `${whole}`;
+}
+
 export const MAX_PLAN_STEPS = 12;
 
 export function titleOf(step: PlannedStep): string {
@@ -266,7 +275,7 @@ export function consentFor(steps: PlannedStep[], proofEstimateYocto: string | nu
           detail:
             (proves > 0
               ? maxProof
-                ? `The OutLayer proof is held at up to ${maxProof} yoctoNEAR and only what it really costs is charged.`
+                ? `Up to ${nearOf(maxProof)} NEAR of your credits is held for the OutLayer proof; only what it really costs (OutLayer charge plus gas) is charged and the rest is released.`
                 : "The OutLayer proof cost cannot be estimated right now; it is held from your credits and only what it really costs is charged."
               : "") + (publishes > 0 ? " Publishing may anchor on testnet and charge the gas burnt." : ""),
           maxYocto: maxProof,

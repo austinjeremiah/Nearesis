@@ -1,3 +1,4 @@
+import { nearOf } from "./catalog.ts";
 import { createHash } from "node:crypto";
 import { QUESTION_BUDGET } from "./catalog.ts";
 import { ApiError, call, apiErrorOf } from "./api-client.ts";
@@ -494,11 +495,11 @@ async function recordProofCosts(e: Env, proofId: string, proof: ProofView): Prom
     if (c.refKind !== "proof" || c.refId !== proofId || c.kind !== "charge") continue;
     const d = c.detail ?? {};
     const parts = [
-      typeof d.chargedYocto === "string" ? `deposit ${d.chargedYocto}` : null,
-      typeof d.tokensBurntYocto === "string" ? `gas ${d.tokensBurntYocto}` : null,
+      typeof d.chargedYocto === "string" ? `OutLayer charge ${nearOf(d.chargedYocto)} NEAR` : null,
+      typeof d.tokensBurntYocto === "string" ? `gas ${nearOf(d.tokensBurntYocto)} NEAR` : null,
     ].filter(Boolean);
     await e.cost({
-      label: `OutLayer proof${parts.length ? ` (${parts.join(", ")} yoctoNEAR)` : ""}`,
+      label: `OutLayer proof${parts.length ? ` (${parts.join(", ")})` : ""}`,
       unit: "yoctoNEAR",
       amount: c.amountYocto,
       txHash: str(d.txHash) ?? proof.job?.txHash ?? null,
@@ -585,7 +586,7 @@ async function capsuleProve(e: Env): Promise<Outcome> {
   const items = [
     item("Proof", proofId),
     ...(proof.job?.txHash ? [item("Transaction", proof.job.txHash, proof.job.explorerUrl ?? null)] : []),
-    ...(proof.cost?.totalYocto ? [item("Charged (yoctoNEAR)", proof.cost.totalYocto)] : []),
+    ...(proof.cost?.totalYocto ? [item("Charged (NEAR)", nearOf(proof.cost.totalYocto))] : []),
   ];
   if (proof.state === "verified")
     return { kind: "done", result: { summary: "The capsule is verified on OutLayer (testnet).", items } };

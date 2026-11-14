@@ -11,9 +11,26 @@ export interface StepResultItem {
   value: string;
   href: string | null;
 }
+/**
+ * Ids of what a step produced or worked on, so a client can load the real objects (run, markers, monitor rules, hypothesis,
+ * capsule, proof) instead of only showing their titles. Only ids the step actually has are present.
+ */
+export interface StepRefs {
+  workspaceId?: string;
+  runId?: string;
+  capsuleId?: string;
+  proofId?: string;
+  publicationId?: string;
+  hypothesisId?: string;
+  thesisId?: string;
+  markerIds?: string[];
+  monitorIds?: string[];
+  skipped?: Array<{ kind: string; reason: string }>;
+}
 export interface StepResult {
   summary: string;
   items: StepResultItem[];
+  refs?: StepRefs;
 }
 export interface StepWaiting {
   kind: "approval";
@@ -88,6 +105,7 @@ export interface TaskView {
     capsuleId: string | null;
     proofId: string | null;
     publicationId: string | null;
+    thesisId: string | null;
     reportUrl: string | null;
   };
   createdAt: string;
@@ -124,5 +142,6 @@ export interface TaskCtx {
   proofId?: string;
   publicationId?: string;
   hypothesisId?: string;
+  thesisId?: string;
   reportUrl?: string;
 }

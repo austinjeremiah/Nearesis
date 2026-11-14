@@ -873,3 +873,359 @@ describe("USD credits in the agent", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------- user theses (agent integration)
+describe("thesis steps: plan rules", () => {
+  const P = (key: string, params: Record<string, unknown> = {}): PlannedStep => validateStep(key, params);
+  it("thesis.build needs a workspace with a finished run or an earlier run step; publish and compare need a thesis", () => {
+    expect(() => validateOrder([P("thesis.build")], {})).toThrow(/needs a workspace/);
+    expect(() => validateOrder([P("workspace.create", { objective: "o" }), P("thesis.build")], {})).toThrow(
+      /finished run/,
+    );
+    expect(() => validateOrder([P("thesis.build")], { workspaceId: crypto.randomUUID() })).not.toThrow();
+    expect(() =>
+      validateOrder(
+        [P("workspace.create", { objective: "o" }), P("question.ask"), P("run.await"), P("thesis.build")],
+        {},
+      ),
+    ).not.toThrow();
+    expect(() => validateOrder([P("thesis.publish")], {})).toThrow(/needs a thesis/);
+    expect(() => validateOrder([P("thesis.compare", { against: "t-1" })], {})).toThrow(/needs a thesis/);
+    expect(() => validateOrder([P("thesis.publish", { thesisId: "t-1" })], {})).not.toThrow();
+    expect(() => validateOrder([P("thesis.build"), P("thesis.publish")], { workspaceId: "w" })).not.toThrow();
+    expect(() => validateStep("thesis.compare", {})).toThrow();
+  });
+  it("capsule.build is inserted before thesis.build server-side only when the plan has none", () => {
+    const ws = crypto.randomUUID();
+    const d = interpret(
+      out({ steps: [step("workspace.use", { workspaceId: ws }), step("thesis.build")] }),
+      {},
+    );
+    expect(d.kind === "plan" && d.steps.map((s) => s.key)).toEqual([
+      "workspace.use",
+      "capsule.build",
+      "thesis.build",
+    ]);
+    const full = interpret(
+      out({
+        steps: [
+          step("workspace.use", { workspaceId: ws }),
+          step("capsule.build"),
+          step("capsule.prove"),
+          step("thesis.build"),
+        ],
+      }),
+      {},
+    );
+    expect(full.kind === "plan" && full.steps.map((s) => s.key)).toEqual([
+      "workspace.use",
+      "capsule.build",
+      "capsule.prove",
+      "thesis.build",
+    ]);
+    // a capsule already in context counts
+    const ctx = interpret(out({ steps: [step("thesis.build")] }), { workspaceId: ws, capsuleId: "cap" });
+    expect(ctx.kind === "plan" && ctx.steps.map((s) => s.key)).toEqual(["thesis.build"]);
+    // the run named on thesis.build is passed on to the inserted capsule step
+    const run = crypto.randomUUID();
+    const named = interpret(out({ steps: [step("thesis.build", { runId: run })] }), { workspaceId: ws });
+    expect(named.kind === "plan" && named.steps[0]).toMatchObject({
+      key: "capsule.build",
+      params: { runId: run },
+    });
+  });
+  it("thesis.publish needs publish_public and nothing else", () => {
+    const c = consentFor([P("thesis.publish", { thesisId: "t-1" })], "1");
+    expect(c.map((x) => x.key)).toEqual(["publish_public"]);
+    expect(c[0]!.detail).toMatch(/thesis/);
+    expect(c[0]!.detail).not.toMatch(/capsule/);
+    expect(consentFor([P("thesis.build", { runId: crypto.randomUUID() })], "1")).toEqual([]);
+  });
+});
+
+describe("thesis steps: executor", () => {
+  const thesisId = "thesis-aaa";
+  let wsId = "";
+  beforeAll(async () => {
+    wsId = (
+      await call(alice, "POST", "/v1/workspaces", {
+        objective: "Do swaps lead usage?",
+        networkScope: "fixture-only",
+        idempotencyKey: "agent-test-thesis",
+      })
+    ).json<any>().workspaceId;
+  });
+  const run0 = "44444444-4444-4444-8444-444444444444";
+  const runsStub: Handler = (p) =>
+    is("GET", new RegExp(`^/v1/workspaces/${wsId}/runs$`))(p)
+      ? { status: 200, body: { runs: [{ runId: run0, state: "COMPLETE" }] } }
+      : null;
+  const capsuleStub: Handler = (p) =>
+    is("POST", /\/capsules$/)(p) ? { status: 201, body: { capsuleId: "cap-9", title: "T" } } : null;
+
+  it("build, publish and compare call the thesis routes with the contract shapes and expose their ids and links", async () => {
+    const log: string[] = [];
+    const bodies: Record<string, unknown> = {};
+    stub = stubWith(
+      [
+        runsStub,
+        capsuleStub,
+        (p) => {
+          bodies[`${p.method} ${p.url}`] = p.body;
+          return null;
+        },
+        (p) =>
+          is("POST", new RegExp(`/v1/workspaces/${wsId}/theses$`))(p)
+            ? {
+                status: 201,
+                body: {
+                  thesisId,
+                  version: "v-1",
+                  status: "draft",
+                  verdict: { status: "MIXED", headline: "Same-day link is weak" },
+                },
+              }
+            : null,
+        (p) =>
+          is("POST", new RegExp(`/v1/theses/${thesisId}/publish$`))(p)
+            ? { status: 200, body: { shareSlug: "abc123", publicUrlPath: "/t/abc123" } }
+            : null,
+        (p) =>
+          is("POST", new RegExp(`/v1/theses/${thesisId}/compare$`))(p)
+            ? {
+                status: 200,
+                body: {
+                  outcome: "drift",
+                  rows: [
+                    { what: "n", original: 90, reproduced: 91, delta: 1 },
+                    { what: "verdict", original: "MIXED", reproduced: "MIXED", delta: null },
+                  ],
+                },
+              }
+            : null,
+      ],
+      log,
+    );
+    const id = await propose(
+      [
+        S("workspace.use", { workspaceId: wsId }),
+        S("capsule.build"),
+        S("thesis.build"),
+        S("thesis.publish"),
+        S("thesis.compare", { against: "thesis-orig" }),
+      ],
+      undefined,
+      null,
+    );
+    const task0 = await taskOf(id);
+    expect(task0.consent.required.map((c: any) => c.key)).toEqual(["publish_public"]);
+    expect((await call(alice, "POST", `/v1/agent/tasks/${id}/start`, { consent: [] })).statusCode).toBe(422);
+    await call(alice, "POST", `/v1/agent/tasks/${id}/start`, { consent: ["publish_public"] });
+    const t = await settle(id, ["completed", "failed"]);
+    expect(t.state).toBe("completed");
+    expect(bodies[`POST /v1/workspaces/${wsId}/theses`]).toEqual({});
+    expect(bodies[`POST /v1/theses/${thesisId}/compare`]).toEqual({ against: "thesis-orig" });
+    expect(t.steps[2].result).toMatchObject({
+      summary: expect.stringContaining("MIXED"),
+      items: [
+        { label: "Thesis", value: thesisId, href: `/thesis/${thesisId}` },
+        { label: "Verdict", value: "MIXED: Same-day link is weak", href: null },
+        { label: "Version", value: "v-1", href: null },
+      ],
+      refs: { thesisId, workspaceId: wsId },
+    });
+    expect(t.steps[3].result.items[0]).toEqual({
+      label: "Public page",
+      value: "/t/abc123",
+      href: "/t/abc123",
+    });
+    expect(t.steps[3].result.refs.thesisId).toBe(thesisId);
+    expect(t.steps[4].result.summary).toContain("drift");
+    expect(t.steps[4].result.items).toEqual([
+      { label: "n", value: "original 90; reproduced 91; delta 1", href: null },
+      { label: "verdict", value: "original MIXED; reproduced MIXED", href: null },
+    ]);
+    expect(t.links.thesisId).toBe(thesisId);
+    expect(log).toContain(`POST /v1/theses/${thesisId}/publish`);
+    stub = null;
+  });
+
+  it("with a run named, thesis.build sends it; with none and no context the route chooses the newest run", async () => {
+    const bodies: unknown[] = [];
+    stub = stubWith([
+      (p) =>
+        is("POST", /\/theses$/)(p)
+          ? (bodies.push(p.body),
+            { status: 201, body: { thesisId, version: "v", status: "draft", verdict: null } })
+          : null,
+    ]);
+    const id = await propose(
+      [S("workspace.use", { workspaceId: wsId }), S("thesis.build", { runId: run0 })],
+      undefined,
+      null,
+    );
+    await call(alice, "POST", `/v1/agent/tasks/${id}/start`, { consent: [] });
+    expect((await settle(id, ["completed", "failed"])).state).toBe("completed");
+    expect(bodies).toEqual([{ runId: run0 }]);
+    stub = null;
+  });
+
+  it("fails honestly with the API's reason code when the thesis route answers 404", async () => {
+    stub = stubWith([
+      (p) =>
+        is("POST", /\/theses$/)(p)
+          ? { status: 404, body: { reasonCode: "NOT_FOUND", message: "No such route.", retryable: false } }
+          : null,
+    ]);
+    const id = await propose([S("workspace.use", { workspaceId: wsId }), S("thesis.build")], undefined, null);
+    await call(alice, "POST", `/v1/agent/tasks/${id}/start`, { consent: [] });
+    const t = await settle(id, ["completed", "failed"]);
+    expect(t.state).toBe("failed");
+    expect(t.steps[0].state).toBe("done");
+    expect(t.steps[1]).toMatchObject({ state: "failed", error: { reasonCode: "NOT_FOUND" } });
+    expect(t.links.thesisId).toBeNull();
+    stub = null;
+  });
+
+  it("a plan with thesis.publish and a thesis id from the planner is a proposed task that asks for publish_public", async () => {
+    stub = null;
+    plan = out({ title: "Share it", steps: [step("thesis.publish", { thesisId: "thesis-xyz" })] });
+    const tid = await newThread();
+    await call(alice, "POST", `/v1/agent/threads/${tid}/messages`, { text: "publish my thesis thesis-xyz" });
+    await svc.idle();
+    const th = (await call(alice, "GET", `/v1/agent/threads/${tid}`)).json<any>();
+    expect(th.tasks[0].consent.required.map((c: any) => c.key)).toEqual(["publish_public"]);
+    expect(th.tasks[0].steps.map((s: any) => s.key)).toEqual(["thesis.publish"]);
+  });
+});
+
+describe("POST /v1/theses/:id/reproduce", () => {
+  const origWs = "55555555-5555-4555-8555-555555555555";
+  const origRun = "66666666-6666-4666-8666-666666666666";
+  const docOf = (extra: Record<string, unknown> = {}) => ({
+    thesis: {
+      id: "thesis-orig",
+      title: "Swaps vs usage",
+      kind: "workspace",
+      hypothesis: "Swaps lead usage.",
+    },
+    doc: {
+      hypothesis: "Swaps lead usage.",
+      origin: { kind: "workspace", workspaceId: origWs, runId: origRun, ...extra },
+    },
+    receipts: [],
+  });
+  /** Visible to alice only; the original run list is visible to alice only. */
+  const visible =
+    (extraOrigin: Record<string, unknown> = {}): AgentApi =>
+    async (u, method, url) => {
+      const mine = u.userId === aliceU.userId;
+      if (method === "GET" && url === "/v1/theses/thesis-orig")
+        return mine
+          ? { status: 200, body: docOf(extraOrigin) }
+          : { status: 404, body: { reasonCode: "NOT_FOUND", message: "nf" } };
+      if (method === "GET" && url === "/v1/theses/reference-near-intents")
+        return {
+          status: 200,
+          body: {
+            thesis: {
+              id: "reference-near-intents",
+              title: "NEAR Intents",
+              kind: "reference",
+              hypothesis: "H",
+            },
+            doc: {
+              hypothesis: "H",
+              origin: { kind: "reference" },
+              reproduce: { command: "pnpm thesis:build", check: "pnpm thesis:verify" },
+            },
+            receipts: [],
+          },
+        };
+      if (method === "GET" && url === `/v1/workspaces/${origWs}/runs`)
+        return mine
+          ? {
+              status: 200,
+              body: { runs: [{ runId: origRun, questionSummary: "Do swaps lead usage on NEAR?" }] },
+            }
+          : { status: 404, body: { reasonCode: "NOT_FOUND", message: "nf" } };
+      return real(u, method, url);
+    };
+
+  it("creates a thread and a proposed task with the six steps; nothing runs", async () => {
+    stub = visible();
+    const r = await call(alice, "POST", "/v1/theses/thesis-orig/reproduce");
+    expect(r.statusCode).toBe(201);
+    const { threadId, taskId } = r.json<any>();
+    const th = (await call(alice, "GET", `/v1/agent/threads/${threadId}`)).json<any>();
+    expect(th.thread.title).toBe("Reproduce: Swaps vs usage");
+    expect(th.tasks).toHaveLength(1);
+    const t = await taskOf(taskId);
+    expect(t.state).toBe("proposed");
+    expect(t.steps.map((s: any) => s.key)).toEqual([
+      "workspace.create",
+      "question.ask",
+      "run.await",
+      "capsule.build",
+      "thesis.build",
+      "thesis.compare",
+    ]);
+    expect(t.steps.every((s: any) => s.state === "pending")).toBe(true);
+    expect(t.steps[0].detail).toContain("Reproduction of: Swaps lead usage.");
+    expect(t.steps[1].detail).toContain("Do swaps lead usage on NEAR?");
+    expect(t.steps[5].detail).toContain("thesis-orig");
+    expect(t.estimate.modelUsdMax).toBe("3.000000");
+    expect(t.consent.required).toEqual([]);
+    const cost = await call(alice, "GET", `/v1/agent/costs?threadId=${threadId}`);
+    expect(cost.json<any>().items).toEqual([]);
+    stub = null;
+  });
+
+  it("uses the question carried by the document when it has one", async () => {
+    stub = visible({ question: "Carried question?" });
+    const r = await call(alice, "POST", "/v1/theses/thesis-orig/reproduce");
+    const t = await taskOf(r.json<any>().taskId);
+    expect(t.steps[1].detail).toContain("Carried question?");
+    stub = null;
+  });
+
+  it("falls back to the hypothesis and says so when the original run is not readable", async () => {
+    stub = async (u, method, url) =>
+      method === "GET" && url === `/v1/workspaces/${origWs}/runs`
+        ? { status: 404, body: { reasonCode: "NOT_FOUND", message: "nf" } }
+        : visible()(u, method, url);
+    const r = await call(alice, "POST", "/v1/theses/thesis-orig/reproduce");
+    expect(r.statusCode).toBe(201);
+    const t = await taskOf(r.json<any>().taskId);
+    expect(t.steps[1].detail).toContain("hypothesis is used as the question");
+    stub = null;
+  });
+
+  it("refuses the reference thesis with 422 REFERENCE_THESIS_OFFLINE and the offline commands", async () => {
+    stub = visible();
+    const r = await call(alice, "POST", "/v1/theses/reference-near-intents/reproduce");
+    expect(r.statusCode).toBe(422);
+    const b = r.json<any>();
+    expect(b.reasonCode).toBe("REFERENCE_THESIS_OFFLINE");
+    expect(b.details.commands).toEqual(["pnpm thesis:build", "pnpm thesis:verify", "pnpm thesis:data"]);
+    expect(
+      (await call(alice, "GET", "/v1/agent/threads"))
+        .json<any>()
+        .items.some((x: any) => x.title.startsWith("Reproduce: NEAR")),
+    ).toBe(false);
+    stub = null;
+  });
+
+  it("is 404 for a thesis the caller cannot see, creates nothing for them, and needs a session", async () => {
+    stub = visible();
+    const before = (await call(bob, "GET", "/v1/agent/threads")).json<any>().items.length;
+    const r = await call(bob, "POST", "/v1/theses/thesis-orig/reproduce");
+    expect(r.statusCode).toBe(404);
+    expect(r.json<any>().reasonCode).toBe("THESIS_NOT_FOUND");
+    expect((await call(bob, "GET", "/v1/agent/threads")).json<any>().items.length).toBe(before);
+    expect((await call(alice, "POST", "/v1/theses/bad%20id/reproduce")).statusCode).toBe(404);
+    const anon = await f.app.inject({ method: "POST", url: "/v1/theses/thesis-orig/reproduce" });
+    expect(anon.statusCode).toBe(401);
+    stub = null;
+  });
+});

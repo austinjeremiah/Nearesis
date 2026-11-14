@@ -82,6 +82,12 @@ export const AGENT_ROUTES: RouteSpec[] = [
     { body: z.strictObject({ decision: z.enum(["approve", "reject"]) }), ok: "Task" },
   ),
   R(
+    "post",
+    "/v1/theses/:id/reproduce",
+    'Reproduce a thesis the caller can see: creates an agent thread titled "Reproduce: <title>" and a PROPOSED task (nothing runs): workspace.create, question.ask, run.await, capsule.build, thesis.build, thesis.compare against the original. The user presses Start on the Agent page (their credits). 404 THESIS_NOT_FOUND when the thesis is not visible; 422 REFERENCE_THESIS_OFFLINE (details.commands) for the reference thesis',
+    { status: "201", ok: "{ threadId, taskId }" },
+  ),
+  R(
     "get",
     "/v1/agent/costs",
     "Model USD and on-chain (OutLayer / anchor) USD per step and per message, with totals",

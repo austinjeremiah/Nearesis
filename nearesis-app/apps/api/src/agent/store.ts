@@ -175,6 +175,7 @@ export const taskView = (t: TaskRow, steps: StepRow[], costs: CostRow[]): TaskVi
     capsuleId: t.ctx.capsuleId ?? null,
     proofId: t.ctx.proofId ?? null,
     publicationId: t.ctx.publicationId ?? null,
+    thesisId: t.ctx.thesisId ?? null,
     reportUrl: t.ctx.reportUrl ?? null,
   },
   createdAt: iso(t.created_at)!,

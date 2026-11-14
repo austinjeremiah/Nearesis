@@ -114,6 +114,9 @@
       "name": "thesis"
     },
     {
+      "name": "thesis-track"
+    },
+    {
       "name": "workspace"
     },
     {
@@ -10457,6 +10460,106 @@
           }
         },
         "x-capability": "source health"
+      }
+    },
+    "/v1/thesis": {
+      "get": {
+        "operationId": "getThesis",
+        "tags": [
+          "thesis-track"
+        ],
+        "summary": "The NEAR thesis track bundle (thesis/build/thesis.json, served byte for byte; any signed-in user; 503 THESIS_NOT_BUILT when it has not been built)",
+        "responses": {
+          "200": {
+            "description": "nearesis.thesis.v1 document: verdict, sections, claims, charts, tables, sampleQuery, unableToCompute, reproduce, files",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/thesis/files/{path}": {
+      "get": {
+        "operationId": "getThesisFilesPath",
+        "tags": [
+          "thesis-track"
+        ],
+        "summary": "An allowlisted file of the thesis bundle: build/THESIS.md, build/site/index.html, build/thesis.json, build/HASHES.json, raw/*.json, sql/{executed,bigquery}/*.sql, TABLES.md (any signed-in user; HTML is served sandboxed)",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File bytes with the matching content type and nosniff",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/workspace-templates": {

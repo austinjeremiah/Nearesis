@@ -28,7 +28,7 @@ const CreateThread = z.strictObject({ title: Title.optional(), workspaceId: Uuid
 const PatchThread = z.strictObject({ title: Title.optional(), workspaceId: Uuid.nullable().optional() });
 const PostMessage = z.strictObject({
   text: z.string().trim().min(1).max(2000),
-  workspaceId: Uuid.optional(),
+  workspaceId: Uuid.nullable().optional(),
 });
 const StartBody = z.strictObject({ consent: z.array(z.enum(CONSENT_KEYS as [string, ...string[]])).max(8) });
 const RetryBody = z.strictObject({ acknowledge: z.array(z.string().min(1).max(100)).max(20).optional() });
@@ -142,7 +142,7 @@ export const agentRoutes: FastifyPluginAsync<AgentRoutesOptions> = async (app, o
     const s = await authenticate(req);
     if (!Uuid.safeParse(req.params.id).success) throw threadNotFound();
     const b = parse(PostMessage, req.body);
-    return reply.status(202).send(await svc.postMessage(userOf(s), req.params.id, b.text, b.workspaceId));
+    return reply.status(202).send(await svc.postMessage(userOf(s), req.params.id, b.text, b.workspaceId ?? undefined));
   });
 
   const taskOr404 = async (s: Session, id: string) => {

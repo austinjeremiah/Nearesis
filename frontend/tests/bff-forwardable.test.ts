@@ -11,6 +11,9 @@ describe('BFF forwardable paths', () => {
     for (const p of ['../x', 'workspaces/../auth', 'a/%2e%2e/b', 'a%2Fb/c', 'a//b', '', 'a/./b', 'a\\b', 'a/%5Cb']) expect(isForwardable(p), p).toBe(false);
   });
   it('refuses the routes the BFF owns', () => {
-    for (const p of ['dev/login', 'session/revoke', 'auth/callback', 'auth', 'gateway/runs/x']) expect(isForwardable(p), p).toBe(false);
+    for (const p of ['dev/login', 'session/revoke', 'auth/callback', 'auth', 'gateway/runs/x', 'auth/near/verify', 'auth/near/challenge', 'auth/near/link/x']) expect(isForwardable(p), p).toBe(false);
+  });
+  it('forwards the authenticated wallet link', () => {
+    expect(isForwardable('auth/near/link')).toBe(true);
   });
 });

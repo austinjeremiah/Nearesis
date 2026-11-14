@@ -1,4 +1,7 @@
-/** `/v1/` sub-paths the BFF never forwards: the BFF owns sign-in and sign-out itself. */
+/**
+ * `/v1/` sub-paths the BFF never forwards: the BFF owns sign-in and sign-out itself.
+ * The one exception is `auth/near/link`, which needs the caller's session and so goes through the proxy.
+ */
 const DENIED = [/^dev\/login$/, /^session\/revoke$/, /^auth(\/|$)/, /^gateway(\/|$)/];
 
 /** True when the sub-path (after /v1/) is safe to forward. No traversal, no encoded separators. */
@@ -16,6 +19,7 @@ export function isForwardable(path: string): boolean {
     }
     if (d === '.' || d === '..' || d.includes('/') || d.includes('\\')) return false;
   }
+  if (path === 'auth/near/link') return true;
   return !DENIED.some((r) => r.test(path));
 }
 

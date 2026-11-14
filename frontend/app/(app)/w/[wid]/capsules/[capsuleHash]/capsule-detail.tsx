@@ -12,6 +12,7 @@ import { caps, metricsApi, type BundleResult, type CapsuleView, type VerifyRepor
 import { ActionError, Hash, Json, Slot, useAction } from '@/components/ws6/common';
 import { AnchorReadbackBlock, KeyBadge, PublicationVersionCard } from '@/components/ws8/publication-trust';
 import { LocalBadge, OutlayerBadge, PublicationBadge } from '@/components/ws6/capsule-bits';
+import { OutlayerProofCard } from '@/components/ws6/outlayer-proof-card';
 
 const bff = (href: string) => href.replace(/^\/v1\//, '/api/k/');
 
@@ -231,6 +232,9 @@ export default function CapsuleDetail({ wid, capsuleId }: { wid: string; capsule
                     />
                   </div>
                 )}
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <OutlayerProofCard capsuleId={capsuleId} />
               </div>
               <PublicationTrust capsuleId={capsuleId} hardened={bundle?.hardened ?? null} />
             </section>

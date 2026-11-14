@@ -7,6 +7,7 @@ import { ApiErrorState } from '@/components/nx/states';
 import { OrgTeam } from '@/components/nx/team';
 import { qk } from '@/lib/api/keys';
 import { shellBrowser } from '@/lib/api/shell-browser';
+import { LinkNearWallet } from '@/components/nx/near-link';
 
 const ROLE_HELP: Record<string, string> = {
   owner: 'Everything, including roles and the last-owner guard.',
@@ -42,6 +43,17 @@ export default function SettingsView() {
               { k: 'Can write', v: m.permissions.canWrite ? 'Yes' : 'No' },
               { k: 'Can administer', v: m.permissions.canAdmin ? 'Yes' : 'No' },
               { k: 'Workspaces you can open', v: String(m.workspaces.length) },
+              {
+                k: 'NEAR wallet',
+                v:
+                  m.nearAccountId === undefined ? (
+                    <span className="dim">unknown</span>
+                  ) : m.nearAccountId ? (
+                    <span className="mono small" data-testid="near-account">{m.nearAccountId} (testnet)</span>
+                  ) : (
+                    <LinkNearWallet />
+                  ),
+              },
             ]}
           />
         </div>

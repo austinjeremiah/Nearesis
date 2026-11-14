@@ -3,6 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button, Field, Input, Notice } from '@/components/nx/ui';
+import { NearErrorNotice } from '@/components/nx/near-error';
+import { errorFromResponse, networkError } from '@/lib/api/errors';
+import { challengeAndSign } from '@/lib/near/challenge';
+import { getConnector } from '@/lib/near/wallet';
 
 type Providers = { devLogin: boolean; oidc: boolean };
 
@@ -31,6 +35,13 @@ export default function LoginForm() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const urlError = params.get('error');
+  const [nearPending, setNearPending] = useState(false);
+  const [nearError, setNearError] = useState<unknown>(null);
+
+  // Load the wallet connector in the browser only, so the popup opens without delay on click.
+  useEffect(() => {
+    void getConnector().catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     fetch('/api/auth/providers', { cache: 'no-store' })
@@ -38,6 +49,33 @@ export default function LoginForm() {
       .then(setProviders)
       .catch(() => setProviders({ devLogin: false, oidc: false }));
   }, []);
+
+  async function nearLogin() {
+    setNearPending(true);
+    setNearError(null);
+    setError(null);
+    try {
+      const { challenge, sig } = await challengeAndSign();
+      let r: Response;
+      try {
+        r = await fetch('/api/auth/near/verify', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ challengeId: challenge.challengeId, ...sig }),
+          credentials: 'same-origin',
+        });
+      } catch (e) {
+        throw networkError(e);
+      }
+      if (!r.ok) throw errorFromResponse(r.status, await r.json().catch(() => null), r.headers);
+      router.replace(next);
+      router.refresh();
+    } catch (e) {
+      setNearError(e);
+    } finally {
+      setNearPending(false);
+    }
+  }
 
   async function devLogin() {
     setPending(true);
@@ -67,8 +105,15 @@ export default function LoginForm() {
 
   return (
     <div className="col gap3">
+      <div className="col gap2" data-testid="near-login">
+        <Button variant="primary" size="lg" pending={nearPending} onClick={() => void nearLogin()} data-testid="near-login-button">
+          Sign in with NEAR wallet
+        </Button>
+        <p className="small dim">Testnet. You sign a message that proves you own the account; nothing is sent on chain and no funds move.</p>
+        <NearErrorNotice error={nearError} title="Wallet sign-in failed" />
+      </div>
       {providers.oidc && (
-        <a className="btn primary lg" href={`/api/auth/oidc/start?next=${encodeURIComponent(next)}`}>
+        <a className="btn lg" href={`/api/auth/oidc/start?next=${encodeURIComponent(next)}`}>
           Continue with single sign-on
         </a>
       )}
@@ -84,11 +129,6 @@ export default function LoginForm() {
             Sign in (dev)
           </Button>
         </div>
-      )}
-      {!providers.oidc && !providers.devLogin && (
-        <Notice tone="info" title="No sign-in method is configured">
-          This server has neither single sign-on nor the development sign-in enabled.
-        </Notice>
       )}
       {urlError && !error && (
         <Notice tone={urlError === 'oidc_not_configured' ? 'info' : 'bad'} title="Single sign-on">

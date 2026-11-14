@@ -15,6 +15,8 @@ export type MeResponse = {
   roles: Role[];
   permissions: { canWrite: boolean; canAdmin: boolean };
   workspaces: { id: string; objective: string; networkScope: string; createdAt: string }[];
+  /** Linked NEAR testnet account; null when none, absent on an API that predates wallet sign-in. */
+  nearAccountId?: string | null;
 };
 
 export type GlobalNotification = {

@@ -3,12 +3,15 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, LogOut, ShieldCheck } from 'lucide-react';
+import { Bell, Coins, LogOut, ShieldCheck } from 'lucide-react';
 import { qk } from '@/lib/api/keys';
 import { shellBrowser } from '@/lib/api/shell-browser';
 import { ApiRequestError } from '@/lib/api/errors';
 import { useStreamStatus } from '@/lib/sse/hub';
 import { formatUsd } from '@/lib/format';
+import { creditsApi, creditsKey } from '@/lib/near/api';
+import { formatNear } from '@/lib/near/units';
+import { LinkNearWallet } from './near-link';
 import { Button } from './ui';
 import { ThemeToggle } from './theme';
 
@@ -41,6 +44,23 @@ function GlobalSpendChip() {
       title={`Global model-spend ceiling ${formatUsd(s.ceilingUsd)}; committed ${formatUsd(s.committedUsd)}; remaining ${formatUsd(s.remainingUsd)}${s.unknownPriceEntries ? `; ${s.unknownPriceEntries} entries with unknown price are not counted` : ''}`}
     >
       Model spend {formatUsd(s.committedUsd)} / {formatUsd(s.ceilingUsd)}
+    </Link>
+  );
+}
+
+/** Available NEAR credits. Renders nothing until the API answers; an unknown figure says "unknown", never 0. */
+function CreditsPill() {
+  const q = useQuery({ queryKey: creditsKey, queryFn: () => creditsApi.get(), refetchInterval: POLL, retry: false });
+  if (!q.data) return null;
+  const c = q.data;
+  return (
+    <Link
+      href="/credits"
+      className="badge line"
+      data-testid="credits-pill"
+      title={`Credits: balance ${formatNear(c.balanceYocto)} NEAR, held ${formatNear(c.heldYocto)} NEAR (testnet)`}
+    >
+      <Coins size={12} /> {formatNear(c.availableYocto)} NEAR
     </Link>
   );
 }
@@ -127,6 +147,8 @@ export function UserMenu({ workspaceId }: { workspaceId?: string | null }) {
       )}
       {workspaceId && <WorkspaceBudgetChip workspaceId={workspaceId} />}
       <GlobalSpendChip />
+      <CreditsPill />
+      {m && m.nearAccountId === null && <LinkNearWallet compact />}
       <ThemeToggle />
       {pending.data && (
         <Link

@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import Wordmark from '@/components/Wordmark';
 import { ReportChart } from '@/components/report/report-chart';
+import { Section, Stat, Tag, useReady } from '@/components/report/parts';
 import { addYocto, formatNear, isYocto } from '@/lib/near/units';
 import { formatUsdExact, sumUsd } from '@/lib/credits/usd';
 import { formatUtc, shortHash } from '@/lib/format';
@@ -26,21 +27,6 @@ const dash = '—';
 const day = (iso: string | null | undefined) => (iso ? formatUtc(iso, false) : dash);
 const cell = (v: string | number | null): string => (v === null ? dash : typeof v === 'number' ? v.toLocaleString('en-US', { maximumFractionDigits: 6 }) : String(v));
 const label = (s: string | null | undefined) => (s ? s.replace(/_/g, ' ') : dash);
-
-const STATUS_TONE: Record<string, string> = { supported: 'ok', mixed: 'warn', insufficient_data: 'neutral', cannot_compute: 'bad', verified: 'ok', reproduced: 'ok', published: 'ok', failed: 'bad', not_attested: 'warn' };
-const Tag = ({ tone, children }: { tone?: string; children: ReactNode }) => <span className={`rp-tag ${STATUS_TONE[String(tone)] ?? tone ?? 'neutral'}`}>{children}</span>;
-
-function Section({ n, title, children, id, newPage = true }: { n: string; title: string; children: ReactNode; id?: string; newPage?: boolean }) {
-  return (
-    <section className={`rp-sec${newPage ? ' rp-newpage' : ''}`} id={id}>
-      <header className="rp-sec-h">
-        <span className="rp-sec-n">{n}</span>
-        <h2>{title}</h2>
-      </header>
-      {children}
-    </section>
-  );
-}
 
 function Table({ columns, rows, more, mono = true }: { columns: { name: string; unit?: string | null }[]; rows: (string | number | null)[][]; more: number; mono?: boolean }) {
   return (
@@ -316,41 +302,6 @@ function CostRow({ e }: { e: CostEntry }) {
       </td>
     </tr>
   );
-}
-
-function Stat({ k, v, sub }: { k: string; v: ReactNode; sub?: ReactNode }) {
-  return (
-    <div className="rp-stat">
-      <span className="rp-stat-k">{k}</span>
-      <span className="rp-stat-v">{v}</span>
-      {sub && <span className="rp-stat-s">{sub}</span>}
-    </div>
-  );
-}
-
-/** Wait until fonts and every chart are settled, then flag the document for the PDF renderer. */
-function useReady(): [React.RefObject<HTMLDivElement | null>, boolean] {
-  const root = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    let stop = false;
-    const started = Date.now();
-    const tick = async () => {
-      try {
-        await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 4000))]);
-      } catch {
-        /* fonts API unavailable */
-      }
-      const settled = () => !stop && !!root.current && [...root.current.querySelectorAll<HTMLElement>('[data-report-chart]')].every((c) => c.dataset.ready === 'true');
-      while (!stop && !settled() && Date.now() - started < 45_000) await new Promise((r) => setTimeout(r, 100));
-      if (!stop) setReady(true);
-    };
-    void tick();
-    return () => {
-      stop = true;
-    };
-  }, []);
-  return [root, ready];
 }
 
 function Toolbar({ wid }: { wid: string }) {

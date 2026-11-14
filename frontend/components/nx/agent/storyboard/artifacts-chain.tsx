@@ -24,6 +24,8 @@ import StrengthMeter from '@/components/nx/thesis/strength-meter';
 import { normalizeStrength } from '@/lib/thesis/strength';
 import { normalizeDoc } from '@/lib/thesis/doc';
 import { CHOSEN_BY_LABEL } from '@/lib/agent/testplan';
+import { pdfHref } from '@/lib/thesis/api';
+import { thesisDocHref } from '@/lib/thesis/document';
 
 const NoId = ({ what }: { what: string }) => <SbCard><p className="sb-note">{what}: unknown. The agent did not report an id for it.</p></SbCard>;
 
@@ -372,7 +374,7 @@ export function ThesisArtifact({ stage }: { stage: Stage }) {
       <SbCard testId="sb-thesis-unavailable" label="Thesis" title="The thesis is not available" badges={<Badge tone="warn">unavailable</Badge>}>
         <p className="sb-note">{missing ? 'This server does not have the thesis route yet, or the thesis is not yours to read. The agent made it; open it from the link below once the server serves it.' : 'The thesis could not be loaded.'}</p>
         <div className="sb-actions">
-          <Link className="sb-btn" href={`/thesis/${encodeURIComponent(id)}`}>Open thesis</Link>
+          <Link className="sb-btn" href={thesisDocHref(id)}>Open thesis</Link>
           <button type="button" className="sb-btn" onClick={() => q.refetch()}>Try again</button>
         </div>
       </SbCard>
@@ -427,8 +429,8 @@ export function ThesisArtifact({ stage }: { stage: Stage }) {
         </ul>
       ) : null}
       <div className="sb-actions">
-        <Link className="sb-btn sb-btn-primary" href={`/thesis/${encodeURIComponent(id)}`} data-testid="sb-thesis-open">Open thesis</Link>
-        <a className="sb-btn" href={`/api/thesis/${encodeURIComponent(id)}/pdf`} data-testid="sb-thesis-pdf">Download PDF</a>
+        <Link className="sb-btn sb-btn-primary" href={thesisDocHref(id)} data-testid="sb-thesis-open">Open thesis</Link>
+        <a className="sb-btn" href={pdfHref(id)} data-testid="sb-thesis-pdf">Download PDF</a>
       </div>
     </SbCard>
   );

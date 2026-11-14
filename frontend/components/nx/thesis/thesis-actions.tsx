@@ -3,13 +3,15 @@
 import './thesis.css';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Copy, Download, FileDown, GitCompareArrows, Share2, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { Check, Copy, Download, FileDown, FileText, GitCompareArrows, Share2, ShieldCheck } from 'lucide-react';
 import { Button, Notice } from '@/components/nx/ui';
 import { Badge } from '@/components/nx/evidence';
 import { ApiErrorState } from '@/components/nx/states';
 import { browserApi } from '@/lib/api/browser';
 import { THESIS_MD_HREF } from '@/lib/thesis-track/model';
 import { pdfHref, thesisFileHref, thesisKeys, type ThesisBundle } from '@/lib/thesis/api';
+import { thesisDocHref } from '@/lib/thesis/document';
 import { receiptParts, receiptTotal, receiptsText } from '@/lib/thesis/list';
 import { checkLabel, verifyView, type VerifyView } from '@/lib/thesis/verify';
 import { ChallengeButton } from './challenges';
@@ -185,6 +187,9 @@ export default function ThesisActions({ b }: { b: ThesisBundle }) {
         <a className="btn" href={pdfHref(id)} download data-testid="thesis-download-pdf">
           <FileDown size={14} /> PDF
         </a>
+        <Link className="btn" href={thesisDocHref(id)} data-testid="thesis-document-view">
+          <FileText size={14} /> Document view
+        </Link>
         <span className="th-receipts-strip" data-testid="thesis-receipts-strip">
           {!b.receipts
             ? 'Receipts are not available yet'

@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { SESSION_COOKIE } from '@/lib/api/config';
 import { sameOrigin, isSecureRequest } from '@/lib/auth/session';
 import { unauthenticated } from '@/lib/auth/bff';
+import { thesisPdfFilename } from '@/lib/thesis/document';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,17 +12,16 @@ const ID = /^[A-Za-z0-9._-]{1,120}$/;
 const READY_TIMEOUT_MS = 60_000;
 const NO_STORE = { 'cache-control': 'no-store' } as const;
 
-const pdfName = (id: string) => `nearesis-thesis-${id.replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 60)}.pdf`;
 const fail = (status: number, errorCode: string, reasonCode: string, message: string) =>
   Response.json({ errorCode, reasonCode, message, retryable: status >= 500 }, { status, headers: NO_STORE });
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 /**
- * `GET /api/thesis/<thesis id>/pdf`: renders `/thesis-print/<id>` with headless Chromium and returns it as an A4 PDF download.
+ * `GET /api/thesis/<thesis id>/pdf`: renders `/thesis/<id>/document` (the thesis document in the workspace report's design) with headless Chromium and returns it as an A4 PDF download.
  *
  * Same-origin and signed in: the reader's own session cookie is placed on the browser context, so the page (and the API call
- * behind it) can only show what the reader may read; a thesis the reader cannot open is the print page's 404 and
+ * behind it) can only show what the reader may read; a thesis the reader cannot open is the document page's 404 and
  * comes back here as 404. The page is loaded from this same server (never from a URL the caller supplies). Waits up to 60 s
  * for `data-thesis-ready="true"`; a longer wait is a 504. The browser is always closed.
  */
@@ -47,7 +47,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     const context = await browser.newContext({ viewport: { width: 1100, height: 1400 }, deviceScaleFactor: 2, colorScheme: 'light' });
     await context.addCookies([{ name: SESSION_COOKIE, value: token, url: origin, httpOnly: true, sameSite: 'Strict', secure: proto === 'https' }]);
     const page = await context.newPage();
-    const resp = await page.goto(`${origin}/thesis-print/${encodeURIComponent(id)}`, { waitUntil: 'domcontentloaded', timeout: READY_TIMEOUT_MS });
+    const resp = await page.goto(`${origin}/thesis/${encodeURIComponent(id)}/document`, { waitUntil: 'domcontentloaded', timeout: READY_TIMEOUT_MS });
     const status = resp?.status() ?? 0;
     if (status === 404) return fail(404, 'NOT_FOUND', 'THESIS_NOT_FOUND', 'Thesis not found.');
     if (status === 401 || new URL(page.url()).pathname.startsWith('/login')) return unauthenticated();
@@ -76,7 +76,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       status: 200,
       headers: {
         'content-type': 'application/pdf',
-        'content-disposition': `attachment; filename="${pdfName(id)}"`,
+        'content-disposition': `attachment; filename="${thesisPdfFilename(id)}"`,
         'content-length': String(pdf.length),
         ...NO_STORE,
       },

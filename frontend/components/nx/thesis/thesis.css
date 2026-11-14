@@ -86,8 +86,6 @@
 .fl-print .tt-copy button { display: none; }
 .fl-print .tt-copy .tt-code { padding-right: 14px; }
 .fl-print .tt-acc { break-inside: auto; }
-.th-pdf-root { background: #fff; color: #1a1a14; padding: 0; }
-.th-pdf-root .tt { font-size: 12px; }
 @media print {
   .th-pub-bar, .th-actions, .btn { display: none !important; }
   .th-pub, .th-pub-body { background: #fff; }

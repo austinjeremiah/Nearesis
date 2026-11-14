@@ -15,6 +15,7 @@ import { useNow } from '../task-cards';
 import { ApprovalNotice } from '../approval';
 import { useStoryboardSync } from './sync';
 import { pdfHref } from '@/lib/thesis/api';
+import { thesisDocHref } from '@/lib/thesis/document';
 import { approvalNeeded } from '@/lib/agent/approval';
 import { CapsuleArtifact, ChallengeStepArtifact, CompareArtifact, GenericArtifact, ThesisArtifact, ThesisLinkArtifact, ProofArtifact, PublicationArtifact, ReportArtifact } from './artifacts-chain';
 import { FindingsArtifact, HypothesisArtifact, InvestigationArtifact, MarkersArtifact, MonitorsArtifact, WorkspaceArtifact, type Hl } from './artifacts-work';
@@ -200,10 +201,9 @@ function StageSection({ task, stage, index, total, wid, hl, live, now, active, j
 function Outcome({ stages }: { stages: Stage[] }) {
   const thesis = stages.find((s) => s.kind === 'thesis' && s.state === 'done' && s.refs.thesisId);
   if (!thesis) return null;
-  const id = encodeURIComponent(thesis.refs.thesisId!);
   return (
     <div className="sb-outcome" data-testid="sb-outcome">
-      <Link className="sb-btn sb-btn-primary" href={`/thesis/${id}`} data-testid="sb-outcome-thesis">Open the thesis</Link>
+      <Link className="sb-btn sb-btn-primary" href={thesisDocHref(thesis.refs.thesisId!)} data-testid="sb-outcome-thesis">Open the thesis</Link>
       <a className="sb-btn" href={pdfHref(thesis.refs.thesisId!)} download data-testid="sb-outcome-pdf">Download thesis PDF</a>
     </div>
   );

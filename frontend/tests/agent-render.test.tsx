@@ -124,7 +124,7 @@ describe('task timeline', () => {
   it('a finished task offers the thesis, never the report', () => {
     const t = mk({ state: 'completed', workspaceId: 'w1', links: { workspaceId: 'w1', thesisId: 'th1' }, steps: [] });
     const h = wrap(createElement(TaskTimeline, { task: t }));
-    expect(h).toContain('href="/thesis/th1"');
+    expect(h).toContain('href="/thesis/th1/document"');
     expect(h).toContain('Download thesis PDF');
     expect(h).toContain('/api/thesis/th1/pdf');
     expect(h).not.toMatch(/report/i);

@@ -173,3 +173,39 @@ html:has(.rp-root), body:has(.rp-root) { background: var(--rp-bg); }
   .rp-cover-meta { grid-template-columns: 1fr; }
   .rp-dl { grid-template-columns: 1fr; }
 }
+
+/* =============================================================================
+   Thesis document: the same paper, with the few extra pieces a thesis needs.
+   (Nothing above changes; the workspace report does not use these.)
+   ========================================================================== */
+.rp-btn-quiet { border-color: transparent; padding-left: 0; }
+.rp-cover-chip { margin-top: 18px; }
+.rp-cover-lock { font-size: 11.5px; color: var(--rp-2); margin: 18px 0 0; padding-left: 10px; border-left: 3px solid var(--rp-accent); }
+.rp-stat-sm .rp-stat-v { font-size: 13px; line-height: 1.3; letter-spacing: -0.01em; text-transform: uppercase; }
+.rp-stat-win .rp-stat-v { font-size: 12.5px; line-height: 1.3; white-space: pre-line; letter-spacing: -0.01em; }
+.rp-verdict-line { font-size: 14px; }
+.rp-verdict-line .rp-tag { vertical-align: 1px; margin-right: 4px; }
+.rp-card-tight { padding: 9px 14px; margin-bottom: 8px; }
+.rp-card-tight .rp-statement { margin: 6px 0 2px; font-size: 12.5px; }
+.rp-cite { font-family: var(--font-mono); font-size: 8px; color: var(--rp-ok); background: var(--rp-ok-bg); border-radius: 2px; padding: 1px 3px; margin-left: 2px; vertical-align: super; line-height: 1; }
+.rp-thesis .rp-h3 { margin: 22px 0 8px; }
+.rp-thesis .rp-cover-lock { margin: 20px 0 0; }
+.rp-thesis .rp-cover-lock + .rp-cover-foot { margin-top: 16px; }
+.rp-q { margin-top: 8px; border-top: 1px dashed var(--rp-rule); padding-top: 6px; }
+.rp-q-btn { appearance: none; background: transparent; border: 1px solid var(--rp-rule); border-radius: 4px; font: inherit; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rp-2); padding: 3px 9px; cursor: pointer; }
+.rp-q-btn:hover { background: var(--rp-wash); }
+.rp-q-body { display: none; margin-top: 6px; }
+.rp-q.open .rp-q-body { display: block; }
+.rp-q-l { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--rp-3); margin: 8px 0 4px; }
+.rp-q-sql { margin: 0 0 6px; padding: 8px 10px; background: var(--rp-wash); border: 1px solid var(--rp-rule); border-radius: 4px; font-family: var(--font-mono); font-size: 9px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--rp-2); }
+.rp-src-group { break-inside: avoid; }
+.rp-src { list-style: none; margin: 0 0 6px; padding: 0; columns: 2; column-gap: 24px; }
+.rp-src li { display: flex; gap: 6px; font-size: 8.5px; line-height: 1.4; color: var(--rp-3); break-inside: avoid; margin: 1px 0; }
+.rp-src-n { flex: none; width: 18px; text-align: right; color: var(--rp-accent-ink); }
+@media print {
+  .rp-q-body { display: block !important; }
+  .rp-q-btn { display: none !important; }
+}
+@media screen and (max-width: 760px) {
+  .rp-src { columns: 1; }
+}

@@ -1,8 +1,9 @@
 'use client';
 
 import './thesis.css';
-import { Download, Printer } from 'lucide-react';
+import { Download, FileText, Printer } from 'lucide-react';
 import { Button } from '@/components/nx/ui';
+import { publicDocHref } from '@/lib/thesis/document';
 
 /** Read-only actions for the public thesis page. No sign-in is needed for any of them except the first. */
 export default function PublicActions({ slug, openHref, signedIn }: { slug: string; openHref: string; signedIn: boolean }) {
@@ -14,6 +15,9 @@ export default function PublicActions({ slug, openHref, signedIn }: { slug: stri
         </a>
         <a className="btn" href={`/api/public/theses/${encodeURIComponent(slug)}/files/THESIS.md`} download data-testid="thesis-download-md">
           <Download size={14} /> THESIS.md
+        </a>
+        <a className="btn" href={publicDocHref(slug)} data-testid="thesis-public-document">
+          <FileText size={14} /> Document view
         </a>
         <Button onClick={() => window.print()} data-testid="thesis-print">
           <Printer size={14} /> Print or save as PDF

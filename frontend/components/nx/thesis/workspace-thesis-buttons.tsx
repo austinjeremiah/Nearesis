@@ -8,6 +8,7 @@ import { Button } from '@/components/nx/ui';
 import { browserApi } from '@/lib/api/browser';
 import { ApiRequestError } from '@/lib/api/errors';
 import { fetchThesisList, pdfHref, thesisKeys } from '@/lib/thesis/api';
+import { thesisDocHref } from '@/lib/thesis/document';
 
 /**
  * Thesis buttons: "Open thesis" and "Download thesis PDF" when this workspace already has one, otherwise "Build thesis"
@@ -29,7 +30,7 @@ export default function WorkspaceThesisButtons({ wid, thesisId = null, pdf = tru
       const r = await browserApi.send<{ thesisId?: string }>('POST', `/v1/workspaces/${encodeURIComponent(wid)}/theses`, {});
       if (!r.thesisId) throw new Error('The API did not return the thesis.');
       await qc.invalidateQueries({ queryKey: ['thesis'] });
-      router.push(`/thesis/${encodeURIComponent(r.thesisId)}`);
+      router.push(thesisDocHref(r.thesisId));
     } catch (e) {
       setPending(false);
       setError(
@@ -47,7 +48,7 @@ export default function WorkspaceThesisButtons({ wid, thesisId = null, pdf = tru
     <>
       {existing ? (
         <>
-          <Link className="btn primary" href={`/thesis/${encodeURIComponent(existing)}`} data-testid="open-thesis">Open thesis</Link>
+          <Link className="btn primary" href={thesisDocHref(existing)} data-testid="open-thesis">Open thesis</Link>
           {pdf && <a className="btn" href={pdfHref(existing)} download data-testid="download-thesis-pdf">Download thesis PDF</a>}
         </>
       ) : (

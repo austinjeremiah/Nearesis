@@ -683,9 +683,16 @@ export function createAuthoringService(deps: AuthoringDeps) {
     ): Promise<void> {
       const bad: MetricIssue[] = [];
       for (const r of refs) {
+        // A certified registry metric is publishable as such. A capsule records it as `<major>.0.0`: that reference is
+        // accepted when it names the registry metric's own certified major version (an authored metric of the same key
+        // and version, if one exists, is still checked below).
+        const reg = deps.registry?.metrics.find((m) => m.id === r.metricKey && m.certified);
+        if (reg && r.version === undefined) continue;
         if (
-          r.version === undefined &&
-          deps.registry?.metrics.some((m) => m.id === r.metricKey && m.certified)
+          reg &&
+          r.version !== undefined &&
+          Number.parseInt(String(reg.certifiedVersion).split(".")[0] ?? "", 10) === r.version &&
+          !(await store.get(scopeOf(p), r.metricKey, r.version))
         )
           continue;
         const rec =

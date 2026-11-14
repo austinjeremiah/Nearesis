@@ -9346,7 +9346,7 @@
         ],
         "responses": {
           "200": {
-            "description": "{ thesis: { id, title, hypothesis, verdict, kind, version, status, shareSlug, ownerDisplay, updatedAt }, doc, receipts: { verified, reproduced, drift } }",
+            "description": "{ thesis: { id, title, hypothesis, verdict, kind, version, status, shareSlug, ownerDisplay, updatedAt }, doc, receipts: { verified, reproduced, drift, different, incomplete, mismatch } }",
             "x-schema-status": "untyped"
           },
           "429": {
@@ -10477,7 +10477,7 @@
         "summary": "The caller's theses, the ones they imported, and the pinned reference thesis (first)",
         "responses": {
           "200": {
-            "description": "{ items: [{ id, title, hypothesis, verdict: { status, headline }, kind: 'reference'|'workspace'|'imported', workspaceId|null, version, status: 'draft'|'published'|'unpublished', shareSlug|null, sourceThesisId|null, updatedAt, receipts: { verified, reproduced, drift } }] }",
+            "description": "{ items: [{ id, title, hypothesis, verdict: { status, headline }, kind: 'reference'|'workspace'|'imported', workspaceId|null, version, status: 'draft'|'published'|'unpublished', shareSlug|null, sourceThesisId|null, updatedAt, receipts: { verified, reproduced, drift, different, incomplete, mismatch } }] }",
             "x-schema-status": "untyped"
           },
           "401": {
@@ -10533,7 +10533,7 @@
         ],
         "responses": {
           "200": {
-            "description": "{ thesis: { id, title, hypothesis, verdict: { status, headline }, kind: 'reference'|'workspace'|'imported', workspaceId|null, version, status: 'draft'|'published'|'unpublished', shareSlug|null, sourceThesisId|null, updatedAt, receipts: { verified, reproduced, drift } }, doc: nearesis.thesis.v1, receipts: [{ id, kind, outcome, userDisplay, createdAt, detail }] }",
+            "description": "{ thesis: { id, title, hypothesis, verdict: { status, headline }, kind: 'reference'|'workspace'|'imported', workspaceId|null, version, status: 'draft'|'published'|'unpublished', shareSlug|null, sourceThesisId|null, updatedAt, receipts: { verified, reproduced, drift, different, incomplete, mismatch } }, doc: nearesis.thesis.v1, receipts: [{ id, kind, outcome, userDisplay, createdAt, detail }] }",
             "x-schema-status": "untyped"
           },
           "401": {
@@ -10853,7 +10853,7 @@
         ],
         "responses": {
           "200": {
-            "description": "{ receipts: [{ id, kind, outcome, userDisplay, createdAt, detail }], counts: { verified, reproduced, drift } }",
+            "description": "{ receipts: [{ id, kind, outcome, userDisplay, createdAt, detail }], counts: { verified, reproduced, drift, different, incomplete, mismatch } }",
             "x-schema-status": "untyped"
           },
           "401": {
@@ -10919,6 +10919,92 @@
         "responses": {
           "201": {
             "description": "{ threadId, taskId }",
+            "x-schema-status": "untyped"
+          },
+          "401": {
+            "description": "Unauthenticated: missing, invalid, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: role, origin or classification denies the action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found. A workspace the caller cannot access is the same 404 as one that does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version or revision; reload and retry (`lastStableRevision`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or a domain invariant refused the change; `details` lists paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited or overloaded. `Retry-After` header and `retryAfterSeconds`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/theses/{id}/rerun": {
+      "post": {
+        "operationId": "postThesesByIdRerun",
+        "tags": [
+          "thesis"
+        ],
+        "summary": "Reproduce a thesis by re-executing its stored queries (deterministic; no model call, no chain call, nothing charged)",
+        "description": "Re-executes, as the caller and read-only, every stored panel query of the thesis's capsule snapshot with the SAME query definition and the SAME absolute window (never relative to today), through the same data service that produced them, under the caller's own organisation and a scope that names no workspace (the caller needs no access to the original workspace; a workspace-private source is reported as unavailable). The two verifier series are rebuilt from the SAME panels and columns the original used (no re-picking), `relationship-v1` and every chart's first, last and peak are recomputed and compared with the stored document. `match`: every compared value equal. `drift`: same verdict, n and window but some value differs. `different`: verdict, n or window differ. `incomplete`: at least one query could not be re-executed (listed in `unavailable` with the reason); the rows cover only what could be compared and nothing is guessed. Records a `reproduce` receipt on the thesis. 404 THESIS_NOT_FOUND when the thesis is not visible; 422 REFERENCE_THESIS_OFFLINE (details.commands) for the reference thesis; 503 THESIS_SNAPSHOT_UNAVAILABLE when this server does not hold the capsule.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ outcome: 'match'|'drift'|'different'|'incomplete', rows: [{ what, original, reproduced, delta }], reran: { charts, queries, at, window: { from, to } }, unavailable: [{ chart, reason }], receiptId }",
             "x-schema-status": "untyped"
           },
           "401": {
@@ -11175,7 +11261,7 @@
         },
         "responses": {
           "200": {
-            "description": "{ thesisId, created, thesis: { id, title, hypothesis, verdict: { status, headline }, kind: 'reference'|'workspace'|'imported', workspaceId|null, version, status: 'draft'|'published'|'unpublished', shareSlug|null, sourceThesisId|null, updatedAt, receipts: { verified, reproduced, drift } } }; 404 THESIS_NOT_FOUND for an unknown or unpublished slug",
+            "description": "{ thesisId, created, thesis: { id, title, hypothesis, verdict: { status, headline }, kind: 'reference'|'workspace'|'imported', workspaceId|null, version, status: 'draft'|'published'|'unpublished', shareSlug|null, sourceThesisId|null, updatedAt, receipts: { verified, reproduced, drift, different, incomplete, mismatch } } }; 404 THESIS_NOT_FOUND for an unknown or unpublished slug",
             "x-schema-status": "untyped"
           },
           "401": {

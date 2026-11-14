@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Chart, baseOption, seriesPalette, type ChartTheme } from '@/components/nx/chart';
+import { Chart, baseOption, heatRamp, seriesPalette, type ChartTheme } from '@/components/nx/chart';
 import { toNum } from '@/lib/data/num';
 
 type Pt = { x: string; y: string | number | null | undefined };
@@ -76,7 +76,7 @@ export function MatrixHeatmap({
         tooltip: { ...(base.tooltip as object), trigger: 'item' },
         xAxis: { type: 'category', data: xs, name: 'destination', nameLocation: 'middle', nameGap: 48, axisLabel: { color: t.text3, fontSize: 10, rotate: 45 }, splitArea: { show: false } },
         yAxis: { type: 'category', data: ys, name: 'origin', axisLabel: { color: t.text3, fontSize: 10 } },
-        visualMap: { min: 0, max, calculable: false, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: [t.surface, t.accent] }, textStyle: { color: t.text3 } },
+        visualMap: { min: 0, max, calculable: false, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: heatRamp(t) }, textStyle: { color: t.text3 } },
         series: [
           {
             type: 'heatmap',

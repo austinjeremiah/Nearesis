@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
-import { Content, PageHeader } from '@/components/nx/shell';
+import { Content, Crumbs } from '@/components/nx/shell';
+import { BracketButton, PageHero } from '@/components/nx/landing';
 import { LinkButton } from '@/components/nx/ui';
 import { Badge } from '@/components/nx/evidence';
 import { api } from '@/lib/api/server';
@@ -27,10 +28,11 @@ export default async function OverviewPage({ params }: { params: Promise<{ wid: 
   const ws = r.data;
   return (
     <>
-      <PageHeader
+      <Crumbs items={[{ label: 'Workspaces', href: '/workspaces' }, { label: workspaceLabel(ws.objective, 40) }]} />
+      <PageHero
+        kicker="Workspace"
         title={workspaceLabel(ws.objective, 90)}
-        description={ws.objective.length > 90 ? ws.objective : undefined}
-        crumbs={[{ label: 'Workspaces', href: '/workspaces' }, { label: workspaceLabel(ws.objective, 40) }]}
+        lede={ws.objective.length > 90 ? ws.objective : undefined}
         context={
           <>
             <Badge outline>{ws.networkScope}</Badge>
@@ -39,9 +41,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ wid: 
         }
         actions={
           <>
-            <LinkButton href={`/w/${wid}/investigate`} variant="primary">
-              Ask a question
-            </LinkButton>
+            <BracketButton href={`/w/${wid}/investigate`}>Ask a question</BracketButton>
             <LinkButton href={`/w/${wid}/canvas`}>Open canvas</LinkButton>
             <LinkButton href={`/w/${wid}/report`}>View report</LinkButton>
             {/* A file download, not a page: a plain anchor so the browser saves the PDF instead of navigating. */}

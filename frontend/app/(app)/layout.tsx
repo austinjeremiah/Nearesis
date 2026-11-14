@@ -25,7 +25,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const saved = (await cookies()).get(THEME_COOKIE)?.value;
   const theme: Theme = saved === 'light' || saved === 'dark' ? saved : DEFAULT_THEME;
   return (
-    <div className="nx" data-theme={theme}>
+    // data-skin is set here rather than from a client effect: the first paint has to
+    // be the reading paper, or every reload flashes the wrong background.
+    <div className="nx" data-theme={theme} data-skin="ink">
       <ThemeSync theme={theme} />
       <link href="https://fonts.googleapis.com" rel="preconnect" />
       <link href="https://fonts.gstatic.com" rel="preconnect" crossOrigin="anonymous" />

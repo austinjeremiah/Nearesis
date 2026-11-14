@@ -222,6 +222,15 @@ export function truncationInfo(data: PanelData): Truncation | null {
   return null;
 }
 
+/** Sequential blue ramp for heatmaps. The low end follows the theme: a quiet cell sits near the surface. */
+function heatColors(ink: string): string[] {
+  const m = /^#?([0-9a-f]{6})$/i.exec(ink.trim());
+  const inkIsLight = m ? parseInt(m[1].slice(0, 2), 16) > 160 : false;
+  return inkIsLight
+    ? ['#15243b', '#1d3a63', '#2b5a99', '#4a86c9', '#8fb4e8']
+    : ['#eef4fc', '#c3daf2', '#86b3e2', '#4a86c9', '#22508f'];
+}
+
 export function truncationLabel(t: Truncation): string {
   const m = t.method === 'lttb' ? 'downsampled (LTTB)' : t.method === 'min_max_bucket' ? 'downsampled (min/max buckets)' : 'cut at the row limit';
   const of = t.requested !== null ? ` of ${t.lowerBound ? 'at least ' : ''}${t.requested.toLocaleString('en-US')}` : '';
@@ -598,7 +607,7 @@ export function buildOption(inp: OptionInput): BuiltChart {
         tooltip: { ...(base.tooltip as Opt), formatter: (p: { value: [number, number, number] }) => `${colLabel(chart.columns[ri].name)} ${ys[p.value[1]]}<br/>${colLabel(chart.columns[xi].name)} ${xs[p.value[0]]}<br/><b>${fmtValue(p.value[2], unit)}</b>` },
         xAxis: { type: 'category', data: xs, splitArea: { show: false }, axisLabel: { ...axisText, hideOverlap: true }, name: colLabel(chart.columns[xi].name), nameLocation: 'middle', nameGap: 26 },
         yAxis: { type: 'category', data: ys, inverse: true, axisLabel: { ...axisText, hideOverlap: true } },
-        visualMap: { min: 0, max: unit === 'ratio' ? 1 : max || 1, calculable: false, orient: 'horizontal', left: 'center', bottom: 0, itemHeight: 90, textStyle: { color: t.text3, fontSize: 10 }, inRange: { color: ['#f1efe2', t.accent, '#0b3d2a'] }, formatter: (v: number) => fmtValue(v, unit) },
+        visualMap: { min: 0, max: unit === 'ratio' ? 1 : max || 1, calculable: false, orient: 'horizontal', left: 'center', bottom: 0, itemHeight: 90, textStyle: { color: t.text3, fontSize: 10 }, inRange: { color: heatColors(t.ink) }, formatter: (v: number) => fmtValue(v, unit) },
         series: [{ type: 'heatmap', data: cells, emphasis: { itemStyle: { borderColor: t.ink, borderWidth: 1 } } }],
       },
     };

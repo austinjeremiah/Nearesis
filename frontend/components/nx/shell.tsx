@@ -176,6 +176,9 @@ export function AppShell({
       </nav>
 
       <div className="main">
+        {/* One inner element, because a smooth scroller needs a single content
+            node to measure. The sticky top bar still sticks to the scrollport. */}
+        <div className="main-inner">
         <header className="topbar">
           <IconButton
             label="Open navigation"
@@ -195,8 +198,23 @@ export function AppShell({
           <UserMenu workspaceId={workspaceId} />
         </header>
         {children}
+        </div>
       </div>
     </div>
+  );
+}
+
+/** Breadcrumb trail. Separated so a hero header can carry one too. */
+export function Crumbs({ items }: { items: { label: string; href?: string }[] }) {
+  return (
+    <nav className="crumbs" aria-label="Breadcrumb" style={{ padding: '10px 20px 0' }}>
+      {items.map((c, i) => (
+        <span key={`${c.label}-${i}`} className="row gap2">
+          {i > 0 && <span className="sep">/</span>}
+          {c.href ? <Link href={c.href}>{c.label}</Link> : <span className="here">{c.label}</span>}
+        </span>
+      ))}
+    </nav>
   );
 }
 
@@ -220,20 +238,7 @@ export function PageHeader({
 }) {
   return (
     <>
-      {crumbs && crumbs.length > 0 && (
-        <nav className="crumbs" aria-label="Breadcrumb" style={{ padding: '10px 20px 0' }}>
-          {crumbs.map((c, i) => (
-            <span key={`${c.label}-${i}`} className="row gap2">
-              {i > 0 && <span className="sep">/</span>}
-              {c.href ? (
-                <Link href={c.href}>{c.label}</Link>
-              ) : (
-                <span className="here">{c.label}</span>
-              )}
-            </span>
-          ))}
-        </nav>
-      )}
+      {crumbs && crumbs.length > 0 && <Crumbs items={crumbs} />}
       <header className="pagehead">
         <div className="titles grow">
           <h1 className="h2">{title}</h1>

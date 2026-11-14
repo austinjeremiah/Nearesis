@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Content, PageHeader } from '@/components/nx/shell';
+import { Content } from '@/components/nx/shell';
+import { BracketButton, PageHero } from '@/components/nx/landing';
 import { SectionBar } from '@/components/nx/section';
-import { Card, EmptyState, LinkButton } from '@/components/nx/ui';
+import { Card, EmptyState } from '@/components/nx/ui';
 import { Badge } from '@/components/nx/evidence';
 import { ApiErrorState } from '@/components/nx/states';
 import { api } from '@/lib/api/server';
@@ -45,14 +46,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   return (
     <>
-      <PageHeader
+      <PageHero
+        kicker="Portfolio"
         title="Home"
-        description="Live NEAR data, what the agents found, and your research."
-        actions={
-          <LinkButton href="/workspaces/new" variant="primary">
-            New workspace
-          </LinkButton>
-        }
+        lede="Live NEAR data, what the agents found, and your research."
+        actions={<BracketButton href="/workspaces/new">New workspace</BracketButton>}
       />
       <Content>
         <HomeView />

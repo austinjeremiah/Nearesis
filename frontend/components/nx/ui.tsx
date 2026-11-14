@@ -2,6 +2,8 @@
 
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
+import { formatUsd } from '@/lib/format';
 
 /**
  * Shared interface primitives. Spec 3.3 names these; spec 3.4 sets the rules
@@ -168,16 +170,22 @@ export function Select({
 }: React.SelectHTMLAttributes<HTMLSelectElement> & {
   options: { value: string; label: string }[];
 }) {
+  // The native arrow sits hard against the border and cannot be moved, so it is
+  // suppressed and drawn as our own chevron with room around it.
   return (
-    <select className="select" {...rest}>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <span className="select-wrap">
+      <select className="select" {...rest}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="select-chevron" size={14} strokeWidth={2} aria-hidden="true" />
+    </span>
   );
 }
+
 
 /* -----------------------------------------------------------------------------
    segmented control and tabs
@@ -271,6 +279,38 @@ export function Card({
       {children && <div className="card-body">{children}</div>}
       {footer && <div className="card-foot">{footer}</div>}
     </section>
+  );
+}
+
+/**
+ * Spend against a cap.
+ *
+ * Typography separates what was spent from what was allowed, so the eye lands
+ * on the number that moves. Colour appears only when the ratio crosses a
+ * threshold, and never alone: "near cap" and "over cap" are written out.
+ */
+export function SpendValue({
+  spentUsd,
+  budgetUsd,
+  compact,
+}: {
+  spentUsd: number;
+  budgetUsd: number;
+  compact?: boolean;
+}) {
+  const ratio = budgetUsd > 0 ? spentUsd / budgetUsd : 0;
+  const tone = spentUsd > budgetUsd ? 'bad' : ratio >= 0.7 ? 'warn' : '';
+  const note = tone === 'bad' ? 'over cap' : tone === 'warn' ? 'near cap' : null;
+
+  return (
+    <span
+      className={`spend ${tone}`.trim()}
+      title={`${(ratio * 100).toFixed(0)}% of the cap spent. Recorded from the run ledger.`}
+    >
+      <span className="v mono">{formatUsd(spentUsd)}</span>
+      <span className="cap mono">/ {formatUsd(budgetUsd)}</span>
+      {note && !compact && <span className="note">{note}</span>}
+    </span>
   );
 }
 

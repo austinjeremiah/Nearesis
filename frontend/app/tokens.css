@@ -14,19 +14,22 @@
    ========================================================================== */
 
 :root {
-  /* --- surface ----------------------------------------------------------- */
-  --page: #f1efe2; /* cream paper, the page itself */
-  --surface: #f7f6ef; /* cards and panels, one step up from the page */
-  --raised: #fbfaf5; /* inputs and hovered rows */
-  --sunken: #dbdac8; /* wells, table headers, inactive tabs */
+  /* --- surface -----------------------------------------------------------
+     Three papers, in the same order the marketing site stacks them: greige for
+     containers, a lighter paper for the page and inputs, and the near-black
+     reading paper the product sits on (see the skin tokens below). */
+  --page: #e9e7d9; /* the lighter paper, for the screens that stay light */
+  --surface: #dbdac8; /* containers: the landing hero's greige */
+  --raised: #e4e2d4; /* inputs and hovered rows, one step up from a container */
+  --sunken: #cbcab6; /* wells, table headers, inactive tabs */
   --ink: #000000; /* primary text and hard rules */
   --ink-soft: #2a2a2a; /* dark panels, chart backgrounds */
   --invert: #f1efe2; /* text on dark surfaces */
 
   /* --- text -------------------------------------------------------------- */
   --text: #000000;
-  --text-2: #4a4940; /* secondary copy */
-  --text-3: #76756a; /* metadata, timestamps, units */
+  --text-2: #2f2e28; /* secondary copy */
+  --text-3: #4a493f; /* metadata, timestamps, units */
   --text-on-dark: #f1efe2;
   --text-on-dark-2: rgba(241, 239, 226, 0.62);
 
@@ -74,9 +77,9 @@
   --font-display: 'Stack Sans Notch', 'Inter Tight', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --fs-micro: 10.5px; /* uppercase micro-labels */
-  --fs-tiny: 11.5px;
-  --fs-small: 12.5px; /* metadata, per spec 3.2's 12-13px */
+  --fs-micro: 11px; /* uppercase micro-labels */
+  --fs-tiny: 12px;
+  --fs-small: 13px; /* metadata, per spec 3.2's 12-13px */
   --fs-body: 14px; /* spec floor for body text */
   --fs-lg: 16px;
   --fs-h3: 18px;
@@ -90,7 +93,9 @@
 
   /* --- layout, from spec 2.3 --------------------------------------------- */
   --topbar-h: 60px;
-  --nav-w: 264px;
+  /* Rail sized like an editor's: the content column is the subject, the chrome
+     around it is not. */
+  --nav-w: 228px;
   --nav-w-collapsed: 64px;
   --pageheader-h: 76px;
   --inspector-w: 344px;
@@ -119,6 +124,9 @@
      softening keeps the same discipline while letting surfaces separate. The
      scale stays tight on purpose: a mix of radii is what makes an interface
      read as a component-library default. */
+  /* Shared row height for stacked cards, so two columns of cards line up. */
+  --stack-row: 240px;
+
   --radius-sm: 4px;
   --radius: 8px;
   --radius-lg: 12px;
@@ -146,6 +154,33 @@
   --z-popover: 60;
   --z-overlay: 80;
   --z-toast: 90;
+}
+
+/* -----------------------------------------------------------------------------
+   Skin tokens: the reading paper, the rail and the text drawn straight onto
+   them. The product reads as a near-black column with greige cards on it and a
+   NEAR-green rail. Everything that paints onto the paper or the rail goes
+   through these, so the dark theme only has to redefine them.
+   -------------------------------------------------------------------------- */
+:root {
+  --paper: #0e0f11; /* the reading column */
+  --on-paper: #f1efe2;
+  --on-paper-2: rgba(241, 239, 226, 0.74);
+  --on-paper-3: rgba(241, 239, 226, 0.56);
+  --paper-line: rgba(241, 239, 226, 0.18);
+  --paper-hover: rgba(241, 239, 226, 0.12);
+  --paper-mark: #f1efe2; /* a bar or tab that must stand out from the paper */
+  --on-paper-mark: #0e0f11;
+
+  --rail: color-mix(in srgb, var(--accent) 72%, #dcdacb);
+  --rail-line: rgba(0, 0, 0, 0.22);
+  --on-rail: #000000;
+  --on-rail-2: rgba(0, 0, 0, 0.78);
+  --on-rail-3: rgba(0, 0, 0, 0.6);
+  --rail-hover: rgba(0, 0, 0, 0.08);
+  --rail-active: #000000;
+  --on-rail-active: var(--accent);
+  --card-shadow-hover: rgba(0, 0, 0, 0.55);
 }
 
 /* -----------------------------------------------------------------------------
@@ -196,6 +231,26 @@
 
   --focus-ring: 0 0 0 2px var(--page), 0 0 0 4px var(--accent);
   --shadow-overlay: 0 1px 0 var(--line-hard), 0 18px 40px rgba(0, 0, 0, 0.5);
+
+  /* The dark paper is one step below the dark surfaces, so cards still lift off it. */
+  --paper: #101009;
+  --on-paper: #f1efe2;
+  --on-paper-2: #b9b7a8;
+  --on-paper-3: #8b8a7d;
+  --paper-line: rgba(241, 239, 226, 0.14);
+  --paper-hover: rgba(241, 239, 226, 0.08);
+  --paper-mark: #f1efe2;
+  --on-paper-mark: #17170f;
+
+  /* A deep green rail: the brand hue, held back so it does not glare in the dark. */
+  --rail: color-mix(in srgb, var(--accent) 22%, #121610);
+  --rail-line: rgba(241, 239, 226, 0.14);
+  --on-rail: #f1efe2;
+  --on-rail-2: rgba(241, 239, 226, 0.78);
+  --on-rail-3: rgba(241, 239, 226, 0.6);
+  --rail-hover: rgba(241, 239, 226, 0.08);
+  --rail-active: var(--accent);
+  --on-rail-active: #00301f;
 }
 
 /* The wordmark is drawn in fixed ink; show the variant that reads on the current surface. */

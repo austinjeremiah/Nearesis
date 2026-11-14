@@ -92,7 +92,38 @@ export type ChartTheme = ReturnType<typeof readTheme>;
  * first series is usually the subject of the question.
  */
 export function seriesPalette(t: ChartTheme): string[] {
-  return [t.accent, '#1f1f1f', t.info, t.warn, t.bad, '#6b8f7a', '#8a6fae', '#a08b5e'];
+  // Ink leads. The NEAR green is the product's accent and it is doing work
+  // elsewhere on the page (status, budget, selection); using it for the data
+  // line as well made every chart read as a marketing graphic rather than a
+  // measurement. Green stays for the second series, where contrast against the
+  // first is the whole point. `ink` follows the theme, so it is pale in dark.
+  return [t.ink, t.accent, t.info, t.warn, t.bad, '#6b8f7a', '#8a6fae', '#a08b5e'];
+}
+
+/**
+ * Sequential ramp for heatmaps and coverage matrices.
+ *
+ * Blue rather than the accent green: the rail and the primary action already
+ * carry the green, and a matrix that fills the card with it reads as a wall of
+ * brand rather than a scale. The low end follows the theme so a quiet cell sits
+ * near the surface instead of glaring against a dark card.
+ */
+export function heatRamp(t: ChartTheme): string[] {
+  const m = /^#?([0-9a-f]{6})$/i.exec(t.ink.trim());
+  const inkIsLight = m ? parseInt(m[1].slice(0, 2), 16) > 160 : false;
+  return inkIsLight
+    ? ['#15243b', '#1d3a63', '#2b5a99', '#4a86c9', t.info]
+    : ['#eef4fc', '#c3daf2', '#86b3e2', '#4a86c9', t.info];
+}
+
+/** 4_532_826 -> "4.53M". Long tick labels were being clipped by the plot edge. */
+export function compactNumber(n: number): string {
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return `${(n / 1e9).toFixed(abs >= 1e10 ? 0 : 2)}B`;
+  if (abs >= 1e6) return `${(n / 1e6).toFixed(abs >= 1e7 ? 0 : 2)}M`;
+  if (abs >= 1e3) return `${(n / 1e3).toFixed(abs >= 1e4 ? 0 : 1)}k`;
+  if (abs > 0 && abs < 1) return String(Number(n.toFixed(4)));
+  return String(n);
 }
 
 /** Axis, grid and tooltip defaults shared by every panel. */
@@ -101,7 +132,9 @@ export function baseOption(t: ChartTheme): Record<string, unknown> {
     backgroundColor: 'transparent',
     animationDuration: 180,
     textStyle: { fontFamily: t.font, color: t.text2, fontSize: 11 },
-    grid: { left: 52, right: 16, top: 18, bottom: 28, containLabel: false },
+    // containLabel lets the axis labels size the plot area. With a fixed left
+    // inset a seven-figure tick was simply cut off at the edge of the canvas.
+    grid: { left: 6, right: 16, top: 18, bottom: 6, containLabel: true },
     tooltip: {
       trigger: 'axis',
       backgroundColor: '#2a2a2a',
@@ -110,21 +143,40 @@ export function baseOption(t: ChartTheme): Record<string, unknown> {
       textStyle: { color: '#f1efe2', fontFamily: t.font, fontSize: 12 },
       axisPointer: { type: 'line', lineStyle: { color: t.lineStrong, width: 1, type: 'dashed' } },
       // Spec 4.4: a gap in the data is reported, never interpolated away.
-      valueFormatter: (val: unknown) => (val === null || val === undefined ? '—' : String(val)),
+      valueFormatter: (val: unknown) =>
+        val === null || val === undefined
+          ? '—'
+          : typeof val === 'number'
+            ? val.toLocaleString('en-US', { maximumFractionDigits: 4 })
+            : String(val),
     },
     xAxis: {
       type: 'time',
+      // Fewer ticks, and a label is dropped rather than printed over its neighbour.
+      splitNumber: 5,
       axisLine: { lineStyle: { color: t.lineStrong } },
       axisTick: { show: false },
       splitLine: { show: false },
-      axisLabel: { color: t.text3, fontFamily: t.mono, fontSize: 10 },
+      axisLabel: {
+        color: t.text3,
+        fontFamily: t.mono,
+        fontSize: 10,
+        hideOverlap: true,
+        formatter: { day: '{d} {MMM}', month: '{MMM}', year: '{yyyy}' },
+      },
     },
     yAxis: {
       type: 'value',
       axisLine: { show: false },
       axisTick: { show: false },
       splitLine: { lineStyle: { color: t.line, type: 'solid' } },
-      axisLabel: { color: t.text3, fontFamily: t.mono, fontSize: 10 },
+      axisLabel: {
+        color: t.text3,
+        fontFamily: t.mono,
+        fontSize: 10,
+        hideOverlap: true,
+        formatter: (v: number) => compactNumber(v),
+      },
     },
     legend: {
       show: false,
@@ -261,17 +313,7 @@ export function BlankChart({
 }) {
   return (
     <div className="chart" style={{ height }} role="img" aria-label={`${ariaLabel}. ${reason}`}>
-      <svg width="100%" height="100%" aria-hidden="true">
-        <line x1="52" y1="8" x2="52" y2="calc(100% - 28px)" stroke="var(--line-strong)" strokeWidth="1" />
-        <line
-          x1="52"
-          y1="calc(100% - 28px)"
-          x2="calc(100% - 16px)"
-          y2="calc(100% - 28px)"
-          stroke="var(--line-strong)"
-          strokeWidth="1"
-        />
-      </svg>
+      <div className="chart-axes" aria-hidden="true" />
       <div className="chart-blank">{reason}</div>
     </div>
   );

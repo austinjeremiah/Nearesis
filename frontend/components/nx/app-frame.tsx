@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { AppShell } from './shell';
 import { CommandPalette, type PaletteAction } from './palette';
 import { TooltipProvider } from './overlays';
+import SmoothScroll from './smooth-scroll';
 import { useWorkspaceStream } from '@/lib/sse/hub';
 
 /**
@@ -27,6 +28,7 @@ export default function AppFrame({
   useWorkspaceStream(workspaceId);
   return (
     <TooltipProvider>
+      <SmoothScroll />
       <AppShell
         workspaceId={workspaceId}
         workspaceName={workspaceName}

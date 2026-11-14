@@ -1,5 +1,5 @@
-import { Content, PageHeader } from '@/components/nx/shell';
-import { LinkButton } from '@/components/nx/ui';
+import { Content } from '@/components/nx/shell';
+import { BracketButton, PageHero } from '@/components/nx/landing';
 import WorkspacesView from './workspaces-view';
 
 /**
@@ -10,14 +10,11 @@ import WorkspacesView from './workspaces-view';
 export default function WorkspacesPage() {
   return (
     <>
-      <PageHeader
+      <PageHero
+        kicker="Portfolio"
         title="Workspaces"
-        description="One workspace holds exactly one research question, with its own budget, agents and evidence."
-        actions={
-          <LinkButton href="/workspaces/new" variant="primary">
-            New workspace
-          </LinkButton>
-        }
+        lede="One workspace holds exactly one research question, with its own budget, agents and evidence."
+        actions={<BracketButton href="/workspaces/new">New workspace</BracketButton>}
       />
       <Content>
         <WorkspacesView />

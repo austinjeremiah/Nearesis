@@ -31,7 +31,7 @@ export const esc = (s: string): string =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** In table cells a run of citations collapses into one expandable chip so columns stay readable. */
-function cellHtml(raw: string): string {
+export function cellHtml(raw: string): string {
   const html = inline(raw);
   return html.replace(/(?:<span class="ref"[^>]*>[^<]*<\/span>\s*){2,}/g, (run) => {
     const n = (run.match(/class="ref"/g) ?? []).length;
@@ -251,7 +251,7 @@ ${queryBlock(c)}
 </article>`;
 }
 
-const CSS = `
+export const CSS = `
 :root{--bg:#f7f6f2;--panel:#fff;--ink:#16181d;--muted:#5a6070;--line:#e3e1d8;--accent:#1f4fd8;--warn-bg:#fff4e5;--warn-line:#d97a06;--bad-bg:#fdecec;--bad-line:#b42318;--ok:#157347;
 --c0:#6b7280;--c1:#2f6fdb;--c2:#d9822b;--c3:#8b5cf6;--code:#f0eee6}
 :root[data-theme=dark]{--bg:#12141a;--panel:#1b1e26;--ink:#eceae3;--muted:#a3a8b6;--line:#2c303b;--accent:#8aa8ff;--warn-bg:#2b2113;--warn-line:#e59a3c;--bad-bg:#2d1717;--bad-line:#f08a80;--ok:#5ec691;--c0:#9aa1b0;--c1:#6ea0ff;--c2:#f0a45a;--c3:#b79bff;--code:#252932}

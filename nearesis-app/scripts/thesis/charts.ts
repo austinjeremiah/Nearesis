@@ -126,7 +126,7 @@ function intentsShortfall(L: Ledger): string {
   return `In the frozen forecast test, adding lagged Intents volume gave a higher out-of-sample error than the baseline at horizon ${hh}: MAE ${c} against ${b} (adjusted p-value ${p}), so a rising series is not evidence that it leads usage.`;
 }
 
-function datasetBits(inp: Inputs, ids: string[]) {
+export function datasetBits(inp: Inputs, ids: string[]) {
   const dss = ids
     .map((id) => inp.manifest.datasets.find((d) => d.id === id))
     .filter((d): d is ManifestDataset => !!d);

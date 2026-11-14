@@ -36,7 +36,9 @@ const fullDoc = {
     outlayer: { status: "verified", requestId: "r", txHash: "t" },
   },
 };
-const reference = JSON.parse(readFileSync(join(__dirname, "../../../thesis/build/thesis.json"), "utf8"));
+const reference = JSON.parse(
+  readFileSync(join(__dirname, "../../../thesis/archive/intents-vs-price-v1/build/thesis.json"), "utf8"),
+);
 reference.origin = { kind: "reference" };
 
 describe("strengthOf", () => {
@@ -150,6 +152,27 @@ describe("strengthOf", () => {
     expect(pts(v).capsule_verifies).toBe(10);
     expect(pts(v).independently_verified).toBe(5);
     expect(v.score).toBe(55);
+  });
+
+  it("maps the forecast reference thesis: method frozen, days of data, backtest, calibrated band, hashes", () => {
+    const fc = JSON.parse(readFileSync(join(__dirname, "../../../thesis/build/thesis.json"), "utf8"));
+    fc.origin = { kind: "reference" };
+    const s = strengthOf(fc, none, []);
+    const p = pts(s);
+    expect(p.plan_locked).toBe(15);
+    expect(p.days_of_data).toBe(15);
+    expect([0, 5, 10]).toContain(p.coverage_complete);
+    expect([0, 5, 10]).toContain(p.valid_test);
+    expect([0, 5, 10]).toContain(p.interval_or_not_supported);
+    expect(p.capsule_verifies).toBe(0);
+    const d = (k: string) => s.parts.find((x) => x.key === k)!.detail;
+    expect(d("plan_locked")).toContain(fc.forecast.methodFrozenAt);
+    expect(d("days_of_data")).toContain(String(fc.forecast.daysOfData));
+    expect(d("valid_test")).toContain("naive");
+    // a passed bundle verification earns the capsule and verified parts
+    const v = strengthOf(fc, { verified: 1, reproduced: 0 }, []);
+    expect(pts(v).capsule_verifies).toBe(10);
+    expect(pts(v).independently_verified).toBe(5);
   });
 
   it("bands: below 40 thin, below 60 fair, below 80 solid, else strong", () => {

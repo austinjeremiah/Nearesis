@@ -275,7 +275,7 @@ export function verifyReferenceBundle(thesisDir: string): Check[] {
   };
   const hashOf = (p: string): string | null => {
     // `thesis/...` paths live in the thesis directory; the others (frozen research results) are relative to the app root
-    const inThesis = p.startsWith("thesis/") || p.startsWith("build/");
+    const inThesis = p.startsWith("thesis/") || p.startsWith("build/") || p.startsWith("raw/");
     const base = inThesis ? resolve(thesisDir) : resolve(APP_ROOT);
     const full = resolve(base, p.startsWith("thesis/") ? p.slice("thesis/".length) : p);
     return full.startsWith(base) && existsSync(full)

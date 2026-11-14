@@ -3,11 +3,12 @@
  * HASHES.json) from thesis/raw and the frozen v3 research results. No network, no clock, no model: generatedAt is the manifest's
  * frozenAt, every number passes through the grounding Ledger and is re-checked by the scanner before anything is written.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { canonicalJson, sha256Hex } from "../../packages/plugin-sdk/src/canonical.ts";
 import { buildCharts } from "./charts.ts";
+import { buildForecastBundle, ForecastBuildError } from "./build-forecast.ts";
 import { Ledger, scanGrounding, scanSentence } from "./ground.ts";
 import type { GroundViolation } from "./ground.ts";
 import { APP_ROOT, DEFAULT_RESULTS_DIR, DEFAULT_THESIS_DIR, loadInputs } from "./inputs.ts";
@@ -24,6 +25,8 @@ export interface BuildOptions {
 export interface BuildOutput {
   /** Relative to the build directory. */
   files: Map<string, string>;
+  /** Files written relative to the thesis directory (the forecast bundle's raw/forecast.json). */
+  extra?: Map<string, string>;
   version: string;
   thesis: ThesisJson;
   numbersChecked: number;
@@ -69,7 +72,23 @@ function sampleQueryOf(inp: Inputs): ThesisJson["sampleQuery"] {
   return { title: "No sample query available", sql: "-- none" };
 }
 
+/** A thesis directory whose manifest says kind "forecast" is built by build-forecast.ts. */
+function isForecastDir(dir: string): boolean {
+  const p = join(dir, "raw", "manifest.json");
+  return existsSync(p) && (JSON.parse(readFileSync(p, "utf8")) as { kind?: string }).kind === "forecast";
+}
+
 export function buildBundle(o: BuildOptions = {}): BuildOutput {
+  if (isForecastDir(o.thesisDir ?? DEFAULT_THESIS_DIR)) {
+    const r = buildForecastBundle(o.thesisDir ?? DEFAULT_THESIS_DIR);
+    return {
+      files: r.files,
+      extra: r.extra,
+      version: r.version,
+      thesis: r.thesis as unknown as ThesisJson,
+      numbersChecked: r.numbersChecked,
+    };
+  }
   const inp = loadInputs(o.thesisDir ?? DEFAULT_THESIS_DIR, o.resultsDir ?? DEFAULT_RESULTS_DIR);
   const version = `v-${sha(canonicalJson(inp.files.map((f) => [f.cite, f.sha256]))).slice(0, 12)}`;
   const L = new Ledger(inp.docs);
@@ -154,12 +173,18 @@ export function buildBundle(o: BuildOptions = {}): BuildOutput {
   return { files, version, thesis, numbersChecked: checked };
 }
 
-export function writeBundle(out: BuildOutput, buildDir: string): void {
+export function writeBundle(out: BuildOutput, buildDir: string, thesisDir?: string): void {
   for (const [rel, body] of out.files) {
     const p = join(buildDir, rel);
     mkdirSync(dirname(p), { recursive: true });
     writeFileSync(p, body);
   }
+  if (thesisDir)
+    for (const [rel, body] of out.extra ?? []) {
+      const p = join(thesisDir, rel);
+      mkdirSync(dirname(p), { recursive: true });
+      writeFileSync(p, body);
+    }
 }
 
 export function summaryLine(out: BuildOutput, buildDir: string): string {
@@ -179,17 +204,18 @@ function arg(name: string): string | undefined {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const thesisDir = arg("thesis") ?? DEFAULT_THESIS_DIR;
+    const dir = arg("dir") ?? arg("thesis");
+    const thesisDir = dir ? resolve(dir) : DEFAULT_THESIS_DIR;
     const buildDir = arg("out") ?? join(thesisDir, "build");
     const out = buildBundle({ thesisDir, ...(arg("results") ? { resultsDir: arg("results")! } : {}) });
-    writeBundle(out, buildDir);
+    writeBundle(out, buildDir, thesisDir);
     console.log(summaryLine(out, buildDir));
   } catch (e) {
     console.error(
       JSON.stringify({
         ok: false,
         error: (e as Error).message,
-        detail: e instanceof BuildError ? e.detail : null,
+        detail: e instanceof BuildError || e instanceof ForecastBuildError ? e.detail : null,
       }),
     );
     process.exit(1);

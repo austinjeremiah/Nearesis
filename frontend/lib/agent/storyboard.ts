@@ -449,6 +449,12 @@ export type CompareOutcome = 'match' | 'drift' | 'different' | 'unknown';
 export function compareRows(items: { label: string; value: string; original?: string; reproduced?: string; delta?: string }[]): CompareRow[] {
   return items.map((i) => {
     if (i.original !== undefined || i.reproduced !== undefined || i.delta !== undefined) return { what: i.label, original: i.original ?? null, reproduced: i.reproduced ?? null, delta: i.delta ?? null };
+    // the agent writes "original X; reproduced Y; delta Z" (a missing value reads "not available", a missing delta is left out)
+    const m = /^original\s+(.*?);\s*reproduced\s+(.*?)(?:;\s*delta\s+(.*))?$/i.exec(i.value.trim());
+    if (m) {
+      const v = (x: string | undefined) => (x === undefined || /^not available$/i.test(x.trim()) ? null : x.trim());
+      return { what: i.label, original: v(m[1]), reproduced: v(m[2]), delta: v(m[3]) };
+    }
     const parts = i.value.split(/\s*(?:\||\u2192|->)\s*/);
     return parts.length >= 2 ? { what: i.label, original: parts[0] || null, reproduced: parts[1] || null, delta: parts[2] || null } : { what: i.label, original: null, reproduced: i.value || null, delta: null };
   });

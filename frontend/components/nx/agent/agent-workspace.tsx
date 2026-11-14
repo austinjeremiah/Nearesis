@@ -122,7 +122,8 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
   useEffect(() => {
     if (threadId && d && seenThread.current !== threadId) {
       seenThread.current = threadId;
-      if (threadWs) setWid(threadWs);
+      // a conversation with no workspace shows no workspace charts
+      setWid(threadWs);
     }
   }, [threadId, d, threadWs]);
   // A task that creates or binds a workspace moves the canvas to it.
@@ -195,9 +196,13 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
     },
   });
   const newThread = useMutation({
-    mutationFn: () => agentApi.createThread({ workspaceId: wid }),
+    // A new conversation starts clean: no workspace bound and no charts carried over from the previous one.
+    mutationFn: () => agentApi.createThread({}),
     onSuccess: (t) => {
       setThreadId(t.id);
+      setWid(null);
+      setMode('chat');
+      setLocalRuns([]);
       setSel(null);
       setPane('chat');
       void qc.invalidateQueries({ queryKey: agentKeys.threads });

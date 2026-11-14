@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { Badge } from '@/components/nx/evidence';
 import { ApiErrorState } from '@/components/nx/states';
-import { Card, Skeleton, Tabs } from '@/components/nx/ui';
+import { Card, Skeleton } from '@/components/nx/ui';
+import { TabStrip } from '@/components/nx/landing';
 import { useCanvas, usePanelData, usePanelProgress } from '@/lib/panel/hooks';
 import type { Viz } from '@/lib/panel/model';
 import { DataTable } from './ChartRenderer';
@@ -48,7 +49,7 @@ export default function PanelDetail({ wid, panelId }: { wid: string; panelId: st
           <RangeSelectForm wid={wid} panel={panel} data={d} />
         </Card>
       )}
-      <Tabs
+      <TabStrip
         ariaLabel="Panel details"
         value={tab}
         onChange={setTab}

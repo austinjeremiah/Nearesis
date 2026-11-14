@@ -3389,3 +3389,91 @@ table.table {
 .nx .topbar {
   padding: 0 var(--s4) 0 var(--s5);
 }
+
+/* =============================================================================
+   Canvas arrange mode: the drag/resize layout surface used while editing.
+   ========================================================================== */
+.cgrid {
+  position: relative;
+  width: 100%;
+}
+/* The track only shows while the reader is arranging panels. */
+.cgrid[data-grid='true'] {
+  background-image:
+    linear-gradient(to right, var(--line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+  background-size: var(--cgrid-col) var(--cgrid-row);
+  background-position: 0 0;
+}
+.cgrid-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+  transition: box-shadow var(--t-fast) var(--ease);
+}
+.cgrid-item > .card {
+  height: 100%;
+  overflow: hidden;
+}
+.cgrid-item > .card > .card-body {
+  overflow: auto;
+}
+.cgrid[data-locked='false'] .cgrid-item > .card > .card-head {
+  cursor: grab;
+}
+.cgrid-item[data-dragging='true'] {
+  z-index: 5;
+}
+.cgrid-item[data-dragging='true'] > .card {
+  box-shadow: var(--shadow-overlay);
+  border-color: var(--line-hard);
+}
+.cgrid-item[data-selected='true'] > .card {
+  border-color: var(--line-hard);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.cgrid-item:focus-visible {
+  outline: none;
+}
+.cgrid-item:focus-visible > .card {
+  box-shadow: var(--focus-ring);
+}
+.cgrid-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.cgrid-resize::after {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--line-strong);
+  border-bottom: 2px solid var(--line-strong);
+}
+
+
+/* On the paper, the arrange track is drawn in the paper's own line colour. */
+.cgrid-item > .nxp-cell.fill,
+.cgrid-item > .nxp-cell.fill > .nxp {
+  height: 100%;
+}
+.cgrid-item > .nxp-cell.fill {
+  grid-column: auto;
+}
+.cgrid-item > .nxp-cell.fill > .nxp {
+  overflow: hidden;
+}
+.cgrid-item[data-selected='true'] > .nxp-cell > .nxp {
+  outline: 2px solid var(--accent);
+}
+.cgrid[data-locked='false'] .cgrid-item {
+  cursor: grab;
+}

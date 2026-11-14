@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, Menu as MenuIcon, PanelLeftClose, Search } from 'lucide-react';
+import { ChevronDown, Menu as MenuIcon, PanelLeftClose, Search, Sparkles } from 'lucide-react';
 import Wordmark from '@/components/Wordmark';
 import {
   GLOBAL_NAV,
@@ -195,6 +195,10 @@ export function AppShell({
               ⌘K
             </kbd>
           </button>
+          <Link href="/agent" className="btn ghost" title="Ask the agent (⌘J)">
+            <Sparkles size={14} />
+            Ask
+          </Link>
           <UserMenu workspaceId={workspaceId} />
         </header>
         {children}

@@ -6,7 +6,8 @@ import { Badge } from '@/components/nx/evidence';
 import { ApiErrorState } from '@/components/nx/states';
 import { Button, Card, EmptyState, Field, IconButton, Input, Notice, Skeleton } from '@/components/nx/ui';
 import { formatUtc } from '@/lib/format';
-import { ordered, resize, spanOf, swapWithNeighbour } from '@/lib/panel/edit';
+import { GRID_COLS, ordered, resize, spanOf, swapWithNeighbour } from '@/lib/panel/edit';
+import { CanvasGrid, type LayoutMap, type Rect } from '@/components/nx/canvas-grid';
 import { useCanvas, useCanvasEditor, useLenses, useLensCommands, useLensResolution, usePanelProgress } from '@/lib/panel/hooks';
 import { usePanelSelection } from '@/lib/panel/selection';
 import { toTime } from '@/lib/panel/model';
@@ -27,6 +28,7 @@ function PanelCell({
   pending,
   edit,
   lensPick,
+  height,
 }: {
   wid: string;
   panel: CanvasPanel;
@@ -37,13 +39,15 @@ function PanelCell({
   pending: boolean;
   edit?: React.ReactNode;
   lensPick?: React.ReactNode;
+  /** Set in arrange mode, where the cell's own rectangle decides the height. */
+  height?: number;
 }) {
   const { ref, near } = useNearViewport();
   const sel = usePanelSelection();
   return (
-    <div className="nxp-cell" ref={ref} style={{ ['--span' as string]: spanOf(panel.layout) }}>
+    <div className={height ? 'nxp-cell fill' : 'nxp-cell'} ref={ref} style={{ ['--span' as string]: spanOf(panel.layout) }}>
       <PanelFrame wid={wid} panel={panel} enabled={near} dim={dim} pending={pending} edit={edit} tools={lensPick}>
-        <PanelBody wid={wid} panel={panel} height={layoutHeight(panel)} enabled={near} progress={progress} markers={markers} window={win} brush={panel.kind === 'timeSeries' || panel.kind === 'bar'} />
+        <PanelBody wid={wid} panel={panel} height={height ?? layoutHeight(panel)} enabled={near} progress={progress} markers={markers} window={win} brush={panel.kind === 'timeSeries' || panel.kind === 'bar'} />
         {sel?.panelId === panel.panelId && <div className="tiny dim" style={{ padding: '0 10px 6px' }}>Selected {sel.start.slice(0, 10)} to {sel.end.slice(0, 10)}</div>}
       </PanelFrame>
     </div>
@@ -65,6 +69,8 @@ export default function CanvasView({ wid }: { wid: string }) {
   const [lensFrom, setLensFrom] = useState('');
   const [lensTo, setLensTo] = useState('');
   const [pick, setPick] = useState<Set<string>>(new Set());
+  const [live, setLive] = useState<LayoutMap | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
 
   const panels = useMemo(() => ordered(ed.draftPanels.length || ed.pending.length ? ed.draftPanels : (doc?.panels ?? [])), [ed.draftPanels, ed.pending.length, doc]);
   const titles = useMemo(() => Object.fromEntries((doc?.panels ?? []).map((p) => [p.panelId, p.title])), [doc]);
@@ -80,6 +86,68 @@ export default function CanvasView({ wid }: { wid: string }) {
   const fromD = toTime(lensFrom);
   const toD = toTime(lensTo);
   const lensValid = lensName.trim().length > 0 && pick.size > 0 && (lensFrom === '' && lensTo === '' ? true : fromD !== null && toD !== null && fromD <= toD);
+
+  const arrangeCols = panels.some((p) => p.layout.w > GRID_COLS || p.layout.x >= GRID_COLS) ? GRID_COLS * 4 : GRID_COLS;
+  const ARRANGE_ROW = 44;
+  const ARRANGE_GAP = 12;
+  const baseLayout: LayoutMap = Object.fromEntries(panels.map((p) => [p.panelId, { x: p.layout.x, y: p.layout.y, w: p.layout.w, h: p.layout.h }]));
+  const commitLayout = (next: LayoutMap) => {
+    setLive(null);
+    const ops = panels.flatMap((p) => {
+      const r = next[p.panelId];
+      if (!r || (r.x === p.layout.x && r.y === p.layout.y && r.w === p.layout.w && r.h === p.layout.h)) return [];
+      return [{ op: 'movePanel' as const, panelId: p.panelId, layout: { ...p.layout, ...r } }];
+    });
+    if (ops.length) ed.queue(ops);
+  };
+  const renderPanel = (p: CanvasPanel, idx: number, height?: number) => {
+            const r = res.get(p.panelId);
+            const inLens = !lens || (lens.panelIds.includes(p.panelId) && r?.compatible !== false);
+            const win = lens && inLens ? (r?.appliedFilter?.timeRange ?? lens.filter.timeRange ?? null) : null;
+            const pend = ed.pending.some((o) => (o.op === 'addPanel' ? o.panel.panelId : o.panelId) === p.panelId);
+            return (
+              <PanelCell
+                key={p.panelId}
+                wid={wid}
+                panel={p}
+                markers={doc.markers ?? []}
+                progress={progress[p.panelId]}
+                window={win}
+                dim={!!lens && !inLens}
+                pending={pend}
+                height={height}
+                lensPick={
+                  naming ? (
+                    <label className="small row gap1">
+                      <input type="checkbox" checked={pick.has(p.panelId)} onChange={(e) => setPick((s) => { const n = new Set(s); e.target.checked ? n.add(p.panelId) : n.delete(p.panelId); return n; })} data-testid="lens-pick" />
+                      In lens
+                    </label>
+                  ) : undefined
+                }
+                edit={
+                  editing ? (
+                    <div className="nxp-edit" role="group" aria-label={`Edit ${p.title}`}>
+                      <IconButton label="Move earlier" disabled={idx === 0} onClick={() => ed.queue(swapWithNeighbour({ ...doc, panels }, p.panelId, -1))} data-testid="move-earlier">
+                        <ArrowUp size={14} />
+                      </IconButton>
+                      <IconButton label="Move later" disabled={idx === panels.length - 1} onClick={() => ed.queue(swapWithNeighbour({ ...doc, panels }, p.panelId, 1))} data-testid="move-later">
+                        <ArrowDown size={14} />
+                      </IconButton>
+                      <IconButton label="Wider" onClick={() => ed.queue(resize(p, 3, 0))} data-testid="wider">
+                        <ChevronsLeftRight size={14} />
+                      </IconButton>
+                      <Button variant="ghost" onClick={() => ed.queue(resize(p, -3, 0))}>Narrower</Button>
+                      <Button variant="ghost" onClick={() => ed.queue(resize(p, 0, 2))}>Taller</Button>
+                      <Button variant="ghost" onClick={() => ed.queue(resize(p, 0, -2))}>Shorter</Button>
+                      <Button variant="ghost" onClick={() => ed.queue([{ op: 'removePanel', panelId: p.panelId }])} data-testid="remove-panel">
+                        Remove
+                      </Button>
+                    </div>
+                  ) : undefined
+                }
+              />
+            );
+          };
 
   return (
     <div className="col gap3">
@@ -226,55 +294,31 @@ export default function CanvasView({ wid }: { wid: string }) {
       {panels.length === 0 ? (
         <EmptyState title="No panels yet" body="Ask a question in Investigate. Approved panels appear here as their queries complete." />
       ) : (
+        editing ? (
+          <div data-testid="canvas-grid" data-mode="arrange">
+          <CanvasGrid
+            ids={panels.map((p) => p.panelId)}
+            layout={live ?? baseLayout}
+            onLayoutChange={setLive}
+            onCommit={commitLayout}
+            columns={arrangeCols}
+            rowHeight={ARRANGE_ROW}
+            gap={ARRANGE_GAP}
+            showGrid
+            selectedId={selected}
+            onSelect={setSelected}
+            renderItem={(id, rect: Rect) => {
+              const idx = panels.findIndex((q) => q.panelId === id);
+              const p = panels[idx];
+              return p ? renderPanel(p, idx, Math.max(120, rect.h * ARRANGE_ROW + (rect.h - 1) * ARRANGE_GAP - 190)) : null;
+            }}
+          />
+          </div>
+        ) : (
         <div className="nxp-grid" data-testid="canvas-grid">
-          {panels.map((p, idx) => {
-            const r = res.get(p.panelId);
-            const inLens = !lens || (lens.panelIds.includes(p.panelId) && r?.compatible !== false);
-            const win = lens && inLens ? (r?.appliedFilter?.timeRange ?? lens.filter.timeRange ?? null) : null;
-            const pend = ed.pending.some((o) => (o.op === 'addPanel' ? o.panel.panelId : o.panelId) === p.panelId);
-            return (
-              <PanelCell
-                key={p.panelId}
-                wid={wid}
-                panel={p}
-                markers={doc.markers ?? []}
-                progress={progress[p.panelId]}
-                window={win}
-                dim={!!lens && !inLens}
-                pending={pend}
-                lensPick={
-                  naming ? (
-                    <label className="small row gap1">
-                      <input type="checkbox" checked={pick.has(p.panelId)} onChange={(e) => setPick((s) => { const n = new Set(s); e.target.checked ? n.add(p.panelId) : n.delete(p.panelId); return n; })} data-testid="lens-pick" />
-                      In lens
-                    </label>
-                  ) : undefined
-                }
-                edit={
-                  editing ? (
-                    <div className="nxp-edit" role="group" aria-label={`Edit ${p.title}`}>
-                      <IconButton label="Move earlier" disabled={idx === 0} onClick={() => ed.queue(swapWithNeighbour({ ...doc, panels }, p.panelId, -1))} data-testid="move-earlier">
-                        <ArrowUp size={14} />
-                      </IconButton>
-                      <IconButton label="Move later" disabled={idx === panels.length - 1} onClick={() => ed.queue(swapWithNeighbour({ ...doc, panels }, p.panelId, 1))} data-testid="move-later">
-                        <ArrowDown size={14} />
-                      </IconButton>
-                      <IconButton label="Wider" onClick={() => ed.queue(resize(p, 3, 0))} data-testid="wider">
-                        <ChevronsLeftRight size={14} />
-                      </IconButton>
-                      <Button variant="ghost" onClick={() => ed.queue(resize(p, -3, 0))}>Narrower</Button>
-                      <Button variant="ghost" onClick={() => ed.queue(resize(p, 0, 2))}>Taller</Button>
-                      <Button variant="ghost" onClick={() => ed.queue(resize(p, 0, -2))}>Shorter</Button>
-                      <Button variant="ghost" onClick={() => ed.queue([{ op: 'removePanel', panelId: p.panelId }])} data-testid="remove-panel">
-                        Remove
-                      </Button>
-                    </div>
-                  ) : undefined
-                }
-              />
-            );
-          })}
+          {panels.map((p, idx) => renderPanel(p, idx))}
         </div>
+        )
       )}
     </div>
   );

@@ -51,6 +51,14 @@ export function CommandPalette({
   if (!open) return null;
   const routes = allRoutes(workspaceId);
 
+  // The Agent first, then view actions, then whatever a screen contributed.
+  const grouped = actions.reduce<Record<string, PaletteAction[]>>((acc, a) => {
+    (acc[a.group] ??= []).push(a);
+    return acc;
+  }, {});
+  const preferred = ['Agent', 'View'];
+  const groupOrder = [...preferred.filter((g) => grouped[g]), ...Object.keys(grouped).filter((g) => !preferred.includes(g))];
+
   return (
     <>
       <div className="scrim" onClick={() => onOpenChange(false)} />
@@ -58,6 +66,25 @@ export function CommandPalette({
         <Command.Input autoFocus placeholder="Search screens, metrics and actions" />
         <Command.List>
           <Command.Empty>No matches.</Command.Empty>
+
+          {groupOrder.map((group) => (
+            <Command.Group key={group} heading={group}>
+              {grouped[group].map((a) => (
+                <Command.Item
+                  key={a.id}
+                  value={`${a.label} ${a.hint ?? ''}`}
+                  className="menu-item"
+                  onSelect={() => {
+                    onOpenChange(false);
+                    a.run();
+                  }}
+                >
+                  <span className="grow">{a.label}</span>
+                  {a.hint && <kbd className="tiny dim mono">{a.hint}</kbd>}
+                </Command.Item>
+              ))}
+            </Command.Group>
+          ))}
 
           <Command.Group heading="Go to">
             {routes.map((r) => (
@@ -77,24 +104,6 @@ export function CommandPalette({
             ))}
           </Command.Group>
 
-          {actions.length > 0 && (
-            <Command.Group heading="Actions">
-              {actions.map((a) => (
-                <Command.Item
-                  key={a.id}
-                  value={`${a.label} ${a.hint ?? ''}`}
-                  className="menu-item"
-                  onSelect={() => {
-                    onOpenChange(false);
-                    a.run();
-                  }}
-                >
-                  <span className="grow">{a.label}</span>
-                  {a.hint && <span className="tiny dim">{a.hint}</span>}
-                </Command.Item>
-              ))}
-            </Command.Group>
-          )}
         </Command.List>
       </Command>
     </>

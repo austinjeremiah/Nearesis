@@ -923,7 +923,8 @@ async function capsuleProve(e: Env): Promise<Outcome> {
   if (e.ctx.proofId) {
     const r = await e.api(e.user, "GET", `/v1/proofs/${e.ctx.proofId}`);
     const st = (r.body as ProofView | null)?.state;
-    if (r.status === 200 && (st === "running" || st === "verified")) proofId = e.ctx.proofId;
+    if (r.status === 200 && (st === "running" || st === "verified" || st === "not_attested"))
+      proofId = e.ctx.proofId;
   }
   if (!proofId) {
     const r = await e.api(
@@ -973,6 +974,19 @@ async function capsuleProve(e: Env): Promise<Outcome> {
   ];
   if (proof.state === "verified")
     return { kind: "done", result: { summary: "The capsule is verified on OutLayer (testnet).", items } };
+  if (proof.state === "not_attested")
+    // The job was paid for and ran; only OutLayer's hardware attestation has not been posted yet. That is the provider's
+    // delay, not a fault in the capsule, so the task goes on. The proof is looked up again whenever it is read and turns
+    // verified on its own once the attestation appears.
+    return {
+      kind: "done",
+      result: {
+        summary:
+          "Submitted to OutLayer and paid for, but OutLayer has not posted the hardware attestation yet. The proof stays pending and is checked again automatically; the task continues.",
+        items: [...items, item("Attestation", "pending at OutLayer")],
+        refs: { proofId, skipped: [{ kind: "attestation", reason: "OutLayer has not posted it yet" }] },
+      },
+    };
   throw new StepFail(
     `PROOF_${String(proof.state ?? "failed").toUpperCase()}`,
     proof.error ?? `The OutLayer proof ended as ${String(proof.state)}.`,

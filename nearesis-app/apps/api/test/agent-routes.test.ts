@@ -1242,6 +1242,47 @@ describe("thesis steps: executor", () => {
     stub = null;
   });
 
+  it("setup.auto is skipped, not failed, when the run has no grounded finding, and the task goes on to the thesis", async () => {
+    stub = stubWith([
+      runsStub,
+      (p) =>
+        is("POST", /\/assistant\/setup$/)(p)
+          ? {
+              status: 422,
+              body: {
+                errorCode: "VALIDATION_FAILED",
+                reasonCode: "INTERPRETATION_NOT_READY",
+                message: "The run has no ready interpretation to set up from.",
+                retryable: false,
+              },
+            }
+          : null,
+      (p) =>
+        is("POST", /\/theses$/)(p)
+          ? {
+              status: 201,
+              body: { thesisId, version: "v", status: "draft", verdict: { status: "MIXED", headline: "h" } },
+            }
+          : null,
+    ]);
+    const id = await propose(
+      [
+        S("workspace.use", { workspaceId: wsId }),
+        S("setup.auto", { runId: run0 }),
+        S("thesis.build", { runId: run0 }),
+      ],
+      undefined,
+      null,
+    );
+    await call(alice, "POST", `/v1/agent/tasks/${id}/start`, { consent: [] });
+    const t = await settle(id, ["completed", "failed"]);
+    expect(t.state).toBe("completed");
+    const setup = t.steps.find((x: any) => x.key === "setup.auto");
+    expect(setup.state).toBe("done");
+    expect(setup.result.summary).toMatch(/^Skipped: the run produced no grounded finding/);
+    stub = null;
+  });
+
   it("thesis.challenge needs no consent, posts with no body, and reports the outcome in plain words with the kept notes", async () => {
     const bodies: unknown[] = [];
     stub = stubWith([

@@ -37,6 +37,7 @@ import { nearAuthRoutes } from "./near-auth-routes.ts";
 import { reportRoutes } from "./report-routes.ts";
 import { thesisTrackRoutes } from "./thesis-track-routes.ts";
 import { userThesisRoutes } from "./user-thesis-routes.ts";
+import { userThesisChallengeRoutes } from "./user-thesis-challenge-routes.ts";
 import type { OidcClient } from "@nearesis/kernel";
 import type { PanelDataPort } from "./panel-data.ts";
 import type { SourceHealthPort } from "./source-health.ts";
@@ -674,6 +675,12 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     runs,
     ...(opts.frontend?.panelData ? { panelData: opts.frontend.panelData } : {}),
     ...(opts.frontend?.capsuleRoot ? { capsuleRoot: opts.frontend.capsuleRoot } : {}),
+  });
+  await app.register(userThesisChallengeRoutes, {
+    kernel,
+    authenticate,
+    ...(opts.assistant?.inference ? { inference: opts.assistant.inference } : {}),
+    ...(opts.externalModelSpend ? { externalModelSpend: opts.externalModelSpend } : {}),
   });
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.

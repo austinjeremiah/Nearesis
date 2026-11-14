@@ -28,6 +28,9 @@ import { compareDocs } from "./user-thesis/compare.ts";
 import { docHash, verifyReferenceBundle, verifyWorkspaceThesis } from "./user-thesis/verify.ts";
 import type { Check, Doc, ProofBinding } from "./user-thesis/verify.ts";
 import { UNTESTED_NOTE } from "./user-thesis/validate.ts";
+import { strengthOf } from "./user-thesis/strength.ts";
+import type { StrengthChallenge } from "./user-thesis/strength.ts";
+import { challengeCount, readChallenges, readPublicChallenges, DISPLAY_LIMIT } from "./user-thesis/challenges.ts";
 
 /**
  * User theses (backend part 1). A thesis is a deterministic `nearesis.thesis.v1` document built from a workspace run and its
@@ -91,8 +94,10 @@ interface Counts {
   different: number;
   incomplete: number;
   mismatch: number;
+  /** Finished challenges (an unavailable one is not counted). */
+  challenged: number;
 }
-const noCounts: Counts = { verified: 0, reproduced: 0, drift: 0, different: 0, incomplete: 0, mismatch: 0 };
+const noCounts: Counts = { verified: 0, reproduced: 0, drift: 0, different: 0, incomplete: 0, mismatch: 0, challenged: 0 };
 
 const notFound = (): KernelError => new KernelError("NOT_FOUND", "THESIS_NOT_FOUND", "Thesis not found.");
 const fileNotFound = (): KernelError =>
@@ -145,11 +150,11 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
     const m = new Map<string, Counts>();
     for (const id of ids) {
       const r = await tx.query<Counts>("SELECT * FROM thesis_receipt_counts_v2($1)", [id]);
-      m.set(id, r.rows[0] ?? noCounts);
+      m.set(id, { ...(r.rows[0] ?? noCounts), challenged: await challengeCount(tx, id) });
     }
     return m;
   };
-  const summaryOf = (r: Row, s: Session | null, c: Counts) => ({
+  const summaryOf = (r: Row, s: Session | null, c: Counts, ch: StrengthChallenge[] = []) => ({
     id: r.id,
     title: r.title,
     hypothesis: String(r.doc.hypothesis ?? ""),
@@ -162,8 +167,9 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
     sourceThesisId: r.source_thesis_id,
     updatedAt: (r.published_at ?? r.created_at).toISOString(),
     receipts: c,
+    strength: strengthOf(r.doc, c, ch),
   });
-  const referenceSummary = (c: Counts) => {
+  const referenceSummary = (c: Counts, ch: StrengthChallenge[] = []) => {
     const ref = loadReference();
     return {
       id: REFERENCE_ID,
@@ -178,6 +184,7 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
       sourceThesisId: null,
       updatedAt: ref.updatedAt,
       receipts: c,
+      strength: strengthOf(ref.doc, c, ch),
     };
   };
   const rowOf = async (tx: Tx, id: string): Promise<Row> => {
@@ -475,13 +482,14 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
     const s = await authenticate(req);
     const rows = await kernel.db.tx(ctxOf(s), async (tx) => {
       const r = await tx.query<Row>(`SELECT ${COLS} FROM theses ORDER BY created_at DESC, id LIMIT 200`);
-      const c = await counts(tx, [REFERENCE_ID, ...r.rows.map((x) => x.id)]);
-      return { rows: r.rows, c };
+      const ids = [REFERENCE_ID, ...r.rows.map((x) => x.id)];
+      const c = await counts(tx, ids);
+      return { rows: r.rows, c, ch: await readChallenges(tx, ids) };
     });
     return {
       items: [
-        referenceSummary(rows.c.get(REFERENCE_ID) ?? noCounts),
-        ...rows.rows.map((r) => summaryOf(r, s, rows.c.get(r.id) ?? noCounts)),
+        referenceSummary(rows.c.get(REFERENCE_ID) ?? noCounts, rows.ch.get(REFERENCE_ID) ?? []),
+        ...rows.rows.map((r) => summaryOf(r, s, rows.c.get(r.id) ?? noCounts, rows.ch.get(r.id) ?? [])),
       ],
     };
   });
@@ -505,7 +513,8 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
       }
       const row = await rowOf(tx, g.id);
       const c = await counts(tx, [g.id]);
-      return { thesisId: g.id, created, thesis: summaryOf(row, s, c.get(g.id) ?? noCounts) };
+      const ch = await readChallenges(tx, [g.id]);
+      return { thesisId: g.id, created, thesis: summaryOf(row, s, c.get(g.id) ?? noCounts, ch.get(g.id) ?? []) };
     });
   });
 
@@ -517,18 +526,26 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
       const rec = await kernel.db.tx(ctxOf(s), async (tx) => ({
         c: await counts(tx, [REFERENCE_ID]),
         receipts: await receiptsOf(tx, REFERENCE_ID),
+        ch: (await readChallenges(tx, [REFERENCE_ID])).get(REFERENCE_ID) ?? [],
       }));
       return {
-        thesis: referenceSummary(rec.c.get(REFERENCE_ID) ?? noCounts),
+        thesis: referenceSummary(rec.c.get(REFERENCE_ID) ?? noCounts, rec.ch),
         doc: ref.doc,
         receipts: rec.receipts,
+        challenges: rec.ch.slice(0, DISPLAY_LIMIT),
       };
     }
     return kernel.db.tx(ctxOf(s), async (tx) => {
       const row = await rowOf(tx, id);
       const c = await counts(tx, [id]);
       const doc = row.org_id === s.principal.orgId ? row.doc : publicDoc(row.doc);
-      return { thesis: summaryOf(row, s, c.get(id) ?? noCounts), doc, receipts: await receiptsOf(tx, id) };
+      const ch = (await readChallenges(tx, [id])).get(id) ?? [];
+      return {
+        thesis: summaryOf(row, s, c.get(id) ?? noCounts, ch),
+        doc,
+        receipts: await receiptsOf(tx, id),
+        challenges: ch.slice(0, DISPLAY_LIMIT),
+      };
     });
   });
 
@@ -861,7 +878,7 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
     req: { ip: string },
     reply: { header(k: string, v: string): unknown },
     slug: string,
-  ): Promise<{ row: PublicRow; c: Counts }> => {
+  ): Promise<{ row: PublicRow; c: Counts; ch: Awaited<ReturnType<typeof readPublicChallenges>> }> => {
     const wait = take(req.ip);
     if (wait !== null) {
       void reply.header("retry-after", String(wait));
@@ -871,13 +888,15 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
     return kernel.db.txGlobal(async (tx) => {
       const row = (await tx.query<PublicRow>("SELECT * FROM thesis_public_get($1)", [slug])).rows[0];
       if (!row) throw notFound();
-      const c =
-        (await tx.query<Counts>("SELECT * FROM thesis_receipt_counts_v2($1)", [row.id])).rows[0] ?? noCounts;
-      return { row, c };
+      const c = {
+        ...((await tx.query<Counts>("SELECT * FROM thesis_receipt_counts_v2($1)", [row.id])).rows[0] ?? noCounts),
+        challenged: await challengeCount(tx, row.id),
+      };
+      return { row, c, ch: await readPublicChallenges(tx, row.id) };
     });
   };
   app.get<{ Params: { slug: string } }>("/v1/public/theses/:slug", async (req, reply) => {
-    const { row, c } = await publicRow(req, reply, req.params.slug);
+    const { row, c, ch } = await publicRow(req, reply, req.params.slug);
     void reply.header("cache-control", "public, max-age=30").header("x-content-type-options", "nosniff");
     return {
       thesis: {
@@ -891,9 +910,11 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
         shareSlug: req.params.slug,
         ownerDisplay: row.owner_display,
         updatedAt: row.published_at.toISOString(),
+        strength: strengthOf(row.doc, c, ch),
       },
       doc: publicDoc(row.doc),
       receipts: c,
+      challenges: ch.slice(0, DISPLAY_LIMIT),
     };
   });
   app.get<{ Params: { slug: string; "*": string } }>(

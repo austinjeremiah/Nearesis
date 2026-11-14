@@ -386,6 +386,12 @@ async function setupAuto(e: Env): Promise<Outcome> {
     result: {
       summary: `${made} created${(b.skipped?.length ?? 0) > 0 ? `, ${b.skipped!.length} skipped with a reason` : ""}.`,
       items,
+      refs: {
+        markerIds: (b.markers ?? []).map((m) => String(m.id)).filter((x) => x !== "undefined"),
+        monitorIds: (b.monitors ?? []).map((m) => String(m.id)).filter((x) => x !== "undefined"),
+        ...(b.hypothesis && typeof b.hypothesis.id === "string" ? { hypothesisId: b.hypothesis.id } : {}),
+        skipped: (b.skipped ?? []).map((x) => ({ kind: String(x.kind), reason: String(x.reason) })),
+      },
     },
   };
 }

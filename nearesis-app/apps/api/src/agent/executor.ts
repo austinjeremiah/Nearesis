@@ -245,7 +245,23 @@ export class Executor {
         } else {
           await tx.query(
             "UPDATE agent_task_steps SET state='done', result=$3::jsonb, progress=NULL, waiting=NULL, error=NULL, finished_at=now() WHERE task_id=$1 AND idx=$2",
-            [taskId, step.idx, JSON.stringify(outcome.result)],
+            [
+              taskId,
+              step.idx,
+              // every finished step carries the ids it worked on, so a client can load the real objects
+              JSON.stringify({
+                ...outcome.result,
+                refs: {
+                  ...(ctx.workspaceId ? { workspaceId: ctx.workspaceId } : {}),
+                  ...(ctx.runId ? { runId: ctx.runId } : {}),
+                  ...(ctx.capsuleId ? { capsuleId: ctx.capsuleId } : {}),
+                  ...(ctx.proofId ? { proofId: ctx.proofId } : {}),
+                  ...(ctx.publicationId ? { publicationId: ctx.publicationId } : {}),
+                  ...(ctx.hypothesisId ? { hypothesisId: ctx.hypothesisId } : {}),
+                  ...(outcome.result.refs ?? {}),
+                },
+              }),
+            ],
           );
           await tx.query("UPDATE agent_tasks SET current_step=$2 WHERE id=$1", [taskId, step.idx + 1]);
         }

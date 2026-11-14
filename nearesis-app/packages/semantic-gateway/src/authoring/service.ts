@@ -660,6 +660,18 @@ export function createAuthoringService(deps: AuthoringDeps) {
       const pins: MetricVersionPin[] = [];
       for (const r of refs) {
         const rec = await store.get(scopeOf(p), r.metricKey, r.version);
+        // A certified registry metric has no authored record to pin: its definition is fixed by the registry version the
+        // capsule already records. It is accepted here and simply contributes no pin.
+        if (
+          !rec &&
+          deps.registry?.metrics.some(
+            (m) =>
+              m.id === r.metricKey &&
+              m.certified &&
+              Number.parseInt(String(m.certifiedVersion).split(".")[0] ?? "", 10) === r.version,
+          )
+        )
+          continue;
         if (!rec || (rec.status !== "CERTIFIED" && rec.status !== "DEPRECATED") || !rec.certifiedAt)
           throw new MetricAuthoringError(
             "METRIC_NOT_CERTIFIED",
@@ -667,7 +679,7 @@ export function createAuthoringService(deps: AuthoringDeps) {
           );
         pins.push({ metricKey: rec.metricKey, version: rec.version, proposalHash: rec.proposalHash });
       }
-      await store.pin(scopeOf(p), snapshotId, pins);
+      if (pins.length) await store.pin(scopeOf(p), snapshotId, pins);
       await ok(p, "pin", refs[0]?.metricKey ?? "-", null, { snapshotId, pins: pins.length });
       return store.pinsOf(scopeOf(p), snapshotId);
     },

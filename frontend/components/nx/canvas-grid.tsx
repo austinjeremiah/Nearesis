@@ -11,6 +11,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
+import { arrange, keyStep, type LayoutMap, type Rect } from '@/lib/panel/arrange';
 
 /**
  * The Canvas layout surface.
@@ -25,11 +26,7 @@ import {
  * stops rounding, for the rare panel that needs to sit off the track.
  */
 
-export type Rect = { x: number; y: number; w: number; h: number };
-export type LayoutMap = Record<string, Rect>;
-
-const MIN_W = 2;
-const MIN_H = 2;
+export type { Rect, LayoutMap };
 
 type DragState = {
   pointerId: number;
@@ -38,6 +35,8 @@ type DragState = {
   startX: number;
   startY: number;
   origin: Rect;
+  /** Layout when the gesture began: every frame reflows from here, so moving back restores the neighbours. */
+  base: LayoutMap;
   moved: boolean;
 };
 
@@ -136,20 +135,8 @@ export function CanvasGrid({
 
   const rectOf = (id: string, index: number): Rect => layout[id] ?? fallback(index);
 
-  const clamp = useCallback(
-    (r: Rect): Rect => {
-      const round = (n: number) => (snap ? Math.round(n) : Math.round(n * 100) / 100);
-      const w = Math.max(MIN_W, Math.min(columns, round(r.w)));
-      const h = Math.max(MIN_H, round(r.h));
-      return {
-        w,
-        h,
-        x: Math.max(0, Math.min(columns - w, round(r.x))),
-        y: Math.max(0, round(r.y)),
-      };
-    },
-    [columns, snap],
-  );
+  /** The whole layout including panels without a stored rect, so collisions see every panel. */
+  const fullLayout = (): LayoutMap => Object.fromEntries(ids.map((id, i) => [id, layoutRef.current[id] ?? fallback(i)]));
 
   /* --- pointer ------------------------------------------------------------ */
 
@@ -163,6 +150,7 @@ export function CanvasGrid({
       startX: e.clientX,
       startY: e.clientY,
       origin: rectOf(id, index),
+      base: fullLayout(),
       moved: false,
     };
     setDragging(id);
@@ -179,7 +167,7 @@ export function CanvasGrid({
       d.mode === 'move'
         ? { ...d.origin, x: d.origin.x + dx, y: d.origin.y + dy }
         : { ...d.origin, w: d.origin.w + dx, h: d.origin.h + dy };
-    onLayoutChange({ ...layoutRef.current, [d.id]: clamp(next) });
+    onLayoutChange(arrange(d.base, d.id, next, columns, snap, d.mode));
   };
 
   const end = () => {
@@ -203,15 +191,9 @@ export function CanvasGrid({
     if (!keys.includes(e.key)) return;
     e.preventDefault();
     const r = rectOf(id, index);
-    const step = e.shiftKey ? 'resize' : 'move';
-    const delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[
-      e.key
-    ] as [number, number];
-    const next =
-      step === 'move'
-        ? { ...r, x: r.x + delta[0], y: r.y + delta[1] }
-        : { ...r, w: r.w + delta[0], h: r.h + delta[1] };
-    const committed = { ...layoutRef.current, [id]: clamp(next) };
+    const next = keyStep(r, e.key, e.shiftKey);
+    if (!next) return;
+    const committed = arrange(fullLayout(), id, next, columns, snap, e.shiftKey ? 'resize' : 'move');
     onLayoutChange(committed);
     onCommit?.(committed);
   };

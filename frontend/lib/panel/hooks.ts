@@ -110,7 +110,11 @@ export function useCanvasEditor(wid: string, doc: CanvasDocument | undefined) {
   const queue = useCallback((ops: PatchOp[] | null) => {
     if (!ops?.length) return;
     setError(null);
-    setPending((p) => [...p, ...ops]);
+    // One panel keeps only its latest move: absolute layouts make the earlier ones redundant, and the diff stays short.
+    setPending((p) => {
+      const moved = new Set(ops.flatMap((o) => (o.op === 'movePanel' ? [o.panelId] : [])));
+      return [...p.filter((o) => !(o.op === 'movePanel' && moved.has(o.panelId))), ...ops];
+    });
   }, []);
   const discard = useCallback(() => {
     setPending([]);

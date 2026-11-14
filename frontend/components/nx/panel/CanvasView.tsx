@@ -6,7 +6,8 @@ import { Badge } from '@/components/nx/evidence';
 import { ApiErrorState } from '@/components/nx/states';
 import { Button, Card, EmptyState, Field, IconButton, Input, Notice, Skeleton } from '@/components/nx/ui';
 import { formatUtc } from '@/lib/format';
-import { GRID_COLS, ordered, resize, spanOf, swapWithNeighbour } from '@/lib/panel/edit';
+import { ordered, spanOf, swapWithNeighbour } from '@/lib/panel/edit';
+import { arrange, columnsFor, diffOps, nudgeSize, swapSettled } from '@/lib/panel/arrange';
 import { CanvasGrid, type LayoutMap, type Rect } from '@/components/nx/canvas-grid';
 import { useCanvas, useCanvasEditor, useLenses, useLensCommands, useLensResolution, usePanelProgress } from '@/lib/panel/hooks';
 import { usePanelSelection } from '@/lib/panel/selection';
@@ -87,17 +88,18 @@ export default function CanvasView({ wid }: { wid: string }) {
   const toD = toTime(lensTo);
   const lensValid = lensName.trim().length > 0 && pick.size > 0 && (lensFrom === '' && lensTo === '' ? true : fromD !== null && toD !== null && fromD <= toD);
 
-  const arrangeCols = panels.some((p) => p.layout.w > GRID_COLS || p.layout.x >= GRID_COLS) ? GRID_COLS * 4 : GRID_COLS;
+  const arrangeCols = columnsFor(panels.map((p) => p.layout));
   const ARRANGE_ROW = 44;
   const ARRANGE_GAP = 12;
   const baseLayout: LayoutMap = Object.fromEntries(panels.map((p) => [p.panelId, { x: p.layout.x, y: p.layout.y, w: p.layout.w, h: p.layout.h }]));
+  const nudge = (p: CanvasPanel, dw: number, dh: number) => ed.queue(diffOps(panels, nudgeSize(baseLayout, p.panelId, dw, dh, arrangeCols)));
+  const swap = (p: CanvasPanel, dir: -1 | 1) => {
+    const ops = swapWithNeighbour({ ...doc, panels }, p.panelId, dir);
+    if (ops) ed.queue(diffOps(panels, swapSettled(baseLayout, ops, arrangeCols)));
+  };
   const commitLayout = (next: LayoutMap) => {
     setLive(null);
-    const ops = panels.flatMap((p) => {
-      const r = next[p.panelId];
-      if (!r || (r.x === p.layout.x && r.y === p.layout.y && r.w === p.layout.w && r.h === p.layout.h)) return [];
-      return [{ op: 'movePanel' as const, panelId: p.panelId, layout: { ...p.layout, ...r } }];
-    });
+    const ops = diffOps(panels, next);
     if (ops.length) ed.queue(ops);
   };
   const renderPanel = (p: CanvasPanel, idx: number, height?: number) => {
@@ -127,18 +129,18 @@ export default function CanvasView({ wid }: { wid: string }) {
                 edit={
                   editing ? (
                     <div className="nxp-edit" role="group" aria-label={`Edit ${p.title}`}>
-                      <IconButton label="Move earlier" disabled={idx === 0} onClick={() => ed.queue(swapWithNeighbour({ ...doc, panels }, p.panelId, -1))} data-testid="move-earlier">
+                      <IconButton label="Move earlier" disabled={idx === 0} onClick={() => swap(p, -1)} data-testid="move-earlier">
                         <ArrowUp size={14} />
                       </IconButton>
-                      <IconButton label="Move later" disabled={idx === panels.length - 1} onClick={() => ed.queue(swapWithNeighbour({ ...doc, panels }, p.panelId, 1))} data-testid="move-later">
+                      <IconButton label="Move later" disabled={idx === panels.length - 1} onClick={() => swap(p, 1)} data-testid="move-later">
                         <ArrowDown size={14} />
                       </IconButton>
-                      <IconButton label="Wider" onClick={() => ed.queue(resize(p, 3, 0))} data-testid="wider">
+                      <IconButton label="Wider" onClick={() => nudge(p, 3, 0)} data-testid="wider">
                         <ChevronsLeftRight size={14} />
                       </IconButton>
-                      <Button variant="ghost" onClick={() => ed.queue(resize(p, -3, 0))}>Narrower</Button>
-                      <Button variant="ghost" onClick={() => ed.queue(resize(p, 0, 2))}>Taller</Button>
-                      <Button variant="ghost" onClick={() => ed.queue(resize(p, 0, -2))}>Shorter</Button>
+                      <Button variant="ghost" onClick={() => nudge(p, -3, 0)}>Narrower</Button>
+                      <Button variant="ghost" onClick={() => nudge(p, 0, 2)}>Taller</Button>
+                      <Button variant="ghost" onClick={() => nudge(p, 0, -2)}>Shorter</Button>
                       <Button variant="ghost" onClick={() => ed.queue([{ op: 'removePanel', panelId: p.panelId }])} data-testid="remove-panel">
                         Remove
                       </Button>

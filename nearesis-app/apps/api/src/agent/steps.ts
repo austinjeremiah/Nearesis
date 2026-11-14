@@ -412,13 +412,43 @@ async function setupAuto(e: Env): Promise<Outcome> {
   const runId = need(str(e.params.runId) ?? e.ctx.runId ?? (await latestRunId(e, ws)), "a finished run");
   // the two series of the task's test plan are found in the finished run here (or at the capsule step, whichever comes first)
   await ensureResolution(e, runId);
-  const r = await call<{
-    markers?: Obj[];
-    monitors?: Obj[];
-    hypothesis?: Obj | null;
-    skipped?: Obj[];
-    cost?: { usd?: number; modelCalls?: number };
-  }>(e.api, e.user, "POST", `/v1/workspaces/${ws}/assistant/setup`, { runId }, idem(e));
+  let r: {
+    body: {
+      markers?: Obj[];
+      monitors?: Obj[];
+      hypothesis?: Obj | null;
+      skipped?: Obj[];
+      cost?: { usd?: number; modelCalls?: number };
+    };
+  };
+  try {
+    r = await call<{
+      markers?: Obj[];
+      monitors?: Obj[];
+      hypothesis?: Obj | null;
+      skipped?: Obj[];
+      cost?: { usd?: number; modelCalls?: number };
+    }>(e.api, e.user, "POST", `/v1/workspaces/${ws}/assistant/setup`, { runId }, idem(e));
+  } catch (err) {
+    // No grounded finding means nothing honest to anchor markers, monitors or a hypothesis on. That is not a reason to stop
+    // the task: the capsule and the thesis run on the frozen series and the locked test plan, so this step is skipped.
+    if (!(err instanceof StepFail) || err.reasonCode !== "INTERPRETATION_NOT_READY") throw err;
+    const reason = "the run produced no grounded finding to anchor them on";
+    return {
+      kind: "done",
+      result: {
+        summary: `Skipped: ${reason}. The capsule and the thesis still use the run's data.`,
+        items: [item("Skipped markers, monitors and hypothesis", reason)],
+        refs: {
+          markerIds: [],
+          monitorIds: [],
+          markerReasons: [],
+          monitorReasons: [],
+          skipped: [{ kind: "setup", reason }],
+        },
+      },
+    };
+  }
   const b = r.body;
   if (b.hypothesis && typeof b.hypothesis.id === "string") {
     const tp = b.hypothesis.testPlan as

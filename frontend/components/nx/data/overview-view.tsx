@@ -119,14 +119,14 @@ export default function DataOverview() {
             testId="tile-swaps" href="/data/intents" label="Swaps" loading={sum.isPending} error={sum.isError && !s}
             value={s ? fInt(s.swaps) : 'unknown'}
             delta={<Delta pct={swapsCh?.pct} label="vs prior 30 d" />}
-            spark={swapsPts.slice(-30)} sparkKind="bar" sparkLabel="Swaps per day, last 30 days"
+            sparkHue={0} spark={swapsPts.slice(-30)} sparkKind="bar" sparkLabel="Swaps per day, last 30 days"
             note="Count in the window"
           />
           <StatTile
             testId="tile-volume" href="/data/intents" label="Settled volume" loading={sum.isPending} error={sum.isError && !s}
             value={s ? fUsd(s.settledVolumeUsdKnown) : 'unknown'}
             delta={<Delta pct={volCh?.pct} label="vs prior 30 d" />}
-            spark={volPts.slice(-30)} sparkLabel="Known USD volume per day, last 30 days"
+            sparkHue={1} spark={volPts.slice(-30)} sparkLabel="Known USD volume per day, last 30 days"
             note={s ? `Known USD only; ${fInt(s.settledSwapsWithUnknownUsd)} swaps have no USD value` : undefined}
           />
           <StatTile
@@ -150,21 +150,21 @@ export default function DataOverview() {
             testId="tile-tx" href="/data/accounts" label="Transactions / day" loading={acc.isPending} error={acc.isError}
             value={txMean ? fInt(Math.round(txMean.mean)) : 'unknown'}
             delta={<Delta pct={txCh?.pct} label="vs prior 30 d" />}
-            spark={txPts.slice(-30)} sparkLabel="Organic transactions per day, last 30 days"
+            sparkHue={4} spark={txPts.slice(-30)} sparkLabel="Organic transactions per day, last 30 days"
             note={txMean ? `Average over ${txMean.count} days with data, organic` : 'No days with data'}
           />
           <StatTile
             testId="tile-active" href="/data/accounts" label="Active accounts / day" loading={acc.isPending} error={acc.isError}
             value={actMean ? fInt(Math.round(actMean.mean)) : 'unknown'}
             delta={<Delta pct={actCh?.pct} label="vs prior 30 d" />}
-            spark={activePts.slice(-30)} sparkLabel="Active accounts per day, last 30 days"
+            sparkHue={6} spark={activePts.slice(-30)} sparkLabel="Active accounts per day, last 30 days"
             note="Accounts are not people"
           />
           <StatTile
             testId="tile-fees" href="/data/economics" label="Fees burnt" loading={eco.isPending} error={eco.isError}
             value={feeSum ? `${fCompact(feeSum.sum)} NEAR` : 'unknown'}
             delta={<Delta pct={feeCh?.pct} label="vs prior 30 d" />}
-            spark={feePts.slice(-30)} sparkKind="bar" sparkLabel="NEAR burnt per day, last 30 days"
+            sparkHue={2} spark={feePts.slice(-30)} sparkKind="bar" sparkLabel="NEAR burnt per day, last 30 days"
             note={feeSum ? `Gross execution fee over ${feeSum.count} loaded days, not revenue` : 'No days loaded'}
           />
           <StatTile
@@ -186,42 +186,42 @@ export default function DataOverview() {
             state={trend} empty={t && trendRows.length === 0 ? { title: 'No rows', body: 'The source returned no days. Nothing is filled in.' } : trend.data && isCannot(trend.data) ? { title: 'Cannot compute', body: trend.data.explanation ?? 'The metric cannot be computed from the loaded data.' } : null}
             footer={t ? <CoverageBadge c={t.coverage} /> : null}
           >
-            <SeriesChart ariaLabel="NEAR Intents swaps per day, last 90 days" unit="swaps" kind="bar" series={[{ name: 'swaps', points: swapsPts }]} />
+            <SeriesChart ariaLabel="NEAR Intents swaps per day, last 90 days" hue={0} unit="swaps" kind="bar" series={[{ name: 'swaps', points: swapsPts }]} />
           </ChartCard>
           <ChartCard
             testId="chart-volume" title="Intents settled volume per day" subtitle="Known USD only; swaps without a USD value are not valued" href="/data/intents" hrefLabel="Intents detail"
             state={trend} empty={t && trendRows.length === 0 ? { title: 'No rows', body: 'The source returned no days. Nothing is filled in.' } : trend.data && isCannot(trend.data) ? { title: 'Cannot compute', body: trend.data.explanation ?? 'The metric cannot be computed from the loaded data.' } : null}
             footer={t ? <CoverageBadge c={t.coverage} /> : null}
           >
-            <SeriesChart ariaLabel="NEAR Intents settled volume in known USD per day, last 90 days" unit="USD (known)" area series={[{ name: 'volume (known USD)', points: volPts }]} />
+            <SeriesChart ariaLabel="NEAR Intents settled volume in known USD per day, last 90 days" hue={1} unit="USD (known)" area series={[{ name: 'volume (known USD)', points: volPts }]} />
           </ChartCard>
           <ChartCard
             testId="chart-tx" title="Base-layer transactions per day" subtitle="Organic transactions per UTC day" href="/data/accounts" hrefLabel="Accounts detail"
             state={acc} empty={a && a.daily.length === 0 ? { title: 'No days with data', body: 'No account data exists for this window.' } : null}
             footer={a ? <span>{a.coverage.daysWithData} of {a.coverage.requestedDays} days with data{a.coverage.missingDays.length ? `, ${a.coverage.missingDays.length} missing` : ''}</span> : null}
           >
-            <SeriesChart ariaLabel="NEAR organic transactions per day, last 90 days" unit="transactions" area series={[{ name: 'transactions', points: txPts }]} />
+            <SeriesChart ariaLabel="NEAR organic transactions per day, last 90 days" hue={4} unit="transactions" area series={[{ name: 'transactions', points: txPts }]} />
           </ChartCard>
           <ChartCard
             testId="chart-accounts" title="Active and new accounts per day" subtitle="Signing accounts; new means first organic transaction seen since the scan start" href="/data/accounts" hrefLabel="Accounts detail"
             state={acc} empty={a && a.daily.length === 0 ? { title: 'No days with data', body: 'No account data exists for this window.' } : null}
             footer={<span>Accounts are not people.</span>}
           >
-            <SeriesChart ariaLabel="NEAR active and new accounts per day, last 90 days" unit="accounts" series={[{ name: 'active', points: activePts }, { name: 'new', points: newPts }]} />
+            <SeriesChart ariaLabel="NEAR active and new accounts per day, last 90 days" hue={6} unit="accounts" series={[{ name: 'active', points: activePts }, { name: 'new', points: newPts }]} />
           </ChartCard>
           <ChartCard
             testId="chart-fees" title="Fees burnt per day" subtitle="Gross execution fee in NEAR, from loaded economics days" href="/data/economics" hrefLabel="Economics detail"
             state={eco} empty={eco.data && ecoRows.length === 0 ? { title: 'No days loaded', body: 'No economics days are loaded for this window.' } : null}
             footer={<span>Not revenue: no burnt versus reward split is made.</span>}
           >
-            <SeriesChart ariaLabel="NEAR burnt in execution fees per day, last 90 days" unit="NEAR" kind="bar" series={[{ name: 'tokens burnt', points: feePts }]} />
+            <SeriesChart ariaLabel="NEAR burnt in execution fees per day, last 90 days" hue={2} unit="NEAR" kind="bar" series={[{ name: 'tokens burnt', points: feePts }]} />
           </ChartCard>
           <ChartCard
             testId="chart-gas" title="Gas burnt per day" subtitle="Teragas per UTC day" href="/data/economics" hrefLabel="Economics detail"
             state={eco} empty={eco.data && ecoRows.length === 0 ? { title: 'No days loaded', body: 'No economics days are loaded for this window.' } : null}
             footer={<span>Gas units, not converted to USD.</span>}
           >
-            <SeriesChart ariaLabel="NEAR gas burnt per day in teragas, last 90 days" unit="Tgas" area series={[{ name: 'gas burnt', points: gasPts }]} />
+            <SeriesChart ariaLabel="NEAR gas burnt per day in teragas, last 90 days" hue={3} unit="Tgas" area series={[{ name: 'gas burnt', points: gasPts }]} />
           </ChartCard>
         </div>
       </section>

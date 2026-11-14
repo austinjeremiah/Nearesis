@@ -1,10 +1,20 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Chart, baseOption, heatRamp, seriesPalette, type ChartTheme } from '@/components/nx/chart';
+import { Chart, baseOption, type ChartTheme } from '@/components/nx/chart';
 import { toNum } from '@/lib/data/num';
 
 type Pt = { x: string; y: string | number | null | undefined };
+
+/**
+ * Series colours for the data pages. Mid-tone hues that hold on the cream cards and on dark surfaces alike; a chart
+ * picks its first colour with `hue`, so neighbouring cards do not all read the same.
+ */
+export const DATA_COLORS = ['#2f6fed', '#00a676', '#f08c2e', '#c0399f', '#7a5af8', '#e5484d', '#0e9aa7', '#b58a00'];
+const dataColor = (i: number) => DATA_COLORS[((i % DATA_COLORS.length) + DATA_COLORS.length) % DATA_COLORS.length]!;
+const fade = (c: string) => ({ type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: `${c}55` }, { offset: 1, color: `${c}05` }] });
+/** Multi-colour sequential ramp for the heatmap: low is cool, high is hot. */
+export const HEAT_COLORS = ['#3b4cc0', '#2aa5d6', '#3fc78a', '#f2d13d', '#f08c2e', '#d7302f'];
 
 /**
  * Daily or weekly series. A null value stays null (a gap), never 0. The y values
@@ -18,6 +28,7 @@ export function SeriesChart({
   kind = 'line',
   stack = false,
   area = false,
+  hue = 0,
 }: {
   series: { name: string; points: Pt[] }[];
   height?: number;
@@ -28,11 +39,12 @@ export function SeriesChart({
   stack?: boolean;
   /** Soft fill under a line. Gaps stay gaps. */
   area?: boolean;
+  /** Index of the first series colour. */
+  hue?: number;
 }) {
   const option = useMemo(
     () => (t: ChartTheme) => {
       const base = baseOption(t) as Record<string, unknown>;
-      const pal = seriesPalette(t);
       return {
         ...base,
         legend: { ...(base.legend as object), show: series.length > 1, top: 0 },
@@ -52,16 +64,16 @@ export function SeriesChart({
           ...(stack ? { stack: 'total' } : {}),
           showSymbol: false,
           connectNulls: false,
-          itemStyle: { color: pal[i % pal.length], ...(kind === 'bar' ? { borderRadius: [2, 2, 0, 0] } : {}) },
-          lineStyle: { color: pal[i % pal.length], width: 2 },
+          itemStyle: { color: dataColor(hue + i), ...(kind === 'bar' ? { borderRadius: [2, 2, 0, 0] } : {}) },
+          lineStyle: { color: dataColor(hue + i), width: 2 },
           ...(kind === 'bar' ? { barMaxWidth: 22 } : {}),
-          ...(kind === 'line' && area && !stack ? { areaStyle: { color: pal[i % pal.length], opacity: 0.08 } } : {}),
+          ...(kind === 'line' && area && !stack ? { areaStyle: { color: fade(dataColor(hue + i)) } } : {}),
           emphasis: { focus: 'series' },
           data: s.points.map((p) => toNum(p.y)),
         })),
       };
     },
-    [series, unit, kind, stack, area],
+    [series, unit, kind, stack, area, hue],
   );
   return <Chart option={option} height={height} ariaLabel={ariaLabel} />;
 }
@@ -71,7 +83,7 @@ export function MatrixHeatmap({
   cells,
   ariaLabel,
   unit = 'swaps',
-  height = 360,
+  height = 440,
 }: {
   cells: { x: string; y: string; value: number }[];
   ariaLabel: string;
@@ -86,24 +98,45 @@ export function MatrixHeatmap({
       const base = baseOption(t) as Record<string, unknown>;
       return {
         ...base,
-        grid: { left: 70, right: 16, top: 10, bottom: 70 },
-        tooltip: { ...(base.tooltip as object), trigger: 'item' },
-        xAxis: { type: 'category', data: xs, name: 'destination', nameLocation: 'middle', nameGap: 48, axisLabel: { color: t.text3, fontSize: 10, rotate: 45 }, splitArea: { show: false } },
-        yAxis: { type: 'category', data: ys, name: 'origin', axisLabel: { color: t.text3, fontSize: 10 } },
-        visualMap: { min: 0, max, calculable: false, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: heatRamp(t) }, textStyle: { color: t.text3 } },
+        grid: { left: 76, right: 16, top: 10, bottom: 104 },
+        tooltip: {
+          ...(base.tooltip as object),
+          trigger: 'item',
+          formatter: (p: { value: [number, number, number, number] }) => `${ys[p.value[1]]} to ${xs[p.value[0]]}<br/><b>${p.value[3].toLocaleString('en-US')}</b> ${unit}`,
+        },
+        xAxis: { type: 'category', data: xs, name: 'destination', nameLocation: 'middle', nameGap: 50, axisLabel: { color: t.text3, fontSize: 10, rotate: 45, interval: 0 }, splitArea: { show: false } },
+        yAxis: { type: 'category', data: ys, name: 'origin', axisLabel: { color: t.text3, fontSize: 10, interval: 0 } },
+        // Colour follows log10(value + 1): a handful of routes carry most of the flow, and on a linear scale every other
+        // cell would share one colour. The tooltip always shows the real value.
+        visualMap: {
+          min: 0,
+          max: Math.log10(max + 1),
+          dimension: 2,
+          calculable: false,
+          orient: 'horizontal',
+          left: 'center',
+          bottom: 0,
+          itemWidth: 12,
+          itemHeight: 180,
+          text: [`${max.toLocaleString('en-US')} ${unit}`, 'low'],
+          inRange: { color: HEAT_COLORS },
+          textStyle: { color: t.text3, fontSize: 10 },
+        },
         series: [
           {
             type: 'heatmap',
-            data: cells.map((c) => [xs.indexOf(c.x), ys.indexOf(c.y), c.value]),
+            data: cells.map((c) => [xs.indexOf(c.x), ys.indexOf(c.y), Math.log10(Math.max(0, c.value) + 1), c.value]),
             label: { show: false },
-            tooltip: { valueFormatter: (v: unknown) => `${v} ${unit}` },
+            itemStyle: { borderColor: 'rgba(0,0,0,0.06)', borderWidth: 1 },
+            emphasis: { itemStyle: { borderColor: t.ink, borderWidth: 1.5 } },
           },
         ],
       };
     },
     [cells, xs, ys, max, unit],
   );
-  return <Chart option={option} height={height} ariaLabel={ariaLabel} />;
+  // one readable row per origin chain: the card grows with the number of chains instead of stacking the labels
+  return <Chart option={option} height={Math.max(height, ys.length * 15 + 150)} ariaLabel={ariaLabel} />;
 }
 
 /** Share bar with its number beside it, for tables. */
@@ -121,10 +154,10 @@ export function ShareBar({ share }: { share: string | number | null | undefined 
  * Tiny trend line for a tile. No axes and no tooltip, so it is a shape, not a reading: the tile's number
  * carries the value. A null point is a gap in the line.
  */
-export function Sparkline({ points, ariaLabel, height = 40, kind = 'line' }: { points: Pt[]; ariaLabel: string; height?: number; kind?: 'line' | 'bar' }) {
+export function Sparkline({ points, ariaLabel, height = 40, kind = 'line', hue = 0 }: { points: Pt[]; ariaLabel: string; height?: number; kind?: 'line' | 'bar'; hue?: number }) {
   const option = useMemo(
-    () => (t: ChartTheme) => {
-      const pal = seriesPalette(t);
+    () => (_t: ChartTheme) => {
+      const c = dataColor(hue);
       return {
         backgroundColor: 'transparent',
         animation: false,
@@ -139,15 +172,15 @@ export function Sparkline({ points, ariaLabel, height = 40, kind = 'line' }: { p
             showSymbol: false,
             connectNulls: false,
             data: points.map((p) => toNum(p.y)),
-            itemStyle: { color: pal[0] },
-            lineStyle: { color: pal[0], width: 1.5 },
-            areaStyle: kind === 'line' ? { color: pal[0], opacity: 0.08 } : undefined,
+            itemStyle: { color: c, borderRadius: [1, 1, 0, 0] },
+            lineStyle: { color: c, width: 2 },
+            areaStyle: kind === 'line' ? { color: fade(c) } : undefined,
             barMaxWidth: 6,
           },
         ],
       };
     },
-    [points, kind],
+    [points, kind, hue],
   );
   return <Chart option={option} height={height} ariaLabel={ariaLabel} className="dx-spark" />;
 }

@@ -155,6 +155,7 @@ export function StatTile({
   spark,
   sparkLabel,
   sparkKind,
+  sparkHue,
   href,
   loading,
   error,
@@ -167,6 +168,7 @@ export function StatTile({
   spark?: { x: string; y: string | number | null | undefined }[];
   sparkLabel?: string;
   sparkKind?: 'line' | 'bar';
+  sparkHue?: number;
   href?: string;
   loading?: boolean;
   error?: boolean;
@@ -188,7 +190,7 @@ export function StatTile({
           {note && <span className="dx-tile-note">{error ? 'This figure could not be loaded.' : note}</span>}
           {spark && spark.length > 1 && !error && (
             <span className="dx-tile-spark">
-              <Sparkline points={spark} ariaLabel={sparkLabel ?? `${label} trend`} kind={sparkKind} />
+              <Sparkline points={spark} ariaLabel={sparkLabel ?? `${label} trend`} kind={sparkKind} hue={sparkHue} />
             </span>
           )}
         </>

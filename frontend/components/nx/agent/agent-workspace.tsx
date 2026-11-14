@@ -42,6 +42,7 @@ import WsManage from './ws-manage';
  * can be downloaded. They only propose a plan; nothing runs until the user presses Start.
  */
 export const EXAMPLES = [
+  'Create a new workspace about NEAR base-layer usage. Investigate how daily transactions and daily active accounts moved over the last 60 days. Then set up markers, monitors and a draft hypothesis, build a capsule from the run, verify the capsule on OutLayer, publish the capsule, and prepare the PDF report.',
   'Create a workspace on NEAR Intents reliability. Test whether days with more swaps have a higher refund rate over the last 90 days, set up monitors and a hypothesis, then build the thesis and its PDF.',
   'Create a workspace on NEAR base-layer usage. Test whether days with more transactions have more active accounts over the last 120 days, then build the thesis and its PDF.',
   'Create a workspace on NEAR user growth. Test whether new accounts move with returning accounts over the last 90 days, then build the thesis and its PDF.',

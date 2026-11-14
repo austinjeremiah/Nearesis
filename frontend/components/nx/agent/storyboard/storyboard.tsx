@@ -12,11 +12,9 @@ import type { Task } from '@/lib/agent/thread';
 import { STAGE_LABEL, STAGE_PROMISE, currentStage, failureMeaning, timeAgoShort, type Stage, type StageState } from '@/lib/agent/storyboard';
 import { panelKey } from '@/lib/agent/selection';
 import { useNow } from '../task-cards';
-import { ApprovalNotice } from '../approval';
 import { useStoryboardSync } from './sync';
 import { pdfHref } from '@/lib/thesis/api';
 import { thesisDocHref } from '@/lib/thesis/document';
-import { approvalNeeded } from '@/lib/agent/approval';
 import { CapsuleArtifact, ChallengeStepArtifact, CompareArtifact, GenericArtifact, ThesisArtifact, ThesisLinkArtifact, ProofArtifact, PublicationArtifact, ReportArtifact } from './artifacts-chain';
 import { FindingsArtifact, HypothesisArtifact, InvestigationArtifact, MarkersArtifact, MonitorsArtifact, WorkspaceArtifact, type Hl } from './artifacts-work';
 import { SbCard } from './parts';
@@ -359,8 +357,6 @@ export default function Storyboard({
   }, [stages]);
 
   const tc = taskCostText(task);
-  const syncCtx = useStoryboardSync();
-  const approval = useMemo(() => approvalNeeded(task), [task]);
   const done = doneCount(task);
   const total = task.steps.length;
   const costZero = toMicro(task.cost.modelUsd ?? '') === 0n && toMicro(task.cost.creditsUsd ?? '') === 0n;
@@ -391,11 +387,7 @@ export default function Storyboard({
           </p>
           <div className="sb-meter" aria-hidden="true"><span style={{ width: `${total ? Math.round((done / total) * 100) : 0}%` }} /></div>
           <Outcome stages={stages} />
-          {approval && syncCtx ? (
-            <ApprovalNotice approval={approval} onReview={syncCtx.onReviewApproval} variant="storyboard" />
-          ) : (
-            task.state === 'proposed' && <p className="sb-note">This is the plan. Nothing runs until you press Start in the chat; the stages fill in as it goes.</p>
-          )}
+          {task.state === 'proposed' && <p className="sb-note">This is the plan. Nothing runs until you press Start in the chat; the stages fill in as it goes.</p>}
         </header>
         <ol className="sb-stages">
           {stages.map((s, i) => (

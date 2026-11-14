@@ -308,7 +308,7 @@ describe("POST /v1/workspaces/:id/capsules", () => {
       created: true,
       verifier: {
         x: { name: "swaps", unit: "unit", points: 12 },
-        y: { name: "volumeUsd", unit: "unit x10^2", points: 12 },
+        y: { name: "volumeUsd", unit: "unit_x1e2", points: 12 },
         window: { from: day(0), to: day(11) },
         metrics: ["lag_pearson:7", "pearson", "summary"],
       },

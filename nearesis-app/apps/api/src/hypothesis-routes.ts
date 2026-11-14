@@ -57,6 +57,8 @@ interface Row {
   frozen_at: Date | null;
   frozen_by: string | null;
   preregistration: { hash: string; verified: boolean; source: string; note: string } | null;
+  /** The two series and expected sign that test the proposition (null for hypotheses written by hand). */
+  test_plan: unknown | null;
   created_by: string;
   created_at: Date;
 }
@@ -124,6 +126,7 @@ const view = (r: Row) => ({
   registeredAt: iso(r.frozen_at),
   frozenBy: r.frozen_by,
   preregistration: r.preregistration,
+  testPlan: r.test_plan ?? null,
   /** A freeze is a content hash with a database timestamp. It is not a chain commitment and does not prove the data was unseen. */
   chainCommitment: "none" as const,
   createdBy: r.created_by,
@@ -185,11 +188,23 @@ export async function insertDraftHypothesis(
   ws: { id: string; orgId: string },
   b: z.infer<typeof CreateBody>,
   id: string = randomUUID(),
+  testPlan: unknown | null = null,
 ) {
   const r = await tx.query<Row>(
-    `INSERT INTO hypotheses(id, org_id, workspace_id, root_id, version, proposition, target, predictor, benchmark, falsification, created_by)
-     VALUES ($1,$2,$3,$1,1,$4,$5,$6,$7,$8,$9) RETURNING *`,
-    [id, ws.orgId, ws.id, b.proposition, b.target, b.predictor, b.benchmark, b.falsification, s.userId],
+    `INSERT INTO hypotheses(id, org_id, workspace_id, root_id, version, proposition, target, predictor, benchmark, falsification, created_by, test_plan)
+     VALUES ($1,$2,$3,$1,1,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+    [
+      id,
+      ws.orgId,
+      ws.id,
+      b.proposition,
+      b.target,
+      b.predictor,
+      b.benchmark,
+      b.falsification,
+      s.userId,
+      testPlan === null ? null : JSON.stringify(testPlan),
+    ],
   );
   await audit(tx, s, "hypothesis.created", `hypothesis:${id}`, { version: 1 }, ws.id);
   return view(r.rows[0]!);
@@ -363,8 +378,8 @@ export const hypothesisRoutes: FastifyPluginAsync<ProductDeps> = async (app, { k
       } as Row;
       const id = randomUUID();
       const r = await tx.query<Row>(
-        `INSERT INTO hypotheses(id, org_id, workspace_id, root_id, version, parent_id, proposition, target, predictor, benchmark, falsification, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        `INSERT INTO hypotheses(id, org_id, workspace_id, root_id, version, parent_id, proposition, target, predictor, benchmark, falsification, created_by, test_plan)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
         [
           id,
           last.org_id,
@@ -378,6 +393,7 @@ export const hypothesisRoutes: FastifyPluginAsync<ProductDeps> = async (app, { k
           m.benchmark,
           m.falsification,
           s.userId,
+          m.proposition === last.proposition && last.test_plan ? JSON.stringify(last.test_plan) : null,
         ],
       );
       await audit(
@@ -406,8 +422,8 @@ export const hypothesisRoutes: FastifyPluginAsync<ProductDeps> = async (app, { k
       } as Row;
       const id = randomUUID();
       const r = await tx.query<Row>(
-        `INSERT INTO hypotheses(id, org_id, workspace_id, root_id, version, forked_from_id, proposition, target, predictor, benchmark, falsification, created_by)
-         VALUES ($1,$2,$3,$1,1,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        `INSERT INTO hypotheses(id, org_id, workspace_id, root_id, version, forked_from_id, proposition, target, predictor, benchmark, falsification, created_by, test_plan)
+         VALUES ($1,$2,$3,$1,1,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
         [
           id,
           last.org_id,
@@ -419,6 +435,7 @@ export const hypothesisRoutes: FastifyPluginAsync<ProductDeps> = async (app, { k
           m.benchmark,
           m.falsification,
           s.userId,
+          m.proposition === last.proposition && last.test_plan ? JSON.stringify(last.test_plan) : null,
         ],
       );
       await audit(

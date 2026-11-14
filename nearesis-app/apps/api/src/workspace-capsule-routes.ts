@@ -19,7 +19,7 @@ import {
   workspaceRunCapsuleId,
   writeCapsuleOwnership,
 } from "@nearesis/capsule";
-import type { RunFinding, RunPanel } from "@nearesis/capsule";
+import type { RunFinding, RunPanel, TestPlan, TestRequest } from "@nearesis/capsule";
 import { resolveCapsuleDir } from "./capsule-resolve.ts";
 import { analyticsPanel, createPanelDataPort, semanticPanel } from "./panel-data.ts";
 import type { PanelDataPort } from "./panel-data.ts";
@@ -47,9 +47,35 @@ export interface WorkspaceCapsuleRoutesOptions extends ProductDeps {
   wasmPath?: string;
 }
 
-const Body = z.strictObject({ runId: z.uuid() });
+const Pair = z.strictObject({
+  panelHash: z.string().regex(/^[0-9a-f]{64}$/),
+  column: z.string().min(1).max(200),
+});
+/** An explicit test: used instead of the rule; the selection record says the person chose it. */
+export const TestBody = z.strictObject({
+  x: Pair,
+  y: Pair,
+  lagDays: z.number().int().min(0).max(30).optional(),
+  expectedSign: z.enum(["positive", "negative", "either"]).optional(),
+  /** Recorded with a plan the server drafted (default: the person chose the pair). */
+  chosenBy: z.enum(["user", "planner", "rule"]).optional(),
+  statement: z
+    .string()
+    .max(300)
+    .regex(/^[\x20-\x7e]*$/)
+    .optional(),
+});
+const Body = z.strictObject({ runId: z.uuid(), test: TestBody.optional() });
 const defaultRoot = (): string => process.env.NEARESIS_CAPSULE_DIR ?? join(APP_ROOT, ".data", "capsules");
 
+/** How the pair of a stored capsule was chosen, read from its own record (`legacy`: the original longest-overlap rule). */
+export interface SelectionView {
+  rule: string;
+  chosenBy: "planner" | "user" | "rule" | "legacy";
+  namedForQuestion: boolean;
+  plan: TestPlan | null;
+  rounding: unknown;
+}
 export interface WorkspaceCapsuleView {
   capsuleId: string;
   capsuleHash: string;
@@ -64,7 +90,9 @@ export interface WorkspaceCapsuleView {
 }
 
 /** The response view of a stored capsule, read from its own files (so a repeat call answers exactly like the first). */
-export function capsuleViewOf(dir: string): (WorkspaceCapsuleView & { runId: string | null }) | null {
+export function capsuleViewOf(
+  dir: string,
+): (WorkspaceCapsuleView & { runId: string | null; selection: SelectionView }) | null {
   const m = readManifest(dir);
   if (!m) return null;
   const input = JSON.parse(readFileSync(join(dir, m.computation.inputFile.path), "utf8")) as {
@@ -72,13 +100,31 @@ export function capsuleViewOf(dir: string): (WorkspaceCapsuleView & { runId: str
   };
   const pts = input.series.x.points;
   let runId: string | null;
+  let selection: SelectionView = {
+    rule: SERIES_RULE,
+    chosenBy: "legacy",
+    namedForQuestion: false,
+    plan: null,
+    rounding: null,
+  };
   try {
-    runId =
-      (
-        JSON.parse(readFileSync(join(dir, "snapshot", "raw", "run-panels.json"), "utf8")) as {
-          runId?: string;
-        }
-      ).runId ?? null;
+    const rp = JSON.parse(readFileSync(join(dir, "snapshot", "raw", "run-panels.json"), "utf8")) as {
+      runId?: string;
+      selection?: {
+        chosenBy?: SelectionView["chosenBy"];
+        namedForQuestion?: boolean;
+        plan?: TestPlan | null;
+        rounding?: unknown;
+      };
+    };
+    runId = rp.runId ?? null;
+    selection = {
+      rule: SERIES_RULE,
+      chosenBy: rp.selection?.chosenBy ?? "legacy",
+      namedForQuestion: rp.selection?.namedForQuestion === true,
+      plan: rp.selection?.plan ?? null,
+      rounding: rp.selection?.rounding ?? null,
+    };
   } catch {
     runId = null;
   }
@@ -94,6 +140,7 @@ export function capsuleViewOf(dir: string): (WorkspaceCapsuleView & { runId: str
       metrics: m.computation.metrics,
     },
     runId,
+    selection,
   };
 }
 
@@ -140,6 +187,8 @@ export async function readPanel(
 interface ComposerPanel {
   hash: string;
   title: string;
+  /** First y of the panel's canvas encoding. */
+  primaryColumn?: string;
 }
 /** The panels the run's composer put on the canvas, in canvas order, one per query hash. */
 function panelsOfProposal(proposal: unknown): ComposerPanel[] {
@@ -149,11 +198,17 @@ function panelsOfProposal(proposal: unknown): ComposerPanel[] {
   const out: ComposerPanel[] = [];
   for (const op of ops) {
     if (op.op !== "addPanel") continue;
-    const sp = op.panel as { title?: string; queryRef?: { hash?: string } } | undefined;
+    const sp = op.panel as
+      { title?: string; queryRef?: { hash?: string }; encoding?: { y?: unknown } } | undefined;
     const hash = sp?.queryRef?.hash;
     if (!hash || seen.has(hash)) continue;
     seen.add(hash);
-    out.push({ hash, title: sp?.title ?? "Panel" });
+    const y0 = Array.isArray(sp?.encoding?.y) ? (sp!.encoding!.y as unknown[])[0] : undefined;
+    out.push({
+      hash,
+      title: sp?.title ?? "Panel",
+      ...(typeof y0 === "string" && y0 ? { primaryColumn: y0 } : {}),
+    });
   }
   return out;
 }
@@ -167,14 +222,14 @@ export interface BuildDeps {
 }
 export interface BuildResult {
   created: boolean;
-  view: WorkspaceCapsuleView & { runId: string | null };
+  view: WorkspaceCapsuleView & { runId: string | null; selection: SelectionView };
   verification: {
     local: "reproduced";
     wasm: "crosschecked" | "skipped_wasmtime_unavailable";
     checks: string[];
     notes: string[];
   };
-  selection: { rule: string };
+  selection: SelectionView;
 }
 
 const inflight = new Map<string, Promise<BuildResult>>();
@@ -188,11 +243,14 @@ export async function createWorkspaceCapsule(
   s: Session,
   workspaceId: string,
   runId: string,
+  test?: TestRequest,
 ): Promise<BuildResult> {
   const { kernel } = deps;
   if (!Uuid.safeParse(workspaceId).success) throw workspaceNotFound();
+  let objective: string | null;
   try {
-    await kernel.workspaces.get(s, workspaceId);
+    objective =
+      ((await kernel.workspaces.get(s, workspaceId)) as { objective?: string | null }).objective ?? null;
   } catch (e) {
     if (e instanceof KernelError && (e.code === "FORBIDDEN" || e.code === "NOT_FOUND"))
       throw workspaceNotFound();
@@ -219,7 +277,7 @@ export async function createWorkspaceCapsule(
       "The run has no ready interpretation to build a capsule from.",
     );
 
-  const capsuleId = workspaceRunCapsuleId(workspaceId, runId);
+  const capsuleId = workspaceRunCapsuleId(workspaceId, runId, test);
   const existing = (): BuildResult | null => {
     const d = resolveCapsuleDir(deps.root, capsuleId);
     const owner = d ? readCapsuleOwnership(d) : null;
@@ -231,7 +289,7 @@ export async function createWorkspaceCapsule(
           created: false,
           view,
           verification: { local: "reproduced", wasm: "crosschecked", checks: [], notes: [] },
-          selection: { rule: SERIES_RULE },
+          selection: view.selection,
         }
       : null;
   };
@@ -249,7 +307,9 @@ export async function createWorkspaceCapsule(
   const key = `${s.principal.orgId}:${capsuleId}`;
   const running = inflight.get(key);
   if (running) return running;
-  const job = buildNew(deps, s, workspaceId, runId, capsuleId, run).finally(() => inflight.delete(key));
+  const job = buildNew(deps, s, workspaceId, runId, capsuleId, run, test, objective).finally(() =>
+    inflight.delete(key),
+  );
   inflight.set(key, job);
   return job;
 }
@@ -277,6 +337,8 @@ async function buildNew(
   runId: string,
   capsuleId: string,
   run: Awaited<ReturnType<RunsService["getRun"]>>,
+  test: TestRequest | undefined,
+  objective: string | null,
 ): Promise<BuildResult> {
   const { kernel } = deps;
   const proposal = await kernel.db.tx(ctxOf(s), async (tx) => {
@@ -300,6 +362,7 @@ async function buildNew(
         hash: p.hash,
         title: p.title,
         body: await readPanel(deps.panelData, s, workspaceId, p.hash),
+        ...(p.primaryColumn ? { primaryColumn: p.primaryColumn } : {}),
       });
     } catch (e) {
       if (e instanceof KernelError)
@@ -316,6 +379,7 @@ async function buildNew(
   mkdirSync(deps.root, { recursive: true });
   try {
     let built: ReturnType<typeof buildWorkspaceRunCapsule>;
+    const question = await questionOf(deps, s, workspaceId, runId);
     try {
       built = buildWorkspaceRunCapsule(
         {
@@ -323,14 +387,29 @@ async function buildNew(
           runId,
           source: run.source,
           frozenAt: run.updatedAt,
-          question: await questionOf(deps, s, workspaceId, runId),
+          question,
           panels,
           findings: run.findings as unknown as RunFinding[],
+          ...(test ? { test } : {}),
+          chooserText: [objective, question]
+            .filter(
+              (x): x is string => !!x && !/^Investigation [0-9a-f]{8}$/.test(x) && x !== "investigation",
+            )
+            .join(". "),
         },
         tmpRoot,
         deps.wasmPath ? { wasmPath: deps.wasmPath } : {},
       );
     } catch (e) {
+      if (e instanceof NotCapsulable && e.reason.startsWith("TEST_PAIR_NOT_FOUND"))
+        throw new KernelError(
+          "VALIDATION_FAILED",
+          "TEST_PAIR_UNAVAILABLE",
+          e.reason.replace(/^TEST_PAIR_NOT_FOUND: /, ""),
+          {
+            details: [{ path: "test", issue: e.reason }],
+          },
+        );
       if (e instanceof NotCapsulable)
         throw new KernelError("VALIDATION_FAILED", "RUN_NOT_CAPSULABLE", e.reason, {
           details: [{ path: "runId", issue: e.reason }],
@@ -364,7 +443,7 @@ async function buildNew(
     const view = capsuleViewOf(target);
     if (!view)
       throw new KernelError("INTERNAL", "CAPSULE_UNREADABLE", "The built capsule could not be read back.");
-    return { created: true, view, verification, selection: { rule: SERIES_RULE } };
+    return { created: true, view, verification, selection: view.selection };
   } finally {
     rmSync(tmpRoot, { recursive: true, force: true });
   }
@@ -406,6 +485,7 @@ export const workspaceCapsuleRoutes: FastifyPluginAsync<WorkspaceCapsuleRoutesOp
       s,
       req.params.id,
       body.runId,
+      body.test ? ({ ...body.test, chosenBy: body.test.chosenBy ?? "user" } as TestRequest) : undefined,
     );
     const { runId: _runId, ...view } = r.view;
     return reply.status(r.created ? 201 : 200).send({

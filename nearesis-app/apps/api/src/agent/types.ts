@@ -144,4 +144,14 @@ export interface TaskCtx {
   hypothesisId?: string;
   thesisId?: string;
   reportUrl?: string;
+  /** The test plan the setup step drafted with the hypothesis (ids only); `thesis.build` passes it on. */
+  testPlan?: {
+    x: { panelHash: string; column: string };
+    y: { panelHash: string; column: string };
+    lagDays: number;
+    expectedSign: "positive" | "negative" | "either";
+    chosenBy: "planner" | "rule";
+  };
+  /** Set when no capsule could be built, so the thesis step can say why there is no thesis. */
+  noThesisReason?: string;
 }

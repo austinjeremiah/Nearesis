@@ -188,7 +188,7 @@ describe("thesis generator on a fixture capsule", () => {
       ref: "results.json#/n",
     });
     expect(d.test).toMatchObject({
-      rule: "relationship-v1",
+      rule: "relationship-v2",
       n: 70,
       x: { name: "xcol" },
       y: { name: "ycol" },
@@ -266,7 +266,7 @@ describe("thesis generator on a fixture capsule", () => {
     expect(Number(out.doc.test.pearson)).toBeLessThan(0.2);
     expect(out.doc.verdict.status).toBe("NOT_SUPPORTED");
     expect(out.doc.sections.find((s) => s.id === "evidence-against")!.markdown).toMatch(
-      /floor under which the rule gives NOT_SUPPORTED/,
+      /interval -?[\d.]+ to -?[\d.]+ for the level correlation includes zero/,
     );
   });
 
@@ -329,13 +329,36 @@ describe("thesis generator on a fixture capsule", () => {
       },
     );
     const out = buildThesis(inp);
-    expect(out.doc.hypothesis).toBe("X moves with Y over 70 days.");
+    // the claim is the test plan's sentence; the older descriptive hypothesis is context only
+    expect(out.doc.hypothesis).toMatch(/^Xcol and ycol are systematically related/);
+    expect(out.doc.context.draftHypothesis).toMatchObject({ proposition: "X moves with Y over 70 days." });
     expect(out.doc.origin).toMatchObject({ hypothesisId: "h-1", hypothesisStatus: "frozen" });
     const exec = out.doc.sections[0]!.markdown;
-    expect(exec).toContain("> Claim (frozen hypothesis): X moves with Y over 70 days.");
+    expect(exec).toContain("> Claim under test: Xcol and ycol are systematically related");
+    expect(exec).not.toContain("> Claim (frozen hypothesis)");
+    const mech = out.doc.sections.find((s) => s.id === "long-term-economic-mechanisms")!.markdown;
+    expect(mech).toContain("> X moves with Y over 70 days.");
+    expect(mech).toContain("not the claim under test");
     const mind = out.doc.sections[1]!.markdown;
-    expect(mind).toContain("Rejected if r stays below 0.3.");
+    expect(mind).not.toContain("Rejected if r stays below 0.3.");
     expect(mind).toContain('Monitor rule "Watch xcol" watches this series');
+    // a hypothesis that carries this very plan contributes its falsification criterion
+    const plan = out.doc.test.plan as { statement: string };
+    const withPlan = buildThesis(
+      inputsFor(
+        { ...strong, n: 70, name: "supported" },
+        {
+          hypothesis: {
+            id: "h-2",
+            status: "draft",
+            proposition: plan.statement,
+            falsification: "Rejected if r stays below 0.3.",
+            testPlan: out.doc.test.plan as never,
+          },
+        },
+      ),
+    );
+    expect(withPlan.doc.sections[1]!.markdown).toContain("Rejected if r stays below 0.3.");
   });
 });
 

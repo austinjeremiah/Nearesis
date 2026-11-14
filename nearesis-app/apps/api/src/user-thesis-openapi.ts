@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { RouteSpec } from "@nearesis/contracts";
+import { TestBody } from "./workspace-capsule-routes.ts";
 
 const REFERENCE = "reference-near-intents";
 const SUMMARY =
@@ -16,10 +17,10 @@ export const USER_THESIS_ROUTES: RouteSpec[] = [
     tag: "thesis",
     summary: "Build a thesis from a COMPLETE workspace run (editor or above; deterministic, no model call)",
     description:
-      "Builds a `nearesis.thesis.v1` document with the fixed `relationship-v1` rule from the run's capsule (built first when absent, idempotent) and the workspace's hypothesis, monitors, markers and OutLayer proof state. `runId` defaults to the newest COMPLETE run with a ready interpretation. A repeat with unchanged inputs returns the same thesis and version. Errors: 404 workspace, 403 INSUFFICIENT_ROLE, 422 NO_COMPLETE_RUN / RUN_NOT_COMPLETE / INTERPRETATION_NOT_READY / RUN_NOT_CAPSULABLE, 500 THESIS_BUILD_FAILED (a number without a pointer, or causal / bullish / significance wording).",
+      "Builds a `nearesis.thesis.v1` document with the fixed `relationship-v2` rule from the run's capsule (built first when absent, idempotent) and the workspace's hypothesis, monitors, markers and OutLayer proof state. The pair that is tested is, in this order: `test` of the request (chosenBy user), the test plan stored with the workspace's hypothesis, the question-matching chooser (for a run whose capsule was built before tests were named), and only then the original longest-overlap rule, which the document labels \"pair chosen by rule, not named for the question\". The claim under test is the plan's sentence (`doc.hypothesis`); the older descriptive hypothesis is `doc.context.draftHypothesis`. Verdicts: SUPPORTED, MIXED, NOT_SUPPORTED, INSUFFICIENT_DATA and INVALID_TEST (the two series are mechanically related: part of a whole, duplicates, or the outcome is a ratio whose numerator is the predictor; heuristic detection). `doc.test` carries plan, pairSelection, level, change, spearman, interval {lo, hi, loPpm, hiPpm, method, blockDays, resamples, seed}, relatedness, rounding, attestation (which numbers the verifier attests and which the API recomputes) and partOfWhole; every section has `references` (the exact pointers behind its [n] markers). `runId` defaults to the newest COMPLETE run with a ready interpretation. A repeat with unchanged inputs returns the same thesis and version. Errors: 404 workspace, 403 INSUFFICIENT_ROLE, 422 NO_COMPLETE_RUN / RUN_NOT_COMPLETE / INTERPRETATION_NOT_READY / RUN_NOT_CAPSULABLE / TEST_PAIR_UNAVAILABLE, 500 THESIS_BUILD_FAILED (a number without a pointer, or causal / bullish / significance wording).",
     auth: "bearer",
     role: "writer",
-    body: z.strictObject({ runId: z.uuid().optional() }),
+    body: z.strictObject({ runId: z.uuid().optional(), test: TestBody.optional() }),
     headers: [
       {
         name: "Idempotency-Key",
@@ -138,7 +139,7 @@ export const USER_THESIS_ROUTES: RouteSpec[] = [
     summary:
       "Reproduce a thesis by re-executing its stored queries (deterministic; no model call, no chain call, nothing charged)",
     description:
-      "Re-executes, as the caller and read-only, every stored panel query of the thesis's capsule snapshot with the SAME query definition and the SAME absolute window (never relative to today), through the same data service that produced them, under the caller's own organisation and a scope that names no workspace (the caller needs no access to the original workspace; a workspace-private source is reported as unavailable). The two verifier series are rebuilt from the SAME panels and columns the original used (no re-picking), `relationship-v1` and every chart's first, last and peak are recomputed and compared with the stored document. `match`: every compared value equal. `drift`: same verdict, n and window but some value differs. `different`: verdict, n or window differ. `incomplete`: at least one query could not be re-executed (listed in `unavailable` with the reason); the rows cover only what could be compared and nothing is guessed. Records a `reproduce` receipt on the thesis. 404 THESIS_NOT_FOUND when the thesis is not visible; 422 REFERENCE_THESIS_OFFLINE (details.commands) for the reference thesis; 503 THESIS_SNAPSHOT_UNAVAILABLE when this server does not hold the capsule.",
+      "Re-executes, as the caller and read-only, every stored panel query of the thesis's capsule snapshot with the SAME query definition and the SAME absolute window (never relative to today), through the same data service that produced them, under the caller's own organisation and a scope that names no workspace (the caller needs no access to the original workspace; a workspace-private source is reported as unavailable). The two verifier series are rebuilt from the SAME panels and columns the original used (no re-picking), `relationship-v1` or `relationship-v2` (as the thesis states; v2 also recomputes the change, rank and interval numbers and the mechanical-relation check) and every chart's first, last and peak are recomputed and compared with the stored document. `match`: every compared value equal. `drift`: same verdict, n and window but some value differs. `different`: verdict, n or window differ. `incomplete`: at least one query could not be re-executed (listed in `unavailable` with the reason); the rows cover only what could be compared and nothing is guessed. Records a `reproduce` receipt on the thesis. 404 THESIS_NOT_FOUND when the thesis is not visible; 422 REFERENCE_THESIS_OFFLINE (details.commands) for the reference thesis; 503 THESIS_SNAPSHOT_UNAVAILABLE when this server does not hold the capsule.",
     auth: "bearer",
     responses: {
       "200": {

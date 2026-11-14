@@ -159,7 +159,7 @@ describe("exact scaling", () => {
   it("states the scale in the unit and keeps every decimal digit", () => {
     const out = tmp("wsrun-");
     const { build } = buildWorkspaceRunCapsule(input(), join(out, "cap"));
-    expect(build.selection.y.unit).toBe("unit x10^2");
+    expect(build.selection.y.unit).toBe("unit_x1e2");
     expect(build.selection.x.unit).toBe("unit");
     const vi = JSON.parse(
       readFileSync(join(out, "cap", "computation", "verifier-input.json"), "utf8"),
@@ -200,6 +200,85 @@ describe("exact scaling", () => {
     expect(() => buildWorkspaceRunCapsule(input({ panels: [big, P2] }), join(out, "cap"))).toThrow(
       /above 1e15/,
     );
+  });
+});
+
+describe("explicit pair, rounding and hash stability", () => {
+  it("a capsule chosen by the original rule with exact integer scaling keeps exactly the hash it always had", () => {
+    const ints = Array.from({ length: 12 }, (_, i) => [
+      day(i),
+      100 + i * 3 + (i % 4),
+      50 + ((i * 5) % 7) * 11 + i,
+    ]);
+    const PI = panel(H1, "Daily swaps", ["period", "swaps", "txs"], ints);
+    const m = buildWorkspaceRunCapsule(input({ panels: [PI] }), join(tmp("wsrun-"), "cap")).manifest;
+    // pinned from the builder before explicit pairs, rounding and the verifier-safe unit text existed
+    expect(m.capsuleHash).toBe("78e80c96dde6b33d87bb1e87a325c5042f4c327690515962cd1d68ded1809941");
+    expect(m.capsuleId).toBe(workspaceRunCapsuleId(WS, RUN));
+  });
+  it("scaled units are ids the pinned WASM verifier accepts (letters, digits and . _ : - / only, at most 32)", () => {
+    const { build } = buildWorkspaceRunCapsule(input(), join(tmp("wsrun-"), "cap"));
+    expect(build.selection.y.unit).toMatch(/^[A-Za-z0-9._:/-]{1,32}$/);
+    expect(build.selection.x.unit).toMatch(/^[A-Za-z0-9._:/-]{1,32}$/);
+  });
+  it("an explicit pair is used instead of the rule, recorded with who chose it, and is a different capsule", () => {
+    const test = {
+      x: { panelHash: H2, column: "refundRate" },
+      y: { panelHash: H1, column: "swaps" },
+      expectedSign: "negative" as const,
+      chosenBy: "user" as const,
+    };
+    const out = tmp("wsrun-");
+    const dir = join(out, "cap");
+    const { manifest, build } = buildWorkspaceRunCapsule(input({ test }), dir);
+    expect(build.selection.x.column).toBe("refundRate");
+    expect(build.selection.y.column).toBe("swaps");
+    expect(manifest.capsuleId).toBe(workspaceRunCapsuleId(WS, RUN, test));
+    expect(manifest.capsuleId).not.toBe(workspaceRunCapsuleId(WS, RUN));
+    const rec = JSON.parse(readFileSync(join(dir, "snapshot", "raw", "run-panels.json"), "utf8"));
+    expect(rec.selection).toMatchObject({
+      chosenBy: "user",
+      namedForQuestion: true,
+      plan: {
+        chosenBy: "user",
+        expectedSign: "negative",
+        relation: "moves_with",
+        statement: "Days with higher refund rate have lower swaps.",
+      },
+    });
+    expect(workspaceRunCapsuleId(WS, RUN, { ...test, expectedSign: "positive" })).not.toBe(
+      manifest.capsuleId,
+    );
+    expect(() =>
+      buildWorkspaceRunCapsule(
+        input({ test: { ...test, x: { panelHash: H2, column: "nope" } } }),
+        join(tmp("wsrun-"), "cap"),
+      ),
+    ).toThrow(/TEST_PAIR_NOT_FOUND/);
+  });
+  it("a NEAR price with many decimals now builds: rounded half-even to six decimals, recorded per series in the selection", () => {
+    const price = panel(
+      "c".repeat(64),
+      "Price",
+      ["period", "priceUsd"],
+      swaps.map((r, i) => [r[0], `${(3 + (i % 7) / 10).toFixed(1)}1234567890123456${i % 10}`]),
+    );
+    const out = tmp("wsrun-");
+    const dir = join(out, "cap");
+    const { build } = buildWorkspaceRunCapsule(
+      input({
+        panels: [P1, price],
+        test: { x: { panelHash: H1, column: "swaps" }, y: { panelHash: "c".repeat(64), column: "priceUsd" } },
+      }),
+      dir,
+    );
+    expect(build.selection.y.unit).toMatch(/^[A-Za-z0-9._:/-]{1,32}$/);
+    const rec = JSON.parse(readFileSync(join(dir, "snapshot", "raw", "run-panels.json"), "utf8"));
+    expect(rec.selection.rounding.y).toMatchObject({ decimalsKept: 6 });
+    expect(rec.selection.rounding.y.maxAbsRoundingDifference).toMatch(/^0\.000000\d+$/);
+    expect(rec.selection.rounding.x).toBeUndefined();
+    const csv = readFileSync(join(dir, "snapshot", "raw", "daily_series.csv"), "utf8").split("\n")[1]!;
+    expect(csv.split(",")[2]).toBe("3012346");
   });
 });
 

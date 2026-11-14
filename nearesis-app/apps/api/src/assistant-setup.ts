@@ -4,7 +4,10 @@ import { KernelError, canWrite, workspaceNotFound } from "@nearesis/kernel";
 import type { Kernel, Session } from "@nearesis/kernel";
 import { loadLiveRegistry, runAnalytics, type AnalyticsDeps } from "@nearesis/analytics";
 import type { AnalyticsCapabilityId } from "@nearesis/contracts";
+import { candidatesOf, chooseForQuestion, planFor, validateProposal } from "@nearesis/capsule";
+import type { PlannerProposal, RunPanel, TestPlan } from "@nearesis/capsule";
 import { insertDraftHypothesis } from "./hypothesis-routes.ts";
+import { falsificationOf } from "./user-thesis/rule.ts";
 import { assertWorkspace, ctxOf } from "./product-common.ts";
 import type { RunsService } from "./runs.ts";
 
@@ -17,7 +20,11 @@ import type { RunsService } from "./runs.ts";
  *    The cited value is re-read from the same analytics call and must still match, or no marker is made.
  *  - monitor rules: only on certified live metrics the monitor feeder really feeds (see MONITORABLE), compare rules whose
  *    thresholds are the cited daily values. Weekly or monthly values are not comparable to a daily metric and are skipped.
- *  - hypothesis: one DRAFT (never frozen) from the strongest supported finding, with a falsification criterion.
+ *  - hypothesis: one DRAFT (never frozen). When the question names two daily series the hypothesis is a TESTABLE RELATIONSHIP
+ *    sentence about them in the direction the question asks, with a falsification criterion in the thesis rule's terms, and the
+ *    test plan is stored with it (`test_plan`). The pair is chosen by the deterministic question-matching chooser, or proposed
+ *    by a model through the optional `proposePlan` seam (ids only; validated against the real candidates, charged by the
+ *    caller). Without a nameable pair it falls back to the old descriptive draft from the strongest supported finding.
  * Everything is keyed by the run, so a repeat call finds what exists and creates nothing twice.
  */
 
@@ -31,7 +38,7 @@ const MAX_PER_KIND = 3;
 export interface SetupResult {
   markers: Array<{ id: string; title: string; reason: string }>;
   monitors: Array<{ id: string; title: string; reason: string }>;
-  hypothesis: { id: string; title: string } | null;
+  hypothesis: { id: string; title: string; testPlan: TestPlan | null } | null;
   skipped: Array<{ kind: "marker" | "monitor" | "hypothesis"; reason: string }>;
   cost: { usd: number; modelCalls: number };
 }
@@ -40,6 +47,15 @@ export interface SetupDeps {
   kernel: Kernel;
   runs: RunsService;
   analytics: () => AnalyticsDeps;
+  /**
+   * Optional: a model call the caller already makes in this flow may propose the test plan from the candidate series. It gets
+   * ids and names only and must return ids; the proposal is validated here against the real candidates and ignored if invalid.
+   * Not wired in production (this setup step makes no model call).
+   */
+  proposePlan?: (
+    candidates: Array<{ panelHash: string; panelTitle: string; column: string; unit: string | null }>,
+    question: string,
+  ) => Promise<PlannerProposal | null>;
 }
 
 const uuidFrom = (seed: string): string => {
@@ -134,8 +150,10 @@ export async function assistantSetup(
   if (!canWrite(s.role))
     throw new KernelError("FORBIDDEN", "INSUFFICIENT_ROLE", "Role cannot make this change.");
   // Existence hiding: an inaccessible or unknown workspace is the same 404 as everywhere else.
+  let objective: string | null;
   try {
-    await kernel.workspaces.get(s, workspaceId);
+    objective =
+      ((await kernel.workspaces.get(s, workspaceId)) as { objective?: string | null }).objective ?? null;
   } catch (e) {
     if (e instanceof KernelError && (e.code === "FORBIDDEN" || e.code === "NOT_FOUND"))
       throw workspaceNotFound();
@@ -450,41 +468,103 @@ export async function assistantSetup(
     ? `${leadCells[0].column} in "${leadCells[0].panel.title}"`
     : "the series the finding reads";
   const hypId = uuidFrom(`assistant-setup:${runId}:hypothesis`);
-  const proposition =
-    `Expectation from the completed investigation (a description of the data, not a causal claim): ${lead.statement}`.slice(
-      0,
-      4000,
+  // ---- the test plan: which two series the question asks about
+  const questionText = [
+    objective,
+    (await deps.runs.listRuns(s, workspaceId)).runs.find((r) => r.runId === runId)?.questionSummary,
+  ]
+    .filter((x): x is string => !!x && x !== "investigation" && !/^Investigation [0-9a-f]{8}$/.test(x))
+    .join(". ");
+  const runPanels: RunPanel[] = [];
+  for (const p of panels) {
+    const t = await tableOf(p);
+    if (t)
+      runPanels.push({
+        hash: p.hash,
+        title: p.title,
+        body: { chart: { columns: t.columns.map((c) => ({ name: c.name, unit: c.unit })), rows: t.rows } },
+      });
+  }
+  let plan: TestPlan | null = null;
+  if (runPanels.length && questionText) {
+    const { candidates } = candidatesOf(runPanels);
+    if (deps.proposePlan) {
+      try {
+        const prop = await deps.proposePlan(
+          candidates.map((c) => ({
+            panelHash: c.panelHash,
+            panelTitle: c.panelTitle,
+            column: c.column,
+            unit: c.unit,
+          })),
+          questionText,
+        );
+        const v = prop ? validateProposal(prop, candidates) : null;
+        if (prop && v?.ok)
+          plan = planFor(v.x, v.y, {
+            chosenBy: "planner",
+            why: (prop.why ?? "Proposed by the planner from the list of candidate series.").slice(0, 600),
+            ...(prop.lagDays !== undefined ? { lagDays: prop.lagDays } : {}),
+            ...(prop.expectedSign ? { expectedSign: prop.expectedSign } : {}),
+            ...(prop.statement ? { statement: prop.statement } : {}),
+          });
+      } catch {
+        plan = null;
+      }
+    }
+    if (!plan) {
+      const c = chooseForQuestion(candidates, questionText);
+      if (c) plan = planFor(c.x, c.y, { chosenBy: "rule", why: c.why, expectedSign: c.expectedSign });
+    }
+  }
+  if (!plan)
+    skip(
+      "hypothesis",
+      "No two daily series match the words of the question, so the hypothesis stays a description of the data and the thesis will say its pair was chosen by rule.",
     );
-  const falsification =
-    `The expectation is falsified if the same analysis, rerun on newer complete days, no longer shows the stated reading` +
-    (range
-      ? ` (the cited values ranged from ${range}; later values that reverse the stated direction count against it)`
-      : "") +
-    `, or if a source revision or coverage change removes the rows it rests on.`;
+  const proposition = plan
+    ? plan.statement
+    : `Expectation from the completed investigation (a description of the data, not a causal claim): ${lead.statement}`.slice(
+        0,
+        4000,
+      );
+  const falsification = plan
+    ? falsificationOf(plan.expectedSign, plan.lagDays)
+    : `The expectation is falsified if the same analysis, rerun on newer complete days, no longer shows the stated reading` +
+      (range
+        ? ` (the cited values ranged from ${range}; later values that reverse the stated direction count against it)`
+        : "") +
+      `, or if a source revision or coverage change removes the rows it rests on.`;
   try {
     const out = await kernel.db.tx(ctxOf(s), async (tx) => {
       const ws = await assertWorkspace(tx, workspaceId);
-      const have = await tx.query<{ proposition: string }>(
-        "SELECT proposition FROM hypotheses WHERE id = $1",
+      const have = await tx.query<{ proposition: string; test_plan: TestPlan | null }>(
+        "SELECT proposition, test_plan FROM hypotheses WHERE id = $1",
         [hypId],
       );
-      if (have.rows[0]) return { id: hypId, title: have.rows[0].proposition };
+      if (have.rows[0])
+        return { id: hypId, title: have.rows[0].proposition, testPlan: have.rows[0].test_plan };
       const v = await insertDraftHypothesis(
         tx,
         s,
         ws,
         {
           proposition,
-          target: subject.slice(0, 2000),
-          predictor: "None stated: a descriptive expectation, not a causal claim.",
-          benchmark: "The same series over the preceding window of equal length.",
+          target: plan ? plan.y.label.slice(0, 2000) : subject.slice(0, 2000),
+          predictor: plan
+            ? plan.x.label.slice(0, 2000)
+            : "None stated: a descriptive expectation, not a causal claim.",
+          benchmark: plan
+            ? "Rule relationship-v2: level correlation with a 95% interval, rank correlation and correlation of day-over-day changes, over the frozen window."
+            : "The same series over the preceding window of equal length.",
           falsification: falsification.slice(0, 4000),
         },
         hypId,
+        plan,
       );
-      return { id: v.hypothesisId, title: v.proposition };
+      return { id: v.hypothesisId, title: v.proposition, testPlan: plan };
     });
-    result.hypothesis = { id: out.id, title: out.title.slice(0, 300) };
+    result.hypothesis = { id: out.id, title: out.title.slice(0, 300), testPlan: out.testPlan };
   } catch (e) {
     skip("hypothesis", e instanceof KernelError ? `${e.reasonCode} (${e.message})` : "could not be created");
   }

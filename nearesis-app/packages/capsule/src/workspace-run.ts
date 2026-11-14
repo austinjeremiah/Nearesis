@@ -7,6 +7,8 @@ import { buildCapsule } from "./build.ts";
 import type { BuildOptions } from "./build.ts";
 import { sha256Hex } from "./canonical.ts";
 import { checkPublication } from "./publication.ts";
+import { chooseForQuestion, longestShared, planFor } from "./test-plan.ts";
+import type { TestPlan, TestRequest } from "./test-plan.ts";
 
 /**
  * Capsule from an automated workspace run.
@@ -49,6 +51,8 @@ export interface RunPanel {
   hash: string;
   title: string;
   body: Record<string, unknown>;
+  /** The column the canvas panel encodes as its (first) y; recorded in the index when known. */
+  primaryColumn?: string | null;
 }
 export interface RunFinding {
   id: string;
@@ -73,6 +77,10 @@ export interface WorkspaceRunInput {
   question: string | null;
   panels: RunPanel[];
   findings: RunFinding[];
+  /** Explicit pair to test (used instead of the rule); the selection record says who chose it. */
+  test?: TestRequest;
+  /** Plain text of what the run is about (workspace objective and question), read by the question-matching chooser. */
+  chooserText?: string | null;
 }
 
 // ---- exact decimals -------------------------------------------------------------------------------------------------
@@ -199,18 +207,6 @@ export function candidatesOf(panels: RunPanel[]): { candidates: Candidate[]; ski
   return { candidates, skipped };
 }
 
-/** Longest run of consecutive days with a value in both series (earliest on ties). */
-function longestShared(a: Candidate, b: Candidate): number[] {
-  const days = [...a.values.keys()].filter((d) => b.values.has(d)).sort((x, y) => x - y);
-  let best: number[] = [];
-  let cur: number[] = [];
-  for (const d of days) {
-    cur = cur.length && d === cur[cur.length - 1]! + 1 ? [...cur, d] : [d];
-    if (cur.length > best.length) best = cur;
-  }
-  return best;
-}
-
 export interface Selection {
   x: Candidate;
   y: Candidate;
@@ -248,6 +244,150 @@ export function pickSeries(panels: RunPanel[]): Selection {
   };
 }
 
+/** How the pair of a build was chosen. `legacy`: the original longest-overlap rule, which records nothing extra. */
+export interface ChosenSeries {
+  sel: Selection;
+  plan: TestPlan | null;
+  chosenBy: "planner" | "user" | "rule" | "legacy";
+  namedForQuestion: boolean;
+}
+
+/** The pair an explicit test names: its two candidates and the longest run of shared days. */
+export function pickExplicit(panels: RunPanel[], t: TestRequest): Selection {
+  const { candidates } = candidatesOf(panels);
+  const find = (p: { panelHash: string; column: string }) =>
+    candidates.find((c) => c.panelHash === p.panelHash && c.column === p.column);
+  const x = find(t.x);
+  const y = find(t.y);
+  if (!x || !y)
+    throw new NotCapsulable(
+      `TEST_PAIR_NOT_FOUND: the named series ${!x ? t.x.column : t.y.column} is not a daily numeric column of any panel of the run.`,
+    );
+  if (x === y) throw new NotCapsulable("TEST_PAIR_NOT_FOUND: the two named series are the same series.");
+  const run = longestShared(x, y);
+  if (run.length < 2)
+    throw new NotCapsulable(
+      `The two named series share fewer than two consecutive days with values in both (best overlap: ${run.length} day(s)).`,
+    );
+  const days = run.length > MAX_POINTS ? run.slice(run.length - MAX_POINTS) : run;
+  return { x, y, days, truncatedToLatest: run.length > MAX_POINTS, overlapDays: run.length };
+}
+
+/** Explicit pair first, then the question-matching chooser, and only then the old rule. */
+export function selectSeries(
+  input: Pick<WorkspaceRunInput, "panels" | "test" | "chooserText">,
+): ChosenSeries {
+  if (input.test) {
+    const sel = pickExplicit(input.panels, input.test);
+    const chosenBy = input.test.chosenBy ?? "user";
+    return {
+      sel,
+      chosenBy,
+      namedForQuestion: true,
+      plan: planFor(sel.x, sel.y, {
+        chosenBy,
+        why:
+          input.test.why ??
+          (chosenBy === "user"
+            ? "The pair was named explicitly by the person who asked for the capsule."
+            : "The pair was proposed with the hypothesis and validated against the run's real series."),
+        ...(input.test.lagDays !== undefined ? { lagDays: input.test.lagDays } : {}),
+        ...(input.test.expectedSign ? { expectedSign: input.test.expectedSign } : {}),
+        ...(input.test.statement ? { statement: input.test.statement } : {}),
+      }),
+    };
+  }
+  const text = (input.chooserText ?? "").trim();
+  if (text) {
+    const { candidates } = candidatesOf(input.panels);
+    const c = chooseForQuestion(candidates, text);
+    if (c) {
+      const run = longestShared(c.x, c.y);
+      const days = run.length > MAX_POINTS ? run.slice(run.length - MAX_POINTS) : run;
+      return {
+        sel: { x: c.x, y: c.y, days, truncatedToLatest: run.length > MAX_POINTS, overlapDays: run.length },
+        chosenBy: "rule",
+        namedForQuestion: true,
+        plan: planFor(c.x, c.y, { chosenBy: "rule", why: c.why, expectedSign: c.expectedSign }),
+      };
+    }
+  }
+  const sel = pickSeries(input.panels);
+  return { sel, plan: null, chosenBy: "legacy", namedForQuestion: false };
+}
+
+// ---- rounding of long decimals --------------------------------------------------------------------------------------------
+export const ROUND_PLACES = 6;
+/** Rounds half-even to `places` decimals (exact, on the decimal text). */
+export function roundHalfEven(d: Dec, places: number): Dec {
+  if (d.frac.length <= places) return d;
+  const kept = d.frac.slice(0, places);
+  const rest = d.frac.slice(places);
+  let up: boolean;
+  const half = `5${"0".repeat(rest.length - 1)}`;
+  if (rest > half) up = true;
+  else if (rest < half) up = false;
+  else up = (Number(kept.slice(-1) || d.int.slice(-1)) & 1) === 1;
+  let v = BigInt(`${d.int}${kept.padEnd(places, "0")}`);
+  if (up) v += 1n;
+  const t = v.toString().padStart(places + 1, "0");
+  const int = t.slice(0, t.length - places);
+  return { neg: d.neg, int, frac: t.slice(t.length - places).replace(/0+$/, "") };
+}
+const decText = (d: Dec): string =>
+  `${d.neg && (d.int !== "0" || d.frac) ? "-" : ""}${d.int}${d.frac ? `.${d.frac}` : ""}`;
+const plain = (v: bigint, places: number): string => {
+  const neg = v < 0n;
+  const t = (neg ? -v : v).toString().padStart(places + 1, "0");
+  const int = t.slice(0, t.length - places);
+  const frac = t.slice(t.length - places).replace(/0+$/, "");
+  return `${neg ? "-" : ""}${int}${frac ? `.${frac}` : ""}`;
+};
+
+export interface RoundingRecord {
+  decimalsKept: number;
+  /** Largest absolute difference between an original value and its rounded value, as an exact decimal. */
+  maxAbsRoundingDifference: string;
+}
+/**
+ * Exact integer scaling of one chosen series. Exact when it fits; a series that needs more than six decimal places AND would
+ * not fit exactly (above 1e15 after scaling) is rounded half-even to six decimals first, and the rounding is recorded.
+ */
+export function scaleSeries(
+  name: string,
+  values: string[],
+): { places: number; scaled: bigint[]; rounding: RoundingRecord | null; values: string[] } {
+  const exactPlaces = Math.max(...values.map(decimalPlaces));
+  const exact = values.map((v) => scaleDecimal(v, exactPlaces));
+  const fits = (arr: bigint[]): boolean => arr.every((v) => (v < 0n ? -v : v) <= MAX_ABS_SCALED);
+  if (fits(exact)) return { places: exactPlaces, scaled: exact, rounding: null, values };
+  const refuse = (): never => {
+    throw new NotCapsulable(
+      `Column ${name} has a value above 1e15 after exact scaling to integers, which the verifier does not accept; nothing was rounded or capped.`,
+    );
+  };
+  if (exactPlaces <= ROUND_PLACES) return refuse();
+  const rounded = values.map((v) => decText(roundHalfEven(parseDecimal(v)!, ROUND_PLACES)));
+  const p = Math.max(...rounded.map(decimalPlaces));
+  const scaled = rounded.map((v) => scaleDecimal(v, p));
+  if (!fits(scaled))
+    throw new NotCapsulable(
+      `Column ${name} has a value above 1e15 after scaling, even rounded half-even to ${ROUND_PLACES} decimal places; nothing was capped.`,
+    );
+  let maxDiff = 0n;
+  values.forEach((v, i) => {
+    const d = exact[i]! - scaleDecimal(rounded[i]!, exactPlaces);
+    const a = d < 0n ? -d : d;
+    if (a > maxDiff) maxDiff = a;
+  });
+  return {
+    places: p,
+    scaled,
+    rounding: { decimalsKept: ROUND_PLACES, maxAbsRoundingDifference: plain(maxDiff, exactPlaces) },
+    values: rounded,
+  };
+}
+
 // ---- text helpers ----------------------------------------------------------------------------------------------------
 const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
 /** Printable-ASCII text without digits (the publication check reads every digit in prose as a claim). */
@@ -263,19 +403,51 @@ const nameOf = (c: Candidate, other: Candidate, which: "first" | "second"): stri
   const n = words(c.column).replace(/[^A-Za-z0-9._:/-]/g, "_") || "series";
   return n === words(other.column).replace(/[^A-Za-z0-9._:/-]/g, "_") ? `${n}_${which}_panel` : n;
 };
+/** The pinned WASM verifier accepts series names and units of letters, digits and . _ : - / only (units at most 32 characters). */
+const WASM_ID = /^[A-Za-z0-9._:/-]{1,32}$/;
 const unitOf = (u: string | null, places: number): string => {
   const base =
     (u ?? "unitless")
       .replace(/[^\x20-\x7e]/g, "_")
       .replace(/["\\]/g, "_")
       .trim() || "unitless";
-  return places === 0 ? base.slice(0, 80) : `${base.slice(0, 60)} x10^${places}`;
+  // an unscaled unit that the verifier already accepts stays exactly as it was (existing capsules keep their bytes)
+  if (places === 0 && WASM_ID.test(base)) return base;
+  const id = base.replace(/[^A-Za-z0-9._:/-]+/g, "_").replace(/^_+|_+$/g, "") || "unitless";
+  const suffix = places === 0 ? "" : `_x1e${places}`;
+  return `${id.slice(0, 32 - suffix.length)}${suffix}`;
 };
 /** 16 hex digits -> 16 letters (a-p): an id with no digits, so ids in prose never read as numbers. */
 const lettersOf = (hex: string): string =>
   [...hex].map((h) => String.fromCharCode(97 + parseInt(h, 16))).join("");
-export const workspaceRunCapsuleId = (workspaceId: string, runId: string): string =>
-  `cap-wsrun-${lettersOf(createHash("sha256").update(`wsrun:${workspaceId}:${runId}`).digest("hex").slice(0, 16))}`;
+/**
+ * Id of the capsule of a run. Without an explicit test it is the original id (so capsules built before tests existed keep it);
+ * with one, the pair, lag, expected sign and sentence are part of the id, so a different test of the same run is a different capsule.
+ */
+export const workspaceRunCapsuleId = (
+  workspaceId: string,
+  runId: string,
+  test?: TestRequest | null,
+): string => {
+  const seed = test
+    ? `wsrun:${workspaceId}:${runId}:test:${sha256Hex(
+        Buffer.from(
+          JSON.stringify([
+            test.x.panelHash,
+            test.x.column,
+            test.y.panelHash,
+            test.y.column,
+            test.lagDays ?? 0,
+            test.expectedSign ?? "either",
+            test.statement ?? "",
+            test.chosenBy ?? "user",
+          ]),
+          "utf8",
+        ),
+      )}`
+    : `wsrun:${workspaceId}:${runId}`;
+  return `cap-wsrun-${lettersOf(createHash("sha256").update(seed).digest("hex").slice(0, 16))}`;
+};
 
 const json = (v: unknown): string => `${JSON.stringify(v, null, 2)}\n`;
 const get = (o: unknown, ...p: string[]): unknown =>
@@ -293,6 +465,7 @@ export interface WorkspaceRunBuild {
   metricVersions: Record<string, string>;
   extraResults: NonNullable<BuildOptions["extraResults"]>;
   extraThesisNotes: string[];
+  plan: TestPlan | null;
   selection: {
     x: { name: string; unit: string; points: number; panelHash: string; column: string };
     y: { name: string; unit: string; points: number; panelHash: string; column: string };
@@ -354,31 +527,32 @@ function notesFrom(findings: RunFinding[], maxResults: number) {
  * run has no two usable daily series. Pure apart from the files written under `dir`.
  */
 export function buildWorkspaceRunSnapshot(input: WorkspaceRunInput, dir: string): WorkspaceRunBuild {
-  const sel = pickSeries(input.panels);
-  const xs = sel.days.map((d) => sel.x.values.get(d)!);
-  const ys = sel.days.map((d) => sel.y.values.get(d)!);
-  const px = Math.max(...xs.map(decimalPlaces));
-  const py = Math.max(...ys.map(decimalPlaces));
-  const sx = xs.map((v) => scaleDecimal(v, px));
-  const sy = ys.map((v) => scaleDecimal(v, py));
-  for (const [nm, arr] of [
-    [sel.x.column, sx],
-    [sel.y.column, sy],
-  ] as const)
-    if (arr.some((v) => (v < 0n ? -v : v) > MAX_ABS_SCALED))
-      throw new NotCapsulable(
-        `Column ${nm} has a value above 1e15 after exact scaling to integers, which the verifier does not accept; nothing was rounded or capped.`,
-      );
+  const chosen = selectSeries(input);
+  const sel = chosen.sel;
+  const xs0 = sel.days.map((d) => sel.x.values.get(d)!);
+  const ys0 = sel.days.map((d) => sel.y.values.get(d)!);
+  const scX = scaleSeries(sel.x.column, xs0);
+  const scY = scaleSeries(sel.y.column, ys0);
+  const px = scX.places;
+  const py = scY.places;
+  const sx = scX.scaled;
+  const sy = scY.scaled;
   const nameX = nameOf(sel.x, sel.y, "first");
   const nameY = nameOf(sel.y, sel.x, "second");
   const unitX = unitOf(sel.x.unit, px);
   const unitY = unitOf(sel.y.unit, py);
   const n = sel.days.length;
-  const metrics = [...(n >= 9 ? ["lag_pearson:7"] : []), "pearson", "summary"];
+  const planLag = chosen.plan?.lagDays ?? 0;
+  const metrics = [
+    ...(n >= 9 ? ["lag_pearson:7"] : []),
+    ...(planLag > 0 && planLag !== 7 && planLag <= n - 2 ? [`lag_pearson:${planLag}`] : []),
+    "pearson",
+    "summary",
+  ].sort();
   const from = dayStr(sel.days[0]!);
   const to = dayStr(sel.days[n - 1]!);
 
-  const capsuleId = workspaceRunCapsuleId(input.workspaceId, input.runId);
+  const capsuleId = workspaceRunCapsuleId(input.workspaceId, input.runId, input.test);
   const id = capsuleId.slice("cap-".length);
   const files: Array<{ path: string; bytes: Buffer }> = [];
   const add = (path: string, data: string) => files.push({ path, bytes: Buffer.from(data, "utf8") });
@@ -414,6 +588,8 @@ export function buildWorkspaceRunSnapshot(input: WorkspaceRunInput, dir: string)
       window: days.length ? { from: days[0]!, to: days[days.length - 1]! } : null,
       coverage: get(p.body, "coverage") ?? null,
       caveats: get(p.body, "caveats") ?? [],
+      // only when the run recorded it, so a capsule built without it keeps its bytes
+      ...(p.primaryColumn ? { primaryColumn: p.primaryColumn } : {}),
     };
   });
   const { candidates, skipped } = candidatesOf(input.panels);
@@ -441,6 +617,20 @@ export function buildWorkspaceRunSnapshot(input: WorkspaceRunInput, dir: string)
           days: c.values.size,
         })),
         skippedPanels: skipped,
+        // Written only by the explicit-pair and question-matching paths and by rounding, so a capsule chosen by the old rule
+        // with exact scaling has exactly the bytes it always had.
+        ...(chosen.chosenBy !== "legacy"
+          ? { chosenBy: chosen.chosenBy, namedForQuestion: chosen.namedForQuestion, plan: chosen.plan }
+          : {}),
+        ...(scX.rounding || scY.rounding
+          ? {
+              rounding: {
+                ...(scX.rounding ? { x: scX.rounding } : {}),
+                ...(scY.rounding ? { y: scY.rounding } : {}),
+                rule: "A series that needs more than six decimal places and does not fit exactly after scaling is rounded half-even to six decimals before scaling.",
+              },
+            }
+          : {}),
       },
     }),
   );
@@ -502,6 +692,7 @@ export function buildWorkspaceRunSnapshot(input: WorkspaceRunInput, dir: string)
     metricVersions,
     extraResults,
     extraThesisNotes: notes,
+    plan: chosen.plan,
     selection: {
       x: { name: nameX, unit: unitX, points: n, panelHash: sel.x.panelHash, column: sel.x.column },
       y: { name: nameY, unit: unitY, points: n, panelHash: sel.y.panelHash, column: sel.y.column },

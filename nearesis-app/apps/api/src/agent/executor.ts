@@ -296,11 +296,16 @@ export class Executor {
     title: string,
     steps: StepRow[],
   ): Promise<void> {
-    const items = steps.flatMap((s) =>
+    // the thesis leads: its links come first and its own summary is part of the finished message
+    const lead = [...steps].reverse().find((s) => s.key === "thesis.build" && s.state === "done");
+    const ordered = lead ? [lead, ...steps.filter((s) => s !== lead)] : steps;
+    const items = ordered.flatMap((s) =>
       (s.result?.items ?? []).map((i) => ({ ...i, label: `${s.title}: ${i.label}` })),
     );
     const result: StepResult = {
-      summary: `Finished "${title}": ${steps.filter((s) => s.state === "done").length} of ${steps.length} steps done.`,
+      summary:
+        `Finished "${title}": ${steps.filter((s) => s.state === "done").length} of ${steps.length} steps done.` +
+        (lead?.result?.summary ? ` ${lead.result.summary}` : ""),
       items: items.slice(0, 60),
     };
     const done = await this.d.store.inTx(userOf(user), async (tx) => {

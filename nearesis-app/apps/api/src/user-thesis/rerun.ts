@@ -1,4 +1,4 @@
-import { candidatesOf, computeResults, decimalPlaces, scaleDecimal } from "@nearesis/capsule";
+import { candidatesOf, computeResults, scaleSeries } from "@nearesis/capsule";
 import type { RunPanel } from "@nearesis/capsule";
 import type { PanelDataResponse } from "@nearesis/contracts";
 import type { PanelDataPort, DataSource } from "../panel-data.ts";
@@ -7,7 +7,8 @@ import type { CapsuleFacts, PanelFile } from "./facts.ts";
 import { chartData, coverageOf } from "./generate.ts";
 import { compareDocs } from "./compare.ts";
 import type { CompareRow } from "./compare.ts";
-import { RULE, evaluateRule, ppmText } from "./rule.ts";
+import { RULE, RULE_V2, RULE_V2_ID, evaluateRule, evaluateRuleV2, ppmText } from "./rule.ts";
+import { planOf, recordOf, relatednessOfPlan, testNumbers } from "./evaluate.ts";
 import type { Doc } from "./verify.ts";
 
 export interface RerunResult {
@@ -86,6 +87,9 @@ export async function rerunThesis(
   now: Date,
 ): Promise<RerunResult> {
   const sel = facts.index.selection;
+  const isV2 = doc.test?.rule === RULE_V2_ID;
+  const plan = isV2 ? planOf(facts).plan : null;
+  const planLag = plan?.lagDays ?? 0;
   const runSource: DataSource = facts.index.runSource === "fixture" ? "fixture" : "live";
   const frozenWindow = sel.window;
   const unavailable: RerunResult["unavailable"] = [];
@@ -115,6 +119,7 @@ export async function rerunThesis(
     reproCharts.push({
       id: c.id,
       title: c.title,
+      primary: c.primary,
       x: cd.x,
       series: cd.series.map((s) => ({ name: s.name, values: s.values })),
     });
@@ -164,21 +169,26 @@ export async function rerunThesis(
         try {
           const xs = best.map((d) => cx.values.get(d)!);
           const ys = best.map((d) => cy.values.get(d)!);
-          const px = Math.max(...xs.map(decimalPlaces));
-          const py = Math.max(...ys.map(decimalPlaces));
+          const scX = scaleSeries(sel.x.column, xs);
+          const scY = scaleSeries(sel.y.column, ys);
           const n = best.length;
           const input = {
             series: {
               x: {
                 ...facts.input.series.x,
-                points: best.map((d, i) => [dayStr(d), scaleDecimal(xs[i]!, px).toString()]),
+                points: best.map((d, i) => [dayStr(d), scX.scaled[i]!.toString()]),
               },
               y: {
                 ...facts.input.series.y,
-                points: best.map((d, i) => [dayStr(d), scaleDecimal(ys[i]!, py).toString()]),
+                points: best.map((d, i) => [dayStr(d), scY.scaled[i]!.toString()]),
               },
             },
-            metrics: [...(n >= 9 ? ["lag_pearson:7"] : []), "pearson", "summary"],
+            metrics: [
+              ...(n >= 9 ? ["lag_pearson:7"] : []),
+              ...(planLag > 0 && planLag !== 7 && planLag <= n - 2 ? [`lag_pearson:${planLag}`] : []),
+              "pearson",
+              "summary",
+            ].sort(),
           };
           const res = computeResults(input as never) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
           const window = { from: dayStr(best[0]!), to: dayStr(best[n - 1]!) };
@@ -189,13 +199,37 @@ export async function rerunThesis(
           const covY = coverageOf(yBody as unknown as PanelFile, window);
           const coverageComplete =
             covX.complete === null || covY.complete === null ? null : covX.complete && covY.complete;
-          verdict = evaluateRule({ n, pearsonPpm, lagPpm, coverageComplete }).status;
-          test = {
-            n,
-            window,
-            pearson: pearsonPpm === null ? null : ppmText(pearsonPpm),
-            lag: [{ days: RULE.lagDays, value: lagPpm === null ? null : ppmText(lagPpm) }],
-          };
+          if (isV2) {
+            const tn = testNumbers(res, input as never, planLag, facts.capsuleHash);
+            const rel = relatednessOfPlan(
+              inputs.map((p) => ({ hash: p.hash, title: p.title, body: p.body })),
+              plan!,
+            );
+            verdict = evaluateRuleV2({
+              n: tn.pairs,
+              levelPpm: tn.levelPpm,
+              changePpm: tn.stats.changePpm,
+              interval: tn.stats.interval,
+              expectedSign: plan!.expectedSign,
+              coverageComplete,
+              mechanical: rel?.status === "mechanical",
+            }).status;
+            test = {
+              n,
+              window,
+              pearson: pearsonPpm === null ? null : ppmText(pearsonPpm),
+              lag: [{ days: RULE_V2.lagDays, value: lagPpm === null ? null : ppmText(lagPpm) }],
+              ...recordOf(tn),
+            };
+          } else {
+            verdict = evaluateRule({ n, pearsonPpm, lagPpm, coverageComplete }).status;
+            test = {
+              n,
+              window,
+              pearson: pearsonPpm === null ? null : ppmText(pearsonPpm),
+              lag: [{ days: RULE.lagDays, value: lagPpm === null ? null : ppmText(lagPpm) }],
+            };
+          }
         } catch (e) {
           unavailable.push({
             chart: "test series",

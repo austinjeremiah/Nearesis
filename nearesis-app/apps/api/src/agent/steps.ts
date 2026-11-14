@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { QUESTION_BUDGET } from "./catalog.ts";
 import { ApiError, call, apiErrorOf } from "./api-client.ts";
+import { challengeItems, challengePath } from "../user-thesis-challenge-routes.ts";
 import type { AgentApi, AgentUser } from "./api-client.ts";
 import type { StepResult, StepResultItem, StepWaiting, TaskCtx } from "./types.ts";
 
@@ -364,8 +365,29 @@ async function setupAuto(e: Env): Promise<Outcome> {
     cost?: { usd?: number; modelCalls?: number };
   }>(e.api, e.user, "POST", `/v1/workspaces/${ws}/assistant/setup`, { runId }, idem(e));
   const b = r.body;
-  if (b.hypothesis && typeof b.hypothesis.id === "string")
-    await e.patchCtx({ hypothesisId: b.hypothesis.id });
+  if (b.hypothesis && typeof b.hypothesis.id === "string") {
+    const tp = b.hypothesis.testPlan as
+      | {
+          x?: { panel?: string; column?: string };
+          y?: { panel?: string; column?: string };
+          lagDays?: number;
+          expectedSign?: "positive" | "negative" | "either";
+          chosenBy?: string;
+        }
+      | null
+      | undefined;
+    const plan: TaskCtx["testPlan"] | null =
+      tp?.x?.panel && tp.x.column && tp.y?.panel && tp.y.column
+        ? {
+            x: { panelHash: tp.x.panel, column: tp.x.column },
+            y: { panelHash: tp.y.panel, column: tp.y.column },
+            lagDays: typeof tp.lagDays === "number" ? tp.lagDays : 0,
+            expectedSign: tp.expectedSign ?? "either",
+            chosenBy: tp.chosenBy === "planner" ? "planner" : "rule",
+          }
+        : null;
+    await e.patchCtx({ hypothesisId: b.hypothesis.id, ...(plan ? { testPlan: plan } : {}) });
+  }
   if (typeof b.cost?.usd === "number" && b.cost.usd > 0)
     await e.cost({
       label: "Setup (model spend)",
@@ -469,7 +491,23 @@ async function hypothesisFreeze(e: Env): Promise<Outcome> {
 async function capsuleBuild(e: Env): Promise<Outcome> {
   const ws = wsOf(e);
   const runId = need(str(e.params.runId) ?? e.ctx.runId ?? (await latestRunId(e, ws)), "a finished run");
-  const r = await call<Obj>(e.api, e.user, "POST", `/v1/workspaces/${ws}/capsules`, { runId }, idem(e));
+  let r: { body: Obj };
+  try {
+    r = await call<Obj>(e.api, e.user, "POST", `/v1/workspaces/${ws}/capsules`, { runId }, idem(e));
+  } catch (err) {
+    if (
+      err instanceof ApiError &&
+      (err.reasonCode === "RUN_NOT_CAPSULABLE" || err.reasonCode === "TEST_PAIR_UNAVAILABLE")
+    ) {
+      const reason = noThesisText(err.message);
+      await e.patchCtx({ noThesisReason: reason });
+      return {
+        kind: "done",
+        result: { summary: `No capsule could be built from this run. ${reason}`, items: [] },
+      };
+    }
+    throw err;
+  }
   const capsuleId = need(str(r.body.capsuleId), "the capsule id");
   await e.patchCtx({ capsuleId });
   return {
@@ -722,14 +760,18 @@ async function reportBuild(e: Env): Promise<Outcome> {
   return {
     kind: "done",
     result: {
-      summary: "The workspace report is ready.",
+      summary: "The workspace summary (older format) is ready.",
       items: [
-        item("Report", "Open the report", reportUrl),
-        item("PDF", "Download the PDF", `/api/report/${ws}/pdf`),
+        item("Workspace summary (older format)", "Open the summary", reportUrl),
+        item("PDF", "Download the summary PDF", `/api/report/${ws}/pdf`),
       ],
     },
   };
 }
+
+/** Why there is no thesis and what would make one possible, in plain words. */
+const noThesisText = (why: string): string =>
+  `There is no thesis for this run: ${why.replace(/\s+/g, " ").trim().slice(0, 300)} A thesis needs two daily series over the same days; ask a question that names two daily series (for example a count and a rate by day) to get one.`;
 
 const verdictText = (v: unknown): string | null => {
   if (typeof v === "string") return str(v);
@@ -744,31 +786,100 @@ const verdictText = (v: unknown): string | null => {
 const cell = (v: unknown): string =>
   v === null || v === undefined ? "not available" : typeof v === "string" ? v : JSON.stringify(v);
 
+const INVALID_TEST_TEXT =
+  "The two series are mechanically related (one is part of the other, a duplicate, or a ratio of it), so the data give no verdict on the claim. Ask for two series that are not part of each other to get a verdict.";
+
 async function thesisBuild(e: Env): Promise<Outcome> {
   const ws = wsOf(e);
+  if (e.ctx.noThesisReason)
+    return { kind: "done", result: { summary: noThesisText(e.ctx.noThesisReason), items: [] } };
   // No run named by the plan or the task: the route takes the workspace's newest run with a ready interpretation.
   const runId = str(e.params.runId) ?? e.ctx.runId ?? null;
-  const r = await call<Obj>(
-    e.api,
-    e.user,
-    "POST",
-    `/v1/workspaces/${ws}/theses`,
-    runId ? { runId } : {},
-    idem(e),
-  );
+  const tp = e.ctx.testPlan;
+  const body: Obj = {
+    ...(runId ? { runId } : {}),
+    // the test plan the setup step drafted with the hypothesis (ids only; the server validates it against the run's series)
+    ...(tp
+      ? {
+          test: {
+            x: tp.x,
+            y: tp.y,
+            lagDays: tp.lagDays,
+            expectedSign: tp.expectedSign,
+            chosenBy: tp.chosenBy,
+          },
+        }
+      : {}),
+  };
+  let r: { body: Obj };
+  try {
+    r = await call<Obj>(e.api, e.user, "POST", `/v1/workspaces/${ws}/theses`, body, idem(e));
+  } catch (err) {
+    if (
+      err instanceof ApiError &&
+      (err.reasonCode === "RUN_NOT_CAPSULABLE" || err.reasonCode === "TEST_PAIR_UNAVAILABLE")
+    )
+      return { kind: "done", result: { summary: noThesisText(err.message), items: [] } };
+    throw err;
+  }
   const thesisId = need(str(r.body.thesisId), "the thesis id");
   await e.patchCtx({ thesisId });
   const verdict = verdictText(r.body.verdict);
+  const status =
+    typeof r.body.verdict === "object" && r.body.verdict ? str((r.body.verdict as Obj).status) : null;
   const version =
     typeof r.body.version === "string" || typeof r.body.version === "number" ? String(r.body.version) : null;
   return {
     kind: "done",
     result: {
-      summary: `Thesis built${verdict ? `. Verdict ${verdict}` : ""}.`,
+      summary: `The thesis is ready.${verdict ? ` Verdict ${verdict}` : ""}${status === "INVALID_TEST" ? ` ${INVALID_TEST_TEXT}` : ""}`,
       items: [
         item("Thesis", thesisId, `/thesis/${thesisId}`),
+        item("PDF", "Download the thesis PDF", `/api/thesis/${thesisId}/pdf`),
         ...(verdict ? [item("Verdict", verdict)] : []),
         ...(version ? [item("Version", version)] : []),
+      ],
+      refs: { thesisId },
+    },
+  };
+}
+
+async function latestThesisId(e: Env, ws: string): Promise<string | null> {
+  const r = await call<{ items?: Obj[] }>(e.api, e.user, "GET", "/v1/theses");
+  const mine = (r.body.items ?? []).find((t) => t.workspaceId === ws && t.kind !== "reference");
+  return mine ? str(mine.id) : null;
+}
+
+const OUTCOME_WORDS: Record<string, string> = {
+  holds: "The thesis holds.",
+  weakened: "The thesis is weakened by the challenge.",
+  unsupported: "The thesis is unsupported after the challenge.",
+  unavailable: "The challenge is unavailable.",
+};
+async function thesisChallenge(e: Env): Promise<Outcome> {
+  const thesisId = need(
+    str(e.params.thesisId) ??
+      e.ctx.thesisId ??
+      (e.ctx.workspaceId ? await latestThesisId(e, e.ctx.workspaceId) : null),
+    "a thesis",
+  );
+  // A 402 CREDITS_EXHAUSTED comes back as a non-retryable ApiError and fails the step with its reason.
+  const r = await call<{
+    outcome?: unknown;
+    notes?: Array<{ text: string; group: string; severity: string }>;
+  }>(e.api, e.user, "POST", challengePath(thesisId), undefined, idem(e));
+  const outcome = str(r.body.outcome);
+  if (!outcome || !(outcome in OUTCOME_WORDS))
+    throw new StepFail("CHALLENGE_UNREADABLE", "The challenge did not return an outcome.", false);
+  const notes = challengeItems({ notes: (Array.isArray(r.body.notes) ? r.body.notes : []) as never });
+  await e.patchCtx({ thesisId });
+  return {
+    kind: "done",
+    result: {
+      summary: OUTCOME_WORDS[outcome]!,
+      items: [
+        item("Thesis", thesisId, `/thesis/${thesisId}`),
+        ...notes.map((n) => item(`${n.group} (${n.severity})`, n.text)),
       ],
       refs: { thesisId },
     },
@@ -849,4 +960,5 @@ export const HANDLERS: Record<string, (e: Env) => Promise<Outcome>> = {
   "thesis.build": thesisBuild,
   "thesis.publish": thesisPublish,
   "thesis.compare": thesisCompare,
+  "thesis.challenge": thesisChallenge,
 };

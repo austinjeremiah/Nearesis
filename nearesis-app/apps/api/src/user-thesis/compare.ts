@@ -15,6 +15,12 @@ const deltaOf = (a: string | null, b: string | null): string | null => {
   return x === null || y === null ? null : String(Number((y - x).toPrecision(12)));
 };
 
+/** The series a chart's sentence describes: its recorded primary column, else the first. */
+export const primarySeries = (c: Doc | undefined): Doc | undefined => {
+  const list = (c?.series ?? []) as Doc[];
+  return (typeof c?.primary === "string" ? list.find((s) => s.name === c.primary) : undefined) ?? list[0];
+};
+
 const firstLastPeak = (
   series: Doc | undefined,
 ): { first: string | null; last: string | null; peak: string | null } => {
@@ -49,6 +55,13 @@ export function compareDocs(
     structural.push(row("window from", orig.test?.window?.from, repro.test?.window?.from));
     structural.push(row("window to", orig.test?.window?.to, repro.test?.window?.to));
     row("same-day Pearson correlation", orig.test?.pearson, repro.test?.pearson);
+    if (orig.test?.level || repro.test?.level) {
+      row("level correlation (plan's pairing)", orig.test?.level?.value, repro.test?.level?.value);
+      row("correlation of day-over-day changes", orig.test?.change?.value, repro.test?.change?.value);
+      row("rank (Spearman) correlation", orig.test?.spearman?.value, repro.test?.spearman?.value);
+      row("interval low", orig.test?.interval?.lo, repro.test?.interval?.lo);
+      row("interval high", orig.test?.interval?.hi, repro.test?.interval?.hi);
+    }
     const lo = (orig.test?.lag ?? []) as Doc[];
     const lr = (repro.test?.lag ?? []) as Doc[];
     for (const l of lo)
@@ -61,8 +74,8 @@ export function compareDocs(
   const reproCharts = new Map<string, Doc>(((repro.charts ?? []) as Doc[]).map((c) => [String(c.id), c]));
   for (const c of (orig.charts ?? []) as Doc[]) {
     const other = reproCharts.get(String(c.id));
-    const a = firstLastPeak((c.series as Doc[] | undefined)?.[0]);
-    const b = firstLastPeak((other?.series as Doc[] | undefined)?.[0]);
+    const a = firstLastPeak(primarySeries(c));
+    const b = firstLastPeak(primarySeries({ ...other, primary: c.primary }));
     row(`${String(c.title)}: first value`, a.first, b.first);
     row(`${String(c.title)}: last value`, a.last, b.last);
     row(`${String(c.title)}: peak`, a.peak, b.peak);

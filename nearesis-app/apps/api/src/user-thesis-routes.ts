@@ -5,9 +5,17 @@ import type { FastifyPluginAsync, FastifyReply } from "fastify";
 import { z } from "zod";
 import { KernelError, canWrite, workspaceNotFound } from "@nearesis/kernel";
 import type { Session, Tx } from "@nearesis/kernel";
-import { APP_ROOT, readCapsuleOwnership } from "@nearesis/capsule";
+import {
+  APP_ROOT,
+  candidatesOf,
+  chooseForQuestion,
+  readCapsuleOwnership,
+  workspaceRunCapsuleId,
+} from "@nearesis/capsule";
+import type { TestPlan, TestRequest } from "@nearesis/capsule";
 import { resolveCapsuleDir } from "./capsule-resolve.ts";
-import { createWorkspaceCapsule } from "./workspace-capsule-routes.ts";
+import { TestBody, createWorkspaceCapsule } from "./workspace-capsule-routes.ts";
+import { factsPanels } from "./user-thesis/evaluate.ts";
 import { rerunThesis } from "./user-thesis/rerun.ts";
 import { createPanelDataPort } from "./panel-data.ts";
 import type { PanelDataPort } from "./panel-data.ts";
@@ -30,7 +38,12 @@ import type { Check, Doc, ProofBinding } from "./user-thesis/verify.ts";
 import { UNTESTED_NOTE } from "./user-thesis/validate.ts";
 import { strengthOf } from "./user-thesis/strength.ts";
 import type { StrengthChallenge } from "./user-thesis/strength.ts";
-import { challengeCount, readChallenges, readPublicChallenges, DISPLAY_LIMIT } from "./user-thesis/challenges.ts";
+import {
+  challengeCount,
+  readChallenges,
+  readPublicChallenges,
+  DISPLAY_LIMIT,
+} from "./user-thesis/challenges.ts";
 
 /**
  * User theses (backend part 1). A thesis is a deterministic `nearesis.thesis.v1` document built from a workspace run and its
@@ -54,7 +67,7 @@ export interface UserThesisRoutesOptions extends ProductDeps {
   now?: () => number;
 }
 
-const BuildBody = z.strictObject({ runId: z.uuid().optional() });
+const BuildBody = z.strictObject({ runId: z.uuid().optional(), test: TestBody.optional() });
 const SlugBody = z.strictObject({ slug: z.string().regex(/^[a-z0-9]{12,40}$/) });
 const CompareBody = z.strictObject({ against: z.union([z.uuid(), z.literal(REFERENCE_ID)]) });
 
@@ -97,7 +110,15 @@ interface Counts {
   /** Finished challenges (an unavailable one is not counted). */
   challenged: number;
 }
-const noCounts: Counts = { verified: 0, reproduced: 0, drift: 0, different: 0, incomplete: 0, mismatch: 0, challenged: 0 };
+const noCounts: Counts = {
+  verified: 0,
+  reproduced: 0,
+  drift: 0,
+  different: 0,
+  incomplete: 0,
+  mismatch: 0,
+  challenged: 0,
+};
 
 const notFound = (): KernelError => new KernelError("NOT_FOUND", "THESIS_NOT_FOUND", "Thesis not found.");
 const fileNotFound = (): KernelError =>
@@ -252,7 +273,12 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
     );
   }
 
-  async function buildForWorkspace(s: Session, workspaceId: string, runIdIn: string | undefined) {
+  async function buildForWorkspace(
+    s: Session,
+    workspaceId: string,
+    runIdIn: string | undefined,
+    explicitTest?: TestRequest,
+  ) {
     if (!Uuid.safeParse(workspaceId).success) throw workspaceNotFound();
     try {
       await kernel.workspaces.get(s, workspaceId);
@@ -264,18 +290,28 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
     if (!canWrite(s.role))
       throw new KernelError("FORBIDDEN", "INSUFFICIENT_ROLE", "Role cannot make this change.");
     const runId = await pickRun(s, workspaceId, runIdIn);
-    const cap = await createWorkspaceCapsule(
-      {
-        kernel,
-        runs,
-        panelData: data(),
-        root: root(),
-        ...(opts.wasmPath ? { wasmPath: opts.wasmPath } : {}),
-      },
-      s,
-      workspaceId,
-      runId,
-    );
+    const capDeps = {
+      kernel,
+      runs,
+      panelData: data(),
+      root: root(),
+      ...(opts.wasmPath ? { wasmPath: opts.wasmPath } : {}),
+    };
+    // Which pair tests the claim: the explicit one of the request, else the plan stored with the workspace's hypothesis,
+    // else (for a capsule built before tests were named) the question-matching chooser; the old rule is the last fallback.
+    const hypBefore = await readHypothesis(s, workspaceId);
+    let test: TestRequest | undefined = explicitTest;
+    if (!test && hypBefore?.testPlan) test = requestOf(hypBefore.testPlan);
+    if (!test) test = await chooserTestFor(s, workspaceId, runId);
+    let cap: Awaited<ReturnType<typeof createWorkspaceCapsule>>;
+    try {
+      cap = await createWorkspaceCapsule(capDeps, s, workspaceId, runId, test);
+    } catch (e) {
+      // a stored plan that no longer matches the run's series is not an error of the person: fall back to the chooser/rule
+      if (!explicitTest && test && e instanceof KernelError && e.reasonCode === "TEST_PAIR_UNAVAILABLE")
+        cap = await createWorkspaceCapsule(capDeps, s, workspaceId, runId);
+      else throw e;
+    }
     const dir = resolveCapsuleDir(root(), cap.view.capsuleId);
     const owner = dir ? readCapsuleOwnership(dir) : null;
     if (!dir || !owner || owner.orgId !== s.principal.orgId || owner.workspaceId !== workspaceId)
@@ -296,7 +332,7 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
       (await runs.listRuns(s, workspaceId)).runs.find((r) => r.runId === runId)?.questionSummary ?? null;
 
     const [hyp, monitors, markers, outlayer] = await Promise.all([
-      readHypothesis(s, workspaceId),
+      Promise.resolve(hypBefore),
       readMonitors(s, workspaceId, facts.index.selection.x.column, facts.index.selection.y.column),
       readMarkers(s, workspaceId),
       readOutlayer(s, facts.capsuleId),
@@ -366,6 +402,62 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
     return row;
   }
 
+  const requestOf = (p: TestPlan): TestRequest => ({
+    x: { panelHash: p.x.panel, column: p.x.column },
+    y: { panelHash: p.y.panel, column: p.y.column },
+    lagDays: p.lagDays,
+    expectedSign: p.expectedSign,
+    statement: p.statement,
+    why: p.why,
+    chosenBy: p.chosenBy,
+  });
+  /**
+   * For a run whose capsule was built before tests were named (original longest-overlap pair): the pair the question asks
+   * about, when the chooser finds one that differs from the stored pair. Reads the capsule's own frozen panels; no model.
+   */
+  async function chooserTestFor(
+    s: Session,
+    workspaceId: string,
+    runId: string,
+  ): Promise<TestRequest | undefined> {
+    const dir = resolveCapsuleDir(root(), workspaceRunCapsuleId(workspaceId, runId));
+    const owner = dir ? readCapsuleOwnership(dir) : null;
+    if (!dir || !owner || owner.orgId !== s.principal.orgId || owner.workspaceId !== workspaceId)
+      return undefined;
+    let facts: ReturnType<typeof readCapsuleFacts>;
+    try {
+      facts = readCapsuleFacts(dir);
+    } catch {
+      return undefined;
+    }
+    if (!facts || facts.index.selection.chosenBy) return undefined;
+    const ws = (await kernel.workspaces.get(s, workspaceId)) as { objective?: string | null };
+    const question =
+      (await runs.listRuns(s, workspaceId)).runs.find((r) => r.runId === runId)?.questionSummary ?? "";
+    const text = [ws.objective, question].filter((x): x is string => !!x).join(". ");
+    const { candidates } = candidatesOf(factsPanels(facts) as never);
+    const c = chooseForQuestion(candidates, text);
+    if (!c) return undefined;
+    const sel = facts.index.selection;
+    const same =
+      (c.x.panelHash === sel.x.panelHash &&
+        c.x.column === sel.x.column &&
+        c.y.panelHash === sel.y.panelHash &&
+        c.y.column === sel.y.column) ||
+      (c.x.panelHash === sel.y.panelHash &&
+        c.x.column === sel.y.column &&
+        c.y.panelHash === sel.x.panelHash &&
+        c.y.column === sel.x.column);
+    if (same) return undefined;
+    return {
+      x: { panelHash: c.x.panelHash, column: c.x.column },
+      y: { panelHash: c.y.panelHash, column: c.y.column },
+      expectedSign: c.expectedSign,
+      why: c.why,
+      chosenBy: "rule",
+    };
+  }
+
   async function readHypothesis(s: Session, workspaceId: string): Promise<HypothesisInput | null> {
     return kernel.db.tx(ctxOf(s), async (tx) => {
       const r = await tx.query<{
@@ -374,8 +466,9 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
         proposition: string;
         falsification: string;
         created_at: Date;
+        test_plan: TestPlan | null;
       }>(
-        `SELECT DISTINCT ON (root_id) root_id, status, proposition, falsification, created_at FROM hypotheses
+        `SELECT DISTINCT ON (root_id) root_id, status, proposition, falsification, created_at, test_plan FROM hypotheses
           WHERE workspace_id = $1 ORDER BY root_id, version DESC`,
         [workspaceId],
       );
@@ -387,6 +480,7 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
             status: pick.status === "frozen" ? ("frozen" as const) : ("draft" as const),
             proposition: pick.proposition,
             falsification: pick.falsification?.trim() ? pick.falsification : null,
+            testPlan: pick.test_plan ?? null,
           }
         : null;
     });
@@ -469,7 +563,12 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
   app.post<{ Params: { id: string } }>("/v1/workspaces/:id/theses", async (req, reply) => {
     const s = await authenticate(req);
     const body = parseBody(BuildBody, req.body);
-    const row = await buildForWorkspace(s, req.params.id, body.runId);
+    const row = await buildForWorkspace(
+      s,
+      req.params.id,
+      body.runId,
+      body.test ? ({ ...body.test, chosenBy: body.test.chosenBy ?? "user" } as TestRequest) : undefined,
+    );
     return reply.status(201).send({
       thesisId: row.id,
       version: row.version,
@@ -514,7 +613,11 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
       const row = await rowOf(tx, g.id);
       const c = await counts(tx, [g.id]);
       const ch = await readChallenges(tx, [g.id]);
-      return { thesisId: g.id, created, thesis: summaryOf(row, s, c.get(g.id) ?? noCounts, ch.get(g.id) ?? []) };
+      return {
+        thesisId: g.id,
+        created,
+        thesis: summaryOf(row, s, c.get(g.id) ?? noCounts, ch.get(g.id) ?? []),
+      };
     });
   });
 
@@ -889,7 +992,8 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
       const row = (await tx.query<PublicRow>("SELECT * FROM thesis_public_get($1)", [slug])).rows[0];
       if (!row) throw notFound();
       const c = {
-        ...((await tx.query<Counts>("SELECT * FROM thesis_receipt_counts_v2($1)", [row.id])).rows[0] ?? noCounts),
+        ...((await tx.query<Counts>("SELECT * FROM thesis_receipt_counts_v2($1)", [row.id])).rows[0] ??
+          noCounts),
         challenged: await challengeCount(tx, row.id),
       };
       return { row, c, ch: await readPublicChallenges(tx, row.id) };

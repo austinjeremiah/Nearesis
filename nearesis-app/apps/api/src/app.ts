@@ -10,6 +10,7 @@ import type { InvestigationEngine } from "./runs.ts";
 import { historyRoutes } from "./history-routes.ts";
 import { monitoringRoutes } from "./monitoring-routes.ts";
 import { capsuleRoutes } from "./capsule-routes.ts";
+import { workspaceCapsuleRoutes } from "./workspace-capsule-routes.ts";
 import { creditsRoutes } from "./credits-routes.ts";
 import { publishRoutes } from "./publish-routes.ts";
 import { integrityRoutes } from "./integrity-routes.ts";
@@ -572,6 +573,13 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     kernel,
     ...(opts.authoring ? { authoring: opts.authoring } : {}),
     ...(opts.chainReadback ? { chainReadback: opts.chainReadback } : {}),
+  });
+  await app.register(workspaceCapsuleRoutes, {
+    kernel,
+    authenticate,
+    runs,
+    ...(opts.frontend?.panelData ? { panelData: opts.frontend.panelData } : {}),
+    ...(opts.frontend?.capsuleRoot ? { capsuleRoot: opts.frontend.capsuleRoot } : {}),
   });
   await app.register(publishRoutes, {
     kernel,

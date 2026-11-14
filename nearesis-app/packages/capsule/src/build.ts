@@ -53,6 +53,16 @@ export interface BuildOptions {
   extraThesisNotes?: string[];
   /** Label shown on the static dashboard when the preregistration order is not honest (`post-hoc registration`). */
   registrationLabel?: string;
+  /** Extra computed results (workspace-run capsules: the cells their findings cite). They are checked like any other result. */
+  extraResults?: Array<{
+    id: string;
+    label: string;
+    value: string;
+    unit: string | null;
+    computation: string;
+  }>;
+  /** Manifest title override (default: the claim id, prefixed `SYNTHETIC: ` for synthetic data). */
+  title?: string;
 }
 
 export const fileEntry = (root: string, rel: string): CapsuleFileEntry => {
@@ -317,7 +327,7 @@ export function buildClaims(
   return claims;
 }
 
-function limitationsFor(label: string, hasResearch: boolean): string[] {
+function limitationsFor(label: string, hasResearch: boolean, workspaceRun = false): string[] {
   const l = [
     "Local verification recomputes the metrics with this repository's code from the frozen raw bytes. It is not an OutLayer attestation.",
     "No OutLayer job has been executed for this capsule, so its OutLayer status is not submitted. A capsule is shown as OutLayer verified only when attestation evidence passes the proof policy with a quote verifier.",
@@ -328,6 +338,11 @@ function limitationsFor(label: string, hasResearch: boolean): string[] {
   if (label === "SYNTHETIC")
     l.unshift(
       "This capsule is built on SYNTHETIC data. No statement in it describes NEAR production activity.",
+    );
+  if (workspaceRun)
+    l.push(
+      "Automated workspace run: the two verified series were picked by a fixed rule from the run's result tables, not chosen by a person for a hypothesis, and the notes restate only findings whose numbers tie to cited result cells.",
+      "Series values were scaled to integers exactly (the scale is stated in the series unit); no value was filled, interpolated or dropped inside the verified window.",
     );
   if (hasResearch && label === "LIVE")
     l.push(
@@ -386,11 +401,13 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
   // 4. claims, results, publication
   const names = { x: descriptor.series.x.name, y: descriptor.series.y.name };
   const isLive = descriptor.label === "LIVE";
+  const wsRun = descriptor.kind === "workspace_run";
   const rs = buildResults(results, names, research, isLive);
+  rs.push(...(opts.extraResults ?? []));
   const first = input.series.x.points[0]![0];
   const last = input.series.x.points[input.series.x.points.length - 1]![0];
   const claims = buildClaims(rs, first, last, names, research, isLive);
-  const limitations = limitationsFor(descriptor.label, research !== null);
+  const limitations = limitationsFor(descriptor.label, research !== null, wsRun);
   const wasmPath = opts.wasmPath ?? DEFAULT_WASM;
   const wasmSha = existsSync(wasmPath) ? sha256Hex(readFileSync(wasmPath)) : null;
   const dataHash = sha256Hex(
@@ -413,7 +430,13 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
     ...(descriptor.label === "SYNTHETIC"
       ? ["> SYNTHETIC DATA. This is a test fixture, not NEAR production activity.", ""]
       : []),
-    ...(isLive
+    ...(isLive && wsRun
+      ? [
+          "> LIVE DATA, AUTOMATED RUN. The two series were picked by a fixed rule from the result tables of an automated workspace run, and the notes restate only that run's grounded findings. No claim of causation or significance is made.",
+          "",
+        ]
+      : []),
+    ...(isLive && !wsRun
       ? [
           "> LIVE DATA, EXPLORATORY. The research verdict is INSUFFICIENT_DATA and the forecast comparisons are METHOD_NOT_VALIDATED. Nothing here is a finding of significance.",
           "",
@@ -484,7 +507,7 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
   write(out, "exports/memo.pdf", renderPdf(`Research memo: ${descriptor.claimId}`, memoText));
 
   const partial = {
-    title: `${descriptor.label === "SYNTHETIC" ? "SYNTHETIC: " : ""}${descriptor.claimId}`,
+    title: opts.title ?? `${descriptor.label === "SYNTHETIC" ? "SYNTHETIC: " : ""}${descriptor.claimId}`,
     label: descriptor.label,
     claims,
     results: rs.map(({ id, label, value, unit, computation }) => ({ id, label, value, unit, computation })),
@@ -506,7 +529,7 @@ export function buildCapsule(opts: BuildOptions): CapsuleManifest {
       })),
       rebuildCommand,
       dataLines: metricLines,
-      ...(opts.registrationLabel || isLive
+      ...(opts.registrationLabel || (isLive && !wsRun)
         ? { registrationLabel: opts.registrationLabel ?? "post-hoc registration" }
         : {}),
     }),

@@ -25,6 +25,11 @@ export const SnapshotDescriptor = z.strictObject({
   series: z.strictObject({ file: z.string().min(1), x: SeriesSpec, y: SeriesSpec }),
   metrics: z.array(z.string()).min(1),
   files: z.array(CapsuleFileEntry).min(1),
+  /**
+   * Set only by `buildWorkspaceRunSnapshot` (workspace-run.ts): the snapshot is the result tables of an automated workspace
+   * run, not a frozen research study. Absent on every other snapshot, so existing descriptors and capsule hashes are unchanged.
+   */
+  kind: z.literal("workspace_run").optional(),
 });
 export type SnapshotDescriptor = z.infer<typeof SnapshotDescriptor>;
 

@@ -12,6 +12,7 @@ import {
   signChallenge,
   writeCapsuleOwnership,
 } from "../../../packages/capsule/src/index.ts";
+import { CreditsService } from "@nearesis/kernel";
 import { apiFixture, bearer, login, seedOrg } from "./helpers.ts";
 import type { ApiFixture } from "./helpers.ts";
 
@@ -31,6 +32,8 @@ const COMMIT = {
   contract: "commit.test.testnet",
   txHash: "TXHASH1",
   viewTimestampNs: "1794517503152963705",
+  // gas the fake anchor burnt; charged from the publisher's credits
+  spentYocto: "1000000000000000000000",
 };
 let readbackEqual = true;
 const get = (tok: string | null, url: string) =>
@@ -76,6 +79,12 @@ beforeAll(async () => {
   });
   const a = await seedOrg(f.db.admin, "ct-a", { alice: "owner" });
   const b = await seedOrg(f.db.admin, "ct-b", { bob: "owner" });
+  // the testnet anchor gas is paid from the publisher's credits (402 INSUFFICIENT_CREDITS without them)
+  await new CreditsService(f.db.app).topup({ orgId: a.orgId, userId: a.users.alice!.userId }, 10n ** 24n, {
+    txHash: "CT-TOPUP",
+    signerAccountId: "alice.testnet",
+    receiverAccountId: "deposit.testnet",
+  });
   alice = await login(f.app, a.users.alice!.subject);
   bob = await login(f.app, b.users.bob!.subject);
   const ws = (

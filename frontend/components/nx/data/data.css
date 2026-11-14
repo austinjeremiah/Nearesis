@@ -168,7 +168,7 @@ a.dx-tile:hover .dx-tile-go { color: var(--text); }
 .dx-chart-skel { width: 100%; }
 .dx-spark { pointer-events: none; }
 /* a sparkline is a small accent, not a chart: the general chart minimum height does not apply */
-.dx .chart.dx-spark { min-height: 0; height: 44px !important; }
+.dx .chart.dx-spark { min-height: 0; height: calc(44px * var(--ui-zoom, 1)) !important; }
 
 /* section links on the overview */
 .dx-links { display: grid; gap: var(--s3); grid-template-columns: repeat(4, minmax(0, 1fr)); }

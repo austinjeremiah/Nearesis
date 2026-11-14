@@ -291,7 +291,8 @@ export function Chart({
     <div
       ref={host}
       className={`chart ${className ?? ''}`.trim()}
-      style={{ height }}
+      // the chart surface is exempt from the interface scale (see app.css, Default density), so its height is scaled here
+      style={{ height: `calc(${height}px * var(--ui-zoom, 1))` }}
       role="img"
       aria-label={ariaLabel}
     />

@@ -28,7 +28,7 @@ body {
 }
 
 .nx {
-  min-height: 100dvh;
+  min-height: calc(100dvh / var(--ui-zoom, 1));
   background: var(--page);
   color: var(--text);
   font-family: var(--font);
@@ -226,7 +226,7 @@ body {
 .shell {
   display: grid;
   grid-template-columns: var(--nav-w) minmax(0, 1fr);
-  min-height: 100dvh;
+  min-height: calc(100dvh / var(--ui-zoom, 1));
 }
 .shell[data-nav='collapsed'] {
   grid-template-columns: var(--nav-w-collapsed) minmax(0, 1fr);
@@ -238,7 +238,7 @@ body {
   position: sticky;
   top: 0;
   z-index: var(--z-nav);
-  height: 100dvh;
+  height: calc(100dvh / var(--ui-zoom, 1));
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -1036,7 +1036,7 @@ table.table {
   z-index: var(--z-overlay);
   top: 0;
   right: 0;
-  height: 100dvh;
+  height: calc(100dvh / var(--ui-zoom, 1));
   width: min(520px, 100vw);
   background: var(--page);
   border-left: 1px solid var(--line-hard);
@@ -1207,7 +1207,7 @@ table.table {
     z-index: var(--z-overlay);
     top: 0;
     right: 0;
-    height: 100dvh;
+    height: calc(100dvh / var(--ui-zoom, 1));
     width: min(var(--inspector-w-max), 100vw);
     box-shadow: var(--shadow-overlay);
   }
@@ -1267,7 +1267,7 @@ table.table {
    auth and entry pages, spec 5.1
    -------------------------------------------------------------------------- */
 .auth-page {
-  min-height: 100dvh;
+  min-height: calc(100dvh / var(--ui-zoom, 1));
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
@@ -1892,7 +1892,7 @@ body {
   height: 100%;
 }
 .shell {
-  height: 100dvh;
+  height: calc(100dvh / var(--ui-zoom, 1));
   min-height: 0;
   overflow: hidden;
 }
@@ -1929,7 +1929,7 @@ body {
   /* Off-canvas nav: the rail is fixed, so the frame goes back to one column. */
   .nav {
     position: fixed;
-    height: 100dvh;
+    height: calc(100dvh / var(--ui-zoom, 1));
   }
 }
 
@@ -2900,7 +2900,7 @@ table.table {
     top: 0;
     z-index: var(--z-overlay);
     width: min(var(--ask-w), 100vw);
-    height: 100dvh;
+    height: calc(100dvh / var(--ui-zoom, 1));
     box-shadow: var(--shadow-overlay);
     transform: translateX(100%);
     transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1), opacity 180ms var(--ease);
@@ -3631,3 +3631,23 @@ table.table {
 .nx .ask-composer-card { color: #000; }
 .nx .ask-composer-card .ask-budget { color: #4a493f; }
 .nx .ask-composer-card textarea::placeholder { color: #6b6a5f; }
+
+/* =============================================================================
+   Default density. The interface was designed and reviewed at 80 percent browser
+   zoom, so that is the built-in size: the app shell and the sign-in pages render
+   at 0.8, and full-height frames divide by the same factor so they still fill the
+   window. The printable thesis document (.rp-root) and the public site are left
+   at their own size.
+   ========================================================================== */
+html:has(.nx:not(.rp-root)) {
+  --ui-zoom: 0.8;
+  zoom: var(--ui-zoom);
+}
+/* The chart library maps the pointer in unscaled pixels, so a scaled chart loses its tooltips and brush. A live chart
+   surface is therefore drawn at the true size (the scale is cancelled on it) and its height is scaled instead. */
+html:has(.nx:not(.rp-root)) .chart:not(:has(.chart-blank)) {
+  zoom: calc(1 / var(--ui-zoom, 1));
+}
+html:has(.nx:not(.rp-root)) .chart:not(:has(.chart-blank)):not(.dx-spark) {
+  min-height: calc(180px * var(--ui-zoom, 1));
+}

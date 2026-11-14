@@ -5,7 +5,6 @@ import {
   consentReady,
   elapsedSeconds,
   focusTask,
-  formatCredits,
   formatElapsed,
   formatEntry,
   formatUsdString,
@@ -15,7 +14,8 @@ import {
   safeHref,
   stepCostText,
   stepLine,
-  sumCreditRows,
+  taskCostText,
+  costDetailText,
 } from '@/lib/agent/tasks';
 
 const step = (over: Record<string, unknown> = {}) => ({ idx: 0, key: 'workspace.create', title: 'Create the workspace', detail: 'd', state: 'pending', ...over });
@@ -27,9 +27,9 @@ const task = (over: Record<string, unknown> = {}) =>
     state: 'running',
     currentStep: 2,
     steps: [step({ state: 'done' }), step({ idx: 1, title: 'Ask', state: 'done' }), step({ idx: 2, title: 'Wait for the run', state: 'running', progress: 'Waiting for the run (EXECUTING)', startedAt: '2026-11-14T10:00:00.000Z' }), step({ idx: 3, state: 'pending' })],
-    consent: { required: [{ key: 'spend_credits', label: 'Spend credits', detail: 'proof', maxYocto: '1500000000000000000000000' }, { key: 'bogus', label: 'x', detail: '' }], given: [] },
-    estimate: { creditsMaxYocto: '1500000000000000000000000', modelUsdMax: '0.250000' },
-    cost: { modelUsd: '0.003300', modelCalls: 2, creditsChargedYocto: '0', creditsHeldYocto: '5' },
+    consent: { required: [{ key: 'spend_credits', label: 'Spend credits', detail: 'proof', maxUsd: '0.050000' }, { key: 'bogus', label: 'x', detail: '' }], given: [] },
+    estimate: { creditsMaxUsd: '0.050000', modelUsdMax: '0.250000' },
+    cost: { modelUsd: '0.003300', modelCalls: 2, creditsUsd: '0.001200', creditsHeldUsd: '0.000005', entries: [] },
     ...over,
   });
 const detail = (messages: unknown[], tasks: unknown[]) => normalizeThreadDetail({ thread: { id: 'th1', title: 'T' }, messages, tasks });
@@ -110,24 +110,33 @@ describe('time and cost formatting', () => {
     expect(formatUsdString(null)).toBe('unknown');
     expect(formatUsdString('abc')).toBe('unknown');
   });
-  it('formats credits with the exact bigint helper, rounding costs up, unknown never 0', () => {
-    expect(formatCredits('1500000000000000000000000')).toBe('1.5 NEAR');
-    expect(formatCredits('1')).toBe('0.000001 NEAR');
-    expect(formatCredits('0')).toBe('0 NEAR');
-    expect(formatCredits(null)).toBe('unknown');
-    expect(formatCredits('1.5')).toBe('unknown');
-    expect(formatEntry({ unit: 'yoctoNEAR', amount: '2000000000000000000000000' })).toBe('2 NEAR');
-    expect(formatEntry({ unit: 'usd', amount: '0.5' })).toBe('$0.50');
+  it('formats an entry in USD; an entry in another unit (old API) is unknown, not dollars', () => {
+    expect(formatEntry({ amount: '0.5' })).toBe('$0.50');
+    expect(formatEntry({ amount: null })).toBe('unknown');
+    const c = normalizeCosts({ items: [{ id: 'a', unit: 'yoctoNEAR', amount: '5', label: 'proof' }, { id: 'b', unit: 'usd', amount: '0.0042', label: 'model' }, { id: 'c', amount: '0.01', label: 'x' }] });
+    expect(c.items.map((i) => i.amount)).toEqual([null, '0.0042', '0.01']);
   });
-  it('sums credit rows exactly and is unknown when a row is', () => {
-    expect(sumCreditRows([{ unit: 'yoctoNEAR', amount: '9007199254740993' }, { unit: 'usd', amount: '1' }, { unit: 'yoctoNEAR', amount: '1' }])).toBe('9007199254740994');
-    expect(sumCreditRows([{ unit: 'yoctoNEAR', amount: null }])).toBeNull();
-  });
-  it('step cost keeps an unknown amount unknown and detects when a step has cost data', () => {
-    const t = task({ steps: [step({ state: 'done', cost: { modelUsd: '0.001000', modelCalls: 1, creditsYocto: '10', entries: [{ label: 'proof gas', unit: 'yoctoNEAR', amount: '10', txHash: 'abc' }] } }), step({ idx: 1, state: 'done' })] });
-    expect(stepCostText(t.steps[0])).toEqual({ usd: '$0.001', credits: '0.000001 NEAR', hasAny: true });
-    expect(stepCostText(t.steps[1])).toEqual({ usd: 'unknown', credits: 'unknown', hasAny: false });
+  it('step cost is model + on-chain in USD, exact, and unknown when a part is unknown', () => {
+    const t = task({ steps: [step({ state: 'done', cost: { modelUsd: '0.001000', modelCalls: 1, creditsUsd: '0.000010', entries: [{ label: 'proof gas', unit: 'usd', amount: '0.00001', txHash: 'abc', detail: { tokensBurntYocto: '2000000000000000000000', nearUsdRate: '5.1', rateDate: '2026-11-13' } }] } }), step({ idx: 1, state: 'done' }), step({ idx: 2, state: 'done', cost: { modelUsd: '0.001000' } })] });
+    expect(stepCostText(t.steps[0])).toEqual({ model: '$0.001', onChain: '$0.00001', total: '$0.00101', hasAny: true });
+    expect(stepCostText(t.steps[1])).toEqual({ model: 'unknown', onChain: 'unknown', total: 'unknown', hasAny: false });
+    expect(stepCostText(t.steps[2]).total).toBe('unknown');
     expect(t.steps[0].cost.entries[0].txHash).toBe('abc');
+    expect(costDetailText(t.steps[0].cost.entries[0].detail)).toBe('0.002 NEAR at $5.1 per NEAR on 2026-11-13');
+    expect(costDetailText(null)).toBeNull();
+  });
+  it('task cost shows model, on-chain, total and a non-zero hold', () => {
+    expect(taskCostText(task())).toEqual({ model: '$0.0033', onChain: '$0.0012', total: '$0.0045', held: '$0.000005' });
+    expect(taskCostText(task({ cost: { modelUsd: '0.5', creditsHeldUsd: '0.000000' } }))).toEqual({ model: '$0.50', onChain: 'unknown', total: 'unknown', held: null });
+  });
+  it('reads the USD consent limit and estimate', () => {
+    const t = task();
+    expect(t.consent.required[0].maxUsd).toBe('0.050000');
+    expect(t.estimate.creditsMaxUsd).toBe('0.050000');
+    // the old shape (yocto) leaves them unknown
+    const o = normalizeTask({ id: 'o', consent: { required: [{ key: 'spend_credits', label: 'x', maxYocto: '5' }] }, estimate: { creditsMaxYocto: '5' } });
+    expect(o.consent.required[0].maxUsd).toBeNull();
+    expect(o.estimate.creditsMaxUsd).toBeNull();
   });
 });
 
@@ -141,7 +150,7 @@ describe('links and normalisation', () => {
   it('tolerates missing fields without turning them into zero', () => {
     const t = normalizeTask({ id: 'x', steps: [{ key: 'k' }] });
     expect(t.state).toBe('proposed');
-    expect(t.estimate).toEqual({ creditsMaxYocto: null, modelUsdMax: null });
+    expect(t.estimate).toEqual({ creditsMaxUsd: null, modelUsdMax: null });
     expect(t.cost.modelUsd).toBeNull();
     expect(t.steps[0].cost.modelUsd).toBeNull();
     expect(t.steps[0].cost.modelCalls).toBeNull();
@@ -149,7 +158,9 @@ describe('links and normalisation', () => {
     expect(m.rows).toEqual([{ label: 'WS', value: 'a', href: '/w/a' }]);
     expect(m.cost).toEqual({ modelUsd: null, modelCalls: null });
     const c = normalizeCosts({ totals: { modelUsd: '0.5' }, items: [{ id: 'c1', unit: 'yoctoNEAR', amount: '5', label: 'proof' }] });
-    expect(c.totals).toEqual({ modelUsd: '0.5', modelCalls: null, creditsChargedYocto: null });
-    expect(c.items[0].amount).toBe('5');
+    expect(c.totals).toEqual({ modelUsd: '0.5', modelCalls: null, onChainUsd: null, totalUsd: null });
+    expect(c.items[0].amount).toBeNull();
+    const n = normalizeCosts({ totals: { modelUsd: '0.5', modelCalls: 3, onChainUsd: '0.25', totalUsd: '0.75' }, items: [] });
+    expect(n.totals).toEqual({ modelUsd: '0.5', modelCalls: 3, onChainUsd: '0.25', totalUsd: '0.75' });
   });
 });

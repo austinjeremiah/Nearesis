@@ -3,14 +3,15 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Coins, LogOut, ShieldCheck } from 'lucide-react';
+import { Bell, LogOut, ShieldCheck } from 'lucide-react';
 import { qk } from '@/lib/api/keys';
 import { shellBrowser } from '@/lib/api/shell-browser';
 import { ApiRequestError } from '@/lib/api/errors';
 import { useStreamStatus } from '@/lib/sse/hub';
 import { formatUsd } from '@/lib/format';
 import { creditsApi, creditsKey } from '@/lib/near/api';
-import { formatNear } from '@/lib/near/units';
+import { pillState } from '@/lib/credits/model';
+import { formatUsdFull } from '@/lib/credits/usd';
 import { LinkNearWallet } from './near-link';
 import { Button } from './ui';
 import { ThemeToggle } from './theme';
@@ -48,19 +49,28 @@ function GlobalSpendChip() {
   );
 }
 
-/** Available NEAR credits. Renders nothing until the API answers; an unknown figure says "unknown", never 0. */
+/**
+ * Available / allowance in USD ("CREDITS $2.97 / $3.00"). Available is cut off, never rounded up. Says "unknown" until the
+ * API answers or when it still serves the old shape, never 0. Warn tone under 10% left.
+ */
 function CreditsPill() {
   const q = useQuery({ queryKey: creditsKey, queryFn: () => creditsApi.get(), refetchInterval: POLL, retry: false });
-  if (!q.data) return null;
   const c = q.data;
+  const p = pillState(c);
+  const tone = p.tone ? ` ${p.tone}` : '';
   return (
     <Link
       href="/credits"
-      className="badge line"
+      className={`badge line credits-pill${tone}`}
       data-testid="credits-pill"
-      title={`App credits (not your wallet balance). Add credits on the Credits page. Balance ${formatNear(c.balanceYocto)} NEAR, held ${formatNear(c.heldYocto)} NEAR (testnet)`}
+      data-tone={p.tone || undefined}
+      title={
+        c?.known
+          ? `Your credits: ${formatUsdFull(c.availableUsd)} available of ${formatUsdFull(c.allowanceUsd)}; spent ${formatUsdFull(c.spentUsd)}, held ${formatUsdFull(c.heldUsd)}. Covers AI calls and OutLayer proofs.`
+          : 'Credits are unknown right now. Open the Credits page.'
+      }
     >
-      <Coins size={12} /> CREDITS {formatNear(c.availableYocto)} NEAR
+      CREDITS {p.text}
     </Link>
   );
 }

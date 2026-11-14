@@ -1,28 +1,8 @@
 import { browserApi } from '@/lib/api/browser';
 import { newKey } from '@/lib/api/transport';
+import { normalizeCredits, type Credits } from '@/lib/credits/model';
 
-/** Wire types for /v1/credits, /v1/credits/topups, /v1/auth/near/link and the OutLayer proof routes. Amounts are yocto strings. */
-
-export type CreditEntry = {
-  id: string;
-  kind: 'topup' | 'hold' | 'charge' | 'release' | string;
-  amountYocto: string;
-  refKind: string | null;
-  refId: string | null;
-  detail: Record<string, unknown> | null;
-  createdAt: string;
-};
-
-export type Credits = {
-  accountId: string | null;
-  balanceYocto: string;
-  heldYocto: string;
-  availableYocto: string;
-  depositAccount: string;
-  network: string;
-  proofEstimateYocto: string | null;
-  entries: CreditEntry[];
-};
+/** Wire types for /v1/auth/near/link and the OutLayer proof routes. Credit figures live in lib/credits (USD). */
 
 export type ProofState = 'running' | 'verified' | 'not_attested' | 'failed';
 
@@ -44,13 +24,26 @@ export type Proof = {
     rtmr3: string | null;
     collateralChecked: boolean;
   };
-  cost: { heldYocto: string | null; chargedYocto: string | null; gasYocto: string | null; totalYocto: string | null };
+  /** USD first (what the account is charged); NEAR amounts and the rate are secondary detail. Fields an older API omits are undefined. */
+  cost: {
+    heldUsd?: string | null;
+    chargedUsd?: string | null;
+    gasUsd?: string | null;
+    totalUsd?: string | null;
+    heldYocto?: string | null;
+    chargedYocto?: string | null;
+    gasYocto?: string | null;
+    totalYocto?: string | null;
+    nearUsdRate?: string | number | null;
+    rateDate?: string | null;
+  };
   error: string | null;
 };
 
 export const creditsApi = {
-  get: () => browserApi.get<Credits>('/v1/credits'),
-  topup: (txHash: string) => browserApi.send<Credits>('POST', '/v1/credits/topups', { txHash }),
+  /** The unified USD credits, normalised (missing fields are unknown). `capsuleId` sizes `proofEstimateUsd` to that capsule. */
+  get: async (capsuleId?: string): Promise<Credits> =>
+    normalizeCredits(await browserApi.get<unknown>('/v1/credits', capsuleId ? { query: { capsuleId } } : undefined)),
   link: (b: { challengeId: string; accountId: string; publicKey: string; signature: string }) =>
     browserApi.send<{ accountId: string; userId: string }>('POST', '/v1/auth/near/link', b),
 };

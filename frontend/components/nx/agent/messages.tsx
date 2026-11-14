@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { Badge } from '@/components/nx/evidence';
-import { Notice, Spinner } from '@/components/nx/ui';
+import { Button, Notice, Spinner } from '@/components/nx/ui';
+import { openCreditsPopup } from '@/lib/credits/refusal';
 import { elapsedSeconds, formatElapsed, formatUsdString, safeHref } from '@/lib/agent/tasks';
 import type { Selection } from '@/lib/agent/selection';
 import type { Task, ThreadMessage } from '@/lib/agent/thread';
@@ -44,6 +45,11 @@ export function MessageView({ m, tasks, sel, onSelect }: { m: ThreadMessage; tas
       <div data-testid="agent-error">
         <Notice tone="bad" title={m.error?.reasonCode ?? 'The agent could not answer'}>
           {m.error?.message ?? 'No reason was returned.'} Nothing else was changed. Ask again to retry.
+          {m.error?.reasonCode === 'CREDITS_EXHAUSTED' && (
+            <div style={{ marginTop: 8 }}>
+              <Button variant="primary" onClick={() => openCreditsPopup()} data-testid="agent-credits-request">Request more credits</Button>
+            </div>
+          )}
         </Notice>
       </div>
     );

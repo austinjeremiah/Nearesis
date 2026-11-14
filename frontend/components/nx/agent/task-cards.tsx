@@ -8,6 +8,7 @@ import { Badge } from '@/components/nx/evidence';
 import { Button } from '@/components/nx/ui';
 import { ConfirmDialog } from '@/components/nx/overlays';
 import { MutationError } from '@/components/nx/research-kit';
+import { openCreditsPopup } from '@/lib/credits/refusal';
 import { agentApi, agentKeys } from '@/lib/agent/api';
 import type { Task, TaskStep } from '@/lib/agent/thread';
 import {
@@ -17,7 +18,6 @@ import {
   consentReady,
   doneCount,
   elapsedSeconds,
-  formatCredits,
   formatElapsed,
   formatEntry,
   formatUsdString,
@@ -26,6 +26,8 @@ import {
   reportPdfHref,
   safeHref,
   stepCostText,
+  taskCostText,
+  costDetailText,
   stepLine,
   taskLive,
 } from '@/lib/agent/tasks';
@@ -91,8 +93,8 @@ export function PlanCard({ task }: { task: Task }) {
       </ol>
       <dl className="ag-estimates" aria-label="Estimates">
         <div>
-          <dt>Credits, at most</dt>
-          <dd className="mono" data-testid="plan-credits">{task.estimate.creditsMaxYocto === null ? 'unknown' : formatCredits(task.estimate.creditsMaxYocto)}</dd>
+          <dt>Proofs and gas, at most</dt>
+          <dd className="mono" data-testid="plan-credits">{formatUsdString(task.estimate.creditsMaxUsd)}</dd>
         </div>
         <div>
           <dt>Model cost, at most</dt>
@@ -112,9 +114,9 @@ export function PlanCard({ task }: { task: Task }) {
               <span className="col gap1">
                 <span className="strong small">{c.label}</span>
                 {c.detail && <span className="small dim">{c.detail}</span>}
-                {c.maxYocto !== null && (
-                  <span className="tiny mono">
-                    up to {formatCredits(c.maxYocto)}
+                {c.maxUsd !== null && (
+                  <span className="tiny mono" data-testid="consent-max">
+                    up to {formatUsdString(c.maxUsd)} of your credits
                   </span>
                 )}
               </span>
@@ -163,21 +165,26 @@ function CostLine({ s }: { s: TaskStep }) {
   if (!c.hasAny) return null;
   return (
     <div className="ag-scost" data-testid="step-cost">
-      <span className="tiny"><span className="label">Model</span> <span className="mono">{c.usd}</span>{s.cost.modelCalls !== null && <span className="dim"> · {s.cost.modelCalls} call{s.cost.modelCalls === 1 ? '' : 's'}</span>}</span>
-      <span className="tiny"><span className="label">Credits</span> <span className="mono">{c.credits}</span></span>
-      {s.cost.entries.map((e, i) => (
-        <span key={i} className="tiny">
-          <span className="dim">{e.label}</span> <span className="mono">{formatEntry(e)}</span>
-          {e.txHash && (
-            <>
-              {' '}
-              <a className="link mono" href={nearblocksTx(e.txHash)} target="_blank" rel="noreferrer noopener" title={e.txHash}>
-                tx {e.txHash.slice(0, 8)}
-              </a>
-            </>
-          )}
-        </span>
-      ))}
+      <span className="tiny"><span className="label">Model</span> <span className="mono">{c.model}</span>{s.cost.modelCalls !== null && <span className="dim"> · {s.cost.modelCalls} call{s.cost.modelCalls === 1 ? '' : 's'}</span>}</span>
+      <span className="tiny"><span className="label">On chain</span> <span className="mono">{c.onChain}</span></span>
+      <span className="tiny"><span className="label">Total</span> <span className="mono" data-testid="step-cost-total">{c.total}</span></span>
+      {s.cost.entries.map((e, i) => {
+        const near = costDetailText(e.detail);
+        return (
+          <span key={i} className="tiny">
+            <span className="dim">{e.label}</span> <span className="mono">{formatEntry(e)}</span>
+            {near && <span className="dim"> ({near})</span>}
+            {e.txHash && (
+              <>
+                {' '}
+                <a className="link mono" href={nearblocksTx(e.txHash)} target="_blank" rel="noreferrer noopener" title={e.txHash}>
+                  tx {e.txHash.slice(0, 8)}
+                </a>
+              </>
+            )}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -256,6 +263,11 @@ function StepRow({ task, s, now }: { task: Task; s: TaskStep; now: number }) {
           <div className="ag-serr" role="alert" data-testid="step-error">
             <span className="mono small strong">{s.error.reasonCode}</span>
             <span className="small" style={{ overflowWrap: 'anywhere' }}>{s.error.message}</span>
+            {s.error.reasonCode === 'CREDITS_EXHAUSTED' && (
+              <div>
+                <Button variant="primary" onClick={() => openCreditsPopup()} data-testid="step-credits-request">Request more credits</Button>
+              </div>
+            )}
             {s.error.retryable && task.state === 'failed' && (
               <div>
                 <Button variant="primary" pending={retry.isPending} onClick={() => retry.mutate()} data-testid="step-retry">Retry from this step</Button>
@@ -292,6 +304,7 @@ export function TaskTimeline({ task }: { task: Task }) {
     setAnnounce(cur ? `Step ${cur.idx + 1} of ${total}: ${cur.title}${cur.state === 'waiting_user' ? ', waiting for your approval' : ''}` : `Task ${TASK_LABEL[task.state].toLowerCase()}`);
   }, [curKey, cur, total, task.state]);
   const wid = task.links.workspaceId ?? task.workspaceId;
+  const tc = taskCostText(task);
   return (
     <article className="ag-timeline" data-testid="agent-task" data-state={task.state} aria-label={`Task: ${task.title}`}>
       <header className="ag-tl-head">
@@ -312,9 +325,10 @@ export function TaskTimeline({ task }: { task: Task }) {
         <p className="tiny dim" style={{ margin: 0 }}>
           {live ? 'Started' : task.finishedAt ? 'Took' : 'Started'}{' '}
           <span className="mono">{formatElapsed(elapsedSeconds(task.startedAt, now, live ? null : task.finishedAt))}</span>
-          {' · model '}<span className="mono">{formatUsdString(task.cost.modelUsd)}</span>
-          {' · credits charged '}<span className="mono">{formatCredits(task.cost.creditsChargedYocto)}</span>
-          {task.cost.creditsHeldYocto && task.cost.creditsHeldYocto !== '0' && <> {' · held '}<span className="mono">{formatCredits(task.cost.creditsHeldYocto)}</span></>}
+          {' · model '}<span className="mono">{tc.model}</span>
+          {' · on chain '}<span className="mono">{tc.onChain}</span>
+          {' · total '}<span className="mono" data-testid="task-cost-total">{tc.total}</span>
+          {tc.held && <> {' · held '}<span className="mono">{tc.held}</span></>}
         </p>
       </header>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announce}</div>

@@ -73,18 +73,20 @@ const mk = (over: Record<string, unknown>) =>
       { idx: 0, key: 'capsule.build', title: 'Build the capsule', detail: 'from run r1', state: 'pending' },
       { idx: 1, key: 'capsule.prove', title: 'Prove it', detail: 'OutLayer', state: 'pending' },
     ],
-    consent: { required: [{ key: 'spend_credits', label: 'Spend NEAR credits', detail: 'For the proof job.', maxYocto: '2500000000000000000000000' }], given: [] },
-    estimate: { creditsMaxYocto: '2500000000000000000000000', modelUsdMax: '0.100000' },
+    consent: { required: [{ key: 'spend_credits', label: 'Spend credits', detail: 'For the proof job.', maxUsd: '0.050000' }], given: [] },
+    estimate: { creditsMaxUsd: '0.050000', modelUsdMax: '0.100000' },
     ...over,
   });
 
 describe('plan card', () => {
-  it('lists numbered steps, estimates in NEAR and USD, and a consent checkbox with the max amount; Start is disabled', () => {
+  it('lists numbered steps, estimates in USD, and a consent checkbox with the max amount of credits; Start is disabled', () => {
     const h = wrap(createElement(PlanCard, { task: mk({}) }));
     expect(h).toContain('Build the capsule');
-    expect(h).toContain('2.5 NEAR');
+    expect(h).toContain('$0.05');
+    expect(h).toContain('up to $0.05 of your credits');
+    expect(h).not.toContain('NEAR');
     expect(h).toContain('$0.10');
-    expect(h).toContain('Spend NEAR credits');
+    expect(h).toContain('Spend credits');
     expect(h).toContain('type="checkbox"');
     expect(h).toMatch(/<button[^>]*disabled[^>]*data-testid="plan-start"|data-testid="plan-start"[^>]*disabled/);
   });
@@ -99,7 +101,7 @@ describe('task timeline', () => {
     state: 'running',
     startedAt: '2026-11-14T10:00:00.000Z',
     steps: [
-      { idx: 0, key: 'capsule.build', title: 'Build the capsule', state: 'done', startedAt: '2026-11-14T10:00:00.000Z', finishedAt: '2026-11-14T10:00:05.000Z', result: { summary: 'Built', items: [{ label: 'Capsule', value: 'c1', href: '/w/w1/capsules/c1' }] }, cost: { modelUsd: '0.002000', modelCalls: 1, creditsYocto: '1000000000000000000000', entries: [{ label: 'gas', unit: 'yoctoNEAR', amount: '1000000000000000000000', txHash: 'HASH123456' }] } },
+      { idx: 0, key: 'capsule.build', title: 'Build the capsule', state: 'done', startedAt: '2026-11-14T10:00:00.000Z', finishedAt: '2026-11-14T10:00:05.000Z', result: { summary: 'Built', items: [{ label: 'Capsule', value: 'c1', href: '/w/w1/capsules/c1' }] }, cost: { modelUsd: '0.002000', modelCalls: 1, creditsUsd: '0.000500', entries: [{ label: 'gas', unit: 'usd', amount: '0.0005', txHash: 'HASH123456', detail: { tokensBurntYocto: '1000000000000000000000', nearUsdRate: '5', rateDate: '2026-11-13' } }] } },
       { idx: 1, key: 'capsule.prove', title: 'Prove it', state: 'running', startedAt: '2026-11-14T10:00:05.000Z', progress: 'Waiting for the proof job' },
     ],
   });
@@ -109,7 +111,9 @@ describe('task timeline', () => {
     expect(h).toContain('Waiting for the proof job');
     expect(h).toContain('Step 2 of 2 · Waiting for the proof job');
     expect(h).toContain('href="/w/w1/capsules/c1"');
-    expect(h).toContain('0.001 NEAR');
+    expect(h).toContain('$0.0005');
+    expect(h).toContain('$0.0025');
+    expect(h).toContain('0.001 NEAR at $5 per NEAR on 2026-11-13');
     expect(h).toContain('https://testnet.nearblocks.io/txns/HASH123456');
     expect(h).toContain('Cancel task');
     expect(h).toContain('/api/report/w1/pdf');
@@ -127,5 +131,12 @@ describe('task timeline', () => {
     expect(hf).toContain('Not enough credits');
     expect(hf).toContain('step-retry');
     expect(hf).not.toContain('Cancel task');
+  });
+  it('a step failed for credits shows the message and a button that opens the popup', () => {
+    const f = mk({ state: 'failed', steps: [{ idx: 0, key: 'capsule.prove', title: 'Prove', state: 'failed', error: { reasonCode: 'CREDITS_EXHAUSTED', message: 'You have used your credits. Write to connect@kaushikh.xyz to request more access.', retryable: false } }] });
+    const hf = wrap(createElement(TaskTimeline, { task: f }));
+    expect(hf).toContain('You have used your credits.');
+    expect(hf).toContain('step-credits-request');
+    expect(hf).not.toContain('step-retry');
   });
 });

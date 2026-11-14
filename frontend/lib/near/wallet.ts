@@ -6,7 +6,7 @@ import { decodeNonce } from './units';
 /**
  * Browser-only NEAR wallet access. The connector is imported dynamically so
  * server rendering never evaluates it, and one instance is shared by sign-in,
- * linking and top-ups. Testnet only.
+ * and linking. Testnet only.
  */
 
 export type Challenge = {
@@ -89,35 +89,4 @@ export async function signChallenge(ch: Challenge): Promise<WalletSignature> {
       })
       .catch((e) => finish(() => reject(e)));
   });
-}
-
-/** Pull the transaction hash out of a final execution outcome. */
-export function txHashOf(outcome: unknown): string | null {
-  const o = outcome as { transaction?: { hash?: string }; transaction_outcome?: { id?: string } } | null;
-  return o?.transaction?.hash ?? o?.transaction_outcome?.id ?? null;
-}
-
-/** Send a plain Transfer from the connected wallet. Connects first when needed. Returns the tx hash. */
-export async function sendTransfer(args: { receiverId: string; depositYocto: string; expectAccountId: string | null }): Promise<string> {
-  const connector = await getConnector();
-  let wallet;
-  try {
-    wallet = await connector.wallet();
-  } catch {
-    wallet = await connector.connect();
-  }
-  const accounts = await wallet.getAccounts({ network: 'testnet' }).catch(() => []);
-  const ids = accounts.map((a) => a.accountId);
-  if (args.expectAccountId && ids.length > 0 && !ids.includes(args.expectAccountId)) {
-    throw new WalletError('WRONG_SIGNER', `The connected wallet is ${ids[0]}, but your Nearesis account is linked to ${args.expectAccountId}. Switch the wallet account and try again.`);
-  }
-  const outcome = await wallet.signAndSendTransaction({
-    network: 'testnet',
-    signerId: args.expectAccountId ?? ids[0],
-    receiverId: args.receiverId,
-    actions: [{ type: 'Transfer', params: { deposit: args.depositYocto } }],
-  });
-  const hash = txHashOf(outcome);
-  if (!hash) throw new WalletError('NO_TX_HASH', 'The wallet sent the transaction but returned no transaction hash. Find it in your wallet history and add it from the credits page.');
-  return hash;
 }

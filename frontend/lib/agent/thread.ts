@@ -2,8 +2,8 @@ import { normalizeAnswer, type AgentAnswer } from './types';
 
 /**
  * Wire shapes of the server-side agent (threads, messages, tasks, costs) and tolerant normalisers. A missing value stays
- * unknown (null or empty); a missing amount is never turned into zero. Amounts are decimal strings (yoctoNEAR integers,
- * USD with up to 6 places).
+ * unknown (null or empty); a missing amount is never turned into zero. Amounts are USD decimal strings with
+ * up to 6 places.
  */
 
 export type ConsentKey = 'spend_credits' | 'publish_public' | 'freeze_hypothesis' | 'archive_workspace';
@@ -14,7 +14,8 @@ export type MessageKind = 'text' | 'answer' | 'plan' | 'result' | 'notice';
 export type Thread = { id: string; title: string; workspaceId: string | null; updatedAt: string | null; preview: string; activeTaskId: string | null };
 
 export type ResultItem = { label: string; value: string; href: string | null };
-export type CostEntry = { label: string; unit: 'usd' | 'yoctoNEAR'; amount: string; txHash: string | null };
+/** One cost line. Amounts are USD decimal strings; `detail` may carry the NEAR amount and the rate it was converted at. */
+export type CostEntry = { label: string; unit: 'usd'; amount: string | null; txHash: string | null; detail: Record<string, unknown> | null };
 
 export type TaskStep = {
   idx: number;
@@ -27,11 +28,12 @@ export type TaskStep = {
   progress: string | null;
   result: { summary: string; items: ResultItem[] } | null;
   waiting: { kind: string; runId: string; approvalId: string; approvalKind: string; summary: string; costLimit: string | null } | null;
-  cost: { modelUsd: string | null; modelCalls: number | null; creditsYocto: string | null; entries: CostEntry[] };
+  /** `creditsUsd` is the on-chain part (OutLayer, gas); what the account is charged for the step is model + on-chain. */
+  cost: { modelUsd: string | null; modelCalls: number | null; creditsUsd: string | null; entries: CostEntry[] };
   error: { reasonCode: string; message: string; retryable: boolean } | null;
 };
 
-export type ConsentRequirement = { key: ConsentKey; label: string; detail: string; maxYocto: string | null };
+export type ConsentRequirement = { key: ConsentKey; label: string; detail: string; maxUsd: string | null };
 
 export type Task = {
   id: string;
@@ -42,8 +44,8 @@ export type Task = {
   currentStep: number;
   steps: TaskStep[];
   consent: { required: ConsentRequirement[]; given: string[] };
-  estimate: { creditsMaxYocto: string | null; modelUsdMax: string | null };
-  cost: { modelUsd: string | null; modelCalls: number | null; creditsChargedYocto: string | null; creditsHeldYocto: string | null };
+  estimate: { creditsMaxUsd: string | null; modelUsdMax: string | null };
+  cost: { modelUsd: string | null; modelCalls: number | null; creditsUsd: string | null; creditsHeldUsd: string | null; entries: CostEntry[] };
   links: { workspaceId: string | null; runId: string | null; capsuleId: string | null; proofId: string | null; publicationId: string | null; reportUrl: string | null };
   createdAt: string | null;
   startedAt: string | null;
@@ -67,8 +69,8 @@ export type ThreadMessage = {
 
 export type ThreadDetail = { thread: Thread; messages: ThreadMessage[]; tasks: Task[] };
 
-export type CostRow = { id: string; at: string | null; threadId: string | null; taskId: string | null; stepIdx: number | null; stepKey: string | null; label: string; unit: 'usd' | 'yoctoNEAR'; amount: string | null; txHash: string | null };
-export type Costs = { totals: { modelUsd: string | null; modelCalls: number | null; creditsChargedYocto: string | null }; items: CostRow[] };
+export type CostRow = { id: string; at: string | null; threadId: string | null; taskId: string | null; stepIdx: number | null; stepKey: string | null; label: string; unit: 'usd'; amount: string | null; txHash: string | null; detail: Record<string, unknown> | null };
+export type Costs = { totals: { modelUsd: string | null; modelCalls: number | null; onChainUsd: string | null; totalUsd: string | null }; items: CostRow[] };
 
 type R = Record<string, unknown>;
 const obj = (v: unknown): R => (v && typeof v === 'object' && !Array.isArray(v) ? (v as R) : {});
@@ -87,6 +89,17 @@ export function normalizeThread(raw: unknown): Thread {
 const STEP_STATES = ['pending', 'running', 'waiting_user', 'done', 'failed', 'skipped'] as const;
 const TASK_STATES = ['proposed', 'running', 'waiting_user', 'completed', 'failed', 'cancelled'] as const;
 const CONSENT_KEYS = ['spend_credits', 'publish_public', 'freeze_hypothesis', 'archive_workspace'] as const;
+
+function normalizeEntries(v: unknown): CostEntry[] {
+  return arr(v).map((x) => ({
+    label: str(x.label) ?? '',
+    unit: 'usd' as const,
+    // An entry in another unit (an API that predates USD credits) is unknown, never mislabelled as dollars.
+    amount: x.unit === undefined || x.unit === 'usd' ? amount(x.amount) : null,
+    txHash: str(x.txHash),
+    detail: x.detail && typeof x.detail === 'object' && !Array.isArray(x.detail) ? (x.detail as R) : null,
+  }));
+}
 
 function normalizeItems(v: unknown): ResultItem[] {
   return arr(v).map((i) => ({ label: str(i.label) ?? '', value: str(i.value) ?? (num(i.value) !== null ? String(i.value) : ''), href: str(i.href) }));
@@ -112,8 +125,8 @@ function normalizeStep(raw: unknown, i: number): TaskStep {
     cost: {
       modelUsd: amount(c.modelUsd),
       modelCalls: num(c.modelCalls),
-      creditsYocto: amount(c.creditsYocto),
-      entries: arr(c.entries).map((x) => ({ label: str(x.label) ?? '', unit: x.unit === 'yoctoNEAR' ? 'yoctoNEAR' : 'usd', amount: amount(x.amount) ?? '', txHash: str(x.txHash) })),
+      creditsUsd: amount(c.creditsUsd),
+      entries: normalizeEntries(c.entries),
     },
     error: e ? { reasonCode: str(e.reasonCode) ?? 'UNKNOWN', message: str(e.message) ?? 'The step failed.', retryable: e.retryable !== false } : null,
   };
@@ -136,12 +149,12 @@ export function normalizeTask(raw: unknown): Task {
     consent: {
       required: arr(consent.required).flatMap((c) => {
         const key = CONSENT_KEYS.find((k) => k === c.key);
-        return key ? [{ key, label: str(c.label) ?? key, detail: str(c.detail) ?? '', maxYocto: str(c.maxYocto) }] : [];
+        return key ? [{ key, label: str(c.label) ?? key, detail: str(c.detail) ?? '', maxUsd: amount(c.maxUsd) }] : [];
       }),
       given: (Array.isArray(consent.given) ? consent.given : []).filter((x): x is string => typeof x === 'string'),
     },
-    estimate: { creditsMaxYocto: str(est.creditsMaxYocto), modelUsdMax: amount(est.modelUsdMax) },
-    cost: { modelUsd: amount(cost.modelUsd), modelCalls: num(cost.modelCalls), creditsChargedYocto: str(cost.creditsChargedYocto), creditsHeldYocto: str(cost.creditsHeldYocto) },
+    estimate: { creditsMaxUsd: amount(est.creditsMaxUsd), modelUsdMax: amount(est.modelUsdMax) },
+    cost: { modelUsd: amount(cost.modelUsd), modelCalls: num(cost.modelCalls), creditsUsd: amount(cost.creditsUsd), creditsHeldUsd: amount(cost.creditsHeldUsd), entries: normalizeEntries(cost.entries) },
     links: { workspaceId: str(links.workspaceId), runId: str(links.runId), capsuleId: str(links.capsuleId), proofId: str(links.proofId), publicationId: str(links.publicationId), reportUrl: str(links.reportUrl) },
     createdAt: str(r.createdAt),
     startedAt: str(r.startedAt),
@@ -179,7 +192,7 @@ export function normalizeCosts(raw: unknown): Costs {
   const r = obj(raw);
   const t = obj(r.totals);
   return {
-    totals: { modelUsd: amount(t.modelUsd), modelCalls: num(t.modelCalls), creditsChargedYocto: str(t.creditsChargedYocto) },
+    totals: { modelUsd: amount(t.modelUsd), modelCalls: num(t.modelCalls), onChainUsd: amount(t.onChainUsd), totalUsd: amount(t.totalUsd) },
     items: arr(r.items).map((x, i) => ({
       id: str(x.id) ?? `c${i}`,
       at: str(x.at),
@@ -188,9 +201,11 @@ export function normalizeCosts(raw: unknown): Costs {
       stepIdx: num(x.stepIdx),
       stepKey: str(x.stepKey),
       label: str(x.label) ?? 'cost',
-      unit: x.unit === 'yoctoNEAR' ? 'yoctoNEAR' : 'usd',
-      amount: amount(x.amount) ?? (typeof x.amount === 'string' && /^\d+$/.test(x.amount) ? x.amount : null),
+      unit: 'usd' as const,
+      // An entry in another unit (an API that predates USD credits) is unknown, never mislabelled as dollars.
+      amount: x.unit === undefined || x.unit === 'usd' ? amount(x.amount) : null,
       txHash: str(x.txHash),
+      detail: x.detail && typeof x.detail === 'object' && !Array.isArray(x.detail) ? (x.detail as R) : null,
     })),
   };
 }

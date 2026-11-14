@@ -11,6 +11,8 @@ import { ApiErrorState } from '@/components/nx/states';
 import { Skeleton } from '@/components/nx/ui';
 import { browserApi } from '@/lib/api/browser';
 import { qk } from '@/lib/api/keys';
+import { creditsApi, creditsKey } from '@/lib/near/api';
+import { reportExhaustedOnLoad } from '@/lib/credits/refusal';
 import { useWorkspaceStream } from '@/lib/sse/hub';
 import { agentApi, agentKeys, isUnavailable } from '@/lib/agent/api';
 import { loadPrefs, savePrefs } from '@/lib/agent/prefs';
@@ -57,6 +59,16 @@ export default function AgentWorkspace({ initialQuestion }: { initialQuestion: s
   const endRef = useRef<HTMLDivElement>(null);
   const consumed = useRef<string | null>(null);
   const poll = useRef<PollState>({ failures: 0, lastOkAt: null });
+
+  // Opening /agent with the credits already used shows the request popup once; it stays closed after a dismissal.
+  const creditsOnLoad = useQuery({ queryKey: creditsKey, queryFn: () => creditsApi.get(), retry: false, staleTime: 30_000 });
+  const exhaustedOnLoad = creditsOnLoad.data?.exhausted === true;
+  useEffect(() => {
+    if (exhaustedOnLoad && creditsOnLoad.data) {
+      const c = creditsOnLoad.data;
+      reportExhaustedOnLoad({ allowanceUsd: c.allowanceUsd, availableUsd: c.availableUsd, contactEmail: c.contactEmail });
+    }
+  }, [exhaustedOnLoad, creditsOnLoad.data]);
 
   useEffect(() => {
     const p = loadPrefs();

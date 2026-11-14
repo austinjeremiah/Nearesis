@@ -1,5 +1,6 @@
-import { formatNear, isYocto } from '@/lib/near/units';
-import type { CostEntry, CostRow, Task, TaskStep, ThreadDetail } from './thread';
+import { formatNear } from '@/lib/near/units';
+import { sumUsd, toMicro } from '@/lib/credits/usd';
+import type { CostEntry, Task, TaskStep, ThreadDetail } from './thread';
 
 /** Pure state logic for the Agent tab: polling policy, the current-step line, consent, elapsed time and cost text. */
 
@@ -88,30 +89,41 @@ export function formatUsdString(v: string | null | undefined): string {
   return `$${w}.${frac}${lost ? '+' : ''}`;
 }
 
-/** NEAR credits for display: costs round up so a charge is never understated. */
-export const formatCredits = (y: string | null | undefined) => (isYocto(y) ? `${formatNear(y, { round: 'up' })} NEAR` : 'unknown');
-
-export function formatEntry(e: Pick<CostEntry, 'unit' | 'amount'>): string {
-  return e.unit === 'yoctoNEAR' ? formatCredits(e.amount) : formatUsdString(e.amount);
-}
+export const formatEntry = (e: Pick<CostEntry, 'amount'>) => formatUsdString(e.amount);
 
 export const nearblocksTx = (hash: string) => `https://testnet.nearblocks.io/txns/${encodeURIComponent(hash)}`;
 
-/** Per-step cost summary; an unknown amount reads "unknown", never zero. */
-export function stepCostText(s: TaskStep): { usd: string; credits: string; hasAny: boolean } {
-  const hasAny = s.cost.modelUsd !== null || s.cost.creditsYocto !== null || s.cost.entries.length > 0;
-  return { usd: formatUsdString(s.cost.modelUsd), credits: formatCredits(s.cost.creditsYocto), hasAny };
+/** Per-step cost summary in USD: model, on-chain, and the total charged (model + on-chain). Unknown never reads zero. */
+export function stepCostText(s: TaskStep): { model: string; onChain: string; total: string; hasAny: boolean } {
+  const hasAny = s.cost.modelUsd !== null || s.cost.creditsUsd !== null || s.cost.entries.length > 0;
+  return { model: formatUsdString(s.cost.modelUsd), onChain: formatUsdString(s.cost.creditsUsd), total: formatUsdString(sumUsd(s.cost.modelUsd, s.cost.creditsUsd)), hasAny };
 }
 
-/** Exact sum of the credit rows; null when any credit amount is unknown. */
-export function sumCreditRows(rows: Pick<CostRow, 'unit' | 'amount'>[]): string | null {
-  let t = 0n;
-  for (const r of rows) {
-    if (r.unit !== 'yoctoNEAR') continue;
-    if (!isYocto(r.amount)) return null;
-    t += BigInt(r.amount);
-  }
-  return t.toString();
+/** Task-level cost in USD: model, on-chain, total (model + on-chain) and what is still held. */
+export function taskCostText(t: Pick<Task, 'cost'>): { model: string; onChain: string; total: string; held: string | null } {
+  const held = t.cost.creditsHeldUsd;
+  return {
+    model: formatUsdString(t.cost.modelUsd),
+    onChain: formatUsdString(t.cost.creditsUsd),
+    total: formatUsdString(sumUsd(t.cost.modelUsd, t.cost.creditsUsd)),
+    held: held && toMicro(held) !== 0n ? formatUsdString(held) : null,
+  };
+}
+
+/** NEAR amount and rate carried in a cost entry's detail, for the secondary line. Null when the entry carries none. */
+export function costDetailText(detail: Record<string, unknown> | null): string | null {
+  if (!detail) return null;
+  const d = detail;
+  const digits = (v: unknown) => (typeof v === 'string' && /^\d+$/.test(v) ? BigInt(v) : null);
+  const c = digits(d.chargedYocto);
+  const g = digits(d.tokensBurntYocto) ?? digits(d.gasYocto);
+  const tot = c === null && g === null ? null : (c ?? 0n) + (g ?? 0n);
+  const near = tot === null ? null : `${formatNear(tot.toString(), { round: 'up' })} NEAR`;
+  const rateRaw = d.nearUsdRate;
+  const rate = typeof rateRaw === 'number' && Number.isFinite(rateRaw) ? String(rateRaw) : typeof rateRaw === 'string' && rateRaw ? rateRaw : null;
+  const date = typeof d.rateDate === 'string' && d.rateDate ? d.rateDate : null;
+  const parts = [near, rate ? `$${rate} per NEAR${date ? ` on ${date}` : ''}` : null].filter(Boolean);
+  return parts.length ? parts.join(' at ') : null;
 }
 
 /** Same-origin links only: the server may send an app path, never an arbitrary URL. */

@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import Wordmark from '@/components/Wordmark';
 import { ReportChart } from '@/components/report/report-chart';
-import { formatNear } from '@/lib/near/units';
+import { addYocto, formatNear, isYocto } from '@/lib/near/units';
+import { formatUsdExact, sumUsd } from '@/lib/credits/usd';
 import { formatUtc, shortHash } from '@/lib/format';
 import { tidyNumbers } from '@/lib/prose';
 import {
@@ -189,6 +190,11 @@ function RunSection({ r, i, doc, seen }: { r: ReportRun; i: number; doc: ReportD
 
 function ProofBox({ p }: { p: ReportProof }) {
   const v = p.verification;
+  // USD first; the total is summed from its parts when the API sent none, and unknown (null) when a part is missing.
+  const proofTotal = p.cost.totalUsd ?? sumUsd(p.cost.chargedUsd, p.cost.gasUsd);
+  const totalYocto = p.cost.totalYocto ?? addYocto(p.cost.chargedYocto, p.cost.gasYocto);
+  const rate = p.cost.nearUsdRate === null || p.cost.nearUsdRate === undefined ? null : String(p.cost.nearUsdRate);
+  const proofNear = isYocto(totalYocto) ? `(${formatNear(totalYocto, { round: 'up' })} NEAR${rate ? ` at $${rate} per NEAR${p.cost.rateDate ? ` on ${p.cost.rateDate}` : ''}` : ''})` : null;
   return (
     <div className="rp-proof">
       <div className="rp-tags">
@@ -227,8 +233,9 @@ function ProofBox({ p }: { p: ReportProof }) {
         )}
         <dt>Cost</dt>
         <dd className="mono">
-          {p.cost.totalYocto ? `${formatNear(p.cost.totalYocto)} NEAR total` : dash}
-          {p.cost.chargedYocto ? ` (credits ${formatNear(p.cost.chargedYocto)}, gas ${formatNear(p.cost.gasYocto)})` : ''}
+          {proofTotal === null ? dash : `${formatUsdExact(proofTotal, { decimals: 4, round: 'up' })} total`}
+          {p.cost.chargedUsd ? ` (OutLayer ${formatUsdExact(p.cost.chargedUsd, { decimals: 4, round: 'up' })}, gas ${formatUsdExact(p.cost.gasUsd, { decimals: 4, round: 'up' })})` : ''}
+          {proofNear && <span className="rp-sub-d"> {proofNear}</span>}
         </dd>
       </dl>
       {p.error && <p className="rp-empty">Error: {p.error}</p>}
@@ -291,12 +298,12 @@ function CapsuleBox({ c }: { c: ReportCapsule }) {
 }
 
 function CostRow({ e }: { e: CostEntry }) {
-  const amount = e.unit === 'usd' ? `USD ${e.amount}` : `${formatNear(e.amount, { round: 'up' })} NEAR`;
+  const amount = e.unit === 'usd' ? formatUsdExact(e.amount, { decimals: 6, round: 'up' }) : `${formatNear(e.amount, { round: 'up' })} NEAR`;
   return (
     <tr>
       <td>{e.at ? formatUtc(e.at, false) : dash}</td>
       <td>{e.label}</td>
-      <td>{e.source === 'credits' ? 'NEAR credits' : 'model'}</td>
+      <td>{e.source === 'credits' ? 'On chain (credits)' : 'model'}</td>
       <td className="num mono">{amount}</td>
       <td className="mono">
         {e.txHash ? (
@@ -565,8 +572,8 @@ export default function ReportView({ doc }: { doc: ReportDoc }) {
           {/* ---- cost ---- */}
           <Section n="06" title="Cost">
             <div className="rp-stats two">
-              <Stat k="Model spend" v={doc.costs.modelUsd ? `USD ${doc.costs.modelUsd}` : dash} sub="recorded by the included runs" />
-              <Stat k="NEAR credits charged" v={`${formatNear(doc.costs.creditsChargedYocto, { round: 'up' })} NEAR`} sub={<span className="mono">{doc.costs.creditsChargedYocto} yoctoNEAR</span>} />
+              <Stat k="Model spend" v={doc.costs.modelUsd ? formatUsdExact(doc.costs.modelUsd, { decimals: 4, round: 'up' }) : dash} sub="recorded by the included runs" />
+              <Stat k="Credits charged (on chain)" v={formatUsdExact(doc.costs.creditsChargedUsd, { decimals: 4, round: 'up' })} sub={isYocto(doc.costs.creditsChargedYocto) ? <span className="mono">{formatNear(doc.costs.creditsChargedYocto, { round: 'up' })} NEAR</span> : 'OutLayer proofs and anchors, paid by the app wallet'} />
             </div>
             {doc.costs.entries.length === 0 ? (
               <p className="rp-empty">No cost entries were recorded for this workspace.</p>

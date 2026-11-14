@@ -65,7 +65,8 @@ export type ReportProof = {
   inputSha256: string;
   outputSha256: string | null;
   verification: { decision: string | null; reasons: string[]; mrTd: string | null; rtmr3: string | null };
-  cost: { chargedYocto: string | null; gasYocto: string | null; totalYocto: string | null };
+  /** USD first; NEAR amounts and the rate are secondary. Fields an older API omits are undefined (shown as unknown). */
+  cost: { heldUsd?: string | null; chargedUsd?: string | null; gasUsd?: string | null; totalUsd?: string | null; chargedYocto?: string | null; gasYocto?: string | null; totalYocto?: string | null; nearUsdRate?: string | number | null; rateDate?: string | null };
   error: string | null;
 };
 export type ReportCapsule = {
@@ -80,7 +81,7 @@ export type ReportCapsule = {
   proofs: ReportProof[];
   publication: { state: string | null; public: boolean; badge: string | null; publishedAt: string | null; acknowledged: string[] };
 };
-export type CostEntry = { source: string; label: string; unit: 'usd' | 'yoctoNEAR'; amount: string; at: string | null; ref: string | null; txHash: string | null; kind?: string };
+export type CostEntry = { source: string; label: string; unit: 'usd' | 'yoctoNEAR'; amount: string; at: string | null; ref: string | null; txHash: string | null; kind?: string; detail?: Record<string, unknown> | null };
 export type ReportDoc = {
   generatedAt: string;
   workspace: { id: string; objective: string; networkScope: string; version: number; createdAt: string; archivedAt: string | null; owner: { displayName: string | null; nearAccountId: string | null } | null; dataWindow: { from: string; to: string } | null };
@@ -90,6 +91,6 @@ export type ReportDoc = {
   markers: ReportMarker[];
   monitors: ReportMonitor[];
   capsules: ReportCapsule[];
-  costs: { modelUsd: string | null; creditsChargedYocto: string; entries: CostEntry[]; ledger: { spentUsd: string | null }; basis: string };
+  costs: { modelUsd: string | null; creditsChargedUsd?: string | null; creditsChargedYocto?: string | null; entries: CostEntry[]; ledger: { spentUsd: string | null }; basis: string };
   limitations: string[];
 };

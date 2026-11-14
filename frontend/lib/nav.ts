@@ -62,7 +62,7 @@ export const GLOBAL_NAV: NavItem[] = [
   { href: '/data', label: 'Explore data', icon: Database, hint: 'Certified metric catalog' },
   { href: '/publications', label: 'Publications', icon: BookOpen, hint: 'Published theses' },
   { href: '/notifications', label: 'Notifications', icon: Bell, hint: 'Approvals and findings' },
-  { href: '/credits', label: 'Credits', icon: Coins, hint: 'NEAR testnet credits and top-ups' },
+  { href: '/credits', label: 'Credits', icon: Coins, hint: 'Your USD allowance for AI and proofs' },
   { href: '/system', label: 'System health', icon: Gauge, hint: 'Source and service health' },
 ];
 

@@ -6,6 +6,7 @@ import { AppShell } from './shell';
 import { CommandPalette, type PaletteAction } from './palette';
 import { TooltipProvider } from './overlays';
 import SmoothScroll from './smooth-scroll';
+import CreditsPopup from './credits-popup';
 import { useWorkspaceStream } from '@/lib/sse/hub';
 
 /**
@@ -53,6 +54,7 @@ export default function AppFrame({
       >
         {children}
       </AppShell>
+      <CreditsPopup />
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}

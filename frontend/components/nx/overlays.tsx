@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Dialog as RxDialog, DropdownMenu, Tooltip as RxTooltip } from 'radix-ui';
 import { X } from 'lucide-react';
 import { Button, IconButton } from './ui';
@@ -13,6 +13,18 @@ import { Button, IconButton } from './ui';
  * so these match the marketing site rather than looking like a component kit.
  */
 
+/**
+ * Radix portals render into <body>, outside the `.nx` wrapper that carries the theme, fonts and the scoped component
+ * styles, so overlays lost their styling. Portal into the wrapper instead; null (render in body) until it is found.
+ */
+function usePortalContainer(): HTMLElement | null {
+  const [el, setEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setEl(document.querySelector<HTMLElement>('.nx'));
+  }, []);
+  return el;
+}
+
 export function TooltipProvider({ children }: { children: ReactNode }) {
   return <RxTooltip.Provider delayDuration={300}>{children}</RxTooltip.Provider>;
 }
@@ -21,7 +33,7 @@ export function Tooltip({ label, children }: { label: string; children: ReactNod
   return (
     <RxTooltip.Root>
       <RxTooltip.Trigger asChild>{children}</RxTooltip.Trigger>
-      <RxTooltip.Portal>
+      <RxTooltip.Portal container={usePortalContainer()}>
         <RxTooltip.Content className="tooltip" sideOffset={6} collisionPadding={8}>
           {label}
         </RxTooltip.Content>
@@ -49,7 +61,7 @@ export function Modal({
 }) {
   return (
     <RxDialog.Root open={open} onOpenChange={onOpenChange}>
-      <RxDialog.Portal>
+      <RxDialog.Portal container={usePortalContainer()}>
         <RxDialog.Overlay className="scrim" />
         <RxDialog.Content className={`dialog ${wide ? 'wide' : ''}`.trim()}>
           <div className="dialog-head row between">
@@ -133,7 +145,7 @@ export function Drawer({
 }) {
   return (
     <RxDialog.Root open={open} onOpenChange={onOpenChange}>
-      <RxDialog.Portal>
+      <RxDialog.Portal container={usePortalContainer()}>
         <RxDialog.Overlay className="scrim" />
         <RxDialog.Content className="drawer">
           <div className="dialog-head row between">
@@ -176,7 +188,7 @@ export function Menu({
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
+      <DropdownMenu.Portal container={usePortalContainer()}>
         <DropdownMenu.Content className="popover" align={align} sideOffset={4} collisionPadding={8}>
           {items.map((it, i) =>
             it.kind === 'separator' ? (

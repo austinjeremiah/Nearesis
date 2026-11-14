@@ -1,152 +1,53 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/nx/evidence';
 import { DataTable, type Column } from '@/components/nx/table';
 import { ApiErrorState } from '@/components/nx/states';
-import { LinkNearWallet } from '@/components/nx/near-link';
-import { NearErrorNotice } from '@/components/nx/near-error';
-import { Button, Card, Field, Input, KeyValues, Notice, Skeleton } from '@/components/nx/ui';
+import { Button, Card, KeyValues, Notice, Skeleton } from '@/components/nx/ui';
+import { qk } from '@/lib/api/keys';
+import { shellBrowser } from '@/lib/api/shell-browser';
 import { formatUtc } from '@/lib/format';
-import { creditsApi, creditsKey, type CreditEntry, type Credits } from '@/lib/near/api';
-import { formatNear, nearToYocto, txUrl } from '@/lib/near/units';
-import { sendTransfer } from '@/lib/near/wallet';
+import { creditsApi, creditsKey } from '@/lib/near/api';
+import { formatNear } from '@/lib/near/units';
+import { txUrl } from '@/lib/near/units';
+import { CATEGORY_LABEL, entryNearDetail, type CreditEntry } from '@/lib/credits/model';
+import { entryHref, entryTxHash, entryWhat } from '@/lib/credits/entries';
+import { openCreditsPopup } from '@/lib/credits/refusal';
+import { formatUsdFull, isLow } from '@/lib/credits/usd';
 
-const KIND_TONE: Record<string, 'ok' | 'warn' | 'info' | ''> = { topup: 'ok', hold: 'warn', charge: 'info', release: '' };
-
-function txHashOfEntry(e: CreditEntry): string | null {
-  const h = e.detail?.txHash;
-  return typeof h === 'string' && h ? h : null;
-}
-
-function str(v: unknown): string | null {
-  return typeof v === 'string' && v ? v : null;
-}
-
-function AddCredits({ c }: { c: Credits }) {
-  const qc = useQueryClient();
-  const [amount, setAmount] = useState('1');
-  const [manual, setManual] = useState('');
-  const [pending, setPending] = useState<'send' | 'manual' | null>(null);
-  const [error, setError] = useState<unknown>(null);
-  const [done, setDone] = useState<string | null>(null);
-  const yocto = nearToYocto(amount);
-
-  async function credit(hash: string) {
-    const next = await creditsApi.topup(hash);
-    qc.setQueryData(creditsKey, next);
-    setDone(hash);
-  }
-
-  async function add() {
-    if (!yocto) return;
-    setPending('send');
-    setError(null);
-    setDone(null);
-    try {
-      const hash = await sendTransfer({ receiverId: c.depositAccount, depositYocto: yocto, expectAccountId: c.accountId });
-      await credit(hash);
-    } catch (e) {
-      setError(e);
-    } finally {
-      setPending(null);
-      void qc.invalidateQueries({ queryKey: creditsKey });
-    }
-  }
-
-  async function addManual() {
-    const h = manual.trim();
-    if (!h) return;
-    setPending('manual');
-    setError(null);
-    setDone(null);
-    try {
-      await credit(h);
-      setManual('');
-    } catch (e) {
-      setError(e);
-    } finally {
-      setPending(null);
-    }
-  }
-
-  if (!c.accountId) {
-    return (
-      <Card title="Add credits">
-        <div className="col gap2">
-          <Notice tone="info" title="Link a NEAR wallet first">
-            Credits are bought with a transfer from your own testnet account. Link the account so the API can match the transfer to you.
-          </Notice>
-          <LinkNearWallet />
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <Card title="Add credits" subtitle={`Transfer testnet NEAR from ${c.accountId} to ${c.depositAccount}.`}>
-      <div className="col gap3" data-testid="add-credits">
-        <Field label="Amount (NEAR)" help={yocto ? `${yocto} yoctoNEAR` : 'Enter a positive amount, up to 24 decimals.'}>
-          <Input id="topup-amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} autoComplete="off" data-testid="topup-amount" />
-        </Field>
-        <div className="row gap2">
-          <Button
-            variant="primary"
-            pending={pending === 'send'}
-            disabled={!yocto}
-            disabledReason="Enter a valid amount"
-            onClick={() => void add()}
-            data-testid="topup-send"
-          >
-            Add {yocto ? formatNear(yocto) : ''} NEAR in your wallet
-          </Button>
-        </div>
-        <p className="small dim">Your wallet asks you to approve the transfer. Credits appear once the transaction is final on testnet.</p>
-        <details>
-          <summary className="small">Credit a transfer you already sent</summary>
-          <div className="row gap2" style={{ marginTop: 8 }}>
-            <Input aria-label="Transaction hash" placeholder="Transaction hash" value={manual} onChange={(e) => setManual(e.target.value)} autoComplete="off" data-testid="topup-hash" />
-            <Button pending={pending === 'manual'} disabled={!manual.trim()} disabledReason="Paste a transaction hash" onClick={() => void addManual()}>
-              Credit
-            </Button>
-          </div>
-        </details>
-        <NearErrorNotice error={error} title="Credits were not added" />
-        {done && (
-          <Notice tone="ok" title="Credits added">
-            Transaction{' '}
-            <a className="link mono" href={txUrl(done)} target="_blank" rel="noreferrer">
-              {done.slice(0, 12)}…
-            </a>{' '}
-            was credited.
-          </Notice>
-        )}
-      </div>
-    </Card>
-  );
-}
+const KIND_TONE: Record<string, 'ok' | 'warn' | 'info' | ''> = { grant: 'ok', hold: 'warn', charge: 'info', release: '' };
 
 const COLUMNS: Column<CreditEntry>[] = [
-  { key: 'at', header: 'When', render: (e) => <span className="mono small">{formatUtc(e.createdAt)}</span> },
+  { key: 'at', header: 'When', render: (e) => <span className="mono small">{e.createdAt ? formatUtc(e.createdAt) : 'unknown'}</span> },
   { key: 'kind', header: 'Kind', render: (e) => <Badge tone={KIND_TONE[e.kind] ?? ''} outline={!KIND_TONE[e.kind]}>{e.kind}</Badge> },
+  { key: 'cat', header: 'Category', render: (e) => <span className="small">{e.category ? (CATEGORY_LABEL[e.category] ?? e.category) : 'unknown'}</span> },
   {
     key: 'amount',
-    header: 'Amount (NEAR)',
+    header: 'Amount (USD)',
     numeric: true,
-    render: (e) => <span className="mono" title={`${e.amountYocto} yoctoNEAR`}>{formatNear(e.amountYocto)}</span>,
+    render: (e) => <span className="mono" data-testid="entry-amount">{formatUsdFull(e.amountUsd)}</span>,
   },
   {
-    key: 'ref',
-    header: 'Reference',
+    key: 'what',
+    header: 'What it was for',
     render: (e) => {
-      const gas = str(e.detail?.tokensBurntYocto);
-      const charged = str(e.detail?.chargedYocto);
+      const what = entryWhat(e);
+      const href = entryHref(e);
+      const near = entryNearDetail(e, (y) => formatNear(y, { round: 'up' }));
       return (
-        <span className="small">
-          {e.refKind ? <span className="mono">{e.refKind}{e.refId ? ` ${e.refId.slice(0, 8)}` : ''}</span> : <span className="dim">none</span>}
-          {e.kind === 'charge' && (charged || gas) && (
-            <span className="dim"> · OutLayer {formatNear(charged)} + gas {formatNear(gas)}</span>
+        <span className="small col" style={{ gap: 2 }}>
+          <span>
+            {href ? <Link className="link" href={href}>{what.text}</Link> : what.text}
+            {what.short && <span className="mono dim"> {what.short}</span>}
+          </span>
+          {(near.near || near.rate) && (
+            <span className="tiny dim" data-testid="entry-near">
+              {near.near ? `${near.near} NEAR` : null}
+              {near.near && near.rate ? ' at ' : null}
+              {near.rate ? `$${near.rate} per NEAR${near.rateDate ? ` on ${near.rateDate}` : ''}` : null}
+            </span>
           )}
         </span>
       );
@@ -156,9 +57,9 @@ const COLUMNS: Column<CreditEntry>[] = [
     key: 'tx',
     header: 'Transaction',
     render: (e) => {
-      const h = txHashOfEntry(e);
+      const h = entryTxHash(e);
       return h ? (
-        <a className="link mono small" href={txUrl(h)} target="_blank" rel="noreferrer" data-testid="entry-tx">
+        <a className="link mono small" href={txUrl(h)} target="_blank" rel="noreferrer" data-testid="entry-tx" title={h}>
           {h.slice(0, 10)}…
         </a>
       ) : (
@@ -170,33 +71,72 @@ const COLUMNS: Column<CreditEntry>[] = [
 
 export default function CreditsView() {
   const q = useQuery({ queryKey: creditsKey, queryFn: () => creditsApi.get(), refetchInterval: 30_000, retry: false });
+  const me = useQuery({ queryKey: qk.me, queryFn: () => shellBrowser.me(), retry: false, staleTime: 60_000 });
   if (q.isError) return <ApiErrorState error={q.error} onRetry={() => q.refetch()} />;
   if (!q.data) return <Skeleton rows={5} />;
   const c = q.data;
+  const low = isLow(c.availableUsd, c.allowanceUsd);
   return (
     <div className="col gap4">
-      <Card title="Balance" subtitle={`NEAR ${c.network}. Test funds only.`}>
+      {!c.known && (
+        <Notice tone="warn" title="Credit figures are not available yet">
+          The API did not return USD credit figures, so nothing is shown as a number rather than a guess. Reload in a moment.
+        </Notice>
+      )}
+      {c.exhausted === true && (
+        <Notice tone="bad" title="You have used your credits">
+          <span className="row gap2 wrap" style={{ alignItems: 'center' }}>
+            <span>Write to {c.contactEmail} to request more access.</span>
+            <Button onClick={() => openCreditsPopup({ allowanceUsd: c.allowanceUsd, availableUsd: c.availableUsd, contactEmail: c.contactEmail })} data-testid="credits-request">
+              Request more access
+            </Button>
+          </span>
+        </Notice>
+      )}
+      <Card
+        title="Your credits"
+        subtitle="One allowance in USD. It covers AI model calls and OutLayer proofs; proofs and publication anchors are paid on chain by the app's wallet and converted to USD at the NEAR price of the day."
+      >
         <div data-testid="credits-balance">
           <KeyValues
             rows={[
-              { k: 'Balance', v: <span className="mono" data-testid="balance">{formatNear(c.balanceYocto)} NEAR</span> },
-              { k: 'Held for running proofs', v: <span className="mono" data-testid="held">{formatNear(c.heldYocto)} NEAR</span> },
-              { k: 'Available', v: <span className="mono strong" data-testid="available">{formatNear(c.availableYocto)} NEAR</span> },
-              { k: 'Linked account', v: c.accountId ? <span className="mono small">{c.accountId}</span> : <span className="dim">none</span> },
-              { k: 'Deposit account', v: <span className="mono small">{c.depositAccount}</span> },
-              { k: 'One OutLayer proof holds', v: <span className="mono">{formatNear(c.proofEstimateYocto, { round: 'up' })} NEAR</span> },
+              { k: 'Allowance', v: <span className="mono" data-testid="allowance">{formatUsdFull(c.allowanceUsd)}</span> },
+              { k: 'Spent', v: <span className="mono" data-testid="spent">{formatUsdFull(c.spentUsd)}</span> },
+              { k: 'Held for running proofs', v: <span className="mono" data-testid="held">{formatUsdFull(c.heldUsd)}</span> },
+              {
+                k: 'Available',
+                v: (
+                  <span className="mono strong" style={c.exhausted === true ? { color: 'var(--bad)' } : low ? { color: 'var(--warn)' } : undefined} data-testid="available">
+                    {formatUsdFull(c.availableUsd)}
+                    {c.exhausted === true ? ' (used up)' : low ? ' (low)' : ''}
+                  </span>
+                ),
+              },
+              { k: 'One OutLayer proof holds', v: <span className="mono">{formatUsdFull(c.proofEstimateUsd)}</span> },
+              { k: 'NEAR price used', v: c.nearUsdRate ? <span className="mono small">${c.nearUsdRate.rate}{c.nearUsdRate.date ? ` on ${c.nearUsdRate.date}` : ''}</span> : <span className="dim">unknown</span> },
+              { k: 'Linked NEAR account', v: me.data?.nearAccountId ? <span className="mono small">{me.data.nearAccountId}</span> : <span className="dim">{me.data ? 'none' : 'unknown'}</span> },
             ]}
           />
         </div>
       </Card>
-      <AddCredits c={c} />
-      <Card title="History" subtitle="Newest 50 changes. A proof first holds credits, then charges what OutLayer and gas actually cost and releases the rest.">
+      <Card title="Where it went" subtitle="Spent so far, by what it paid for.">
+        <div data-testid="credits-breakdown">
+          <KeyValues
+            rows={[
+              { k: 'AI model', v: <span className="mono" data-testid="by-model">{formatUsdFull(c.byCategory.modelUsd)}</span> },
+              { k: 'OutLayer proofs', v: <span className="mono" data-testid="by-outlayer">{formatUsdFull(c.byCategory.outlayerUsd)}</span> },
+              { k: 'Publication anchors', v: <span className="mono" data-testid="by-anchor">{formatUsdFull(c.byCategory.anchorUsd)}</span> },
+            ]}
+          />
+        </div>
+      </Card>
+      <Card title="History" subtitle="Newest 100 changes. A proof first holds credits, then charges what OutLayer and gas actually cost and releases the rest.">
         <DataTable
           caption="Credit history"
           columns={COLUMNS}
           rows={c.entries}
           rowKey={(e) => e.id}
-          empty={{ title: 'No credit activity yet', body: 'Add credits to pay for OutLayer proofs.' }}
+          empty={{ title: 'No credit activity yet', body: 'Model calls and OutLayer proofs show up here as they are charged.' }}
         />
       </Card>
     </div>

@@ -1,19 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { addYocto, decodeNonce, formatNear, nearToYocto, yoctoAtLeast } from '@/lib/near/units';
+import { addYocto, decodeNonce, formatNear } from '@/lib/near/units';
 
-describe('NEAR <-> yocto', () => {
-  it('converts typed amounts exactly', () => {
-    expect(nearToYocto('1')).toBe('1000000000000000000000000');
-    expect(nearToYocto('0.1')).toBe('100000000000000000000000');
-    expect(nearToYocto('0.000000000000000000000001')).toBe('1');
-    expect(nearToYocto(' 12.5 ')).toBe('12500000000000000000000000');
-    expect(nearToYocto('123456789.123456789012345678901234')).toBe('123456789123456789012345678901234');
-  });
-  it('refuses anything that is not a plain positive decimal', () => {
-    for (const s of ['', '0', '0.0', '-1', '1e3', '1,5', '.5', '1.', 'abc', '0.0000000000000000000000001', '+1', '1 2']) {
-      expect(nearToYocto(s), s).toBeNull();
-    }
-  });
+describe('yocto display', () => {
   it('formats with up to 6 decimals and trims zeros', () => {
     expect(formatNear('1000000000000000000000000')).toBe('1');
     expect(formatNear('1500000000000000000000000')).toBe('1.5');
@@ -33,12 +21,9 @@ describe('NEAR <-> yocto', () => {
     expect(formatNear('1.5')).toBe('unknown');
     expect(formatNear('-3')).toBe('unknown');
   });
-  it('adds and compares without floats', () => {
+  it('adds without floats', () => {
     expect(addYocto('9007199254740993', '1')).toBe('9007199254740994');
     expect(addYocto('1', null)).toBeNull();
-    expect(yoctoAtLeast('10', '10')).toBe(true);
-    expect(yoctoAtLeast('9', '10')).toBe(false);
-    expect(yoctoAtLeast(null, '10')).toBeNull();
   });
 });
 

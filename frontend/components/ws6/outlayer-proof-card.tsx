@@ -11,7 +11,9 @@ import { ApiRequestError } from '@/lib/api/errors';
 import { newKey } from '@/lib/api/transport';
 import { formatUtc } from '@/lib/format';
 import { creditsApi, creditsKey, proofsApi, type Proof } from '@/lib/near/api';
-import { addYocto, formatNear, txUrl, yoctoAtLeast } from '@/lib/near/units';
+import { addYocto, formatNear, isYocto, txUrl } from '@/lib/near/units';
+import { formatUsdExact, formatUsdFull, sumUsd, usdAtLeast } from '@/lib/credits/usd';
+import { openCreditsPopup } from '@/lib/credits/refusal';
 
 const POLL_MS = 3000;
 const STATE_TONE: Record<Proof['state'], 'ok' | 'warn' | 'bad' | 'info'> = { verified: 'ok', not_attested: 'warn', failed: 'bad', running: 'info' };
@@ -22,7 +24,11 @@ function Opt({ v }: { v: string | null | undefined }) {
 
 function ProofResult({ p }: { p: Proof }) {
   const txHash = p.job.txHash;
-  const total = p.cost.totalYocto ?? addYocto(p.cost.chargedYocto, p.cost.gasYocto);
+  // USD first. A total the API did not send is summed from its parts; if a part is missing it is unknown, never 0.
+  const totalUsd = p.cost.totalUsd ?? sumUsd(p.cost.chargedUsd, p.cost.gasUsd);
+  const totalYocto = p.cost.totalYocto ?? addYocto(p.cost.chargedYocto, p.cost.gasYocto);
+  const rate = p.cost.nearUsdRate === null || p.cost.nearUsdRate === undefined ? null : String(p.cost.nearUsdRate);
+  const nearDetail = isYocto(totalYocto) ? `${formatNear(totalYocto, { round: 'up' })} NEAR${rate ? ` at $${rate} per NEAR${p.cost.rateDate ? ` on ${p.cost.rateDate}` : ''}` : ''}` : null;
   return (
     <div className="col gap2" data-testid="proof-result" data-state={p.state}>
       <div className="row gap2">
@@ -60,10 +66,18 @@ function ProofResult({ p }: { p: Proof }) {
           { k: 'Output SHA-256', v: <Hash value={p.outputSha256} /> },
           { k: 'mrTd', v: <Opt v={p.verification.mrTd} /> },
           { k: 'rtmr3', v: <Opt v={p.verification.rtmr3} /> },
-          { k: 'Held', v: <span className="mono">{formatNear(p.cost.heldYocto, { round: 'up' })} NEAR</span> },
-          { k: 'Charged by OutLayer', v: <span className="mono">{formatNear(p.cost.chargedYocto, { round: 'up' })} NEAR</span> },
-          { k: 'Gas', v: <span className="mono">{formatNear(p.cost.gasYocto, { round: 'up' })} NEAR</span> },
-          { k: 'Total charged to you', v: <span className="mono strong" data-testid="proof-total">{formatNear(total, { round: 'up' })} NEAR</span> },
+          { k: 'Held', v: <span className="mono" data-testid="proof-held">{formatUsdExact(p.cost.heldUsd, { decimals: 4, round: 'up' })}</span> },
+          { k: 'Charged by OutLayer', v: <span className="mono" data-testid="proof-charged">{formatUsdExact(p.cost.chargedUsd, { decimals: 4, round: 'up' })}</span> },
+          { k: 'Gas', v: <span className="mono" data-testid="proof-gas">{formatUsdExact(p.cost.gasUsd, { decimals: 4, round: 'up' })}</span> },
+          {
+            k: 'Total charged to you',
+            v: (
+              <span className="col" style={{ gap: 2 }}>
+                <span className="mono strong" data-testid="proof-total">{formatUsdExact(totalUsd, { decimals: 4, round: 'up' })}</span>
+                {nearDetail && <span className="tiny dim" data-testid="proof-near">{nearDetail}</span>}
+              </span>
+            ),
+          },
         ]}
       />
       {!p.verification.collateralChecked && (
@@ -81,7 +95,7 @@ function ProofResult({ p }: { p: Proof }) {
  */
 export function OutlayerProofCard({ capsuleId }: { capsuleId: string }) {
   const qc = useQueryClient();
-  const credits = useQuery({ queryKey: creditsKey, queryFn: () => creditsApi.get(), retry: false });
+  const credits = useQuery({ queryKey: [...creditsKey, 'capsule', capsuleId], queryFn: () => creditsApi.get(capsuleId), retry: false });
   const list = useQuery({ queryKey: ['capsule', capsuleId, 'proofs'], queryFn: () => proofsApi.list(capsuleId), retry: false });
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
@@ -113,8 +127,8 @@ export function OutlayerProofCard({ capsuleId }: { capsuleId: string }) {
 
   const shown: Proof | null = proof.data ?? latest;
   const c = credits.data;
-  const estimate = c?.proofEstimateYocto ?? null;
-  const enough = yoctoAtLeast(c?.availableYocto, estimate);
+  const estimate = c?.proofEstimateUsd ?? null;
+  const enough = usdAtLeast(c?.availableUsd, estimate);
 
   async function start() {
     setPending(true);
@@ -138,34 +152,29 @@ export function OutlayerProofCard({ capsuleId }: { capsuleId: string }) {
   }
 
   const err = startError instanceof ApiRequestError ? startError : null;
-  const insufficient = err?.reasonCode === 'INSUFFICIENT_CREDITS' || err?.status === 402;
+  const insufficient = err?.reasonCode === 'CREDITS_EXHAUSTED' || err?.reasonCode === 'INSUFFICIENT_CREDITS' || err?.status === 402;
   const alreadyProved = err?.reasonCode === 'ALREADY_PROVED';
   const disabled = err?.reasonCode === 'PROOF_PROVIDER_DISABLED' || err?.status === 503;
 
   return (
     <Card
       title="Verify on OutLayer"
-      subtitle="Runs this capsule in an OutLayer TEE on NEAR testnet and records the attestation. Paid from your credits."
+      subtitle="Runs this capsule in an OutLayer TEE on NEAR testnet and records the attestation. Counted against your credits in USD; the app's wallet pays on chain."
     >
       <div className="col gap3" data-testid="outlayer-proof-card">
         {credits.isError && <ApiErrorState error={credits.error} onRetry={() => credits.refetch()} />}
         {c && (
           <KeyValues
             rows={[
-              { k: 'Hold for one proof', v: <span className="mono" data-testid="proof-estimate">{formatNear(estimate, { round: 'up' })} NEAR</span> },
-              { k: 'Your available credits', v: <span className="mono" data-testid="proof-available">{formatNear(c.availableYocto)} NEAR</span> },
+              { k: 'Hold for one proof', v: <span className="mono" data-testid="proof-estimate">{formatUsdExact(estimate, { decimals: 4, round: 'up' })}</span> },
+              { k: 'Your available credits', v: <span className="mono" data-testid="proof-available">{formatUsdFull(c.availableUsd)}</span> },
             ]}
           />
         )}
-        {c && !c.accountId && (
-          <Notice tone="warn" title="No NEAR account linked">
-            Link a wallet in <Link className="link" href="/settings">Settings</Link> and add credits to pay for a proof.
-          </Notice>
-        )}
         {c && enough === false && (
           <Notice tone="warn" title="Not enough credits">
-            A proof needs {formatNear(estimate, { round: 'up' })} NEAR available; you have {formatNear(c.availableYocto)}.{' '}
-            <Link className="link" href="/credits">Add credits</Link>
+            A proof needs {formatUsdExact(estimate, { decimals: 4, round: 'up' })} available; you have {formatUsdFull(c.availableUsd)}.{' '}
+            <button type="button" className="link" onClick={() => openCreditsPopup({ allowanceUsd: c.allowanceUsd, availableUsd: c.availableUsd, contactEmail: c.contactEmail })}>Request more access</button>
           </Notice>
         )}
 
@@ -188,12 +197,12 @@ export function OutlayerProofCard({ capsuleId }: { capsuleId: string }) {
           <Notice tone="warn" title="Confirm the charge">
             <div className="col gap2" data-testid="proof-confirm">
               <span>
-                This reserves up to <strong>{formatNear(estimate, { round: 'up' })} NEAR</strong> of your credits. The actual charge is the OutLayer cost plus gas
-                for the transactions, taken from that reserve; the rest is released. Testnet funds only.
+                This reserves up to <strong>{formatUsdExact(estimate, { decimals: 4, round: 'up' })}</strong> of your credits. The actual charge is the OutLayer cost plus gas
+                for the transactions (paid on chain by the app's wallet, testnet only) converted to USD; the rest is released.
               </span>
               <div className="row gap2">
                 <Button variant="primary" pending={pending} onClick={() => void start()} data-testid="proof-confirm-button">
-                  Reserve up to {formatNear(estimate, { round: 'up' })} NEAR and verify
+                  Reserve up to {formatUsdExact(estimate, { decimals: 4, round: 'up' })} and verify
                 </Button>
                 <Button onClick={() => setConfirming(false)} disabled={pending} disabledReason="A request is in flight">
                   Cancel
@@ -204,8 +213,8 @@ export function OutlayerProofCard({ capsuleId }: { capsuleId: string }) {
         )}
 
         {insufficient && (
-          <Notice tone="bad" title="Refused: INSUFFICIENT_CREDITS">
-            {err?.message} <Link className="link" href="/credits">Add credits</Link>
+          <Notice tone="bad" title="Refused: credits used">
+            {err?.message} <Link className="link" href="/credits">See your credits</Link>
           </Notice>
         )}
         {alreadyProved && (

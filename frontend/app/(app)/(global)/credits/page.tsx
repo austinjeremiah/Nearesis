@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: 'Credits · Nearesis' };
 export default function Page() {
   return (
     <>
-      <PageHeader title="Credits" description="NEAR testnet credits that pay for OutLayer proofs: what you hold, what is reserved, and every change." />
+      <PageHeader title="Credits" description="Your USD allowance for AI calls and OutLayer proofs: what is left, what is reserved, and every change." />
       <Content>
         <CreditsView />
       </Content>

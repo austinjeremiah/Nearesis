@@ -1,9 +1,8 @@
 /**
- * Exact NEAR <-> yoctoNEAR conversion. Amounts travel as decimal strings and are
+ * Exact yoctoNEAR -> NEAR display (secondary detail next to USD amounts). Amounts travel as decimal strings and are
  * only ever handled as bigint here; no floating point touches a balance.
  */
 
-const YOCTO_PER_NEAR = 10n ** 24n;
 const DECIMAL = /^\d+$/;
 
 export const NEAR_DISPLAY_DECIMALS = 6;
@@ -11,19 +10,6 @@ export const NEAR_DISPLAY_DECIMALS = 6;
 /** True for a non-negative decimal integer string. */
 export function isYocto(v: unknown): v is string {
   return typeof v === 'string' && DECIMAL.test(v);
-}
-
-/**
- * A NEAR amount typed by a person ("1", "0.25", "1.5") as a yocto string.
- * Returns null for anything that is not a plain positive decimal with at most
- * 24 fractional digits (no signs, exponents, separators or empty input).
- */
-export function nearToYocto(input: string): string | null {
-  const s = input.trim();
-  if (!/^\d+(\.\d{1,24})?$/.test(s)) return null;
-  const [whole, frac = ''] = s.split('.');
-  const yocto = BigInt(whole) * YOCTO_PER_NEAR + BigInt(frac.padEnd(24, '0'));
-  return yocto > 0n ? yocto.toString() : null;
 }
 
 /**
@@ -59,12 +45,6 @@ export function addYocto(...vals: (string | null | undefined)[]): string | null 
     t += BigInt(v);
   }
   return t.toString();
-}
-
-/** a >= b for yocto strings; null when either is unknown. */
-export function yoctoAtLeast(a: string | null | undefined, b: string | null | undefined): boolean | null {
-  if (!isYocto(a) || !isYocto(b)) return null;
-  return BigInt(a) >= BigInt(b);
 }
 
 /** Decode the challenge nonce (base64 or base64url) to exactly 32 bytes, or throw. */

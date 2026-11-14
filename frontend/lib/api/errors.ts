@@ -29,7 +29,7 @@ export type ErrorBody = {
   retryable?: boolean;
   nextAction?: string;
   lastStableRevision?: number;
-  details?: { path: string; issue: string }[];
+  details?: { path: string; issue: string }[] | Record<string, unknown>;
   retryAfterSeconds?: number;
   state?: string;
 };
@@ -47,6 +47,8 @@ export class ApiRequestError extends Error {
   readonly nextAction: string | null;
   readonly lastStableRevision: number | null;
   readonly details: { path: string; issue: string }[];
+  /** Object-shaped `details` (for example the credits figures of a CREDITS_EXHAUSTED refusal); null when absent. */
+  readonly detailsObject: Record<string, unknown> | null;
 
   constructor(init: {
     status: number;
@@ -61,6 +63,7 @@ export class ApiRequestError extends Error {
     nextAction?: string | null;
     lastStableRevision?: number | null;
     details?: { path: string; issue: string }[];
+    detailsObject?: Record<string, unknown> | null;
   }) {
     super(init.message);
     this.name = 'ApiRequestError';
@@ -75,6 +78,7 @@ export class ApiRequestError extends Error {
     this.nextAction = init.nextAction ?? null;
     this.lastStableRevision = init.lastStableRevision ?? null;
     this.details = init.details ?? [];
+    this.detailsObject = init.detailsObject ?? null;
   }
 }
 
@@ -173,7 +177,8 @@ export function errorFromResponse(
     traceId: b.traceId ?? headers?.get('x-trace-id') ?? null,
     nextAction: b.nextAction ?? null,
     lastStableRevision: b.lastStableRevision ?? null,
-    details: b.details,
+    details: Array.isArray(b.details) ? b.details : undefined,
+    detailsObject: b.details && typeof b.details === 'object' && !Array.isArray(b.details) ? (b.details as Record<string, unknown>) : null,
   });
 }
 

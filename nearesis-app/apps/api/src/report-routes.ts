@@ -308,9 +308,9 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (app,
         entries: ledgerEntries,
       },
       basis:
-        "modelUsd is the sum of the spent USD each included run recorded in its budget" +
+        "Model spend is the sum of the USD each included run recorded in its budget" +
         (agentUsd.table ? ", plus the agent cost entries of this workspace" : "") +
-        ". creditsChargedYocto is the sum of charge entries in the caller's credits ledger that reference this workspace's capsule proofs and publications. The cost ledger block is shown separately and is not added to either total.",
+        ". NEAR credits charged is the sum of charge entries in the caller's credits ledger that reference this workspace's capsule proofs and publications. The workspace cost ledger is shown separately and is not added to either total.",
     };
 
     const windows = panels.map((p) => p.window).filter((w): w is { from: string; to: string } => w !== null);

@@ -11,15 +11,26 @@ import {
   NotCapsulable,
   SERIES_RULE,
   buildWorkspaceRunCapsule,
+  candidatesOf,
   isCapsulePublic,
+  longestShared,
+  matchLabel,
   readCapsuleOwnership,
   readCapsulePublicationState,
   readManifest,
+  validateProposal,
   verifyCapsule,
   workspaceRunCapsuleId,
   writeCapsuleOwnership,
 } from "@nearesis/capsule";
-import type { RunFinding, RunPanel, TestPlan, TestRequest } from "@nearesis/capsule";
+import type {
+  Candidate,
+  PlannerProposal,
+  RunFinding,
+  RunPanel,
+  TestPlan,
+  TestRequest,
+} from "@nearesis/capsule";
 import { resolveCapsuleDir } from "./capsule-resolve.ts";
 import { analyticsPanel, createPanelDataPort, semanticPanel } from "./panel-data.ts";
 import type { PanelDataPort } from "./panel-data.ts";
@@ -64,8 +75,21 @@ export const TestBody = z.strictObject({
     .max(300)
     .regex(/^[\x20-\x7e]*$/)
     .optional(),
+  /** Why the pair was chosen, recorded in the capsule's plan (plain text; it is not part of the capsule id). */
+  why: z
+    .string()
+    .max(600)
+    .regex(/^[\x20-\x7e]*$/)
+    .optional(),
 });
 const Body = z.strictObject({ runId: z.uuid(), test: TestBody.optional() });
+const ResolveBody = z.strictObject({
+  runId: z.uuid(),
+  xLabel: z.string().trim().min(1).max(60),
+  yLabel: z.string().trim().min(1).max(60),
+  /** A pair proposed by id (by a model, from the candidates this route listed): validated against the real series. */
+  proposal: z.strictObject({ x: Pair, y: Pair }).optional(),
+});
 const defaultRoot = (): string => process.env.NEARESIS_CAPSULE_DIR ?? join(APP_ROOT, ".data", "capsules");
 
 /** How the pair of a stored capsule was chosen, read from its own record (`legacy`: the original longest-overlap rule). */
@@ -213,6 +237,43 @@ function panelsOfProposal(proposal: unknown): ComposerPanel[] {
   return out;
 }
 
+/** The panels of a run's composer proposal with their result tables, exactly as the panel-data route returns them. */
+async function readComposedPanels(
+  deps: BuildDeps,
+  s: Session,
+  workspaceId: string,
+  proposal: unknown,
+): Promise<RunPanel[]> {
+  const composed = panelsOfProposal(proposal);
+  if (!composed.length)
+    throw new KernelError(
+      "VALIDATION_FAILED",
+      "RUN_NOT_CAPSULABLE",
+      "The run has no result panels to build a capsule from.",
+    );
+  const panels: RunPanel[] = [];
+  for (const p of composed) {
+    try {
+      panels.push({
+        hash: p.hash,
+        title: p.title,
+        body: await readPanel(deps.panelData, s, workspaceId, p.hash),
+        ...(p.primaryColumn ? { primaryColumn: p.primaryColumn } : {}),
+      });
+    } catch (e) {
+      if (e instanceof KernelError)
+        throw new KernelError(
+          "UPSTREAM_DEGRADED",
+          "PANEL_DATA_UNAVAILABLE",
+          `Panel "${p.title}" could not be read (${e.reasonCode}); nothing was built.`,
+          { retryable: true },
+        );
+      throw e;
+    }
+  }
+  return panels;
+}
+
 export interface BuildDeps {
   kernel: Kernel;
   runs: RunsService;
@@ -348,33 +409,7 @@ async function buildNew(
     );
     return r.rows[0]?.proposal ?? null;
   });
-  const composed = panelsOfProposal(proposal);
-  if (!composed.length)
-    throw new KernelError(
-      "VALIDATION_FAILED",
-      "RUN_NOT_CAPSULABLE",
-      "The run has no result panels to build a capsule from.",
-    );
-  const panels: RunPanel[] = [];
-  for (const p of composed) {
-    try {
-      panels.push({
-        hash: p.hash,
-        title: p.title,
-        body: await readPanel(deps.panelData, s, workspaceId, p.hash),
-        ...(p.primaryColumn ? { primaryColumn: p.primaryColumn } : {}),
-      });
-    } catch (e) {
-      if (e instanceof KernelError)
-        throw new KernelError(
-          "UPSTREAM_DEGRADED",
-          "PANEL_DATA_UNAVAILABLE",
-          `Panel "${p.title}" could not be read (${e.reasonCode}); nothing was built.`,
-          { retryable: true },
-        );
-      throw e;
-    }
-  }
+  const panels = await readComposedPanels(deps, s, workspaceId, proposal);
   const tmpRoot = join(deps.root, `.build-${randomUUID()}`);
   mkdirSync(deps.root, { recursive: true });
   try {
@@ -496,6 +531,136 @@ export const workspaceCapsuleRoutes: FastifyPluginAsync<WorkspaceCapsuleRoutesOp
       selection: r.selection,
     });
   });
+
+  // ---- the two series a test plan names, found in a finished run ---------------------------------------------------------
+  /** The run (COMPLETE, in this workspace, readable by the caller) and its composer proposal. */
+  async function runProposal(s: Session, workspaceId: string, runId: string): Promise<unknown> {
+    if (!Uuid.safeParse(workspaceId).success) throw workspaceNotFound();
+    try {
+      await kernel.workspaces.get(s, workspaceId);
+    } catch (e) {
+      if (e instanceof KernelError && (e.code === "FORBIDDEN" || e.code === "NOT_FOUND"))
+        throw workspaceNotFound();
+      throw e;
+    }
+    let run: Awaited<ReturnType<RunsService["getRun"]>>;
+    try {
+      run = await runs.getRun(s, runId);
+    } catch (e) {
+      if (e instanceof KernelError && (e.code === "NOT_FOUND" || e.code === "FORBIDDEN"))
+        throw new KernelError("NOT_FOUND", "RUN_NOT_IN_WORKSPACE", "No such run in this workspace.");
+      throw e;
+    }
+    if (run.workspaceId !== workspaceId)
+      throw new KernelError("NOT_FOUND", "RUN_NOT_IN_WORKSPACE", "No such run in this workspace.");
+    if (run.state !== "COMPLETE")
+      throw new KernelError(
+        "VALIDATION_FAILED",
+        "RUN_NOT_COMPLETE",
+        `The run is ${run.state}, not COMPLETE.`,
+      );
+    return kernel.db.tx(ctxOf(s), async (tx) => {
+      const r = await tx.query<{ proposal: unknown }>(
+        "SELECT result->'result'->'proposal' AS proposal FROM runtime.tasks WHERE run_id=$1 AND role='composer' AND status='DONE' ORDER BY created_at LIMIT 1",
+        [runId],
+      );
+      return r.rows[0]?.proposal ?? null;
+    });
+  }
+  const seriesView = (c: Candidate) => ({
+    panelHash: c.panelHash,
+    panelTitle: c.panelTitle,
+    column: c.column,
+    unit: c.unit,
+    days: c.values.size,
+  });
+
+  /**
+   * Finds the two series a test plan names among the finished run's real daily series. By name only, no model: `resolved`
+   * when each label matches exactly one series (and the two share days); `ambiguous` with the candidate list (ids and names
+   * only) otherwise, so the caller may propose a pair by id; with `proposal` the pair is checked against the real candidates
+   * (same checks as the plan validator: both exist, are different series, share days, and are not mechanically related) and
+   * answered as `resolved` or `rejected`. Nothing is written.
+   */
+  app.post<{ Params: { id: string } }>("/v1/workspaces/:id/test-plan/resolve", async (req) => {
+    const s = await authenticate(req);
+    const body = parseBody(ResolveBody, req.body);
+    const proposal = await runProposal(s, req.params.id, body.runId);
+    const panels = await readComposedPanels(
+      {
+        kernel,
+        runs,
+        panelData: data(),
+        root: root(),
+        ...(opts.wasmPath ? { wasmPath: opts.wasmPath } : {}),
+      },
+      s,
+      req.params.id,
+      proposal,
+    );
+    const { candidates } = candidatesOf(panels);
+    if (!candidates.length)
+      return { status: "missing", missing: "x", label: body.xLabel, reason: "no daily series" };
+    if (body.proposal) {
+      const v = validateProposal(body.proposal as PlannerProposal, candidates);
+      return v.ok
+        ? { status: "resolved", by: "model", x: seriesView(v.x), y: seriesView(v.y) }
+        : { status: "rejected", reason: v.reason };
+    }
+    const mx = matchLabel(candidates, body.xLabel);
+    const my = matchLabel(candidates, body.yLabel);
+    if (mx.status === "one" && my.status === "one" && mx.picks[0] !== my.picks[0]) {
+      const x = mx.picks[0]!;
+      const y = my.picks[0]!;
+      if (longestShared(x, y).length >= 2)
+        return { status: "resolved", by: "name", x: seriesView(x), y: seriesView(y) };
+      return {
+        status: "missing",
+        missing: "y",
+        label: body.yLabel,
+        reason: `${x.column} and ${y.column} share fewer than two days`,
+      };
+    }
+    const first = [...mx.picks, ...my.picks, ...candidates].filter((c, i, all) => all.indexOf(c) === i);
+    return {
+      status: "ambiguous",
+      matches: { x: mx.status, y: my.status },
+      candidates: first.slice(0, 40).map(seriesView),
+    };
+  });
+
+  /**
+   * Why each panel of a run was drawn, as the run recorded it: a reason on the composer's plan entry of the panel. `complete`
+   * is true only when every panel has one; nothing is invented, so a run that recorded none answers `notes: []`.
+   */
+  app.get<{ Params: { id: string; runId: string } }>(
+    "/v1/workspaces/:id/runs/:runId/query-notes",
+    async (req) => {
+      const s = await authenticate(req);
+      if (!Uuid.safeParse(req.params.runId).success)
+        throw new KernelError("NOT_FOUND", "RUN_NOT_IN_WORKSPACE", "No such run in this workspace.");
+      const proposal = (await runProposal(s, req.params.id, req.params.runId)) as {
+        plan?: { panels?: unknown; analyticsPanels?: unknown };
+      } | null;
+      const drawn = panelsOfProposal(proposal);
+      const entries = [proposal?.plan?.panels, proposal?.plan?.analyticsPanels].flatMap((l) =>
+        Array.isArray(l) ? (l as Array<Record<string, unknown>>) : [],
+      );
+      const notes = drawn.flatMap((p) => {
+        const hit = entries.find(
+          (x) => x.title === p.title && (typeof x.why === "string" || typeof x.reason === "string"),
+        );
+        const why = String(hit?.why ?? hit?.reason ?? "").trim();
+        return why ? [{ panelTitle: p.title, why: why.slice(0, 400) }] : [];
+      });
+      return {
+        runId: req.params.runId,
+        panels: drawn.length,
+        notes,
+        complete: drawn.length > 0 && notes.length === drawn.length,
+      };
+    },
+  );
 
   app.get<{ Params: { id: string } }>("/v1/workspaces/:id/capsules", async (req) => {
     const s = await authenticate(req);

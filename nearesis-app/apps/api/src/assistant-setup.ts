@@ -37,7 +37,8 @@ const MAX_PER_KIND = 3;
 
 export interface SetupResult {
   markers: Array<{ id: string; title: string; reason: string }>;
-  monitors: Array<{ id: string; title: string; reason: string }>;
+  /** `thresholdFrom`: the cited result cell the rule's threshold is (the value is never invented or smoothed). */
+  monitors: Array<{ id: string; title: string; reason: string; thresholdFrom: string }>;
   hypothesis: { id: string; title: string; testPlan: TestPlan | null } | null;
   skipped: Array<{ kind: "marker" | "monitor" | "hypothesis"; reason: string }>;
   cost: { usd: number; modelCalls: number };
@@ -446,7 +447,14 @@ export async function assistantSetup(
           },
           { traceId },
         );
-      result.monitors.push({ id: ruleId, title, reason });
+      result.monitors.push({
+        id: ruleId,
+        title,
+        reason,
+        thresholdFrom:
+          `the ${c.op === "gt" ? "highest" : "lowest"} value that findings cite for ${c.g.metricId} in "${c.g.panel.title}" ` +
+          `(the result cell reads ${c.cell}); the threshold is that cited value, not an estimate`,
+      });
     } catch (e) {
       skip(
         "monitor",

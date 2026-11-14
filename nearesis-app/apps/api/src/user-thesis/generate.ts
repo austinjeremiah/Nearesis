@@ -69,6 +69,20 @@ export interface ThesisInputs {
   markers: MarkerBrief[];
   outlayer: OutlayerState | null;
   previous: PreviousThesis | null;
+  /**
+   * The test plan an agent task locked before the investigation ran (verified against the stored task by the route);
+   * absent for a thesis built outside the agent, which then records `lockedAt: null`.
+   */
+  planLock?: PlanLock | null;
+}
+/** What a locked task plan adds to the document's test plan. */
+export interface PlanLock {
+  /** ISO time the plan was locked (the task's Start). */
+  lockedAt: string;
+  /** sha256 of the canonical plan as the task stored it. */
+  sha256: string;
+  editedByUser: boolean;
+  wouldCountAsWrong: string;
 }
 
 export class ThesisBuildError extends Error {
@@ -105,6 +119,8 @@ export function thesisVersionOf(i: ThesisInputs): string {
       monitors: i.monitors,
       markers: i.markers,
       outlayer: i.outlayer,
+      // only a locked plan changes the version, so every thesis built without one keeps its id
+      ...(i.planLock ? { planLock: i.planLock } : {}),
     }),
   ).slice(0, 12)}`;
 }
@@ -878,6 +894,9 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
         () =>
           `Test plan: ${xName()} (predictor) against ${yName()} (outcome), relation ${L.s(PL, "/relation")}${plan.lagDays > 0 ? `, ${L.n(PL, "/lagDays")} days apart` : ""}, expected sign ${L.s(PL, "/expectedSign")}. ${selectionLine()}`,
       ),
+      inp.planLock
+        ? `The test plan (statement, the two series, relation, expected sign and what would count as wrong) was locked at ${inp.planLock.lockedAt} (sha256 ${inp.planLock.sha256}), before the investigation ran; ${inp.planLock.editedByUser ? "the user edited it" : "it was written by the planner and not edited"} and it did not change afterwards.`
+        : "",
       line(
         () =>
           `Series choice (capsule rule, version ${L.n("run-panels.json", "/selection/ruleVersion")}): ${named ? "an explicit or question-matching pair, validated against the real candidate series." : L.s("run-panels.json", "/selection/rule")} Here ${L.count("run-panels.json", "/selection/candidates", sel.candidates.length)} candidate series were found and the chosen pair shares ${L.n("run-panels.json", "/selection/overlapDays")} consecutive days${sel.truncatedToLatest ? ", of which the latest are kept" : ""}.`,
@@ -1377,14 +1396,16 @@ export function buildThesis(inp: ThesisInputs): ThesisBuildOutput {
     test: {
       rule: RULE_V2_ID,
       ruleText: RULE_V2_TEXT,
-      // The plan as the capsule recorded it plus the fields the strength score reads. `lockedAt` is null on purpose: the plan
-      // is fixed when the capsule is built, after the run, so it is not claimed to have been locked before the data was seen.
+      // The plan as the capsule recorded it plus the fields the strength score reads. `lockedAt` is null unless an agent task
+      // locked the plan at Start, before its investigation ran; a plan fixed when the capsule is built, after the run, is not
+      // claimed to have been locked before the data was seen.
       plan: {
         ...plan,
-        wouldCountAsWrong: falsificationOf(plan.expectedSign, plan.lagDays),
-        lockedAt: null,
-        sha256: sha(canonicalJson(plan)),
-        editedByUser: false,
+        wouldCountAsWrong:
+          inp.planLock?.wouldCountAsWrong ?? falsificationOf(plan.expectedSign, plan.lagDays),
+        lockedAt: inp.planLock?.lockedAt ?? null,
+        sha256: inp.planLock?.sha256 ?? sha(canonicalJson(plan)),
+        editedByUser: inp.planLock?.editedByUser ?? false,
         resolved: {
           x: { panelHash: plan.x.panel, column: plan.x.column },
           y: { panelHash: plan.y.panel, column: plan.y.column },

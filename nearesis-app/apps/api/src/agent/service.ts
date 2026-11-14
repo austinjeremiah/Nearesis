@@ -19,13 +19,15 @@ import type { AssistantModelPort, AssistantSpendGate } from "@nearesis/workflow"
 import { ApiError, apiErrorOf, call } from "./api-client.ts";
 import type { AgentApi, AgentUser } from "./api-client.ts";
 import { consentFor, detailOf, modelUsdMaxFor, titleOf } from "./catalog.ts";
+import { applyPatch, emptyPlan } from "./test-plan.ts";
+import type { PlanIssue, TaskTestPlan, TestPlanFields } from "./test-plan.ts";
 import { chargeModelUsd, usdCreditsOf } from "../usd-credits-api.ts";
 import type { PlannedStep } from "./catalog.ts";
 import { Executor } from "./executor.ts";
 import { DIRECT_LOOKUPS, planMessage } from "./planner.ts";
 import type { DirectLookup } from "./planner.ts";
 import { AgentStore } from "./store.ts";
-import type { MessageView, StepResult, StepResultItem } from "./types.ts";
+import type { MessageView, StepResult, StepResultItem, TaskView } from "./types.ts";
 
 export interface AgentServiceOptions {
   db: Db;
@@ -103,6 +105,7 @@ export class AgentService {
       db: o.db,
       store: this.store,
       api: o.api,
+      model: (u) => this.modelFor(u),
       ...(o.executor ?? {}),
       onCompleted: async (user, t) => {
         await this.store.addMessage(ctxOf(user), {
@@ -281,6 +284,11 @@ export class AgentService {
             status: String(x.status ?? "draft"),
           }));
       }
+      // A follow-up reuses the locked test plan of the workspace's newest thesis: the planner is shown it, the server enforces it.
+      const previousPlan =
+        current && current.finishedRuns > 0 && workspaceId
+          ? await this.previousPlanOf(user, workspaceId)
+          : null;
       const hist = history.map((m) => ({
         role: m.role,
         text: (m.text ?? (m.answer as { summary?: string } | null)?.summary ?? "").slice(0, 2000),
@@ -296,6 +304,7 @@ export class AgentService {
             threadWorkspaceId: workspaceId,
             current,
             workspaces,
+            previousPlan,
             now: (this.o.now ?? (() => new Date()))(),
           },
           workspaceId ? { workspaceId } : {},
@@ -353,7 +362,15 @@ export class AgentService {
           return;
         }
         case "plan": {
-          const taskId = await this.createTask(user, threadId, workspaceId, decision.title, decision.steps);
+          const taskId = await this.createTask(
+            user,
+            threadId,
+            workspaceId,
+            decision.title,
+            decision.steps,
+            {},
+            decision.testPlan,
+          );
           await this.store.finishMessage(ctx, replyId, {
             state: "ready",
             kind: "plan",
@@ -379,6 +396,8 @@ export class AgentService {
     steps: PlannedStep[],
     /** Replaces the standard detail line of a step (by index) when the caller knows more than the step's parameters. */
     detailOverrides: Record<number, string> = {},
+    /** The test plan of a plan with question.ask (null/absent: the task has none). */
+    testPlan?: TaskTestPlan | null,
   ): Promise<string> {
     let proofEstimate: string | null = null;
     if (steps.some((s) => s.key === "capsule.prove")) {
@@ -402,8 +421,115 @@ export class AgentService {
         params: s.params,
         title: titleOf(s),
         detail: detailOverrides[i] ?? detailOf(s),
+        why: s.why ?? null,
       })),
+      // a plan with question.ask always has a test plan, written or empty; any other plan has none
+      testPlan: testPlan ?? (steps.some((s) => s.key === "question.ask") ? emptyPlan() : null),
     });
+  }
+
+  /**
+   * PATCH /v1/agent/tasks/:id/test-plan: the owner edits the plan of a PROPOSED task. Each invalid field is a 422 naming the field;
+   * once the task has started (the plan is locked) it is refused. `editedByUser` becomes true.
+   */
+  async patchTestPlan(user: AgentUser, taskId: string, patch: Record<string, unknown>): Promise<TaskView> {
+    const out: { issues?: PlanIssue[]; refused?: KernelError } = {};
+    const done = await this.store.setTestPlan(ctxOf(user), taskId, (current, state) => {
+      if (state !== "proposed") {
+        out.refused = new KernelError(
+          "STALE_VERSION",
+          "TEST_PLAN_LOCKED",
+          `The test plan cannot change: the task is ${state} and the plan was locked when it started.`,
+        );
+        return "unchanged";
+      }
+      if (!current) {
+        out.refused = new KernelError("VALIDATION_FAILED", "NO_TEST_PLAN", "This task has no test plan.", {
+          details: [{ path: "testPlan", issue: "this task's plan has no question to test" }],
+        });
+        return "unchanged";
+      }
+      const r = applyPatch(current, patch);
+      if (!r.ok) {
+        out.issues = r.issues;
+        return "unchanged";
+      }
+      return r.plan;
+    });
+    if (!done) throw new KernelError("NOT_FOUND", "TASK_NOT_FOUND", "Task not found.");
+    if (out.refused) throw out.refused;
+    if (out.issues)
+      throw new KernelError("VALIDATION_FAILED", "INVALID_TEST_PLAN", "The test plan is not valid.", {
+        details: out.issues.map((i) => ({ path: i.path, issue: i.issue })),
+      });
+    const t = await this.store.getTask(ctxOf(user), taskId);
+    if (!t) throw new KernelError("NOT_FOUND", "TASK_NOT_FOUND", "Task not found.");
+    return t;
+  }
+
+  /**
+   * The locked test plan of the workspace's newest thesis, for a follow-up: the plan of the task that built it, else the plan the
+   * thesis document records. Null when the workspace has no thesis or the plan cannot be read. Reads as the user.
+   */
+  async previousPlanOf(user: AgentUser, workspaceId: string): Promise<TestPlanFields | null> {
+    try {
+      const list = await this.o.api(user, "GET", "/v1/theses");
+      const items = (list.body as { items?: Array<Record<string, unknown>> } | null)?.items;
+      const newest = Array.isArray(items)
+        ? items.find(
+            (t) => t.workspaceId === workspaceId && t.kind !== "reference" && typeof t.id === "string",
+          )
+        : undefined;
+      if (!newest) return null;
+      const id = newest.id as string;
+      const fromTask = await this.store.lockedPlanOfThesis(ctxOf(user), id);
+      if (fromTask?.statement) {
+        const { editedByUser: _e, lockedAt: _l, sha256: _s, ...fields } = fromTask;
+        return fields;
+      }
+      const r = await this.o.api(user, "GET", `/v1/theses/${encodeURIComponent(id)}`);
+      const plan = (r.body as { doc?: { test?: { plan?: Record<string, unknown>; n?: unknown } } } | null)
+        ?.doc?.test;
+      const p = plan?.plan as
+        | {
+            statement?: unknown;
+            x?: { column?: unknown };
+            y?: { column?: unknown };
+            relation?: unknown;
+            lagDays?: unknown;
+            expectedSign?: unknown;
+            wouldCountAsWrong?: unknown;
+          }
+        | undefined;
+      if (
+        !p ||
+        typeof p.statement !== "string" ||
+        typeof p.x?.column !== "string" ||
+        typeof p.y?.column !== "string"
+      )
+        return null;
+      const words = (c: string) =>
+        c
+          .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+          .replace(/[^A-Za-z0-9]+/g, " ")
+          .trim()
+          .toLowerCase()
+          .slice(0, 60);
+      const n = typeof plan?.n === "number" ? plan.n : 90;
+      return {
+        statement: p.statement,
+        xLabel: words(p.x.column),
+        yLabel: words(p.y.column),
+        relation: p.relation === "leads" ? "leads" : "moves_with",
+        lagDays: typeof p.lagDays === "number" ? p.lagDays : 0,
+        expectedSign:
+          p.expectedSign === "positive" || p.expectedSign === "negative" ? p.expectedSign : "either",
+        windowDays: Math.max(30, Math.min(365, n)),
+        wouldCountAsWrong: typeof p.wouldCountAsWrong === "string" ? p.wouldCountAsWrong : null,
+      };
+    } catch {
+      return null;
+    }
   }
 
   // ------------------------------------------------------------ direct lookups (read-only, as the user)

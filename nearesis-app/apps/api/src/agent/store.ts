@@ -1,4 +1,6 @@
 import type { Db, TenantContext, Tx } from "@nearesis/kernel";
+import { fallbackWhy } from "./test-plan.ts";
+import type { TaskTestPlan } from "./test-plan.ts";
 import type {
   ConsentKey,
   ConsentRequirement,
@@ -51,6 +53,7 @@ interface TaskRow {
   consent_given: ConsentKey[];
   estimate: { creditsMaxUsd?: string | null; modelUsdMax: string };
   ctx: TaskCtx;
+  test_plan: TaskTestPlan | null;
   model_usd: string;
   model_calls: number;
   credits_charged_usd: string;
@@ -66,6 +69,7 @@ export interface StepRow {
   params: Record<string, unknown>;
   title: string;
   detail: string;
+  why: string | null;
   state: StepState;
   started_at: Date | null;
   finished_at: Date | null;
@@ -126,6 +130,7 @@ export const stepView = (r: StepRow, entries: CostRow[] = []): StepView => ({
   key: r.key,
   title: r.title,
   detail: r.detail,
+  why: r.why ?? fallbackWhy(r.key),
   state: r.state,
   startedAt: iso(r.started_at),
   finishedAt: iso(r.finished_at),
@@ -146,6 +151,7 @@ export const taskView = (t: TaskRow, steps: StepRow[], costs: CostRow[]): TaskVi
   workspaceId: t.workspace_id,
   title: t.title,
   state: t.state,
+  testPlan: t.test_plan ?? null,
   currentStep: t.current_step,
   steps: steps.map((s) =>
     stepView(
@@ -188,6 +194,8 @@ export interface NewStep {
   params: Record<string, unknown>;
   title: string;
   detail: string;
+  /** The planner's validated reason; absent means the fixed sentence of the step key. */
+  why?: string | null;
 }
 export interface CostInput {
   threadId: string | null;
@@ -361,12 +369,13 @@ export class AgentStore {
       consentRequired: ConsentRequirement[];
       estimate: { creditsMaxUsd: string | null; modelUsdMax: string };
       steps: NewStep[];
+      testPlan?: TaskTestPlan | null;
     },
   ): Promise<string> {
     return this.db.tx(ctx, async (tx) => {
       const r = await tx.query<{ id: string }>(
-        `INSERT INTO agent_tasks(thread_id, org_id, user_id, workspace_id, title, state, consent_required, estimate, ctx)
-         VALUES ($1,$2,$3,$4,$5,'proposed',$6::jsonb,$7::jsonb,$8::jsonb) RETURNING id`,
+        `INSERT INTO agent_tasks(thread_id, org_id, user_id, workspace_id, title, state, consent_required, estimate, ctx, test_plan)
+         VALUES ($1,$2,$3,$4,$5,'proposed',$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb) RETURNING id`,
         [
           t.threadId,
           ctx.orgId,
@@ -376,16 +385,64 @@ export class AgentStore {
           JSON.stringify(t.consentRequired),
           JSON.stringify(t.estimate),
           JSON.stringify(t.workspaceId ? { workspaceId: t.workspaceId } : {}),
+          t.testPlan ? JSON.stringify(t.testPlan) : null,
         ],
       );
       const id = r.rows[0]!.id;
       for (const [i, s] of t.steps.entries())
         await tx.query(
-          `INSERT INTO agent_task_steps(task_id, idx, org_id, user_id, key, params, title, detail)
-           VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8)`,
-          [id, i, ctx.orgId, ctx.userId, s.key, JSON.stringify(s.params), s.title, s.detail],
+          `INSERT INTO agent_task_steps(task_id, idx, org_id, user_id, key, params, title, detail, why)
+           VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9)`,
+          [
+            id,
+            i,
+            ctx.orgId,
+            ctx.userId,
+            s.key,
+            JSON.stringify(s.params),
+            s.title,
+            s.detail,
+            s.why ?? fallbackWhy(s.key),
+          ],
         );
       return id;
+    });
+  }
+  /**
+   * The test plan of the workspace's newest thesis: the plan the task that built it locked, found by the thesis id in the task's
+   * context; null when that thesis was not built by a task with a written plan.
+   */
+  async lockedPlanOfThesis(ctx: TenantContext, thesisId: string): Promise<TaskTestPlan | null> {
+    return this.db.tx(ctx, async (tx) => {
+      const r = await tx.query<{ test_plan: TaskTestPlan | null }>(
+        `SELECT test_plan FROM agent_tasks
+          WHERE ctx->>'thesisId' = $1 AND test_plan->>'lockedAt' IS NOT NULL AND test_plan->>'statement' IS NOT NULL
+          ORDER BY created_at DESC LIMIT 1`,
+        [thesisId],
+      );
+      return r.rows[0]?.test_plan ?? null;
+    });
+  }
+  /** Replaces the plan of a PROPOSED task (the trigger refuses any change once it is locked). Returns null when not found. */
+  async setTestPlan(
+    ctx: TenantContext,
+    id: string,
+    fn: (current: TaskTestPlan | null, state: TaskState) => TaskTestPlan | "unchanged",
+  ): Promise<{ state: TaskState; plan: TaskTestPlan | null } | null> {
+    return this.db.tx(ctx, async (tx) => {
+      const t = await tx.query<{ state: TaskState; test_plan: TaskTestPlan | null }>(
+        "SELECT state, test_plan FROM agent_tasks WHERE id = $1 FOR UPDATE",
+        [id],
+      );
+      const row = t.rows[0];
+      if (!row) return null;
+      const next = fn(row.test_plan, row.state);
+      if (next === "unchanged") return { state: row.state, plan: row.test_plan };
+      await tx.query("UPDATE agent_tasks SET test_plan = $2::jsonb WHERE id = $1", [
+        id,
+        JSON.stringify(next),
+      ]);
+      return { state: row.state, plan: next };
     });
   }
   async taskRows(tx: Tx, id: string, lock = false) {

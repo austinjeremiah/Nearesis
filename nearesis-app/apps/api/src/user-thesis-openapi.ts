@@ -20,7 +20,16 @@ export const USER_THESIS_ROUTES: RouteSpec[] = [
       "Builds a `nearesis.thesis.v1` document with the fixed `relationship-v2` rule from the run's capsule (built first when absent, idempotent) and the workspace's hypothesis, monitors, markers and OutLayer proof state. The pair that is tested is, in this order: `test` of the request (chosenBy user), the test plan stored with the workspace's hypothesis, the question-matching chooser (for a run whose capsule was built before tests were named), and only then the original longest-overlap rule, which the document labels \"pair chosen by rule, not named for the question\". The claim under test is the plan's sentence (`doc.hypothesis`); the older descriptive hypothesis is `doc.context.draftHypothesis`. Verdicts: SUPPORTED, MIXED, NOT_SUPPORTED, INSUFFICIENT_DATA and INVALID_TEST (the two series are mechanically related: part of a whole, duplicates, or the outcome is a ratio whose numerator is the predictor; heuristic detection). `doc.test` carries plan, pairSelection, level, change, spearman, interval {lo, hi, loPpm, hiPpm, method, blockDays, resamples, seed}, relatedness, rounding, attestation (which numbers the verifier attests and which the API recomputes) and partOfWhole; every section has `references` (the exact pointers behind its [n] markers). `runId` defaults to the newest COMPLETE run with a ready interpretation. A repeat with unchanged inputs returns the same thesis and version. Errors: 404 workspace, 403 INSUFFICIENT_ROLE, 422 NO_COMPLETE_RUN / RUN_NOT_COMPLETE / INTERPRETATION_NOT_READY / RUN_NOT_CAPSULABLE / TEST_PAIR_UNAVAILABLE, 500 THESIS_BUILD_FAILED (a number without a pointer, or causal / bullish / significance wording).",
     auth: "bearer",
     role: "writer",
-    body: z.strictObject({ runId: z.uuid().optional(), test: TestBody.optional() }),
+    body: z.strictObject({
+      runId: z.uuid().optional(),
+      test: TestBody.optional(),
+      planLock: z
+        .strictObject({ taskId: z.uuid() })
+        .optional()
+        .describe(
+          "An agent task of the caller whose locked test plan this thesis tests (needs test and runId). The server reads the plan from the task and checks it: locked, hash of its canonical fields, same workspace, the task started this run, and test.statement is the plan's sentence; then doc.test.plan carries lockedAt, sha256, editedByUser and wouldCountAsWrong of the plan and Methods says it was locked before the investigation ran. 422 TEST_PLAN_LOCK_INVALID otherwise. Without planLock the plan is chosen at build and lockedAt is null.",
+        ),
+    }),
     headers: [
       {
         name: "Idempotency-Key",

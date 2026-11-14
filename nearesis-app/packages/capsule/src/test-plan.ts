@@ -460,3 +460,45 @@ export function validateProposal(
   if (rel.status === "mechanical") return { ok: false, reason: rel.reason };
   return { ok: true, x, y };
 }
+
+// ---- a series named by a plain label --------------------------------------------------------------------------------------
+export interface LabelMatch {
+  status: "one" | "many" | "none";
+  /** The best candidates, best first: one for `one`, the tied best for `many`, empty for `none`. */
+  picks: Candidate[];
+}
+
+/**
+ * Matches a plain label of a series ("swaps", "refund rate") against the candidate series by name only, with no model.
+ * Every concept word of the label (stemmed, generic words dropped) must be found in the column name or the panel title and at
+ * least one in the column name. An exact concept match of the column wins; otherwise fewer extra column words win. A single
+ * best candidate is `one`, tied best candidates are `many` (ambiguous), and nothing acceptable is `none`. A label that has no
+ * concept words names nothing, so every candidate is returned as `many`.
+ */
+export function matchLabel(cands: Candidate[], label: string): LabelMatch {
+  const lt = [...new Set(concept(label))];
+  if (!lt.length) return { status: cands.length ? "many" : "none", picks: [...cands] };
+  interface Sc {
+    c: Candidate;
+    rank: number[];
+  }
+  const scored: Sc[] = [];
+  for (const c of cands) {
+    const ct = [...new Set(concept(c.column))];
+    const tt = new Set(concept(c.panelTitle));
+    const inCol = lt.filter((t) => ct.includes(t)).length;
+    if (inCol === 0) continue;
+    if (!lt.every((t) => ct.includes(t) || tt.has(t))) continue;
+    const exact = inCol === lt.length && ct.length === lt.length ? 1 : 0;
+    // higher is better: exact, words found in the column, fewer extra column words, words found only in the title
+    scored.push({ c, rank: [exact, inCol, -(ct.length - inCol), -(lt.length - inCol)] });
+  }
+  if (!scored.length) return { status: "none", picks: [] };
+  const cmp = (a: number[], b: number[]): number => {
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return b[i]! - a[i]!;
+    return 0;
+  };
+  scored.sort((a, b) => cmp(a.rank, b.rank));
+  const top = scored.filter((x) => cmp(x.rank, scored[0]!.rank) === 0).map((x) => x.c);
+  return { status: top.length === 1 ? "one" : "many", picks: top };
+}

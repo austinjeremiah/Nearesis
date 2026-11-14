@@ -104,12 +104,15 @@ export const PLAYBOOKS = [
   "thesis: any request for a report, a PDF, a write-up or the final result plans thesis.build (on an existing workspace with a finished run it is the only step needed; capsule.build is added by the server when missing); plan report.build only when the user literally asks for the old workspace summary PDF",
   "publish a thesis: thesis.publish (after thesis.build, or alone when the thesis id is known)",
   'challenge a thesis ("challenge this thesis", "play devil\'s advocate"): workspace.use, thesis.challenge (the thesis from context or the workspace\'s newest)',
+  'follow-up on a finding (a message that starts with "In this workspace, investigate what happened around", "In this workspace, look for evidence against:" or "In this workspace, repeat this over the last 365 days:", in a workspace that already holds a finished run): workspace.use, question.ask, run.await, capsule.build, thesis.build (a new thesis version of that workspace; no setup.auto)',
   "single actions: one step on an existing workspace (for example hypothesis.create or workspace.archive)",
 ].join("\n");
 
 export interface PlannedStep {
   key: StepKey;
   params: Record<string, unknown>;
+  /** The planner's reason for the step, already sanitised; absent means the fixed sentence of the step key. */
+  why?: string | null;
 }
 export class PlanRejected extends Error {}
 

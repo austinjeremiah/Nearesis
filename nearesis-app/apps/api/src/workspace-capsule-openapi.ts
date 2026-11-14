@@ -37,6 +37,55 @@ export const WORKSPACE_CAPSULE_ROUTES: RouteSpec[] = [
     },
   },
   {
+    method: "post",
+    path: "/v1/workspaces/:id/test-plan/resolve",
+    tag: "publication",
+    summary:
+      "Find the two series a test plan names among a finished run's real daily series (no model, nothing written)",
+    description:
+      "Matches xLabel and yLabel against the daily numeric columns of the COMPLETE run's panels by name only: every concept word of a label (stemmed; generic words such as daily, count, total dropped) must be found in the column name or panel title and at least one in the column name; an exact match of the column wins. `resolved` (by: name) when each label matches exactly one series and the two share at least two days; `ambiguous` otherwise, with the candidate series (ids and names only, best matches first, at most 40) so the caller can propose a pair by id; `missing` when the run has no daily series or the pair shares fewer than two days. With `proposal` ({ x, y } as panel hash and column) the pair is validated against the real candidates (both exist, are different series, share days and are not mechanically related) and answered `resolved` (by: model) or `rejected` with the reason. Errors: 404 workspace or RUN_NOT_IN_WORKSPACE, 422 RUN_NOT_COMPLETE or RUN_NOT_CAPSULABLE (no result panels), 503 PANEL_DATA_UNAVAILABLE.",
+    auth: "bearer",
+    body: z.strictObject({
+      runId: z.uuid(),
+      xLabel: z.string().min(1).max(60),
+      yLabel: z.string().min(1).max(60),
+      proposal: z
+        .strictObject({
+          x: z.strictObject({
+            panelHash: z.string().regex(/^[0-9a-f]{64}$/),
+            column: z.string().min(1).max(200),
+          }),
+          y: z.strictObject({
+            panelHash: z.string().regex(/^[0-9a-f]{64}$/),
+            column: z.string().min(1).max(200),
+          }),
+        })
+        .optional(),
+    }),
+    responses: {
+      "200": {
+        description:
+          "{ status: 'resolved', by: 'name'|'model', x: Series, y: Series } | { status: 'ambiguous', matches: { x: 'one'|'many'|'none', y }, candidates: Series[] } | { status: 'missing', missing: 'x'|'y', label, reason } | { status: 'rejected', reason }; Series = { panelHash, panelTitle, column, unit, days }",
+        untyped: true,
+      },
+    },
+  },
+  {
+    method: "get",
+    path: "/v1/workspaces/:id/runs/:runId/query-notes",
+    tag: "publication",
+    summary: "Why each panel of a run was drawn, as the run recorded it (empty when it recorded none)",
+    description:
+      "Reads the composer's plan of the run: a panel has a note only when the plan entry of that panel carries a reason. Nothing is invented. `complete` is true only when every panel has one.",
+    auth: "bearer",
+    responses: {
+      "200": {
+        description: "{ runId, panels: number, notes: [{ panelTitle, why }], complete: boolean }",
+        untyped: true,
+      },
+    },
+  },
+  {
     method: "get",
     path: "/v1/workspaces/:id/capsules",
     tag: "publication",

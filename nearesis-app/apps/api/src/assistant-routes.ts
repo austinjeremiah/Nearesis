@@ -107,7 +107,8 @@ export const AnswerResponse = z.strictObject({
 const Made = z.strictObject({ id: z.string(), title: z.string(), reason: z.string() });
 export const SetupResponse = z.strictObject({
   markers: z.array(Made),
-  monitors: z.array(Made),
+  /** `thresholdFrom`: the cited value the rule's threshold is, in words. */
+  monitors: z.array(Made.extend({ thresholdFrom: z.string() })),
   hypothesis: z
     .strictObject({
       id: z.string(),

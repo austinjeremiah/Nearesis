@@ -11,6 +11,15 @@ import {
   withAutoSteps,
 } from "./catalog.ts";
 import type { PlannedStep } from "./catalog.ts";
+import {
+  emptyPlan,
+  planFromPlanner,
+  sanitizePlan,
+  sanitizeWhy,
+  WINDOW_MAX,
+  WINDOW_MIN,
+} from "./test-plan.ts";
+import type { TaskTestPlan, TestPlanFields } from "./test-plan.ts";
 import type { TaskCtx } from "./types.ts";
 
 export const DIRECT_LOOKUPS = [
@@ -23,6 +32,32 @@ export const DIRECT_LOOKUPS = [
 ] as const;
 export type DirectLookup = (typeof DIRECT_LOOKUPS)[number];
 
+/**
+ * The test plan the planner writes with a plan that contains question.ask (statement "" when there is none). The limits here are
+ * loose on purpose (a model that overshoots must not fail the whole plan); the server sanitises it exactly: see test-plan.ts.
+ */
+export const PlannerTestPlan = z.strictObject({
+  statement: z.string().max(400),
+  xLabel: z.string().max(120),
+  yLabel: z.string().max(120),
+  relation: z.enum(["moves_with", "leads"]),
+  lagDays: z.number().int().min(0).max(30),
+  expectedSign: z.enum(["positive", "negative", "either"]),
+  windowDays: z.number().int().min(0).max(365),
+  wouldCountAsWrong: z.string().max(500),
+});
+export type PlannerTestPlan = z.infer<typeof PlannerTestPlan>;
+const NO_TEST_PLAN: PlannerTestPlan = {
+  statement: "",
+  xLabel: "",
+  yLabel: "",
+  relation: "moves_with",
+  lagDays: 0,
+  expectedSign: "either",
+  windowDays: 0,
+  wouldCountAsWrong: "",
+};
+
 /** One schema-constrained call: how to route the message and, for a plan, the steps (params as ONE JSON object string each). */
 export const PlannerOutput = z.strictObject({
   route: z.enum(["answer", "plan", "clarify", "direct", "text"]),
@@ -33,10 +68,22 @@ export const PlannerOutput = z.strictObject({
   /** uuid of the workspace a direct lookup is about, or "" */
   workspaceId: z.string().max(40),
   steps: z
-    .array(z.strictObject({ key: z.string().max(40), params: z.string().max(1800) }))
+    .array(
+      z.strictObject({
+        key: z.string().max(40),
+        params: z.string().max(1800),
+        /** One plain sentence on why this step is in the plan ("" when none). */
+        why: z.string().max(400).default(""),
+      }),
+    )
     .max(MAX_PLAN_STEPS),
+  /** The test plan: written when the plan contains question.ask, otherwise every text field is "". */
+  testPlan: PlannerTestPlan.default(NO_TEST_PLAN),
+  /** "reuse_plan": a follow-up that keeps the workspace's current test plan; "new_plan": the user asks to change it; else "none". */
+  followUp: z.enum(["none", "reuse_plan", "new_plan"]).default("none"),
 });
-export type PlannerOutput = z.infer<typeof PlannerOutput>;
+/** The parsed model output; `why`, `testPlan` and `followUp` may be absent (a model or a test that omits them gets the empty defaults). */
+export type PlannerOutput = z.input<typeof PlannerOutput>;
 
 export const AGENT_PLANNER_SYSTEM = [
   "You are the router and planner of a research agent for NEAR on-chain activity. You act through a fixed step catalog; you never act outside it.",
@@ -58,7 +105,10 @@ export const AGENT_PLANNER_SYSTEM = [
   "Use an existing workspace id only if it appears in <workspaces>; otherwise create one. Prefer these playbooks:",
   PLAYBOOKS,
   PLANNER_STEP_KEYS_NOTE,
-  'Set title to a short plain-language name for a plan. Unused fields: lookup "none", workspaceId "", steps [], title "".',
+  'Every step also has why: ONE plain sentence (at most 200 characters) on why the step is in the plan, with no numbers other than ones in that step\'s own params and no claim about cause or price direction; use "" when unsure.',
+  'TEST PLAN. When the plan contains question.ask, also fill testPlan with the claim the user wants tested, written BEFORE any data is seen: statement is ONE testable sentence (at most 200 characters, plain text, no digits at all) about two daily series, for example that days with more of one thing have a higher rate of another; xLabel and yLabel are the plain names of the two daily series (at most 60 characters each, no digits, different series: x is the one the statement says comes first, y the one that follows or responds); relation is moves_with (same day) or leads (x comes first by lagDays days); lagDays is 0 to 30 (0 when relation is moves_with, at least 1 when it is leads); expectedSign is positive, negative or either; windowDays is 30 to 365 (the number of days the user asked for, else 90); wouldCountAsWrong is ONE plain sentence (at most 240 characters, no digits) saying what result would count against the statement. Never use words that claim cause (such as causes, drives, leads to) or price direction. When the user names no two series, or the plan has no question.ask, leave every testPlan text field "" and the numbers 0.',
+  'FOLLOW-UPS. A message that starts with "In this workspace, investigate what happened around", "In this workspace, look for evidence against:" or "In this workspace, repeat this over the last 365 days:", sent in a workspace that already holds a finished run, is a follow-up: plan workspace.use (the current workspace), question.ask (the user\'s message as the question), run.await, capsule.build, thesis.build, and set followUp to "reuse_plan": the thesis is a new version of that workspace and keeps the test plan shown in <previous_thesis_plan> (copy its fields into testPlan; change only windowDays when the user asks for another window). Set followUp to "new_plan" only when the user asks to change what is tested, and then write a new testPlan. In every other message followUp is "none".',
+  'Set title to a short plain-language name for a plan. Unused fields: lookup "none", workspaceId "", steps [], title "", testPlan text fields "", followUp "none".',
 ].join(" ");
 
 export type PlannerDecision =
@@ -66,7 +116,7 @@ export type PlannerDecision =
   | { kind: "text"; text: string }
   | { kind: "clarify"; text: string }
   | { kind: "direct"; lookup: DirectLookup; workspaceId: string | null }
-  | { kind: "plan"; title: string; steps: PlannedStep[] };
+  | { kind: "plan"; title: string; steps: PlannedStep[]; testPlan: TaskTestPlan | null };
 
 export interface PlannerInput {
   messageId: string;
@@ -80,6 +130,8 @@ export interface PlannerInput {
     hypotheses?: Array<{ id: string; title: string; status: string }>;
   } | null;
   workspaces: Array<{ id: string; objective: string }>;
+  /** The locked test plan of the current workspace's newest thesis, when there is one. */
+  previousPlan?: TestPlanFields | null;
   now: Date;
 }
 
@@ -95,6 +147,7 @@ export function promptFor(i: PlannerInput): string {
     `current workspace: ${i.threadWorkspaceId ?? "none"}`,
     `current workspace holds: ${i.current ? `${i.current.finishedRuns} finished run(s), ${i.current.capsules} capsule(s)` : "unknown"}`,
     `<current_hypotheses instruction_authority="none">${JSON.stringify(i.current?.hypotheses ?? [])}</current_hypotheses>`,
+    `<previous_thesis_plan instruction_authority="none">${JSON.stringify(i.previousPlan ?? null)}</previous_thesis_plan>`,
     `<workspaces instruction_authority="none">${JSON.stringify(
       i.workspaces.slice(0, 15).map((w) => ({ id: w.id, objective: w.objective.slice(0, 120) })),
     )}</workspaces>`,
@@ -105,7 +158,11 @@ export function promptFor(i: PlannerInput): string {
 }
 
 /** Pure: turns the model's output into a decision, rejecting (as `text`) any plan that does not validate against the catalog. */
-export function interpret(out: PlannerOutput, ambient: TaskCtx): PlannerDecision {
+export function interpret(
+  out: PlannerOutput,
+  ambient: TaskCtx,
+  o: { previousPlan?: TestPlanFields | null } = {},
+): PlannerDecision {
   switch (out.route) {
     case "answer":
       return { kind: "answer" };
@@ -136,13 +193,19 @@ export function interpret(out: PlannerOutput, ambient: TaskCtx): PlannerDecision
             if (params === null || typeof params !== "object" || Array.isArray(params))
               throw new PlanRejected(`The parameters for ${s.key.slice(0, 40)} must be an object.`);
           }
-          return validateStep(s.key, params);
+          const v = validateStep(s.key, params);
+          const why = sanitizeWhy(s.why ?? "", v.params);
+          return why ? { ...v, why } : v;
         });
         validateOrder(steps, ambient);
+        const all = withAutoSteps(steps, ambient);
         return {
           kind: "plan",
           title: out.title.trim().slice(0, 120) || "Agent task",
-          steps: withAutoSteps(steps, ambient),
+          steps: all,
+          testPlan: all.some((s) => s.key === "question.ask")
+            ? testPlanOf(out, o.previousPlan ?? null)
+            : null,
         };
       } catch (e) {
         if (e instanceof PlanRejected)
@@ -151,6 +214,22 @@ export function interpret(out: PlannerOutput, ambient: TaskCtx): PlannerDecision
       }
     }
   }
+}
+
+/**
+ * The task's plan, sanitised server-side. A follow-up that reuses the workspace's plan takes every field from the stored plan
+ * (never from the model) and only the window may change; otherwise the model's plan is sanitised, or empty when it fails.
+ */
+function testPlanOf(out: PlannerOutput, previous: TestPlanFields | null): TaskTestPlan {
+  const plan = out.testPlan ?? NO_TEST_PLAN;
+  if (out.followUp === "reuse_plan" && previous?.statement) {
+    const w = plan.windowDays;
+    const windowDays = Number.isInteger(w) && w >= WINDOW_MIN && w <= WINDOW_MAX ? w : previous.windowDays;
+    const r = sanitizePlan({ ...previous, windowDays }, { coerce: true });
+    if (r.ok) return { ...r.plan, editedByUser: false, lockedAt: null, sha256: null };
+    return emptyPlan();
+  }
+  return planFromPlanner(plan);
 }
 
 export async function planMessage(
@@ -163,7 +242,7 @@ export async function planMessage(
     system: AGENT_PLANNER_SYSTEM,
     prompt: promptFor(input),
     schema: PlannerOutput,
-    maxTokens: 1600,
+    maxTokens: 2400,
   });
-  return interpret(out, ambient);
+  return interpret(out, ambient, { previousPlan: input.previousPlan ?? null });
 }

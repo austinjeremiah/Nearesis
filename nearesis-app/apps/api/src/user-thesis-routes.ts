@@ -24,6 +24,9 @@ import type { ProductDeps } from "./product-common.ts";
 import type { RunsService } from "./runs.ts";
 import { readCapsuleFacts } from "./user-thesis/facts.ts";
 import { ThesisBuildError, buildThesis } from "./user-thesis/generate.ts";
+import type { PlanLock } from "./user-thesis/generate.ts";
+import { isWritten, testPlanSha } from "./agent/test-plan.ts";
+import type { TaskTestPlan } from "./agent/test-plan.ts";
 import type {
   HypothesisInput,
   MarkerBrief,
@@ -67,7 +70,15 @@ export interface UserThesisRoutesOptions extends ProductDeps {
   now?: () => number;
 }
 
-const BuildBody = z.strictObject({ runId: z.uuid().optional(), test: TestBody.optional() });
+const BuildBody = z.strictObject({
+  runId: z.uuid().optional(),
+  test: TestBody.optional(),
+  /**
+   * An agent task whose locked test plan this thesis tests. The server reads the plan from the caller's own task and checks it
+   * (locked, hash, same workspace and run, same sentence); the client cannot assert a lock time.
+   */
+  planLock: z.strictObject({ taskId: z.uuid() }).optional(),
+});
 const SlugBody = z.strictObject({ slug: z.string().regex(/^[a-z0-9]{12,40}$/) });
 const CompareBody = z.strictObject({ against: z.union([z.uuid(), z.literal(REFERENCE_ID)]) });
 
@@ -278,6 +289,7 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
     workspaceId: string,
     runIdIn: string | undefined,
     explicitTest?: TestRequest,
+    planLockTask?: string,
   ) {
     if (!Uuid.safeParse(workspaceId).success) throw workspaceNotFound();
     try {
@@ -290,6 +302,9 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
     if (!canWrite(s.role))
       throw new KernelError("FORBIDDEN", "INSUFFICIENT_ROLE", "Role cannot make this change.");
     const runId = await pickRun(s, workspaceId, runIdIn);
+    const planLock = planLockTask
+      ? await planLockOf(s, workspaceId, runId, explicitTest, planLockTask)
+      : null;
     const capDeps = {
       kernel,
       runs,
@@ -350,6 +365,7 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
       markers,
       outlayer,
       previous: null as PreviousThesis | null,
+      planLock,
     };
     inputs.previous = await kernel.db.tx(ctxOf(s), async (tx) => previousOf(tx, workspaceId, runId));
     let built: ReturnType<typeof buildThesis>;
@@ -400,6 +416,50 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
       return r.rows[0]!;
     });
     return row;
+  }
+
+  /**
+   * The lock of an agent task's test plan, read from the caller's own task (row-level security) and checked: the plan has a lock
+   * time and hash, the hash is that of its canonical fields, the task belongs to this workspace and started THIS run (so the plan
+   * was locked before the run existed) and the explicit test carries the plan's own sentence.
+   */
+  async function planLockOf(
+    s: Session,
+    workspaceId: string,
+    runId: string,
+    test: TestRequest | undefined,
+    taskId: string,
+  ): Promise<PlanLock> {
+    const bad = (why: string) =>
+      new KernelError(
+        "DOMAIN_INVARIANT",
+        "TEST_PLAN_LOCK_INVALID",
+        `The test plan lock cannot be used: ${why}.`,
+        {
+          retryable: false,
+        },
+      );
+    const row = await kernel.db.tx(ctxOf(s), async (tx) => {
+      const r = await tx.query<{
+        workspace_id: string | null;
+        test_plan: TaskTestPlan | null;
+        ctx: { runId?: string } | null;
+      }>("SELECT workspace_id, test_plan, ctx FROM agent_tasks WHERE id = $1", [taskId]);
+      return r.rows[0] ?? null;
+    });
+    const plan = row?.test_plan;
+    if (!row || !plan) throw bad("no such task with a test plan");
+    if (!isWritten(plan) || !plan.lockedAt || !plan.sha256) throw bad("the plan was not locked");
+    if (row.workspace_id !== workspaceId) throw bad("the task belongs to another workspace");
+    if (row.ctx?.runId !== runId) throw bad("the task did not start this run");
+    if (testPlanSha(plan) !== plan.sha256) throw bad("the stored plan does not match its hash");
+    if (!test || test.statement !== plan.statement) throw bad("the test does not carry the plan's sentence");
+    return {
+      lockedAt: plan.lockedAt,
+      sha256: plan.sha256,
+      editedByUser: plan.editedByUser,
+      wouldCountAsWrong: plan.wouldCountAsWrong,
+    };
   }
 
   const requestOf = (p: TestPlan): TestRequest => ({
@@ -563,11 +623,16 @@ export const userThesisRoutes: FastifyPluginAsync<UserThesisRoutesOptions> = asy
   app.post<{ Params: { id: string } }>("/v1/workspaces/:id/theses", async (req, reply) => {
     const s = await authenticate(req);
     const body = parseBody(BuildBody, req.body);
+    if (body.planLock && (!body.test || !body.runId))
+      throw new KernelError("VALIDATION_FAILED", "INVALID_BODY", "Invalid request.", {
+        details: [{ path: "planLock", issue: "needs test and runId" }],
+      });
     const row = await buildForWorkspace(
       s,
       req.params.id,
       body.runId,
       body.test ? ({ ...body.test, chosenBy: body.test.chosenBy ?? "user" } as TestRequest) : undefined,
+      body.planLock?.taskId,
     );
     return reply.status(201).send({
       thesisId: row.id,

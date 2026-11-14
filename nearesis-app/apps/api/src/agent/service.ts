@@ -18,6 +18,15 @@ import type { DirectLookup } from "./planner.ts";
 import { AgentStore } from "./store.ts";
 import type { MessageView, StepResult, StepResultItem } from "./types.ts";
 
+/** yoctoNEAR decimal string -> NEAR with up to 6 decimals, exact (truncated, never rounded up). */
+export function nearOf(yocto: string): string {
+  if (!/^\d+$/.test(yocto)) return "unknown";
+  const v = BigInt(yocto);
+  const whole = v / 10n ** 24n;
+  const frac = ((v % 10n ** 24n) / 10n ** 18n).toString().padStart(6, "0").replace(/0+$/, "");
+  return frac ? `${whole}.${frac}` : `${whole}`;
+}
+
 export interface AgentServiceOptions {
   db: Db;
   api: AgentApi;
@@ -233,7 +242,11 @@ export class AgentService {
         (ws.body as { workspaces?: Array<{ id: string; objective: string }> } | null)?.workspaces ?? []
       ).map((w) => ({ id: w.id, objective: w.objective }));
       // What the current workspace already holds, so the planner neither asks for nor re-runs what exists.
-      let current: { finishedRuns: number; capsules: number } | null = null;
+      let current: {
+        finishedRuns: number;
+        capsules: number;
+        hypotheses?: Array<{ id: string; title: string; status: string }>;
+      } | null = null;
       if (workspaceId) {
         const [r, c] = await Promise.all([
           this.o.api(user, "GET", `/v1/workspaces/${workspaceId}/runs`),
@@ -246,6 +259,14 @@ export class AgentService {
             finishedRuns: runs.filter((x) => x.state === "COMPLETE").length,
             capsules: caps.length,
           };
+        const h = await this.o.api(user, "GET", `/v1/workspaces/${workspaceId}/hypotheses`);
+        const hs = (h.body as { hypotheses?: Array<Record<string, unknown>> } | null)?.hypotheses;
+        if (current && Array.isArray(hs))
+          current.hypotheses = hs.slice(0, 10).map((x) => ({
+            id: String(x.id),
+            title: String(x.proposition ?? x.title ?? "").slice(0, 100),
+            status: String(x.status ?? "draft"),
+          }));
       }
       const hist = history.map((m) => ({
         role: m.role,
@@ -381,9 +402,16 @@ export class AgentService {
         case "workspaces": {
           const r = await get<{ workspaces?: Array<{ id: string; objective: string }> }>("/v1/workspaces");
           const ws = r.workspaces ?? [];
+          const pending = (await get<{ approvals?: unknown[] }>("/v1/approvals")).approvals?.length;
+          const waiting =
+            typeof pending === "number"
+              ? pending === 0
+                ? " Nothing is waiting for your approval."
+                : ` ${pending} approval${pending === 1 ? " is" : "s are"} waiting.`
+              : "";
           return {
             summary: ws.length
-              ? `You have ${ws.length} workspace${ws.length === 1 ? "" : "s"}.`
+              ? `You have ${ws.length} workspace${ws.length === 1 ? "" : "s"}.${waiting}`
               : "You have no workspaces yet.",
             items: ws.slice(0, 50).map((w) => item(w.objective.slice(0, 140), w.id, `/w/${w.id}`)),
           };
@@ -420,6 +448,24 @@ export class AgentService {
         }
         case "findings":
         case "approvals": {
+          if (kind === "approvals" && !workspaceId) {
+            const all = await get<{ approvals?: Array<Obj> }>("/v1/approvals");
+            const aps = all.approvals ?? [];
+            return {
+              summary: aps.length
+                ? `${aps.length} approval${aps.length === 1 ? "" : "s"} waiting across your workspaces.`
+                : "Nothing is waiting for your approval in any workspace.",
+              items: aps
+                .slice(0, 50)
+                .map((a) =>
+                  item(
+                    String(a.kind ?? "approval"),
+                    `cost limit ${String(a.costLimit ?? "not set")}`,
+                    typeof a.workspaceId === "string" ? `/w/${a.workspaceId}/approvals` : null,
+                  ),
+                ),
+            };
+          }
           const id = needWs();
           const runs = await get<{ runs?: Array<{ runId: string; state: string }> }>(
             `/v1/workspaces/${id}/runs`,
@@ -460,11 +506,11 @@ export class AgentService {
             "/v1/credits",
           );
           return {
-            summary: `Available credits: ${c.availableYocto} yoctoNEAR.`,
+            summary: `Available credits: ${nearOf(c.availableYocto)} NEAR.`,
             items: [
-              item("Balance (yoctoNEAR)", c.balanceYocto, "/credits"),
-              item("Held (yoctoNEAR)", c.heldYocto, "/credits"),
-              item("Available (yoctoNEAR)", c.availableYocto, "/credits"),
+              item("Balance (NEAR)", nearOf(c.balanceYocto), "/credits"),
+              item("Held (NEAR)", nearOf(c.heldYocto), "/credits"),
+              item("Available (NEAR)", nearOf(c.availableYocto), "/credits"),
             ],
           };
         }

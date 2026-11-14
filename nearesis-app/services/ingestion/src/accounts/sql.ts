@@ -238,5 +238,9 @@ export function monthChunks(from: string, toExclusive: string): AccountScanChunk
   return out.reverse();
 }
 
-export const WINDOW_END_EXCLUSIVE = addDays("2026-11-11", 1);
+/** Last day of the scan window. The whole window is one scan; NEARESIS_ACCOUNTS_LAST_DAY (YYYY-MM-DD) extends it to a later day. */
+export const WINDOW_LAST_DAY = /^\d{4}-\d{2}-\d{2}$/.test(process.env.NEARESIS_ACCOUNTS_LAST_DAY ?? "")
+  ? (process.env.NEARESIS_ACCOUNTS_LAST_DAY as string)
+  : "2026-11-11";
+export const WINDOW_END_EXCLUSIVE = addDays(WINDOW_LAST_DAY, 1);
 export { ACCOUNT_RULE_VERSION, WINDOW_FROM };

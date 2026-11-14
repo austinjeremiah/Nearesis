@@ -39,7 +39,9 @@
     "demo:milestone": "tsx scripts/demo/milestone.ts",
     "ci:accept-fixture": "tsx scripts/ci/accept-fixture.ts",
     "thesis:data": "tsx scripts/thesis/freeze-data.ts",
-    "ci:local": "tsx scripts/ci/local-run.ts"
+    "ci:local": "tsx scripts/ci/local-run.ts",
+    "thesis:build": "tsx scripts/thesis/build.ts",
+    "thesis:verify": "tsx scripts/thesis/verify.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

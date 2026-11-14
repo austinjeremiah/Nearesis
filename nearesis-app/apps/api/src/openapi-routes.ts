@@ -3,6 +3,7 @@ import { CREDITS_ROUTES } from "./credits-openapi.ts";
 import { AGENT_ROUTES } from "./agent-openapi.ts";
 import { WORKSPACE_CAPSULE_ROUTES } from "./workspace-capsule-openapi.ts";
 import { REPORT_ROUTES } from "./report-openapi.ts";
+import { THESIS_TRACK_ROUTES } from "./thesis-track-openapi.ts";
 import { AnswerRequest, AnswerResponse, SetupRequest, SetupResponse } from "./assistant-routes.ts";
 import { RangeQ as AccountRangeQ, HfQ as AccountHfQ, GrowthQ as AccountGrowthQ } from "./account-routes.ts";
 import { z } from "zod";
@@ -322,6 +323,7 @@ export const ROUTES: RouteSpec[] = [
   ...AGENT_ROUTES,
   ...WORKSPACE_CAPSULE_ROUTES,
   ...REPORT_ROUTES,
+  ...THESIS_TRACK_ROUTES,
   // ---- platform ----------------------------------------------------------------------------------------------------
   R("get", "/health", "platform", "Liveness", { auth: "none", ok: typed(StatusOk) }),
   R("get", "/ready", "platform", "Readiness (database reachable)", {

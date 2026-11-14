@@ -1,0 +1,152 @@
+{
+  "schema": "nearesis.thesis.hashes.v1",
+  "version": "v-69055059d3e7",
+  "generatedAt": "2026-11-14T05:56:17.206Z",
+  "files": [
+    {
+      "path": "build/THESIS.md",
+      "sha256": "d4755420f205b2903221b1e767605e7d4ad365f9591e63a3d343a26accd0fe88",
+      "bytes": 63413
+    },
+    {
+      "path": "build/site/index.html",
+      "sha256": "87990d95c041f4b10a6eaa719ac6a4338795f4c261f985eafb9f4bf806cbf6fd",
+      "bytes": 176153
+    },
+    {
+      "path": "build/thesis.json",
+      "sha256": "7f0da7a1ad9a7845d8a8815eb981b3bb655000185773ba0a5e21d0d44c85c05b",
+      "bytes": 230053
+    }
+  ],
+  "inputs": [
+    {
+      "path": "thesis/TABLES.md",
+      "sha256": "8200ee5ae7449a16e1637f57fbb9cb1384e0c41aacc326f4e45527d2aef4a093"
+    },
+    {
+      "path": "thesis/raw/active_accounts_daily.json",
+      "sha256": "c9b9e43bebbf4112246506b8395c86a44ee61cdc8f14569386d5a87b761d5524"
+    },
+    {
+      "path": "thesis/raw/contract_usage_daily.json",
+      "sha256": "42b0e165123ed25d073772df5deb7f77d3cbc147071ebafc032aa2033eda6da6"
+    },
+    {
+      "path": "thesis/raw/contract_usage_top.json",
+      "sha256": "015d809a1e0486d69eddeceaa42f962d021a0ad7cf04f9abbf12e1efcfe3517a"
+    },
+    {
+      "path": "thesis/raw/intents_swaps_daily.json",
+      "sha256": "8bee9659143ed8560a6cc0fd18ba757f7b192e559f85fa8b90a3a5fb56f8a275"
+    },
+    {
+      "path": "thesis/raw/intents_volume_daily.json",
+      "sha256": "5083fd601b20f447721ade6becf12c9ad480d73d266484cb04347d8780af81d5"
+    },
+    {
+      "path": "thesis/raw/manifest.json",
+      "sha256": "8db06055d354ce5ba6800bf77535427a4389c8fb3b52b0bb778c3a63cafbc730"
+    },
+    {
+      "path": "thesis/raw/near_price_daily.json",
+      "sha256": "ad5f2299d569abb9f95488f190bf3db1cd75d7730cd28381f4bbf715ca05cfe2"
+    },
+    {
+      "path": "thesis/raw/transactions_daily.json",
+      "sha256": "7db994092e8099a13dfe59898ad6c97761a33f058cc9a92a2804eed05652bbbb"
+    },
+    {
+      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/counterevidence.json",
+      "sha256": "4cf47502f411d8995780b171b70f87289ace6ed791336274193d6cbc7e8142f4"
+    },
+    {
+      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/estimates.json",
+      "sha256": "f175606a724a5cef50033c1ac4ce0b77cc2efea22893f9b97da46de6f79001b9"
+    },
+    {
+      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/falsification.json",
+      "sha256": "c4ee332bc28f7f72c4bf5fefc694f1307211248775a51c2dff0955a4ca6ffd4f"
+    },
+    {
+      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/hypothesis.json",
+      "sha256": "f81131012a7fd84f9d424d4dbf8224c20e3129d897e7a11732d3a44f06f821ca"
+    },
+    {
+      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/inputSnapshot.json",
+      "sha256": "436eb9dbb0b4fe462a7e476d07900963cec448c996e442be1e3dc92d446117c4"
+    },
+    {
+      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/limitations.json",
+      "sha256": "58a906920bab31c4e441f9ba0f93a4f8b405e3253ef6c700f8b165b92f0faabd"
+    },
+    {
+      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/models.json",
+      "sha256": "19ac49da4c17945f3f9e61270673c9f2b2c841dbc02f22b224e132111347a546"
+    },
+    {
+      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/preregistration.json",
+      "sha256": "fbaf1479107333e6d027691cead41cb710102dc3490a21a285c6616952696cb9"
+    },
+    {
+      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/reproduction.json",
+      "sha256": "898d0c5eb9653ccfe1cccdc9466b97386c891321507f4662390b008943d7fbba"
+    },
+    {
+      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/robustness_matrix.json",
+      "sha256": "d278a64dd56dee7ee09e357e1320505af2e901b1fca8f7e7d616b5c811b07030"
+    },
+    {
+      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/run_summary.json",
+      "sha256": "8b793d03b662eeb99d4c82af5efcfb4baa42a958b77b014bc2048196bd59d771"
+    },
+    {
+      "path": "docs/research/live-results/live-20260505-20261111-live-organic-v3-3ac682146b75/windows.json",
+      "sha256": "9a96910ed356bfa8e2f37f8653b7c2920778d39e8089da60381c3c8c1297439b"
+    },
+    {
+      "path": "thesis/sql/bigquery/active_accounts_daily.sql",
+      "sha256": "06b60d4068b5d2d9a1b4f17b51078cd44c233e267fefd5f52640678f0688aa0b"
+    },
+    {
+      "path": "thesis/sql/bigquery/contract_usage_daily.sql",
+      "sha256": "9c27ffe9bf88867870c9a442d01b562809b54ffd1f252695de21b5d7929987ed"
+    },
+    {
+      "path": "thesis/sql/bigquery/contract_usage_top.sql",
+      "sha256": "9da9a57ce849f72a7ddde8164151dee36df5ec5251e2f15e575abb65a48edbbb"
+    },
+    {
+      "path": "thesis/sql/bigquery/transactions_daily.sql",
+      "sha256": "5ec5411dac872184c553ad21e0928147db369d9779e9de45ed9d7c4aa3be3aa6"
+    },
+    {
+      "path": "thesis/sql/executed/active_accounts_daily.sql",
+      "sha256": "bd42ce79b358d224130f3e3351f11c0bb00fa0c697ac89f5943fb432d9a16ef9"
+    },
+    {
+      "path": "thesis/sql/executed/contract_usage_daily.sql",
+      "sha256": "aaa0910bd7b157a001931b87a29225d60205ab251e53d0799f8f8c70d2cb6623"
+    },
+    {
+      "path": "thesis/sql/executed/contract_usage_top.sql",
+      "sha256": "35a84e14f4110ec1e6f3ace76232850e5ec55b16c057b6ee51e17799c91f8015"
+    },
+    {
+      "path": "thesis/sql/executed/intents_swaps_daily.sql",
+      "sha256": "9d67da0c18557ed89f2d5407b512782e2ee3c79a22bc8f5426ccda87764d150d"
+    },
+    {
+      "path": "thesis/sql/executed/intents_volume_daily.sql",
+      "sha256": "f091d5101c86f51a4f37fe3b1609b15de47197c3f95366b8bf108132dbda3d61"
+    },
+    {
+      "path": "thesis/sql/executed/near_price_daily.sql",
+      "sha256": "aea73f933c546cca4b2b2864476938e93fa4002be38bcbbc971a99d5a0414564"
+    },
+    {
+      "path": "thesis/sql/executed/transactions_daily.sql",
+      "sha256": "39616b900da8b949a453ca27ef85d1192e188c682592f99b42e9d92b09326e5f"
+    }
+  ]
+}

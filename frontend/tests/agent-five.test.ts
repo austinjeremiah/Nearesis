@@ -8,6 +8,10 @@ import { BAND_TONE, bandTone, normalizeStrength, partView, strengthView } from '
 import { droppedText, groupNotes, needsAnswer, normalizeChallenge, normalizeChallenges } from '@/lib/thesis/challenge';
 import { normalizeDoc } from '@/lib/thesis/doc';
 import { normalizeList, normalizeReceipts, receiptParts, receiptsText } from '@/lib/thesis/list';
+import { intervalText, isV2, reasonText, testRows } from '@/lib/thesis/doc';
+import { statusLabel, statusTone } from '@/lib/thesis-track/model';
+import { thesisView, THESIS_TONE } from '@/lib/agent/storyboard';
+import { challengeRefusal } from '@/lib/thesis/challenge';
 
 const PLAN = { statement: 'Daily swap volume moves with daily active wallets.', xLabel: 'Swap volume', yLabel: 'Active wallets', relation: 'leads', lagDays: 3, expectedSign: 'positive', windowDays: 90, wouldCountAsWrong: 'A correlation below zero over the window.', editedByUser: true, lockedAt: '2026-11-14T10:00:00.000Z', sha256: 'a'.repeat(64) };
 const task = (over: Record<string, unknown> = {}) => normalizeTask({ id: 't', threadId: 'th', state: 'proposed', steps: [{ idx: 0, key: 'question.ask', title: 'Ask', why: 'It is the question you asked.' }], ...over });
@@ -233,5 +237,93 @@ describe('challenges', () => {
     expect(receiptsText(normalizeReceipts({ challenged: 1 }))).toBe('Not verified or reproduced yet · challenged 1');
     expect(receiptsText(normalizeReceipts({}))).toBe('Not verified or reproduced yet');
     expect(normalizeReceipts([{ kind: 'challenge' }, { kind: 'verify' }]).challenged).toBe(1);
+  });
+});
+
+describe('relationship-v2 thesis document', () => {
+  const v2 = {
+    schema: 'nearesis.thesis.v1',
+    hypothesis: 'Days with higher swaps have higher refund rate.',
+    context: { draftHypothesis: { status: 'draft', proposition: 'Expectation from the run.', falsification: 'Falsified if reversed.' } },
+    verdict: { status: 'INVALID_TEST', headline: 'INVALID_TEST: the two series are mechanically related.' },
+    sections: [{ id: 'evidence-against', title: 'Evidence against', markdown: 'A [1] and [2].', references: ['results.json#/n', 'plan.json#/statement'] }, { id: 'old', title: 'Old', markdown: 'x' }],
+    test: {
+      n: 90, rule: 'relationship-v2', level: { ppm: '399241', value: '0.399241' }, change: { ppm: '708911', value: '0.708911' }, spearman: { ppm: '-350586', value: '-0.350586' }, pearson: '0.399241',
+      interval: { lo: '-0.4738', hi: '0.749252', levelPercent: 95, method: 'moving-block bootstrap', blockDays: 7, resamples: 1000 },
+      pairSelection: { label: 'pair chosen by rule, not named for the question', chosenBy: 'rule', namedForQuestion: false },
+      relatedness: { status: 'independent', reason: 'No relation found.', notes: ['refund rate is refunded divided by swaps'], heuristic: true },
+      partOfWhole: false,
+      rounding: { y: { decimalsKept: 6, maxAbsRoundingDifference: '0.00000049834448' }, rule: 'Rounded half-even.' },
+      attestation: { attestedByVerifier: ['n', 'same-day level correlation'], recomputedByApi: ['rank correlation'] },
+      reasons: ['POINTS_OTHER_WAY', 'SOMETHING_NEW'],
+      plan: { x: { label: 'Daily refund rate trend: swaps', column: 'swaps' }, y: { label: 'Daily refund rate trend: refundRate' }, statement: 'S', why: 'Named by the person.', chosenBy: 'user', lockedAt: null, resolved: { x: { column: 'swaps', panelHash: 'h' } } },
+    },
+  };
+  it('reads the v2 test, context and section references; v1 leaves them absent', () => {
+    const d = normalizeDoc(v2)!;
+    expect(isV2(d.test)).toBe(true);
+    expect(d.test).toMatchObject({ level: '0.399241', change: '0.708911', spearman: '-0.350586', partOfWhole: false, reasons: ['POINTS_OTHER_WAY', 'SOMETHING_NEW'] });
+    expect(d.test?.interval).toEqual({ lo: '-0.4738', hi: '0.749252', levelPercent: 95, method: 'moving-block bootstrap', blockDays: 7, resamples: 1000 });
+    expect(intervalText(d.test?.interval)).toBe('-0.4738 to 0.749252');
+    expect(d.test?.pairSelection).toEqual({ chosenBy: 'rule', namedForQuestion: false, label: 'pair chosen by rule, not named for the question' });
+    expect(d.test?.relatedness?.notes).toHaveLength(1);
+    expect(d.test?.rounding?.series).toEqual([{ name: 'y', decimalsKept: 6, maxAbsRoundingDifference: '0.00000049834448' }]);
+    expect(d.test?.attestation?.recomputedByApi).toEqual(['rank correlation']);
+    expect(d.context?.draftHypothesis?.proposition).toBe('Expectation from the run.');
+    expect(d.sections?.[0]?.references).toEqual(['results.json#/n', 'plan.json#/statement']);
+    expect(d.sections?.[1]?.references).toBeUndefined();
+    expect(d.test?.plan).toMatchObject({ why: 'Named by the person.', resolved: { x: 'Daily refund rate trend: swaps', y: 'Daily refund rate trend: refundRate' } });
+    const old = normalizeDoc({ schema: 'nearesis.thesis.v1', test: { n: 60, pearson: '0.29', rule: 'relationship-v1' } })!;
+    expect(isV2(old.test)).toBe(false);
+    expect(old.test).toMatchObject({ level: null, interval: null, pairSelection: null, relatedness: null, rounding: null, attestation: null, reasons: [] });
+    expect(old.context).toBeNull();
+  });
+  it('lists the v2 numbers with the interval, and the old rows for v1', () => {
+    const rows = testRows(normalizeDoc(v2)!.test).map((r) => r.label);
+    expect(rows).toEqual(['Aligned days (n)', 'Level correlation (same day)', '95% interval for the level correlation', 'Correlation of day-over-day changes', 'Rank (Spearman) correlation of levels']);
+    expect(testRows(normalizeDoc({ schema: 'nearesis.thesis.v1', test: { n: 60, pearson: '0.29' } })!.test).map((r) => r.label)).toContain('Same-day correlation (Pearson)');
+  });
+  it('says reasons in plain words and keeps unknown codes readable', () => {
+    expect(reasonText('POINTS_OTHER_WAY')).toBe('the data point the other way');
+    expect(reasonText('SOMETHING_NEW')).toBe('something new');
+  });
+  it('gives INVALID_TEST a bad tone and a readable label', () => {
+    expect(statusTone('INVALID_TEST')).toBe('bad');
+    expect(statusLabel('INVALID_TEST')).toBe('INVALID TEST');
+    expect(THESIS_TONE.INVALID_TEST).toBe('bad');
+  });
+  it('feeds the storyboard tile the v2 numbers', () => {
+    const t = thesisView(v2);
+    expect(t).toMatchObject({ level: 0.399241, change: 0.708911, interval: '-0.4738 to 0.749252', pairLabel: 'pair chosen by rule, not named for the question', verdict: 'INVALID_TEST' });
+    expect(thesisView({ test: { n: 60, pearson: '0.2' } })).toMatchObject({ level: null, interval: null, pairLabel: null });
+  });
+});
+
+describe('agent step results', () => {
+  const t = (steps: unknown[], links: Record<string, unknown> = {}) => normalizeTask({ id: 't', threadId: 'th', state: 'completed', links, steps });
+  it('shows a thesis step that finished without a thesis as such', () => {
+    const none = buildStages(t([{ idx: 0, key: 'thesis.build', title: 'Build the thesis', state: 'done', result: { summary: 'No thesis: the run does not hold the series.', items: [], refs: {} } }]));
+    expect(none[0]).toMatchObject({ kind: 'thesis', state: 'done', title: 'No thesis was made' });
+    const ok = buildStages(t([{ idx: 0, key: 'thesis.build', title: 'Build the thesis', state: 'done', result: { summary: 'Built.', items: [], refs: { thesisId: 'x' } } }]));
+    expect(ok[0]!.title).toBe('The thesis');
+  });
+  it('gives the challenge step its own stage with the items as notes', () => {
+    const st = buildStages(t([{ idx: 0, key: 'thesis.challenge', title: 'Challenge', state: 'done', result: { summary: '2 notes', items: [{ label: 'window (material)', value: 'The window is short.' }], refs: {} } }]));
+    expect(st[0]).toMatchObject({ kind: 'challenge', state: 'done' });
+    expect(st[0]!.steps[0]!.result!.items[0]).toMatchObject({ label: 'window (material)', value: 'The window is short.' });
+  });
+});
+
+describe('challenge refusals and the real stored shape', () => {
+  it('reads answeredAt and treats unavailable as a challenge that did not run', () => {
+    const c = normalizeChallenge({ challengeId: 'c', outcome: 'holds', notes: [], answer: 'Fine.', answeredAt: '2026-11-14T12:00:00Z' })!;
+    expect(c.answer).toEqual({ text: 'Fine.', by: null, at: '2026-11-14T12:00:00Z' });
+    expect(normalizeChallenge({ id: 'u', outcome: 'unavailable' })!.outcome).toBe('unavailable');
+  });
+  it('words the refusals', () => {
+    expect(challengeRefusal(429, 'TOO_MANY_CHALLENGES')).toMatch(/too often/);
+    expect(challengeRefusal(503, 'MODEL_NOT_CONFIGURED')).toMatch(/not set up/);
+    expect(challengeRefusal(404, null)).toMatch(/not available/);
+    expect(challengeRefusal(402, 'CREDITS_EXHAUSTED')).toBeNull();
   });
 });

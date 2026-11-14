@@ -156,3 +156,5 @@
 .fl-tile-value[data-small] { font-size: 15px; line-height: 1.3; overflow-wrap: normal; }
 .th-brief-list .th-line { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
 .th-brief-empty { margin: 0; }
+.th-v2 { display: flex; flex-direction: column; gap: 6px; }
+.th-v2 p { margin: 0; }

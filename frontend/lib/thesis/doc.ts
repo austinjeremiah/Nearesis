@@ -8,6 +8,7 @@ import type {
   ThesisSection,
   ThesisTest,
   ThesisTestPlan,
+  ThesisInterval,
   ThesisVerification,
 } from '@/lib/thesis-track/model';
 
@@ -51,7 +52,8 @@ function sections(v: unknown): ThesisSection[] {
     if (!isRec(s)) continue;
     const id = str(s.id);
     if (!id) continue;
-    out.push({ id, title: str(s.title) ?? id, markdown: typeof s.markdown === 'string' ? s.markdown : '' });
+    const references = strings(s.references);
+    out.push({ id, title: str(s.title) ?? id, markdown: typeof s.markdown === 'string' ? s.markdown : '', ...(references.length ? { references } : {}) });
   }
   return out;
 }
@@ -134,6 +136,18 @@ function seriesName(v: unknown): string | null {
 }
 
 /** `column` or `panel` names the resolved series; a plain string is taken as the name. */
+/** A correlation in parts per million as a six-decimal string. */
+function ppm(v: unknown): string | null {
+  const n = typeof v === 'string' ? Number(v) : v;
+  return typeof n === 'number' && Number.isFinite(n) ? (n / 1_000_000).toFixed(6) : null;
+}
+
+function seriesLabel(plan: Rec, which: 'x' | 'y'): string | null {
+  const v = plan[which];
+  if (isRec(v)) return str(v.label) ?? resolvedName(v);
+  return resolvedName(plan.resolved && isRec(plan.resolved) ? plan.resolved[which] : null);
+}
+
 function resolvedName(v: unknown): string | null {
   if (typeof v === 'string') return str(v);
   if (isRec(v)) {
@@ -146,9 +160,10 @@ function resolvedName(v: unknown): string | null {
 
 export function testPlan(v: unknown): ThesisTestPlan | null {
   if (!isRec(v)) return null;
-  const r = isRec(v.resolved) ? { x: resolvedName(v.resolved.x), y: resolvedName(v.resolved.y) } : null;
+  const r = { x: seriesLabel(v, 'x'), y: seriesLabel(v, 'y') };
   return {
     statement: str(v.statement),
+    why: str(v.why),
     relation: v.relation === 'moves_with' || v.relation === 'leads' ? v.relation : null,
     lagDays: intOrNull(v.lagDays),
     expectedSign: v.expectedSign === 'positive' || v.expectedSign === 'negative' || v.expectedSign === 'either' ? v.expectedSign : null,
@@ -157,7 +172,7 @@ export function testPlan(v: unknown): ThesisTestPlan | null {
     sha256: str(v.sha256),
     editedByUser: v.editedByUser === true,
     chosenBy: v.chosenBy === 'user' || v.chosenBy === 'planner' || v.chosenBy === 'rule' ? v.chosenBy : null,
-    resolved: r && (r.x || r.y) ? r : null,
+    resolved: r.x || r.y ? r : null,
   };
 }
 
@@ -166,7 +181,32 @@ function test(v: unknown): ThesisTest | null {
   const w = isRec(v.window) ? { from: str(v.window.from), to: str(v.window.to) } : null;
   const lag: { days: number | null; value: string | null }[] = [];
   for (const l of arr(v.lag)) if (isRec(l)) lag.push({ days: intOrNull(l.days), value: numStr(l.value) });
+  const val = (x: unknown): string | null => (isRec(x) ? (numStr(x.value) ?? (x.ppm !== undefined ? ppm(x.ppm) : null)) : numStr(x));
+  const iv = isRec(v.interval)
+    ? ({ lo: numStr(v.interval.lo), hi: numStr(v.interval.hi), levelPercent: intOrNull(v.interval.levelPercent), method: str(v.interval.method), blockDays: intOrNull(v.interval.blockDays), resamples: intOrNull(v.interval.resamples) } satisfies ThesisInterval)
+    : null;
+  const ps = isRec(v.pairSelection) ? { chosenBy: str(v.pairSelection.chosenBy), namedForQuestion: typeof v.pairSelection.namedForQuestion === 'boolean' ? v.pairSelection.namedForQuestion : null, label: str(v.pairSelection.label) } : null;
+  const rel = isRec(v.relatedness) ? { status: str(v.relatedness.status), reason: str(v.relatedness.reason), notes: strings(v.relatedness.notes), heuristic: typeof v.relatedness.heuristic === 'boolean' ? v.relatedness.heuristic : null } : null;
+  const rd = isRec(v.rounding)
+    ? {
+        rule: str(v.rounding.rule),
+        series: Object.entries(v.rounding)
+          .filter(([k, x]) => k !== 'rule' && isRec(x))
+          .map(([k, x]) => ({ name: k, decimalsKept: intOrNull((x as Rec).decimalsKept), maxAbsRoundingDifference: numStr((x as Rec).maxAbsRoundingDifference) })),
+      }
+    : null;
+  const at = isRec(v.attestation) ? { attestedByVerifier: strings(v.attestation.attestedByVerifier), recomputedByApi: strings(v.attestation.recomputedByApi) } : null;
   return {
+    level: val(v.level),
+    change: val(v.change),
+    spearman: val(v.spearman),
+    interval: iv,
+    pairSelection: ps,
+    relatedness: rel,
+    partOfWhole: typeof v.partOfWhole === 'boolean' ? v.partOfWhole : null,
+    rounding: rd,
+    attestation: at,
+    reasons: strings(v.reasons),
     plan: testPlan(v.plan),
     rule: str(v.rule),
     x: seriesName(v.x),
@@ -263,6 +303,7 @@ export function normalizeDoc(raw: unknown): Thesis | null {
       .filter(isRec)
       .map((f) => ({ path: str(f.path) ?? 'unknown', sha256: str(f.sha256) ?? undefined, bytes: intOrNull(f.bytes) ?? undefined })),
     origin: origin(raw.origin),
+    context: isRec(raw.context) ? { draftHypothesis: isRec(raw.context.draftHypothesis) ? { status: str(raw.context.draftHypothesis.status), proposition: str(raw.context.draftHypothesis.proposition), falsification: str(raw.context.draftHypothesis.falsification) } : null } : null,
     test: test(raw.test),
     verification: verification(raw.verification),
     monitors: briefs(raw.monitors),
@@ -277,7 +318,31 @@ export function testRows(t: ThesisTest | null | undefined): { label: string; val
   const out: { label: string; value: string }[] = [];
   if (t.n !== null && t.n !== undefined) out.push({ label: 'Aligned days (n)', value: String(t.n) });
   if (t.window && (t.window.from || t.window.to)) out.push({ label: 'Window', value: `${t.window.from ?? 'unknown'} to ${t.window.to ?? 'unknown'}` });
-  out.push({ label: 'Same-day correlation (Pearson)', value: t.pearson ?? 'unknown' });
+  if (isV2(t)) {
+    out.push({ label: 'Level correlation (same day)', value: t.level ?? t.pearson ?? 'unknown' });
+    if (t.interval) out.push({ label: `${t.interval.levelPercent ?? 95}% interval for the level correlation`, value: intervalText(t.interval) });
+    out.push({ label: 'Correlation of day-over-day changes', value: t.change ?? 'unknown' });
+    out.push({ label: 'Rank (Spearman) correlation of levels', value: t.spearman ?? 'unknown' });
+  } else {
+    out.push({ label: 'Same-day correlation (Pearson)', value: t.pearson ?? 'unknown' });
+  }
   for (const l of t.lag ?? []) out.push({ label: `Correlation at ${l.days === null ? 'unknown' : l.days}-day lag`, value: l.value ?? 'unknown' });
   return out;
 }
+
+/** A thesis built under the relationship-v2 rule (level, change and rank correlations with an interval). */
+export const isV2 = (t: ThesisTest | null | undefined): boolean => !!t && (t.level !== undefined && t.level !== null);
+
+export const intervalText = (i: ThesisInterval | null | undefined): string => (i && i.lo !== null && i.hi !== null ? `${i.lo} to ${i.hi}` : 'unknown');
+
+const REASON_TEXT: Record<string, string> = {
+  POINTS_OTHER_WAY: 'the data point the other way',
+  THRESHOLDS_NOT_ALL_MET: 'not every threshold for support was met',
+  LEVEL_BELOW_SUPPORT: 'the level correlation is below the level needed for support',
+  INTERVAL_INCLUDES_ZERO: 'the interval around the level correlation includes zero',
+  COVERAGE_NOT_COMPLETE: 'some of the days used are not complete',
+  MECHANICALLY_RELATED: 'the two series are mechanically related',
+};
+
+/** A reason code as a plain phrase; an unknown code is lower-cased words, never hidden. */
+export const reasonText = (code: string): string => REASON_TEXT[code] ?? code.toLowerCase().replace(/_/g, ' ');

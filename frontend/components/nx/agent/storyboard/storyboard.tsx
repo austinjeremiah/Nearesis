@@ -16,7 +16,7 @@ import { ApprovalNotice } from '../approval';
 import { useStoryboardSync } from './sync';
 import { pdfHref } from '@/lib/thesis/api';
 import { approvalNeeded } from '@/lib/agent/approval';
-import { CapsuleArtifact, CompareArtifact, GenericArtifact, ThesisArtifact, ThesisLinkArtifact, ProofArtifact, PublicationArtifact, ReportArtifact } from './artifacts-chain';
+import { CapsuleArtifact, ChallengeStepArtifact, CompareArtifact, GenericArtifact, ThesisArtifact, ThesisLinkArtifact, ProofArtifact, PublicationArtifact, ReportArtifact } from './artifacts-chain';
 import { FindingsArtifact, HypothesisArtifact, InvestigationArtifact, MarkersArtifact, MonitorsArtifact, WorkspaceArtifact, type Hl } from './artifacts-work';
 import { SbCard } from './parts';
 import TestPlanBlock from '../test-plan';
@@ -110,6 +110,8 @@ function Artifact({ stage, wid, hl, live, task }: { stage: Stage; wid: string | 
       return <ThesisArtifact stage={stage} />;
     case 'thesislink':
       return <ThesisLinkArtifact stage={stage} />;
+    case 'challenge':
+      return <ChallengeStepArtifact stage={stage} />;
     case 'compare':
       return <CompareArtifact stage={stage} />;
     case 'report':
@@ -137,7 +139,9 @@ function artifactReady(stage: Stage, wid: string | null): boolean {
     case 'hypothesis':
       return !!wid && stage.state !== 'working';
     case 'thesis':
-      return !!r.thesisId && stage.state !== 'working';
+      return (!!r.thesisId || stage.state === 'done') && stage.state !== 'working';
+    case 'challenge':
+      return stage.state !== 'working';
     case 'thesislink':
     case 'compare':
       return stage.state !== 'working';

@@ -29,7 +29,7 @@ export const OUTCOMES: readonly Outcome[] = ['holds', 'weakened', 'unsupported',
 export const GROUPS: readonly Group[] = ['coverage', 'window', 'measurement', 'causation', 'alternative'];
 
 export const OUTCOME_TONE: Record<Outcome, 'ok' | 'warn' | 'bad' | ''> = { holds: 'ok', weakened: 'warn', unsupported: 'bad', unavailable: '' };
-export const OUTCOME_WORD: Record<Outcome, string> = { holds: 'holds', weakened: 'weakened', unsupported: 'unsupported', unavailable: 'unavailable' };
+export const OUTCOME_WORD: Record<Outcome, string> = { holds: 'holds', weakened: 'weakened', unsupported: 'unsupported', unavailable: 'challenge unavailable' };
 export const GROUP_LABEL: Record<Group, string> = { coverage: 'Coverage', window: 'Window', measurement: 'Measurement', causation: 'Causation', alternative: 'Alternative explanations' };
 export const SEVERITY_TONE: Record<Severity, 'warn' | ''> = { material: 'warn', minor: '' };
 
@@ -39,7 +39,7 @@ export function normalizeChallenge(raw: unknown): Challenge | null {
   if (!id) return null;
   const cost = isRec(raw.cost) ? raw.cost : {};
   const a = raw.answer;
-  const answer: ChallengeAnswer | null = typeof a === 'string' ? (str(a) ? { text: a, by: null, at: null } : null) : isRec(a) && str(a.text) ? { text: str(a.text)!, by: str(a.by), at: str(a.at) ?? str(a.createdAt) } : null;
+  const answer: ChallengeAnswer | null = typeof a === 'string' ? (str(a) ? { text: a, by: null, at: str(raw.answeredAt) } : null) : isRec(a) && str(a.text) ? { text: str(a.text)!, by: str(a.by), at: str(a.at) ?? str(a.createdAt) ?? str(raw.answeredAt) } : null;
   return {
     id,
     outcome: OUTCOMES.find((o) => o === raw.outcome) ?? 'unavailable',
@@ -89,3 +89,13 @@ export const ANSWER_MAX = 600;
 
 /** A challenge needs an answer when it found material notes and the owner has not answered yet. */
 export const needsAnswer = (c: Challenge): boolean => !c.answer && c.notes.some((n) => n.severity === 'material');
+
+export const UNAVAILABLE_TEXT = 'The skeptic could not review this thesis. That is not a pass: nothing is claimed either way.';
+
+/** What to say for a refusal the challenge route can return; null when the generic error display should be used. */
+export function challengeRefusal(status: number, reasonCode: string | null): string | null {
+  if (reasonCode === 'TOO_MANY_CHALLENGES' || status === 429) return 'This thesis has been challenged too often for now. Try again later.';
+  if (reasonCode === 'MODEL_NOT_CONFIGURED' || status === 503) return 'The skeptic model is not set up on this server, so a challenge cannot run.';
+  if (status === 404 || status === 405 || status === 501) return 'Challenges are not available on this server yet.';
+  return null;
+}

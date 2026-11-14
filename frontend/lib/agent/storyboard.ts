@@ -9,7 +9,7 @@ import type { StepRefs, Task, TaskStep } from './thread';
  * hypothesis), and several steps can feed one stage (asking the question and waiting for the run).
  */
 
-export type StageKind = 'testplan' | 'workspace' | 'investigate' | 'findings' | 'markers' | 'monitors' | 'hypothesis' | 'capsule' | 'proof' | 'publish' | 'thesis' | 'thesislink' | 'compare' | 'report' | 'archive' | 'other';
+export type StageKind = 'testplan' | 'workspace' | 'investigate' | 'findings' | 'markers' | 'monitors' | 'hypothesis' | 'capsule' | 'proof' | 'publish' | 'thesis' | 'thesislink' | 'challenge' | 'compare' | 'report' | 'archive' | 'other';
 export type StageState = 'waiting' | 'working' | 'done' | 'failed' | 'skipped';
 
 export type Stage = {
@@ -49,6 +49,7 @@ export const STAGE_LABEL: Record<StageKind, string> = {
   publish: 'Publish',
   thesis: 'Thesis',
   thesislink: 'Public thesis',
+  challenge: 'Challenge',
   compare: 'Reproduction',
   report: 'Older format',
   archive: 'Archive',
@@ -68,6 +69,7 @@ export const STAGE_TITLE: Record<StageKind, string> = {
   publish: 'Publication',
   thesis: 'The thesis',
   thesislink: 'The public thesis page',
+  challenge: 'The skeptic\u2019s review',
   compare: 'Original against reproduction',
   report: 'Workspace summary (older format)',
   archive: 'Archive the workspace',
@@ -88,6 +90,7 @@ export const STAGE_PROMISE: Record<StageKind, string> = {
   publish: 'The public page will appear here once the capsule is published.',
   thesis: 'The thesis will appear here: the verdict, the numbers behind it and a PDF you can share.',
   thesislink: 'The public link to the thesis will appear here once it is published.',
+  challenge: 'The skeptic\u2019s notes will appear here: where the thesis is weak, grouped by kind.',
   compare: 'The comparison will appear here: what the original said, what the reproduction found, and whether they match.',
   report: 'The workspace summary will appear here: the whole workspace as a document you can open or download as a PDF.',
   archive: 'The workspace will be archived here.',
@@ -112,6 +115,7 @@ const STEP_STAGE: Record<string, StageKind[]> = {
   'thesis.build': ['thesis'],
   'thesis.publish': ['thesislink'],
   'thesis.compare': ['compare'],
+  'thesis.challenge': ['challenge'],
 };
 
 export const stageKindsOf = (key: string): StageKind[] => STEP_STAGE[key] ?? ['other'];
@@ -221,6 +225,7 @@ export function buildStages(task: Task | null | undefined): Stage[] {
     st.refs = withLinks(mergeRefs(own), st.kind, task.links);
     st.skipped = skippedOf(own, st.kind);
     const failed = own.find((s) => s.state === 'failed');
+    if (st.kind === 'thesis' && st.state === 'done' && !st.refs.thesisId) st.title = 'No thesis was made';
     st.error = failed?.error ?? (failed ? { reasonCode: 'UNKNOWN', message: 'The step failed.', retryable: true } : null);
     const live = own.find((s) => s.state === 'running' || s.state === 'waiting_user');
     st.why = own.filter((x) => derivedFrom.get(st.id) !== x.idx).map((x) => x.why).find((w): w is string => !!w) ?? null;
@@ -419,8 +424,8 @@ export const FINDING_STATUS_TONE: Record<string, 'ok' | 'warn' | 'bad' | 'info'>
 
 /* -------------------------------------------------------------------------------------------------- thesis */
 
-export const THESIS_TONE: Record<string, 'ok' | 'bad' | 'info' | 'warn'> = { SUPPORTED: 'ok', NOT_SUPPORTED: 'bad', MIXED: 'info', INSUFFICIENT_DATA: 'warn' };
-export const THESIS_VERDICT_LABEL: Record<string, string> = { SUPPORTED: 'supported', NOT_SUPPORTED: 'not supported', MIXED: 'mixed', INSUFFICIENT_DATA: 'insufficient data' };
+export const THESIS_TONE: Record<string, 'ok' | 'bad' | 'info' | 'warn'> = { SUPPORTED: 'ok', NOT_SUPPORTED: 'bad', MIXED: 'info', INSUFFICIENT_DATA: 'warn', INVALID_TEST: 'bad' };
+export const THESIS_VERDICT_LABEL: Record<string, string> = { SUPPORTED: 'supported', NOT_SUPPORTED: 'not supported', MIXED: 'mixed', INSUFFICIENT_DATA: 'insufficient data', INVALID_TEST: 'invalid test' };
 
 export type ThesisView = {
   hypothesis: string | null;
@@ -432,6 +437,11 @@ export type ThesisView = {
   window: string | null;
   pearson: number | null;
   lag7: number | null;
+  /** relationship-v2 only: level and change correlation, the interval text, and the warning when the pair was chosen by rule. */
+  level: number | null;
+  change: number | null;
+  interval: string | null;
+  pairLabel: string | null;
 };
 
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
@@ -456,6 +466,10 @@ export function thesisView(doc: unknown): ThesisView {
     window,
     pearson: t ? fin(t.pearson) : null,
     lag7: lag ? fin(lag.value) : null,
+    level: t ? fin(rec(t.level).value ?? t.level) : null,
+    change: t ? fin(rec(t.change).value ?? t.change) : null,
+    interval: t && t.interval && typeof t.interval === 'object' ? (() => { const i = rec(t.interval); return typeof i.lo === 'string' || typeof i.lo === 'number' ? `${i.lo} to ${i.hi}` : null; })() : null,
+    pairLabel: t && t.pairSelection ? (typeof rec(t.pairSelection).label === 'string' ? (rec(t.pairSelection).label as string) : null) : null,
   };
 }
 

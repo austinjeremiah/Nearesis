@@ -13,7 +13,7 @@ import { SeriesChart } from '@/components/nx/data/charts';
 import { ReportChart } from '@/components/report/report-chart';
 import { useApiGet } from '@/components/nx/data/kit';
 import { fInt, toNum } from '@/lib/data/num';
-import { testRows } from '@/lib/thesis/doc';
+import { intervalText, isV2, reasonText, testRows } from '@/lib/thesis/doc';
 import { isCorrelation, plainLabel, plainUnit, readableCorrelation, readableNumber, stripRefs, stripStatusPrefix } from '@/lib/thesis/display';
 import { formatUtc } from '@/lib/format';
 import {
@@ -171,7 +171,60 @@ function TestBlock({ t }: { t: NonNullable<Thesis['test']> }) {
           </dl>
         </>
       )}
-      <p className="tiny dim">A descriptive correlation rule, not a significance test. Correlation does not show cause.</p>
+      <V2Extras t={t} />
+      <p className="tiny dim">{isV2(t) ? 'A descriptive rule with a bootstrap interval, not a significance test. Correlation does not show cause.' : 'A descriptive correlation rule, not a significance test. Correlation does not show cause.'}</p>
+    </div>
+  );
+}
+
+/** What a relationship-v2 test adds: why the verdict, whether the pair is mechanically related, rounding, and who attests which number. Nothing renders for a v1 thesis. */
+function V2Extras({ t }: { t: NonNullable<Thesis['test']> }) {
+  const reasons = t.reasons ?? [];
+  const rel = t.relatedness;
+  const rounding = t.rounding;
+  const at = t.attestation;
+  const iv = t.interval;
+  if (!isV2(t) && reasons.length === 0) return null;
+  return (
+    <div className="th-v2" data-testid="thesis-test-v2">
+      {t.pairSelection && (
+        <p className="small" data-testid="thesis-pair">
+          <b>Pair chosen by:</b> {t.pairSelection.chosenBy === 'user' ? 'you' : t.pairSelection.chosenBy === 'planner' ? 'the planner' : t.pairSelection.chosenBy === 'rule' ? 'a rule' : 'unknown'}
+          {t.pairSelection.namedForQuestion === true ? ', named for the question' : ''}{' '}
+          {t.pairSelection.label && <Badge tone="warn">{t.pairSelection.label}</Badge>}
+        </p>
+      )}
+      {iv && (
+        <p className="tiny dim">
+          Interval: {iv.method ?? 'unknown method'}
+          {iv.blockDays !== null ? `, ${iv.blockDays}-day blocks` : ''}
+          {iv.resamples !== null ? `, ${iv.resamples} resamples` : ''}.
+        </p>
+      )}
+      {rel && (
+        <p className="small" data-testid="thesis-relatedness">
+          <b>Are the series mechanically related?</b> {rel.status ? rel.status.replace(/_/g, ' ') : 'unknown'}
+          {rel.heuristic ? ' (a heuristic check)' : ''}. {rel.reason ?? ''}
+          {rel.notes.length > 0 && (
+            <span className="th-line dim">
+              {rel.notes.map((n, i) => (
+                <span key={i} className="th-line">{n}</span>
+              ))}
+            </span>
+          )}
+        </p>
+      )}
+      {t.partOfWhole === true && <p className="small"><Badge tone="warn">part of a whole</Badge> One series is a part of the other, so the test is not valid.</p>}
+      {rounding && rounding.series.length > 0 && (
+        <p className="tiny dim" data-testid="thesis-rounding">
+          Rounded before scaling: {rounding.series.map((r) => `${r.name} to ${r.decimalsKept ?? 'unknown'} decimals (largest change ${r.maxAbsRoundingDifference ?? 'unknown'})`).join('; ')}.
+        </p>
+      )}
+      {at && (at.attestedByVerifier.length > 0 || at.recomputedByApi.length > 0) && (
+        <p className="tiny dim" data-testid="thesis-attestation">
+          The OutLayer verifier attests: {at.attestedByVerifier.join(', ') || 'nothing listed'}. The API recomputes: {at.recomputedByApi.join(', ') || 'nothing listed'}.
+        </p>
+      )}
     </div>
   );
 }
@@ -183,6 +236,14 @@ const win = (w: { from?: string | null; to?: string | null } | null | undefined)
 /** Up to four headline numbers: a workspace thesis shows days compared, both correlations and the window; the reference its first comparison rows. */
 export function keyTiles(t: Thesis): KeyTile[] {
   const test = t.test;
+  if (test && isV2(test)) {
+    const out: KeyTile[] = [];
+    if (test.n !== null && test.n !== undefined) out.push({ label: 'Days compared', value: String(test.n), sub: 'n, aligned days' });
+    out.push({ label: 'Level correlation', value: test.level ? readableCorrelation(test.level) : 'unknown', exact: test.level ?? undefined, sub: test.interval ? `${test.interval.levelPercent ?? 95}% interval ${intervalText(test.interval)}` : 'same day, no interval' });
+    out.push({ label: 'Correlation of changes', value: test.change ? readableCorrelation(test.change) : 'unknown', exact: test.change ?? undefined, sub: 'day-over-day changes' });
+    out.push({ label: 'Rank correlation', value: test.spearman ? readableCorrelation(test.spearman) : 'unknown', exact: test.spearman ?? undefined, sub: 'Spearman, of the levels' });
+    return out;
+  }
   if (test && ((test.n !== null && test.n !== undefined) || test.pearson)) {
     const out: KeyTile[] = [];
     if (test.n !== null && test.n !== undefined) out.push({ label: 'Days compared', value: String(test.n), sub: 'n, aligned days' });
@@ -225,6 +286,11 @@ function VerdictStage({ t, strength }: { t: Thesis; strength?: Strength | null }
           </div>
         )}
         {cmp?.summary && <p className="tt-compare-sum">{cmp.summary}</p>}
+        {(t.test?.reasons?.length ?? 0) > 0 && (
+          <p className="small" data-testid="thesis-reasons">
+            <b>Why this verdict:</b> {t.test!.reasons!.map(reasonText).join('; ')}.
+          </p>
+        )}
         {rows.length > 4 || (tiles.length > 0 && rows.length > 0 && t.test) ? (
           <Disclose label={`Show all rows (${rows.length})`} openLabel="Hide rows">
             <RowsTable rows={rows} caption={`${cmpLabel} rows`} />
@@ -240,10 +306,27 @@ function VerdictStage({ t, strength }: { t: Thesis; strength?: Strength | null }
           </Disclose>
         )}
       </FlowCard>
-      {t.test?.plan && <PlanCard plan={t.test.plan} />}
+      {status === 'INVALID_TEST' && (
+        <Notice tone="bad" title="No verdict is given">
+          <span data-testid="thesis-invalid-test">The two series are mechanically related, so a correlation between them says nothing about the claim. The headline above says how.</span>
+        </Notice>
+      )}
+      {t.test?.plan && <PlanCard plan={t.test.plan} pair={t.test.pairSelection ?? null} />}
+      {t.context?.draftHypothesis?.proposition && (
+        <FlowCard title="Background" badges={<Badge outline>context only, not the claim</Badge>} testid="thesis-background">
+          <Disclose label="Show the draft hypothesis from the run" openLabel="Hide the draft hypothesis">
+            <dl className="th-kv">
+              <dt>Draft hypothesis</dt>
+              <dd>{t.context.draftHypothesis.proposition}</dd>
+              {t.context.draftHypothesis.falsification && (<><dt>Its falsification</dt><dd>{t.context.draftHypothesis.falsification}</dd></>)}
+              {t.context.draftHypothesis.status && (<><dt>Status</dt><dd>{t.context.draftHypothesis.status}</dd></>)}
+            </dl>
+          </Disclose>
+        </FlowCard>
+      )}
       {strength && (
         <div id="th-strength" className="th-strength-anchor">
-          <FlowCard title="How strong is this thesis" badges={<Badge outline>checked by the server, not by a model</Badge>} testid="thesis-strength">
+          <FlowCard title="How strong is this thesis" badges={<Badge outline>computed by the server</Badge>} testid="thesis-strength">
             <StrengthMeter strength={strength} variant="full" testId="strength-full" />
           </FlowCard>
         </div>
@@ -253,16 +336,23 @@ function VerdictStage({ t, strength }: { t: Thesis; strength?: Strength | null }
 }
 
 /** The claim as it went on record before the data was seen: sentence, lock time, who chose the pair, the resolved series. */
-function PlanCard({ plan }: { plan: NonNullable<NonNullable<Thesis['test']>['plan']> }) {
-  const chosen = plan.chosenBy ? CHOSEN_BY_LABEL[plan.chosenBy] : null;
+function PlanCard({ plan, pair = null }: { plan: NonNullable<NonNullable<Thesis['test']>['plan']>; pair?: NonNullable<Thesis['test']>['pairSelection'] }) {
+  const by = plan.chosenBy ?? (pair?.chosenBy === 'user' || pair?.chosenBy === 'planner' || pair?.chosenBy === 'rule' ? pair.chosenBy : null);
+  const chosen = by ? CHOSEN_BY_LABEL[by] : null;
   return (
-    <FlowCard title="The test plan" badges={<Badge tone={plan.lockedAt ? 'ok' : ''} outline={!plan.lockedAt}>{plan.lockedAt ? 'locked before the data' : 'lock time unknown'}</Badge>} testid="thesis-test-plan" foot={plan.sha256 ? <span title={plan.sha256}>fingerprint {plan.sha256.slice(0, 12)}</span> : undefined}>
+    <FlowCard title="The test plan" badges={
+      <>
+        <Badge tone={plan.lockedAt ? 'ok' : ''} outline={!plan.lockedAt}>{plan.lockedAt ? 'locked before the data' : 'not locked: no lock time recorded'}</Badge>
+        {pair?.label && <Badge tone="warn" title="How the pair of series was chosen">{pair.label}</Badge>}
+      </>
+    } testid="thesis-test-plan" foot={plan.sha256 ? <span title={plan.sha256}>fingerprint {plan.sha256.slice(0, 12)}</span> : undefined}>
       <p className="fl-lead" data-testid="thesis-plan-statement">{plan.statement ?? 'The pair was chosen by rule, not named in advance.'}</p>
       <dl className="th-kv">
         <dt>Locked</dt>
-        <dd className="mono">{plan.lockedAt ? formatUtc(plan.lockedAt) : 'unknown'}</dd>
+        <dd className="mono">{plan.lockedAt ? formatUtc(plan.lockedAt) : 'not locked'}</dd>
         <dt>Pair chosen by</dt>
-        <dd data-testid="thesis-plan-chosen">{chosen ?? 'unknown'}{plan.editedByUser && plan.chosenBy !== 'user' ? ' (edited by the owner)' : ''}</dd>
+        <dd data-testid="thesis-plan-chosen">{chosen ?? 'unknown'}{plan.editedByUser && by !== 'user' ? ' (edited by the owner)' : ''}</dd>
+        {plan.why && (<><dt>Why this pair</dt><dd>{plan.why}</dd></>)}
         <dt>Relation</dt>
         <dd>{plan.relation ? `${relationText(plan)}, ${signText(plan.expectedSign)}` : 'unknown'}</dd>
         {plan.resolved?.x && (<><dt>First series</dt><dd>{plan.resolved.x}</dd></>)}
@@ -281,7 +371,7 @@ function Prominent({ kind, title, section, all, clean }: { kind: 'for' | 'agains
     <FlowCard title={title} tone={kind === 'for' ? 'ok' : 'bad'} testid={`thesis-evidence-${kind}`}>
       {section ? (
         <Clamp all={all} lines={13}>
-          <MarkdownView markdown={md(stripLeadingHeading(section.markdown, section.title))} />
+          <MarkdownView markdown={md(stripLeadingHeading(section.markdown, section.title))} references={section.references} openSources={all} />
         </Clamp>
       ) : (
         <p className="small dim">This section is not in the bundle (unknown).</p>
@@ -311,7 +401,7 @@ function EvidenceStage({ t, print }: { t: Thesis; print: boolean }) {
           </Clamp>
         ) : slots.changeMind ? (
           <Clamp all={print} lines={9}>
-            <MarkdownView markdown={clean ? stripRefs(stripLeadingHeading(slots.changeMind.markdown, slots.changeMind.title)) : stripLeadingHeading(slots.changeMind.markdown, slots.changeMind.title)} />
+            <MarkdownView markdown={clean ? stripRefs(stripLeadingHeading(slots.changeMind.markdown, slots.changeMind.title)) : stripLeadingHeading(slots.changeMind.markdown, slots.changeMind.title)} references={slots.changeMind.references} openSources={print} />
           </Clamp>
         ) : (
           <p className="small dim">Not stated in this bundle (unknown).</p>
@@ -831,7 +921,7 @@ export function ThesisDocView({
                 <details key={s.id} className="tt-acc th-acc" open={print} data-surface>
                   <summary>{s.title}</summary>
                   <div className="tt-acc-body">
-                    <MarkdownView markdown={stripLeadingHeading(s.markdown, s.title)} />
+                    <MarkdownView markdown={stripLeadingHeading(s.markdown, s.title)} references={s.references} openSources={print} />
                   </div>
                 </details>
               ))}

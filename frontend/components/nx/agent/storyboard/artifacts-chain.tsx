@@ -324,11 +324,47 @@ export function GenericArtifact({ stage }: { stage: Stage }) {
 const num = (n: number | null, digits = 3) => (n === null ? 'unknown' : n.toLocaleString('en-US', { maximumFractionDigits: digits }));
 const corr = (n: number | null) => (n === null ? 'unknown' : readableCorrelation(n));
 
+/** A thesis step that finished without making a thesis (no usable pair, or an invalid test): said as it is, with the step's own words. */
+function NoThesisCard({ stage }: { stage: Stage }) {
+  const text = stage.steps.map((s) => s.result?.summary).find(Boolean) ?? 'The step finished without a thesis and gave no reason.';
+  const invalid = /INVALID_TEST|mechanically related/i.test(text);
+  return (
+    <SbCard testId="sb-thesis-none" label="No thesis" title="Finished without a thesis" badges={<Badge tone={invalid ? 'bad' : 'warn'}>{invalid ? 'invalid test' : 'no thesis'}</Badge>} foot={<span className="mono">nothing was made, so there is nothing to open</span>}>
+      <p className="sb-statement" data-testid="sb-thesis-none-text">{text}</p>
+      <p className="sb-note">The steps before this one are unaffected. Ask for what the run was missing and the agent can try again.</p>
+    </SbCard>
+  );
+}
+
+/** The skeptic's notes from a `thesis.challenge` step: each item's label is "group (severity)", its value the note. */
+export function ChallengeStepArtifact({ stage }: { stage: Stage }) {
+  const step = stage.steps[stage.steps.length - 1];
+  const items = step?.result?.items ?? [];
+  const summary = step?.result?.summary;
+  return (
+    <SbCard testId="sb-challenge" label="Challenge" title="The skeptic's review" badges={<Badge outline>{items.length} {items.length === 1 ? 'note' : 'notes'}</Badge>} foot={<span className="mono">the thesis itself was not changed</span>}>
+      {summary && <p className="sb-reason">{summary}</p>}
+      {items.length === 0 ? (
+        <p className="sb-note">The skeptic returned no notes.</p>
+      ) : (
+        <ul className="sb-skipped">
+          {items.map((i, k) => (
+            <li key={k}>
+              <Badge tone={/\(material\)/i.test(i.label) ? 'warn' : ''} outline={!/\(material\)/i.test(i.label)}>{i.label}</Badge>
+              <span>{i.value}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </SbCard>
+  );
+}
+
 export function ThesisArtifact({ stage }: { stage: Stage }) {
   const id = stage.refs.thesisId ?? null;
   const q = useQuery({ queryKey: ['thesis', id ?? ''], queryFn: () => browserApi.get<{ thesis?: unknown; doc: unknown; receipts?: unknown }>(`/v1/theses/${encodeURIComponent(id!)}`), enabled: !!id, staleTime: 30_000, retry: false });
   useOnChange(stage.state, () => void q.refetch());
-  if (!id) return <NoId what="Thesis" />;
+  if (!id) return stage.state === 'done' ? <NoThesisCard stage={stage} /> : <NoId what="Thesis" />;
   if (q.isPending) return <SbCard><Skeleton rows={4} /></SbCard>;
   if (q.isError) {
     const missing = q.error instanceof ApiRequestError && q.error.status === 404;
@@ -346,12 +382,20 @@ export function ThesisArtifact({ stage }: { stage: Stage }) {
   const strength = normalizeStrength((q.data.thesis as { strength?: unknown } | undefined)?.strength);
   const plan = normalizeDoc(q.data.doc)?.test?.plan ?? null;
   const tone = t.verdict ? (THESIS_TONE[t.verdict] ?? '') : '';
-  const tests: [string, string][] = [
-    ['Days compared', t.n === null ? 'unknown' : String(t.n)],
-    ['Window', t.window ?? 'unknown'],
-    [plainLabel('Same-day Pearson correlation').label, corr(t.pearson)],
-    [plainLabel('Pearson correlation at a lag of 7 days').label, corr(t.lag7)],
-  ];
+  const v2 = t.level !== null;
+  const tests: [string, string][] = v2
+    ? [
+        ['Days compared', t.n === null ? 'unknown' : String(t.n)],
+        ['Window', t.window ?? 'unknown'],
+        [t.interval ? `Level correlation (95% interval ${t.interval})` : 'Level correlation', corr(t.level)],
+        ['Correlation of day-over-day changes', corr(t.change)],
+      ]
+    : [
+        ['Days compared', t.n === null ? 'unknown' : String(t.n)],
+        ['Window', t.window ?? 'unknown'],
+        [plainLabel('Same-day Pearson correlation').label, corr(t.pearson)],
+        [plainLabel('Pearson correlation at a lag of 7 days').label, corr(t.lag7)],
+      ];
   return (
     <SbCard
       testId="sb-thesis"
@@ -372,9 +416,10 @@ export function ThesisArtifact({ stage }: { stage: Stage }) {
           Locked {plan.lockedAt ? formatUtc(plan.lockedAt) : 'at an unknown time'}, before the run. Pair chosen by {plan.chosenBy ? CHOSEN_BY_LABEL[plan.chosenBy] : 'unknown'}.
         </p>
       )}
+      {t.pairLabel && <p><Badge tone="warn">{t.pairLabel}</Badge></p>}
       {strength && <StrengthMeter strength={strength} testId="strength-tile" />}
       <p className="sb-statement" data-testid="sb-thesis-headline">{stripStatusPrefix(t.headline, t.verdict) ?? 'The headline is unknown.'}</p>
-      {t.n !== null || t.pearson !== null ? (
+      {t.n !== null || t.pearson !== null || t.level !== null ? (
         <ul className="sb-metrics" aria-label="The test behind the verdict">
           {tests.map(([l, v]) => (
             <li key={l}><span className="sb-metric-v">{v}</span><span className="sb-metric-l">{l}</span></li>

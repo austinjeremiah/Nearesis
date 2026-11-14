@@ -10,7 +10,8 @@ import { toNum } from '@/lib/data/num';
 export type ThesisStatus = 'SUPPORTED' | 'NOT_SUPPORTED' | 'MIXED' | 'INSUFFICIENT_DATA';
 
 export type ThesisRow = { label: string; value?: string | null; unit?: string | null; ref?: string | null };
-export type ThesisSection = { id: string; title: string; markdown: string };
+/** `references` are the pointers behind the numbered markers [1], [2] … of the markdown (absent on older theses). */
+export type ThesisSection = { id: string; title: string; markdown: string; references?: string[] };
 export type ThesisClaim = {
   id: string;
   statement: string;
@@ -54,6 +55,8 @@ export type ThesisOrigin = {
 /** The test plan a workspace thesis was locked to before the data was seen. */
 export type ThesisTestPlan = {
   statement: string | null;
+  /** Why this pair was chosen, in the planner's or the rule's words. */
+  why?: string | null;
   relation: 'moves_with' | 'leads' | null;
   lagDays: number | null;
   expectedSign: 'positive' | 'negative' | 'either' | null;
@@ -64,7 +67,19 @@ export type ThesisTestPlan = {
   chosenBy: 'user' | 'planner' | 'rule' | null;
   resolved: { x: string | null; y: string | null } | null;
 };
+export type ThesisInterval = { lo: string | null; hi: string | null; levelPercent: number | null; method: string | null; blockDays: number | null; resamples: number | null };
 export type ThesisTest = {
+  /** relationship-v2 fields; all absent on a v1 thesis. */
+  level?: string | null;
+  change?: string | null;
+  spearman?: string | null;
+  interval?: ThesisInterval | null;
+  pairSelection?: { chosenBy: string | null; namedForQuestion: boolean | null; label: string | null } | null;
+  relatedness?: { status: string | null; reason: string | null; notes: string[]; heuristic: boolean | null } | null;
+  partOfWhole?: boolean | null;
+  rounding?: { rule: string | null; series: { name: string; decimalsKept: number | null; maxAbsRoundingDifference: string | null }[] } | null;
+  attestation?: { attestedByVerifier: string[]; recomputedByApi: string[] } | null;
+  reasons?: string[];
   plan?: ThesisTestPlan | null;
   rule?: string | null;
   x?: string | null;
@@ -95,6 +110,8 @@ export type Thesis = {
     whatWouldChangeOurMind?: string[];
   };
   origin?: ThesisOrigin | null;
+  /** The draft hypothesis the run produced: context only, never the claim. */
+  context?: { draftHypothesis?: { status: string | null; proposition: string | null; falsification: string | null } | null } | null;
   test?: ThesisTest | null;
   verification?: ThesisVerification | null;
   monitors?: ThesisBrief[];
@@ -130,6 +147,7 @@ export function statusTone(status: string | null | undefined): Tone {
     case 'SUPPORTED':
       return 'ok';
     case 'NOT_SUPPORTED':
+    case 'INVALID_TEST':
       return 'bad';
     case 'MIXED':
       return 'info';

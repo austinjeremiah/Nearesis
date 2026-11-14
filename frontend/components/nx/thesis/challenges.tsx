@@ -13,7 +13,7 @@ import { ApiRequestError } from '@/lib/api/errors';
 import { formatAge, formatUtc } from '@/lib/format';
 import { formatUsdString } from '@/lib/agent/tasks';
 import { answerChallenge, challengeThesis } from '@/lib/thesis/api';
-import { ANSWER_MAX, CHALLENGE_CONFIRM, OUTCOME_TONE, OUTCOME_WORD, SEVERITY_TONE, droppedText, groupNotes, needsAnswer, type Challenge } from '@/lib/thesis/challenge';
+import { ANSWER_MAX, CHALLENGE_CONFIRM, UNAVAILABLE_TEXT, challengeRefusal, OUTCOME_TONE, OUTCOME_WORD, SEVERITY_TONE, droppedText, groupNotes, needsAnswer, type Challenge } from '@/lib/thesis/challenge';
 
 /** "Challenge it": confirm (it uses credits), run the skeptic once, then show the result in the Challenges stage. */
 export function ChallengeButton({ thesisId }: { thesisId: string }) {
@@ -28,15 +28,15 @@ export function ChallengeButton({ thesisId }: { thesisId: string }) {
     },
     onError: () => setOpen(false),
   });
-  const unavailable = run.error instanceof ApiRequestError && (run.error.status === 404 || run.error.status === 405 || run.error.status === 501);
+  const said = run.error instanceof ApiRequestError && run.error.status !== 402 ? challengeRefusal(run.error.status, run.error.reasonCode) : null;
   return (
     <>
       <Button onClick={() => setOpen(true)} pending={run.isPending} data-testid="thesis-challenge" title="Runs the skeptic against this thesis. Uses your credits.">
         <ShieldQuestion size={14} /> Challenge it
       </Button>
       <ConfirmDialog open={open} onOpenChange={setOpen} title="Challenge this thesis?" body={CHALLENGE_CONFIRM} confirmLabel="Run the skeptic" pending={run.isPending} onConfirm={() => run.mutate()} />
-      {unavailable ? (
-        <span className="small" role="alert" data-testid="thesis-challenge-unavailable" style={{ flexBasis: '100%', color: 'var(--text-2)' }}>Challenges are not available on this server yet.</span>
+      {said ? (
+        <span className="small" role="alert" data-testid="thesis-challenge-refused" style={{ flexBasis: '100%', color: 'var(--text-2)' }}>{said}</span>
       ) : run.error ? (
         <div style={{ flexBasis: '100%' }}><MutationError error={run.error} /></div>
       ) : null}
@@ -96,7 +96,7 @@ function ChallengeCard({ c, thesisId, owner }: { c: Challenge; thesisId: string 
           </>
         }
       >
-        {c.outcome === 'unavailable' && c.notes.length === 0 && <p className="small dim">The skeptic could not review this thesis, so nothing is claimed either way.</p>}
+        {c.outcome === 'unavailable' && <p className="small dim" data-testid="challenge-unavailable">{UNAVAILABLE_TEXT}</p>}
         {c.outcome === 'holds' && c.notes.length === 0 && <p className="small">The skeptic found nothing to flag.</p>}
         {groups.length > 0 && (
           <div className="ch-groups">

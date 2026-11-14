@@ -136,3 +136,8 @@
    uses the paper tokens above. Without this, light theme draws pale inherited text on the cream cards. */
 .tt-verdict, .tt-ev, .tt-mind, .tt-claim, .tt-chart, .tt-repro, .tt-acc, .tt-unable li, .tt-notbuilt, .tt-skel { color: var(--text); }
 .tt-verdict .tt-secnote, .tt-repro .tt-secnote, .tt-ev .tt-secnote, .tt-chart .tt-secnote { color: var(--text-2); }
+
+.tt-cite { font-family: var(--font-mono); font-size: 0.7em; font-weight: 600; color: var(--text-2); border: 1px solid var(--line-strong); border-radius: 4px; padding: 0 3px; margin-left: 1px; vertical-align: super; line-height: 1; cursor: help; }
+.tt-sources { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-tiny); }
+.tt-sources li { display: grid; grid-template-columns: 26px minmax(0, 1fr); align-items: baseline; }
+.tt-sn { font-family: var(--font-mono); color: var(--text-3); }

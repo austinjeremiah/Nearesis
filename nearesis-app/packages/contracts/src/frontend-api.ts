@@ -184,6 +184,8 @@ export const MeResponse = z.strictObject({
     displayName: z.string().nullable(),
   }),
   org: z.strictObject({ id: Uuid, name: z.string() }),
+  /** Linked NEAR testnet account (wallet sign-in), or null. */
+  nearAccountId: z.string().nullable(),
   role: z.enum(["owner", "admin", "analyst", "viewer"]),
   roles: z.array(z.enum(["owner", "admin", "analyst", "viewer"])),
   permissions: z.strictObject({ canWrite: z.boolean(), canAdmin: z.boolean() }),

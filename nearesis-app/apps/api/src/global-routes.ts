@@ -98,9 +98,10 @@ export const globalRoutes: FastifyPluginAsync<GlobalRoutesOptions> = async (app,
         ])
       ).rows[0];
       const user = (
-        await tx.query<{ display_name: string | null }>("SELECT display_name FROM users WHERE id = $1", [
-          s.userId,
-        ])
+        await tx.query<{ display_name: string | null; near_account_id: string | null }>(
+          "SELECT display_name, near_account_id FROM users WHERE id = $1",
+          [s.userId],
+        )
       ).rows[0];
       return { org, user };
     });
@@ -108,6 +109,7 @@ export const globalRoutes: FastifyPluginAsync<GlobalRoutesOptions> = async (app,
     const body: MeResponse = {
       principal: { userId: s.userId, kind: s.principal.kind, displayName: info.user?.display_name ?? null },
       org: { id: s.principal.orgId, name: info.org?.name ?? "" },
+      nearAccountId: info.user?.near_account_id ?? null,
       role: s.role,
       roles: [s.role],
       permissions: { canWrite: canWrite(s.role), canAdmin: canAdmin(s.role) },

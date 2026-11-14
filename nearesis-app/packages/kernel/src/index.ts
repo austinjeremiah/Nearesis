@@ -43,3 +43,4 @@ export * from "./mcp-policy.ts";
 export * from "./verified-wiring.ts";
 export * from "./telemetry.ts";
 export * from "./oidc.ts";
+export * from "./near-auth.ts";

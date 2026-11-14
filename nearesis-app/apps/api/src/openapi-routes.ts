@@ -173,6 +173,12 @@ const IntentsResult = z.union([
   }),
 ]);
 const DevLoginBody = z.strictObject({ oidcSubject: z.string().min(1).max(255) });
+const NearVerifyBody = z.strictObject({
+  challengeId: z.uuid(),
+  accountId: z.string().describe("x.testnet or a 64-hex implicit account"),
+  publicKey: z.string().describe("ed25519:<base58>"),
+  signature: z.string().describe("base64 signature from the wallet"),
+});
 const DevLoginResponse = z.strictObject({ token: z.string() });
 const StatusOk = z.strictObject({ status: z.literal("ok") });
 const AckBody = z.strictObject({ acknowledge: z.array(z.string()).optional() });
@@ -1063,6 +1069,41 @@ export const ROUTES: RouteSpec[] = [
       conditional: "NEARESIS_OIDC_ISSUER, NEARESIS_OIDC_CLIENT_ID and NEARESIS_OIDC_REDIRECT_URI are set",
     },
   ),
+
+  // ---- NEAR wallet sign-in (NEP-413, testnet) ---------------------------------------------------------------------
+  R("post", "/v1/auth/near/challenge", "session", "Issue a single-use NEP-413 sign-in challenge (5 minutes)", {
+    auth: "none",
+    body: z.strictObject({}),
+    ok: typed(
+      z.strictObject({
+        challengeId: z.uuid(),
+        message: z.string(),
+        recipient: z.string(),
+        nonce: z.string().describe("base64 of 32 random bytes"),
+        network: z.literal("testnet"),
+        expiresAt: z.string(),
+      }),
+    ),
+  }),
+  R("post", "/v1/auth/near/verify", "session", "Verify a NEAR wallet signature and receive a session token", {
+    auth: "none",
+    description:
+      "Fails closed with 401 and reasonCode CHALLENGE_INVALID, SIGNATURE_INVALID, NETWORK_MISMATCH, KEY_NOT_FULL_ACCESS or ACCOUNT_NOT_FOUND. The challenge is burned once presented. A first sign-in provisions the user, a personal organisation and an owner membership.",
+    body: NearVerifyBody,
+    ok: typed(
+      z.strictObject({
+        token: z.string(),
+        userId: z.uuid(),
+        accountId: z.string(),
+        created: z.boolean(),
+      }),
+    ),
+  }),
+  R("post", "/v1/auth/near/link", "session", "Link a verified NEAR account to the signed-in user", {
+    description: "409 ACCOUNT_ALREADY_LINKED when another user holds the account, USER_ALREADY_LINKED when this user has a different one.",
+    body: NearVerifyBody,
+    ok: typed(z.strictObject({ accountId: z.string(), userId: z.uuid() })),
+  }),
 
   // ---- accounts and cohorts (accounts are not people: every response carries meta.caveats) -------------------------
   R(

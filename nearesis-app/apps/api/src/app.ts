@@ -28,6 +28,7 @@ import { CollabTicketStore } from "./collab-ticket.ts";
 import { frontendRoutes } from "./frontend-routes.ts";
 import { globalRoutes } from "./global-routes.ts";
 import { oidcRoutes } from "./oidc-routes.ts";
+import { nearAuthRoutes } from "./near-auth-routes.ts";
 import type { OidcClient } from "@nearesis/kernel";
 import type { PanelDataPort } from "./panel-data.ts";
 import type { SourceHealthPort } from "./source-health.ts";
@@ -61,6 +62,8 @@ export interface AppOptions {
   /** Test seam for monitor rule replay: recorded metric values for a UTC day (default: the live semantic layer). */
   monitorReplayValues?: (metricIds: string[], dayIso: string) => Promise<Record<string, number>>;
   kernel: Kernel;
+  /** Test seams for NEAR wallet sign-in (RPC fetch, clock, rate limit). */
+  nearAuth?: Partial<Pick<import("./near-auth-routes.ts").NearAuthRoutesOptions, "service" | "perMinute" | "now">>;
   /** Governed metric authoring service; when set, the /v1/workspaces/:id/metrics routes are served. */
   authoring?: AuthoringService;
   /** Model USD recorded outside Postgres (inference spend files); counted in the global ceiling view. */
@@ -626,6 +629,8 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     kernel,
     ...(opts.frontend?.oidc !== undefined ? { client: opts.frontend.oidc } : {}),
   });
+
+  await app.register(nearAuthRoutes, { kernel, authenticate, ...(opts.nearAuth ?? {}) });
 
   // Reference HTTP_STATUS_FOR so the status table is the single source of truth for error mapping.
   void HTTP_STATUS_FOR;

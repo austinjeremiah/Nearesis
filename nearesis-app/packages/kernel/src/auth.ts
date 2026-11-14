@@ -83,6 +83,23 @@ export class DevAuthProvider implements AuthProvider {
       .sign(signing.secret);
   }
 
+  /**
+   * Issues a session JWT for a user and organisation the caller has already authenticated and resolved (NEAR wallet
+   * sign-in). Works in production, signs with the same key ring as dev sessions, and never touches dev-login gating.
+   */
+  async issueSessionFor(userId: string, orgId: string): Promise<string> {
+    const signing = this.keys.signing();
+    return new SignJWT({ org: orgId })
+      .setProtectedHeader({ alg: "HS256", kid: signing.kid })
+      .setSubject(userId)
+      .setIssuer(ISSUER)
+      .setAudience(AUDIENCE)
+      .setJti(randomUUID())
+      .setIssuedAt()
+      .setExpirationTime(`${this.ttlSeconds}s`)
+      .sign(signing.secret);
+  }
+
   async authenticate(token: string): Promise<{ userId: string; orgId: string; jti?: string }> {
     try {
       const secret = this.keys.verifying(decodeProtectedHeader(token).kid);

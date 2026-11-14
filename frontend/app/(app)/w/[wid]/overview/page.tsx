@@ -43,6 +43,11 @@ export default async function OverviewPage({ params }: { params: Promise<{ wid: 
               Ask a question
             </LinkButton>
             <LinkButton href={`/w/${wid}/canvas`}>Open canvas</LinkButton>
+            <LinkButton href={`/w/${wid}/report`}>View report</LinkButton>
+            {/* A file download, not a page: a plain anchor so the browser saves the PDF instead of navigating. */}
+            <a className="btn" href={`/api/report/${wid}/pdf`} download data-testid="download-pdf-report">
+              Download PDF report
+            </a>
           </>
         }
       />

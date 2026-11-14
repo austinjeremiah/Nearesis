@@ -7,6 +7,7 @@ import { api } from '@/lib/api/server';
 import { settle } from '@/lib/api/guard';
 import { workspaceLabel } from '@/lib/workspace/label';
 import { ApiErrorState } from '@/components/nx/states';
+import WorkspaceThesisButtons from '@/components/nx/thesis/workspace-thesis-buttons';
 import OverviewView from './overview-view';
 
 /**
@@ -43,6 +44,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ wid: 
           <>
             <BracketButton href={`/w/${wid}/investigate`}>Ask a question</BracketButton>
             <LinkButton href={`/w/${wid}/canvas`}>Open canvas</LinkButton>
+            <WorkspaceThesisButtons wid={wid} />
             <LinkButton href={`/w/${wid}/report`}>View report</LinkButton>
             {/* A file download, not a page: a plain anchor so the browser saves the PDF instead of navigating. */}
             <a className="btn" href={`/api/report/${wid}/pdf`} download data-testid="download-pdf-report">

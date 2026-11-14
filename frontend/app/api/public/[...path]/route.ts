@@ -5,9 +5,9 @@ export const dynamic = 'force-dynamic';
 /**
  * Public BFF read: `/api/public/publications/<id>[/exports/<path>]` -> `{API}/v1/public/publications/...`.
  * It never reads or forwards the session cookie or any authorization header, so a publication is exactly as
- * visible here as to an anonymous reader. GET only, and only the two public publication shapes.
+ * visible here as to an anonymous reader. GET only, and only the public publication and public thesis shapes.
  */
-const ALLOWED = /^publications\/[A-Za-z0-9._-]{1,200}(\/exports\/[A-Za-z0-9._~%/-]{1,400})?$/;
+const ALLOWED = /^(publications\/[A-Za-z0-9._-]{1,200}(\/exports\/[A-Za-z0-9._~%/-]{1,400})?|theses\/[A-Za-z0-9._-]{1,200}(\/files\/[A-Za-z0-9._~%/-]{1,400})?)$/;
 const FORWARD_RESPONSE_HEADERS = ['content-type', 'x-trace-id', 'cache-control', 'retry-after', 'content-disposition', 'content-security-policy', 'x-content-type-options', 'x-capsule-sha256'];
 
 export async function GET(_req: Request, ctx: { params: Promise<{ path: string[] }> }) {

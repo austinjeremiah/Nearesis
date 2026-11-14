@@ -56,7 +56,7 @@ export type NavGroup = {
 /** Global area. Visible with or without an active workspace. */
 export const GLOBAL_NAV: NavItem[] = [
   { href: '/home', label: 'Home', icon: Home, hint: 'What needs your attention' },
-  { href: '/thesis', label: 'NEAR Thesis', icon: Scale, hint: 'Intents vs price: the verdict and the evidence' },
+  { href: '/thesis', label: 'Theses', icon: Scale, hint: 'Your theses and the NEAR Intents reference: verify, share, reproduce' },
   { href: '/agent', label: 'Agent', icon: Bot, hint: 'Ask, chart and investigate' },
   { href: '/workspaces', label: 'Workspaces', icon: Boxes, hint: 'Portfolio of investigations' },
   { href: '/data', label: 'Explore data', icon: Database, hint: 'Certified metric catalog' },

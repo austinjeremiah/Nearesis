@@ -43,6 +43,30 @@ export type ThesisChart = {
   sha256?: string | null;
 };
 export type ThesisTable = { name: string; system?: string | null; purpose?: string | null; columns?: string[] };
+export type ThesisOrigin = {
+  kind?: string | null;
+  workspaceId?: string | null;
+  runId?: string | null;
+  capsuleId?: string | null;
+  capsuleHash?: string | null;
+  hypothesisId?: string | null;
+};
+export type ThesisTest = {
+  rule?: string | null;
+  x?: string | null;
+  y?: string | null;
+  n?: number | null;
+  window?: { from?: string | null; to?: string | null } | null;
+  pearson?: string | null;
+  lag?: { days: number | null; value: string | null }[];
+  thresholds?: { key: string; value: string }[];
+};
+export type ThesisVerification = {
+  capsule?: { status?: string | null; checkedAt?: string | null } | null;
+  outlayer?: { status?: string | null; requestId?: string | null; txHash?: string | null } | null;
+};
+/** A monitor or marker in brief: a title and the mono detail lines the document carries for it. */
+export type ThesisBrief = { title: string; lines: string[] };
 export type Thesis = {
   schema?: string;
   version?: string;
@@ -52,8 +76,15 @@ export type Thesis = {
     status?: string;
     headline?: string;
     intentsVsPrice?: { summary?: string | null; rows?: ThesisRow[] } | null;
+    /** Workspace theses carry this instead of `intentsVsPrice`. */
+    comparison?: { summary?: string | null; rows?: ThesisRow[] } | null;
     whatWouldChangeOurMind?: string[];
   };
+  origin?: ThesisOrigin | null;
+  test?: ThesisTest | null;
+  verification?: ThesisVerification | null;
+  monitors?: ThesisBrief[];
+  markers?: ThesisBrief[];
   sections?: ThesisSection[];
   claims?: ThesisClaim[];
   charts?: ThesisChart[];

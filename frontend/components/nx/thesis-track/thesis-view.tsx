@@ -1,22 +1,23 @@
 'use client';
 
 import './thesis-track.css';
-import { useState } from 'react';
-import { Check, Copy, Download, ExternalLink } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Check, Copy } from 'lucide-react';
 import { Badge } from '@/components/nx/evidence';
 import { SectionBar } from '@/components/nx/section';
+import { Clamp, Disclose, FlowCard, FlowHero, FlowRail, FlowStage, FlowStages, StatTile, useFlowSpy, type FlowItem } from '@/components/nx/flow/flow';
 import { Button, EmptyState, Notice, Skeleton } from '@/components/nx/ui';
 import { ApiErrorState } from '@/components/nx/states';
 import { DataTable } from '@/components/nx/table';
 import { SeriesChart } from '@/components/nx/data/charts';
+import { ReportChart } from '@/components/report/report-chart';
 import { useApiGet } from '@/components/nx/data/kit';
-import { fInt } from '@/lib/data/num';
+import { fInt, toNum } from '@/lib/data/num';
+import { testRows } from '@/lib/thesis/doc';
 import { formatUtc } from '@/lib/format';
 import {
   BUILD_COMMAND,
-  THESIS_MD_HREF,
   THESIS_PATH,
-  THESIS_SITE_HREF,
   chartSeries,
   isNotBuilt,
   observedPoints,
@@ -28,6 +29,7 @@ import {
   stripLeadingHeading,
   type Thesis,
   type ThesisChart,
+  type ThesisBrief,
   type ThesisRow,
   type ThesisSection,
 } from '@/lib/thesis-track/model';
@@ -79,164 +81,248 @@ function Sql({ label, sql }: { label: string; sql: string | null | undefined }) 
   );
 }
 
-function Prominent({ kind, title, section }: { kind: 'for' | 'against'; title: string; section: ThesisSection | null }) {
+function RowsTable({ rows, caption }: { rows: ThesisRow[]; caption: string }) {
   return (
-    <article className={`tt-ev ${kind}`} data-testid={`thesis-evidence-${kind}`}>
-      <header>
-        <h3>{title}</h3>
-      </header>
-      <div className="tt-ev-body">
-        {section ? (
-          <MarkdownView markdown={stripLeadingHeading(section.markdown, section.title)} />
-        ) : (
-          <p className="small dim" style={{ margin: 0 }}>This section is not in the bundle (unknown).</p>
-        )}
-      </div>
-    </article>
+    <DataTable<ThesisRow>
+      caption={caption}
+      rows={rows}
+      rowKey={(r) => r.label}
+      columns={[
+        { key: 'l', header: 'Measure', render: (r) => <span className="strong">{r.label}</span> },
+        { key: 'v', header: 'Value', numeric: true, render: (r) => <span className="mono">{orUnknown(r.value)}</span> },
+        { key: 'u', header: 'Unit', render: (r) => r.unit ?? <span className="dim">unknown</span> },
+        { key: 'r', header: 'Source', render: (r) => (r.ref ? <span className="tt-ref">{r.ref}</span> : <span className="dim">unknown</span>) },
+      ]}
+    />
   );
 }
 
-/* ------------------------------------------------------------------ verdict */
+/** The rule behind a workspace thesis: its name, the numbers it computed, and the thresholds fixed before any run. */
+function TestBlock({ t }: { t: NonNullable<Thesis['test']> }) {
+  const rows = testRows(t);
+  const thresholds = t.thresholds ?? [];
+  return (
+    <div className="th-test" data-testid="thesis-test">
+      <p className="th-test-rule mono">
+        {orUnknown(t.rule)}
+        {t.x || t.y ? <span className="dim"> · {orUnknown(t.x)} against {orUnknown(t.y)}</span> : null}
+      </p>
+      <dl className="th-kv">
+        {rows.map((r) => (
+          <div key={r.label} style={{ display: 'contents' }}>
+            <dt>{r.label}</dt>
+            <dd className="mono">{r.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {thresholds.length > 0 && (
+        <>
+          <div className="label" style={{ marginTop: 6 }}>The rule&apos;s thresholds</div>
+          <dl className="th-kv">
+            {thresholds.map((r) => (
+              <div key={r.key} style={{ display: 'contents' }}>
+                <dt>{r.key}</dt>
+                <dd className="mono">{r.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      )}
+      <p className="tiny dim">A descriptive correlation rule, not a significance test. Correlation does not show cause.</p>
+    </div>
+  );
+}
 
-function Verdict({ t }: { t: Thesis }) {
+/** Up to four headline numbers: the test's own numbers when there is a test, else the first comparison rows. */
+export function keyTiles(t: Thesis): { label: string; value: string; sub: string | null }[] {
+  const test = t.test;
+  if (test && (test.n !== null && test.n !== undefined || test.pearson)) {
+    const out: { label: string; value: string; sub: string | null }[] = [];
+    if (test.n !== null && test.n !== undefined) out.push({ label: 'Aligned days', value: String(test.n), sub: test.window?.from || test.window?.to ? `${test.window?.from ?? 'unknown'} to ${test.window?.to ?? 'unknown'}` : null });
+    out.push({ label: 'Same-day correlation', value: test.pearson ?? 'unknown', sub: 'Pearson' });
+    for (const l of (test.lag ?? []).slice(0, 2)) out.push({ label: `Correlation at ${l.days ?? 'unknown'}-day lag`, value: l.value ?? 'unknown', sub: null });
+    return out.slice(0, 4);
+  }
+  const rows = (t.verdict?.comparison ?? t.verdict?.intentsVsPrice)?.rows ?? [];
+  return rows.slice(0, 4).map((r) => ({ label: r.label, value: orUnknown(r.value), sub: r.unit ?? null }));
+}
+
+function VerdictStage({ t }: { t: Thesis }) {
   const status = t.verdict?.status;
   const tone = statusTone(status);
-  const iv = t.verdict?.intentsVsPrice;
-  const rows = iv?.rows ?? [];
+  const cmp = t.verdict?.comparison ?? t.verdict?.intentsVsPrice ?? null;
+  const cmpLabel = t.verdict?.comparison ? 'Comparison' : 'Intents vs price';
+  const rows = cmp?.rows ?? [];
+  const tiles = keyTiles(t);
   return (
-    <div className="tt-verdict" data-testid="thesis-verdict" data-tone={tone}>
-      <span className="tt-eyebrow">Hypothesis</span>
-      <h2 className="tt-hyp">{orUnknown(t.hypothesis)}</h2>
-      <div className="tt-status-row">
-        <Badge tone={tone}>{statusLabel(status)}</Badge>
-        {t.generatedAt && <span className="tiny dim mono">built {formatUtc(t.generatedAt)}</span>}
-        {t.version && <span className="tiny dim mono">version {t.version}</span>}
-      </div>
-      <p className="tt-headline">{orUnknown(t.verdict?.headline)}</p>
-      <div className="col gap2">
-        <div className="label">Intents vs price</div>
-        {iv?.summary && <p className="tt-compare-sum">{iv.summary}</p>}
-        {rows.length > 0 ? (
-          <DataTable<ThesisRow>
-            caption="Intents versus price comparison"
-            rows={rows}
-            rowKey={(r) => r.label}
-            columns={[
-              { key: 'l', header: 'Measure', render: (r) => <span className="strong">{r.label}</span> },
-              { key: 'v', header: 'Value', numeric: true, render: (r) => <span className="mono">{orUnknown(r.value)}</span> },
-              { key: 'u', header: 'Unit', render: (r) => r.unit ?? <span className="dim">unknown</span> },
-              { key: 'r', header: 'Source', render: (r) => (r.ref ? <span className="tt-ref">{r.ref}</span> : <span className="dim">unknown</span>) },
-            ]}
-          />
-        ) : (
-          <p className="small dim" style={{ margin: 0 }}>No comparison rows in the bundle (unknown).</p>
+    <div className="fl-stage-body" data-testid="thesis-verdict" data-tone={tone}>
+      <FlowCard tone={tone === '' ? undefined : tone} badges={<Badge tone={tone}>{statusLabel(status)}</Badge>} title="The verdict">
+        <p className="fl-lead">{orUnknown(t.verdict?.headline)}</p>
+        {tiles.length > 0 && (
+          <div className="fl-tiles">
+            {tiles.map((x) => (
+              <StatTile key={x.label} label={x.label} value={x.value} sub={x.sub} />
+            ))}
+          </div>
         )}
-      </div>
+        {cmp?.summary && <p className="tt-compare-sum">{cmp.summary}</p>}
+        {rows.length > 4 || (tiles.length > 0 && rows.length > 0 && t.test) ? (
+          <Disclose label={`Show all rows (${rows.length})`} openLabel="Hide rows">
+            <RowsTable rows={rows} caption={`${cmpLabel} rows`} />
+          </Disclose>
+        ) : rows.length > 0 ? (
+          <RowsTable rows={rows} caption={`${cmpLabel} rows`} />
+        ) : tiles.length === 0 ? (
+          <p className="small dim">No comparison rows in the bundle (unknown).</p>
+        ) : null}
+        {t.test && (
+          <Disclose label="How this was tested" openLabel="Hide the test">
+            <TestBlock t={t.test} />
+          </Disclose>
+        )}
+      </FlowCard>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ evidence */
 
-function Evidence({ t }: { t: Thesis }) {
+function Prominent({ kind, title, section, all }: { kind: 'for' | 'against'; title: string; section: ThesisSection | null; all: boolean }) {
+  return (
+    <FlowCard title={title} tone={kind === 'for' ? 'ok' : 'bad'} testid={`thesis-evidence-${kind}`}>
+      {section ? (
+        <Clamp all={all} lines={13}>
+          <MarkdownView markdown={stripLeadingHeading(section.markdown, section.title)} />
+        </Clamp>
+      ) : (
+        <p className="small dim">This section is not in the bundle (unknown).</p>
+      )}
+    </FlowCard>
+  );
+}
+
+function EvidenceStage({ t, print }: { t: Thesis; print: boolean }) {
   const slots = pickSections(t.sections);
   const mind = t.verdict?.whatWouldChangeOurMind ?? [];
   return (
-    <section className="tt-sec" aria-label="Evidence for and against">
-      <SectionBar title="Evidence for and against" number="002" />
-      <div className="tt-two">
-        <Prominent kind="for" title="Evidence for" section={slots.evidenceFor} />
-        <Prominent kind="against" title="Evidence against" section={slots.evidenceAgainst} />
+    <div className="fl-stage-body">
+      <div className="fl-two">
+        <Prominent kind="for" title="Evidence for" section={slots.evidenceFor} all={print} />
+        <Prominent kind="against" title="Evidence against" section={slots.evidenceAgainst} all={print} />
       </div>
-      <div className="tt-mind" data-testid="thesis-change-mind">
-        <header>
-          <h3>What would change our mind</h3>
-        </header>
-        <div className="tt-ev-body">
-          {mind.length > 0 ? (
+      <FlowCard title="What would change our mind" tone="warn" testid="thesis-change-mind">
+        {mind.length > 0 ? (
+          <Clamp all={print} lines={9}>
             <ul className="tt-md" style={{ margin: 0, paddingLeft: 20 }}>
               {mind.map((m, i) => (
                 <li key={i}>{m}</li>
               ))}
             </ul>
-          ) : slots.changeMind ? (
+          </Clamp>
+        ) : slots.changeMind ? (
+          <Clamp all={print} lines={9}>
             <MarkdownView markdown={stripLeadingHeading(slots.changeMind.markdown, slots.changeMind.title)} />
-          ) : (
-            <p className="small dim" style={{ margin: 0 }}>Not stated in this bundle (unknown).</p>
-          )}
-        </div>
-      </div>
-    </section>
+          </Clamp>
+        ) : (
+          <p className="small dim">Not stated in this bundle (unknown).</p>
+        )}
+      </FlowCard>
+    </div>
   );
 }
 
 /* ------------------------------------------------------------------ claims */
 
-function Claims({ t }: { t: Thesis }) {
+function ClaimsStage({ t, print }: { t: Thesis; print: boolean }) {
   const claims = t.claims ?? [];
+  const [filter, setFilter] = useState<string>('all');
+  const verdicts = [...new Set(claims.map((c) => orUnknown(c.verdict)))];
+  const shown = filter === 'all' ? claims : claims.filter((c) => orUnknown(c.verdict) === filter);
   const dash = (v: string | null | undefined) => (v ? v : <span className="dim">none stated</span>);
+  if (claims.length === 0) return <EmptyState title="No claims in the bundle" />;
   return (
-    <section className="tt-sec" aria-label="Claims">
-      <SectionBar title="Claims" number="003" />
-      <p className="tt-secnote">Each claim with its verdict, estimate, uncertainty, counterexample and falsification condition.</p>
-      {claims.length === 0 ? (
-        <EmptyState title="No claims in the bundle" />
-      ) : (
-        <ul className="tt-claims" aria-label="Claims with verdict, estimate, uncertainty, counterexample and falsification">
-          {claims.map((c) => (
-            <li key={c.id} className="tt-claim card" data-testid="thesis-claim">
-              <div className="tt-claim-head">
-                <span className="tt-claim-stmt">{c.statement}</span>
-                <span className="tt-claim-badges">
-                  <Badge outline>{orUnknown(c.kind)}</Badge>
-                  <Badge>{orUnknown(c.verdict)}</Badge>
-                </span>
+    <div className="fl-stage-body">
+      {verdicts.length > 1 && !print && (
+        <div className="fl-chips" role="group" aria-label="Filter claims by verdict">
+          <button type="button" className="fl-chip" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>All {claims.length}</button>
+          {verdicts.map((v) => (
+            <button key={v} type="button" className="fl-chip" aria-pressed={filter === v} onClick={() => setFilter(v)}>
+              {v} {claims.filter((c) => orUnknown(c.verdict) === v).length}
+            </button>
+          ))}
+        </div>
+      )}
+      <ul className="tt-claims fl-grid" aria-label="Claims">
+        {shown.map((c) => (
+          <li key={c.id} className="fl-card th-claim" data-surface data-testid="thesis-claim">
+            <div className="fl-card-body">
+              <div className="fl-badges">
+                <Badge outline>{orUnknown(c.kind)}</Badge>
+                <Badge tone={statusTone(c.verdict)}>{orUnknown(c.verdict)}</Badge>
               </div>
-              <dl className="tt-claim-grid">
-                <div>
-                  <dt>Estimate</dt>
-                  <dd className="mono">{c.estimate ?? 'unknown'}</dd>
-                </div>
-                <div>
-                  <dt>Uncertainty</dt>
-                  <dd className="mono">{c.uncertainty ?? 'unknown'}</dd>
-                </div>
-                <div>
+              <p className="th-claim-stmt">{c.statement}</p>
+              <dl className="th-kv">
+                <dt>Estimate</dt>
+                <dd className={(c.estimate ?? '').length > 40 ? '' : 'mono'}>{c.estimate ?? 'unknown'}</dd>
+                <dt>Uncertainty</dt>
+                <dd className={(c.uncertainty ?? '').length > 40 ? '' : 'mono'}>{c.uncertainty ?? 'unknown'}</dd>
+              </dl>
+              {print ? (
+                <dl className="th-kv">
                   <dt>Counterexample</dt>
                   <dd>{dash(c.counterexample)}</dd>
-                </div>
-                <div>
                   <dt>Falsification</dt>
                   <dd>{dash(c.falsification)}</dd>
-                </div>
-              </dl>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+                </dl>
+              ) : (
+                <Disclose label="Counterexample and falsification" openLabel="Hide details">
+                  <dl className="th-kv">
+                    <dt>Counterexample</dt>
+                    <dd>{dash(c.counterexample)}</dd>
+                    <dt>Falsification</dt>
+                    <dd>{dash(c.falsification)}</dd>
+                  </dl>
+                </Disclose>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
 /* ------------------------------------------------------------------ charts */
 
-function ChartCard({ c }: { c: ThesisChart }) {
-  const [open, setOpen] = useState(false);
+function ChartCard({ c, print = false }: { c: ThesisChart; print?: boolean }) {
+  const [open, setOpen] = useState(print);
   const series = chartSeries(c);
   const n = observedPoints(c);
   const tag = queryTag(c);
+  const perDataset = (c as { queries?: { sqlExecuted?: string | null }[] }).queries;
+  const sqlText = c.sqlExecuted ?? ((perDataset ?? []).map((q) => q?.sqlExecuted).filter((x): x is string => !!x).join('\n\n') || null);
   const kind = c.kind === 'bar' ? 'bar' : 'line';
   const win = c.window?.from || c.window?.to ? `${c.window?.from ?? 'unknown'} to ${c.window?.to ?? 'unknown'}` : 'unknown';
   const label = `${c.title}. ${c.kind === 'bar' ? 'Bar' : 'Line'} chart${c.unit ? ` in ${c.unit}` : ''}, ${c.x?.length ?? 0} days. ${c.sentence ?? ''}`.trim();
   return (
-    <article className="tt-chart" data-testid="thesis-chart" data-chart={c.id}>
+    <article className="tt-chart" data-surface data-testid="thesis-chart" data-chart={c.id}>
       <header>
         <h3>{c.title}</h3>
         <p className="tt-sentence">{orUnknown(c.sentence)}</p>
       </header>
       <div className="tt-chart-body">
         {n > 0 ? (
-          <SeriesChart series={series} ariaLabel={label} unit={c.unit ?? undefined} kind={kind} />
+          print ? (
+            <ReportChart
+              type={kind}
+              x={c.x ?? []}
+              series={series.map((sr) => ({ name: sr.name, points: sr.points.map((p) => ({ x: p.x, y: toNum(p.y) })) }))}
+              unit={c.unit ?? null}
+              ariaLabel={label}
+            />
+          ) : (
+            <SeriesChart series={series} ariaLabel={label} unit={c.unit ?? undefined} kind={kind} />
+          )
         ) : (
           <div className="tt-nodata" role="img" aria-label={`${c.title}: no data points`}>No data points in this bundle.</div>
         )}
@@ -249,28 +335,40 @@ function ChartCard({ c }: { c: ThesisChart }) {
           </div>
         )}
         {c.caveats && c.caveats.length > 0 && (
-          <ul className="tt-caveats" aria-label="Caveats">
-            {c.caveats.map((v, i) => (
-              <li key={i}>{v}</li>
-            ))}
-          </ul>
+          print ? (
+            <ul className="tt-caveats" aria-label="Caveats">
+              {c.caveats.map((v, i) => (
+                <li key={i}>{v}</li>
+              ))}
+            </ul>
+          ) : (
+            <Disclose label={`Caveats (${c.caveats.length})`} openLabel="Hide caveats">
+              <ul className="tt-caveats" aria-label="Caveats">
+                {c.caveats.map((v, i) => (
+                  <li key={i}>{v}</li>
+                ))}
+              </ul>
+            </Disclose>
+          )
         )}
         <div className="tt-meta">
           <span><b>Source</b> {orUnknown(c.source)}</span>
           <span><b>Window</b> {win}</span>
           <span><b>Points</b> {fInt(n)}</span>
         </div>
-        <div>
-          <Button aria-expanded={open} aria-controls={`q-${c.id}`} onClick={() => setOpen((v) => !v)}>
-            {open ? 'Hide query' : 'Show query'}
-          </Button>
-        </div>
+        {!print && (
+          <div>
+            <Button aria-expanded={open} aria-controls={`q-${c.id}`} onClick={() => setOpen((v) => !v)}>
+              {open ? 'Hide query' : 'Show query'}
+            </Button>
+          </div>
+        )}
         {open && (
           <div id={`q-${c.id}`} data-testid="thesis-query">
             <div className="tt-qtag">
               <Badge tone={tag.executed ? 'ok' : 'warn'}>{tag.text}</Badge>
             </div>
-            <Sql label="Executed SQL (the local query that produced the data)" sql={c.sqlExecuted} />
+            <Sql label="Executed SQL (the local query that produced the data)" sql={sqlText} />
             <Sql label="BigQuery SQL" sql={c.sqlBigQuery} />
             {c.sha256 && <div className="tt-ref" style={{ marginTop: 8 }}>data sha256 {c.sha256}</div>}
           </div>
@@ -318,9 +416,86 @@ export function SourcesThesisTables() {
   return (
     <section className="tt-sec" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 24 }} data-testid="sources-thesis-tables">
       <SectionBar title="Tables and sample query" />
-      <p className="tt-secnote">The tables behind the NEAR thesis and one query you can run yourself. The full thesis is on the NEAR Thesis page.</p>
+      <p className="tt-secnote">The tables behind the NEAR thesis and one query you can run yourself. The full thesis is on the Theses page.</p>
       <TablesAndSample t={q.data} />
     </section>
+  );
+}
+
+/* ------------------------------------------------------------------ brief lists + verification */
+
+function Briefs({ title, items, testid }: { title: string; items: ThesisBrief[]; testid: string }) {
+  return (
+    <FlowCard title={title} badges={<Badge outline>{items.length}</Badge>} testid={testid}>
+      {items.length === 0 ? (
+        <p className="small dim">None recorded in this thesis.</p>
+      ) : (
+        <ul className="th-brief-list">
+          {items.map((b, i) => (
+            <li key={i}>
+              <span className="strong">{b.title}</span>
+              {b.lines.map((l, j) => (
+                <span key={j} className="mono tiny dim th-line">{l}</span>
+              ))}
+            </li>
+          ))}
+        </ul>
+      )}
+    </FlowCard>
+  );
+}
+
+export const NEARBLOCKS_TX = (hash: string) => `https://testnet.nearblocks.io/txns/${encodeURIComponent(hash)}`;
+
+function Step({ name, tone, word, children }: { name: string; tone: 'ok' | 'bad' | 'warn' | ''; word: string; children?: ReactNode }) {
+  return (
+    <div className="fl-pipe-step">
+      <span className="fl-pipe-name">{name}</span>
+      <Badge tone={tone} outline={tone === ''}>{word}</Badge>
+      {children}
+    </div>
+  );
+}
+
+const stepTone = (s: string | null | undefined): 'ok' | 'bad' | 'warn' | '' => {
+  const v = (s ?? '').toLowerCase();
+  if (/^(verified|ok|ready|proved|proven|finalized|passed|success)/.test(v)) return 'ok';
+  if (/(fail|mismatch|invalid|error)/.test(v)) return 'bad';
+  return v ? 'warn' : '';
+};
+
+function VerificationStage({ t, isReference, publication }: { t: Thesis; isReference: boolean; publication: 'published' | 'draft' | null }) {
+  const v = t.verification;
+  const cap = v?.capsule;
+  const out = v?.outlayer;
+  return (
+    <div className="fl-stage-body" data-testid="thesis-verification">
+      <FlowCard title="From capsule to publication" foot={<span>Intel collateral (TCB status) not checked.</span>}>
+        {!v ? (
+          <p className="small">
+            {isReference
+              ? 'The reference thesis is a file bundle. Use Verify to check every file against the bundle hashes.'
+              : 'This document records no capsule verification (unknown).'}
+          </p>
+        ) : (
+          <div className="fl-pipe">
+            <Step name="Capsule" tone={stepTone(cap?.status)} word={orUnknown(cap?.status)}>
+              {cap?.checkedAt && <span className="fl-pipe-detail">checked {formatUtc(cap.checkedAt)}</span>}
+              {t.origin?.capsuleHash && <span className="fl-pipe-detail">{t.origin.capsuleHash}</span>}
+            </Step>
+            <Step name="OutLayer proof" tone={out ? stepTone(out.status) : ''} word={out ? orUnknown(out.status) : 'none requested'}>
+              {out?.requestId && <span className="fl-pipe-detail">request {out.requestId}</span>}
+              {out?.txHash && (
+                <a className="link fl-pipe-detail" href={NEARBLOCKS_TX(out.txHash)} target="_blank" rel="noopener noreferrer" data-testid="thesis-tx-link">
+                  tx {out.txHash}
+                </a>
+              )}
+            </Step>
+            <Step name="Publication" tone={publication === 'published' ? 'ok' : ''} word={publication ?? 'unknown'} />
+          </div>
+        )}
+      </FlowCard>
+    </div>
   );
 }
 
@@ -338,7 +513,7 @@ function NotBuilt() {
   );
 }
 
-function Loading() {
+export function ThesisLoading() {
   return (
     <div className="tt-skel" data-testid="thesis-loading" aria-busy="true">
       <Skeleton rows={6} />
@@ -347,123 +522,231 @@ function Loading() {
   );
 }
 
-export default function ThesisView() {
-  const q = useThesis();
-  if (q.isPending) return <Loading />;
-  if (q.isError) return isNotBuilt(q.error) ? <NotBuilt /> : <ApiErrorState error={q.error} onRetry={() => q.refetch()} />;
-  const t = q.data;
+const windowOf = (t: Thesis): string | null => {
+  const w = t.test?.window ?? t.charts?.find((c) => c.window?.from || c.window?.to)?.window;
+  return w && (w.from || w.to) ? `${w.from ?? 'unknown'} to ${w.to ?? 'unknown'}` : null;
+};
+
+/** Caveats the charts carry, once each, with the chart they belong to. */
+function chartCaveats(t: Thesis): { chart: string; text: string }[] {
+  const seen = new Set<string>();
+  const out: { chart: string; text: string }[] = [];
+  for (const c of t.charts ?? []) for (const x of c.caveats ?? []) if (!seen.has(x)) (seen.add(x), out.push({ chart: c.title, text: x }));
+  return out;
+}
+
+/**
+ * The one viewer. It takes a normalised document, so the reference thesis, a workspace thesis and a public one all render
+ * here, as numbered stages under a sticky rail. `print` drops the rail and swaps interactive parts for static ones (SVG
+ * charts, every query, claim detail and section open, no buttons).
+ */
+export function ThesisDocView({
+  doc: t,
+  print = false,
+  isReference = false,
+  actions,
+  publication = null,
+  receiptsLine,
+}: {
+  doc: Thesis;
+  print?: boolean;
+  isReference?: boolean;
+  /** Buttons for the header: the app adds Verify/Reproduce/Share, the public page adds Open in my account. */
+  actions?: ReactNode;
+  publication?: 'published' | 'draft' | null;
+  receiptsLine?: string | null;
+}) {
   const charts = t.charts ?? [];
+  const claims = t.claims ?? [];
   const slots = pickSections(t.sections);
   const hashes = t.reproduce?.hashes ?? [];
   const unable = t.unableToCompute ?? [];
+  const caveats = chartCaveats(t);
+  const hasBriefs = (t.monitors?.length ?? 0) > 0 || (t.markers?.length ?? 0) > 0;
+  const tone = statusTone(t.verdict?.status);
+  const hasTables = (t.tables?.length ?? 0) > 0 || !!t.sampleQuery?.sql;
+  const items: (FlowItem & { title: string; badge?: ReactNode; note?: ReactNode })[] = [
+    { id: 'th-verdict', label: 'Verdict', title: 'Verdict', dot: tone === 'ok' ? 'ok' : tone === 'bad' ? 'bad' : tone === 'warn' ? 'warn' : tone === 'info' ? 'info' : 'idle', note: t.verdict?.status ? statusLabel(t.verdict.status) : undefined },
+    { id: 'th-evidence', label: 'Evidence', title: 'Evidence for and against', dot: slots.evidenceFor || slots.evidenceAgainst ? 'done' : 'idle' },
+    { id: 'th-claims', label: 'Claims', title: 'Claims', dot: claims.length ? 'done' : 'idle', note: `${claims.length} ${claims.length === 1 ? 'claim' : 'claims'}` },
+    { id: 'th-charts', label: 'Charts', title: 'Charts', dot: charts.length ? 'done' : 'idle', note: `${charts.length} ${charts.length === 1 ? 'chart' : 'charts'}` },
+    ...(hasBriefs ? [{ id: 'th-monitors', label: 'Monitors', title: 'Monitors and markers', dot: 'done' as const, note: `${t.monitors?.length ?? 0} monitors · ${t.markers?.length ?? 0} markers` }] : []),
+    { id: 'th-verification', label: 'Verification', title: 'Verification', dot: t.verification ? stepTone(t.verification.capsule?.status) === 'ok' ? 'ok' : 'warn' : 'idle' },
+    { id: 'th-reproduce', label: 'Reproduce', title: 'Reproduce this', dot: t.reproduce?.command ? 'done' : 'idle' },
+    { id: 'th-limits', label: 'Limits', title: 'What it could not do', dot: unable.length ? 'warn' : 'done', note: `${unable.length} not computed` },
+    ...(slots.rest.length ? [{ id: 'th-full', label: 'Full text', title: 'The full thesis', dot: 'idle' as const, note: `${slots.rest.length} sections` }] : []),
+  ];
+  const { active, go } = useFlowSpy(items.map((i) => i.id), !print);
+  const byId = Object.fromEntries(items.map((i) => [i.id, i]));
+  let n = 0;
+  const stage = (id: string, children: ReactNode) => {
+    const it = byId[id]!;
+    n += 1;
+    return (
+      <FlowStage key={id} id={id} n={n} title={it.title} tone={it.dot} note={it.note}>
+        {children}
+      </FlowStage>
+    );
+  };
+  const meta: ReactNode[] = [];
+  if (t.version) meta.push(`version ${t.version.slice(0, 16)}`);
+  if (t.generatedAt) meta.push(`built ${formatUtc(t.generatedAt)}`);
+  const w = windowOf(t);
+  if (w) meta.push(`window ${w}`);
+  meta.push(`${charts.length} charts · ${claims.length} claims`);
+  if (receiptsLine) meta.push(receiptsLine);
   return (
-    <div className="tt" data-testid="thesis-view">
-      <section className="tt-sec" aria-label="Verdict">
-        <SectionBar title="Verdict" number="001" />
-        <Verdict t={t} />
-      </section>
-
-      <Evidence t={t} />
-      <Claims t={t} />
-
-      <section className="tt-sec" aria-label="Charts">
-        <SectionBar title="Charts" number="004" />
-        <p className="tt-secnote">Every chart is drawn straight from the frozen data. A day with no value is a gap, not a zero. Each chart carries its query.</p>
-        {charts.length === 0 ? (
-          <EmptyState title="No charts in the bundle" body="Nothing is drawn when the bundle holds no chart data." />
-        ) : (
-          <div className="tt-charts">
-            {charts.map((c) => (
-              <ChartCard key={c.id} c={c} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="tt-sec" aria-label="Reproduce this">
-        <SectionBar title="Reproduce this" number="005" />
-        <div className="tt-repro" data-testid="thesis-reproduce">
-          <div className="col gap2">
-            <div className="label">Rebuild every chart from the frozen data</div>
-            <CopyBlock text={orUnknownCmd(t.reproduce?.command)} label="build command" />
-          </div>
-          <div className="col gap2">
-            <div className="label">Check the result matches the published hashes</div>
-            <CopyBlock text={orUnknownCmd(t.reproduce?.check)} label="verify command" />
-          </div>
-          <div className="col gap2">
-            <div className="label">Hashes</div>
-            {hashes.length > 0 ? (
-              <dl className="tt-hashes">
-                {hashes.map((h) => (
-                  <div key={h.path} style={{ display: 'contents' }}>
-                    <dt>{h.path}</dt>
-                    <dd>{h.sha256}</dd>
-                  </div>
-                ))}
-              </dl>
+    <div className={`fl${print ? ' fl-print' : ''}`} data-testid="thesis-view">
+      <FlowHero
+        eyebrow={
+          <>
+            {isReference && <Badge outline>reference</Badge>}
+            {t.origin?.kind === 'workspace' && <Badge outline>workspace thesis</Badge>}
+          </>
+        }
+        title={orUnknown(t.hypothesis)}
+        badge={<Badge tone={tone}>{statusLabel(t.verdict?.status)}</Badge>}
+        meta={meta}
+        actions={actions}
+      />
+      {!print && <FlowRail label="Thesis sections" items={items} active={active} onSelect={go} />}
+      <FlowStages>
+        {stage('th-verdict', <VerdictStage t={t} />)}
+        {stage('th-evidence', <EvidenceStage t={t} print={print} />)}
+        {stage('th-claims', <ClaimsStage t={t} print={print} />)}
+        {stage(
+          'th-charts',
+          <div className="fl-stage-body">
+            <p className="tt-secnote">Every chart is drawn straight from the frozen data. A day with no value is a gap, not a zero. Each chart carries its query.</p>
+            {charts.length === 0 ? (
+              <EmptyState title="No charts in the bundle" body="Nothing is drawn when the bundle holds no chart data." />
             ) : (
-              <p className="small dim" style={{ margin: 0 }}>No hashes in the bundle (unknown).</p>
+              <div className="fl-grid tt-charts">
+                {charts.map((c) => (
+                  <ChartCard key={c.id} c={c} print={print} />
+                ))}
+              </div>
             )}
-          </div>
-        </div>
-      </section>
-
-      <section className="tt-sec" aria-label="Unable to compute">
-        <SectionBar title="Unable to compute" number="006" />
-        {unable.length === 0 ? (
-          <p className="small dim" style={{ margin: 0 }}>The bundle lists nothing it was unable to compute.</p>
-        ) : (
-          <ul className="tt-unable" data-testid="thesis-unable">
-            {unable.map((u, i) => (
-              <li key={i}>
-                <b>{u.what}</b>
-                {orUnknown(u.why)}
-              </li>
-            ))}
-          </ul>
+          </div>,
         )}
-      </section>
-
-      {((t.tables?.length ?? 0) > 0 || t.sampleQuery?.sql) && (
-        <section className="tt-sec" aria-label="Tables and sample query">
-          <SectionBar title="Tables and sample query" number="007" />
-          <TablesAndSample t={t} />
-        </section>
-      )}
-
-      {slots.rest.length > 0 && (
-        <section className="tt-sec" aria-label="Full thesis sections">
-          <SectionBar title="The full thesis" number="008" />
-          <div data-testid="thesis-sections">
-            {slots.rest.map((s) => (
-              <details key={s.id} className="tt-acc">
-                <summary>{s.title}</summary>
-                <div className="tt-acc-body">
-                  <MarkdownView markdown={stripLeadingHeading(s.markdown, s.title)} />
-                </div>
-              </details>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="tt-sec" aria-label="Downloads">
-        <SectionBar title="Downloads" number="009" />
-        <div className="tt-downloads">
-          <a className="btn" href={THESIS_MD_HREF} target="_blank" rel="noopener noreferrer" data-testid="thesis-download-md">
-            <Download size={14} /> THESIS.md
-          </a>
-          <a className="btn" href={THESIS_SITE_HREF} target="_blank" rel="noopener noreferrer" data-testid="thesis-download-site">
-            <ExternalLink size={14} /> Static dashboard
-          </a>
-        </div>
-        <Notice tone="info" title="Nothing here is invented">
-          Every number comes from a frozen raw file and carries a pointer to it. Anything that could not be computed is listed above with the reason.
-        </Notice>
-      </section>
+        {hasBriefs &&
+          stage(
+            'th-monitors',
+            <div className="fl-stage-body">
+              <p className="tt-secnote">What watches these series and which events were marked on them, as recorded when the thesis was built.</p>
+              <div className="fl-two">
+                <Briefs title="Monitors" items={t.monitors ?? []} testid="thesis-monitors" />
+                <Briefs title="Markers" items={t.markers ?? []} testid="thesis-markers" />
+              </div>
+            </div>,
+          )}
+        {stage('th-verification', <VerificationStage t={t} isReference={isReference} publication={publication} />)}
+        {stage(
+          'th-reproduce',
+          <div className="fl-stage-body" data-testid="thesis-reproduce">
+            <div className="fl-two">
+              <FlowCard title="Rebuild every chart from the frozen data">
+                <CopyBlock text={orUnknownCmd(t.reproduce?.command)} label="build command" />
+              </FlowCard>
+              <FlowCard title="Check the result matches the published hashes">
+                <CopyBlock text={orUnknownCmd(t.reproduce?.check)} label="verify command" />
+              </FlowCard>
+            </div>
+            <FlowCard title="Hashes" badges={<Badge outline>{hashes.length}</Badge>}>
+              {hashes.length > 0 ? (
+                print ? (
+                  <HashList hashes={hashes} />
+                ) : (
+                  <Disclose label={`Show ${hashes.length} hashes`} openLabel="Hide hashes">
+                    <HashList hashes={hashes} />
+                  </Disclose>
+                )
+              ) : (
+                <p className="small dim">No hashes in the bundle (unknown).</p>
+              )}
+            </FlowCard>
+            {hasTables && (
+              <FlowCard title="Tables and sample query">
+                <TablesAndSample t={t} />
+              </FlowCard>
+            )}
+          </div>,
+        )}
+        {stage(
+          'th-limits',
+          <div className="fl-stage-body">
+            <FlowCard title="Unable to compute" badges={<Badge tone={unable.length ? 'warn' : 'ok'} outline>{unable.length}</Badge>}>
+              {unable.length === 0 ? (
+                <p className="small dim">The bundle lists nothing it was unable to compute.</p>
+              ) : (
+                <ul className="tt-unable" data-testid="thesis-unable">
+                  {unable.map((u, i) => (
+                    <li key={i}>
+                      <b>{u.what}</b>
+                      {orUnknown(u.why)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </FlowCard>
+            {caveats.length > 0 && (
+              <FlowCard title="Caveats the charts carry" badges={<Badge outline>{caveats.length}</Badge>}>
+                <Clamp all={print} lines={8}>
+                  <ul className="tt-caveats">
+                    {caveats.map((c, i) => (
+                      <li key={i}>
+                        {c.text} <span className="dim tiny">({c.chart})</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Clamp>
+              </FlowCard>
+            )}
+          </div>,
+        )}
+        {slots.rest.length > 0 &&
+          stage(
+            'th-full',
+            <div className="fl-stage-body" data-testid="thesis-sections">
+              {slots.rest.map((s) => (
+                <details key={s.id} className="tt-acc th-acc" open={print} data-surface>
+                  <summary>{s.title}</summary>
+                  <div className="tt-acc-body">
+                    <MarkdownView markdown={stripLeadingHeading(s.markdown, s.title)} />
+                  </div>
+                </details>
+              ))}
+              <Notice tone="info" title="Nothing here is invented">
+                Every number comes from a frozen raw file and carries a pointer to it. Anything that could not be computed is listed under Limits with the reason.
+              </Notice>
+            </div>,
+          )}
+      </FlowStages>
     </div>
   );
 }
+
+function HashList({ hashes }: { hashes: { path: string; sha256: string }[] }) {
+  return (
+    <dl className="tt-hashes">
+      {hashes.map((h) => (
+        <div key={h.path} style={{ display: 'contents' }}>
+          <dt>{h.path}</dt>
+          <dd>{h.sha256}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** The reference thesis straight from `GET /v1/thesis` (kept for pages that still mount it directly). */
+export default function ThesisView() {
+  const q = useThesis();
+  if (q.isPending) return <ThesisLoading />;
+  if (q.isError) return isNotBuilt(q.error) ? <NotBuilt /> : <ApiErrorState error={q.error} onRetry={() => q.refetch()} />;
+  return <ThesisDocView doc={q.data} isReference />;
+}
+
+export { NotBuilt as ThesisNotBuilt };
 
 const orUnknownCmd = (c: string | undefined) => (c && c.trim() ? c : 'unknown');

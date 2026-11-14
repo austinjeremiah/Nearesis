@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { safeNextPath } from '@/lib/auth/next-path';
 import { Button, Field, Input, Notice } from '@/components/nx/ui';
 import { NearErrorNotice } from '@/components/nx/near-error';
 import { errorFromResponse, networkError } from '@/lib/api/errors';
@@ -29,7 +30,7 @@ export default function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const rawNext = params.get('next');
-  const next = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/home';
+  const next = safeNextPath(rawNext, '/home');
   const [providers, setProviders] = useState<Providers | null>(null);
   const [subject, setSubject] = useState('dev-owner');
   const [pending, setPending] = useState(false);
@@ -117,7 +118,8 @@ export default function LoginForm() {
           Continue with single sign-on
         </a>
       )}
-      {providers.devLogin && (
+      {/* The development sign-in is for automated tests only: it needs the server flag AND ?dev=1 in the address. */}
+      {providers.devLogin && params.get('dev') === '1' && (
         <div className="col gap2" data-testid="dev-login">
           <Notice tone="warn" title="Development sign-in">
             Enabled by NEARESIS_DEV_LOGIN on this server. It signs in as the subject below against the local API and is never available in production.

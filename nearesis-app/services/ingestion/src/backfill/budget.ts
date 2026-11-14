@@ -1,8 +1,13 @@
 import { IngestionError } from "../errors.ts";
 
 export const MIB = 1024 * 1024;
-/** ADR-20261110-005: 95% of the 100 GiB/day project quota. */
-export const DAILY_LIMIT_BYTES = 97_280 * MIB;
+/**
+ * ADR-20261110-005: 95% of the 100 GiB/day project quota. NEARESIS_BQ_DAILY_LIMIT_MIB overrides it for a run when the
+ * owner has raised the project's quota (owner approval 2026-11-14: 500 GiB/day for the fee pull, then back to 100 GiB).
+ */
+const LIMIT_OVERRIDE_MIB = Number(process.env.NEARESIS_BQ_DAILY_LIMIT_MIB ?? "");
+export const DAILY_LIMIT_BYTES =
+  Number.isInteger(LIMIT_OVERRIDE_MIB) && LIMIT_OVERRIDE_MIB > 0 ? LIMIT_OVERRIDE_MIB * MIB : 97_280 * MIB;
 
 export type Fit = { ok: true; maximumBytesBilled: number } | { ok: false; reason: string; remaining: number };
 

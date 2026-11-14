@@ -58,9 +58,9 @@ function CreditsPill() {
       href="/credits"
       className="badge line"
       data-testid="credits-pill"
-      title={`Credits: balance ${formatNear(c.balanceYocto)} NEAR, held ${formatNear(c.heldYocto)} NEAR (testnet)`}
+      title={`App credits (not your wallet balance). Add credits on the Credits page. Balance ${formatNear(c.balanceYocto)} NEAR, held ${formatNear(c.heldYocto)} NEAR (testnet)`}
     >
-      <Coins size={12} /> {formatNear(c.availableYocto)} NEAR
+      <Coins size={12} /> CREDITS {formatNear(c.availableYocto)} NEAR
     </Link>
   );
 }

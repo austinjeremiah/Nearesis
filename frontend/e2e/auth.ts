@@ -7,7 +7,7 @@ import { expect, type Page } from '@playwright/test';
  */
 export async function devSignIn(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 8; attempt++) {
-    await page.goto('/login');
+    await page.goto('/login?dev=1');
     await page.getByTestId('dev-login-button').click();
     const home = expect(page).toHaveURL(/\/home$/, { timeout: 10_000 });
     try {

@@ -5,7 +5,8 @@ test.describe('real stack smoke: dev login, workspaces, overview', () => {
   test('signed-out visitors are sent to /login', async ({ page }) => {
     await page.goto('/workspaces');
     await expect(page).toHaveURL(/\/login\?next=%2Fworkspaces/);
-    await expect(page.getByTestId('dev-login-button')).toBeVisible();
+    // the wallet is the only sign-in offered; the development sign-in needs ?dev=1
+    await expect(page.getByTestId('dev-login-button')).toHaveCount(0);
   });
 
   test('dev login, workspaces list, workspace overview, sign out', async ({ page }) => {

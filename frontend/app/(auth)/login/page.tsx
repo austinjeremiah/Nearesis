@@ -24,8 +24,8 @@ export default function LoginPage() {
         <div className="col gap2">
           <h1 className="h1">Sign in</h1>
           <p className="muted">
-            Nearesis is a research workspace. Sign in with your organization account to open your
-            investigations.
+            Nearesis is a research workspace. Sign in with your NEAR wallet to open your investigations
+            and theses.
           </p>
         </div>
 
